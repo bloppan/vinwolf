@@ -1,0 +1,201 @@
+use std::collections::BTreeMap;
+
+pub fn trivial_serialize(x: u64, l: u8) -> Vec<u8> {
+
+    let mut octet;
+    let mut serialized: Vec<u8> = Vec::new();
+
+    if l == 0 { return serialized }
+
+    for i in 0..l {
+        octet = ((x >> (8 * i)) & 0xFF) as u8;
+        serialized.push(octet);
+    }
+    serialized
+}
+
+pub fn serialize_number(x: u64) -> Vec<u8> {
+    
+    let mut l = 0;
+/* 
+    Equation 274
+    First case: _y = (x mod 2^(8l)) 
+    Second case: _y = x 
+*/
+    let mut _y: u64; 
+
+    // Determine l value
+    while l < 8 && (1 << (7 * (l + 1))) <= x {
+        l += 1;
+    }
+    println!("l = {}", l);
+    // Calculate prefix
+    let (prefix, _y) = if ((1 << (7 * l)) <= x) && (1 << (7 * (l + 1)) > x) {
+        ((256u16 - (1u16 << (8 - l)) + (x >> (8 * l)) as u16) as u8, x % (1 << (8 * l)))
+    } else {
+        (255, x)
+    };
+
+    // Number serialization
+    let mut octet;
+    let mut serialized: Vec<u8> = Vec::new();
+    serialized.push(prefix);
+    for i in 0..l {
+        octet = ((_y >> (8 * i)) & 0xFF) as u8;
+        serialized.push(octet);
+    }
+
+    serialized
+}
+
+pub fn sequence_encoder(v: &Vec<u64>) -> Vec<u8> {
+
+    let mut u: Vec<u8> = Vec::new();
+    for i in 0..v.len() {
+        u.extend(serialize_number(v[i]));
+    }
+    return u;
+}
+
+pub fn serialize_bits(bits: Vec<u8>) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    
+    for chunk in bits.chunks(8) {
+        let mut byte = 0u8;
+        
+        for (i, &bit) in chunk.iter().enumerate() {
+            if bit == 1 {
+                byte += 1 << i;
+            }
+        }
+        bytes.push(byte);
+    }
+    bytes
+}
+
+pub fn serialize_dict(dict: &BTreeMap<String, u8>) -> Vec<u8> {
+    let mut serialized_pairs = Vec::new();
+
+    // Serializar cada par clave/valor
+    for (key, value) in dict.iter() {
+        let mut serialized_pair = Vec::new();
+        
+        // Serializar la clave
+        serialized_pair.extend(key.bytes());
+
+        // Serializar el valor
+        serialized_pair.push(*value);
+
+        serialized_pairs.push(serialized_pair);
+    }
+
+    // Crear la secuencia final con el discriminador de longitud
+    let mut result = vec![serialized_pairs.len() as u8];
+    for pair in serialized_pairs {
+        result.extend(pair);
+    }
+
+    result
+}
+
+pub fn serialize_dict_with_domain(dict: &BTreeMap<String, u8>, domain: Vec<&str>) -> Vec<u8> {
+    let mut result = Vec::new();
+
+    for key in domain {
+        if let Some(&value) = dict.get(key) {
+            // Clave presente en el diccionario
+            result.push(0x01); // Indicador de presencia
+            result.push(value); // Valor codificado
+        } else {
+            // Clave no presente en el diccionario
+            result.push(0x00); // Indicador de ausencia
+        }
+    }
+
+    result
+}
+
+pub fn test_dict_domain_codec() {
+
+    // Crear el diccionario de ejemplo
+    let mut dict = BTreeMap::new();
+    dict.insert("A".to_string(), 10); // A -> 0x0A
+    dict.insert("B".to_string(), 20); // B -> 0x14
+
+    // Definir el dominio
+    let domain = vec!["A", "B", "C"];
+
+    // Serializar el diccionario con el dominio
+    let serialized = serialize_dict_with_domain(&dict, domain);
+
+    // Mostrar el resultado
+    println!("Diccionario serializado: {:?}", serialized);
+}
+
+
+pub fn test_dict_codec() {
+
+    // Crear el diccionario de ejemplo
+    let mut dict = BTreeMap::new();
+    dict.insert("C".to_string(), 3);
+    dict.insert("A".to_string(), 1);
+    dict.insert("B".to_string(), 2);
+
+    // Serializar el diccionario
+    let serialized = serialize_dict(&dict);
+
+    // Mostrar el resultado
+    println!("Diccionario serializado: {:?}", serialized);
+
+}
+
+pub fn test_bits_codec() {
+
+    let bits = vec![1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0];
+    let serialized = serialize_bits(bits);
+    
+    println!("Secuencia serializada: {:?}", serialized);
+
+}
+
+pub fn test_sequencer_codec() {
+
+    let sequence = vec![150000, 18446744073709551610u64, 15446744073709551610u64];
+    let res_sequence: Vec<u8>;
+    res_sequence = sequence_encoder(&sequence);
+    println!("Numeros {:?}", sequence);
+    println!("Serializacion: {:?}", res_sequence);
+
+}
+
+pub fn test_integer_codec() {
+
+        // Ejemplo de uso
+        let number = 18446744073709551610u64;
+        let serialized = serialize_number(number);
+        // Mostrar el resultado
+        println!("Número: {}", number);
+        println!("Serialización: {:?}", serialized);
+        let serialized = trivial_serialize(number, 4);
+        // Mostrar el resultado
+        println!("Número: {}", number);
+        println!("Serialización: {:?}", serialized);
+        let number = 150000u64;    
+        let serialized = serialize_number(number);
+        // Mostrar el resultado
+        println!("Número: {}", number);
+        println!("Serialización: {:?}", serialized);
+        let serialized = trivial_serialize(number, 4);
+        // Mostrar el resultado
+        println!("Número: {}", number);
+        println!("Serialización: {:?}", serialized);
+        let number = 10u64;
+        let serialized = serialize_number(number);
+        // Mostrar el resultado
+        println!("Número: {}", number);
+        println!("Serialización: {:?}", serialized);
+        let serialized = trivial_serialize(number, 4);
+        // Mostrar el resultado
+        println!("Número: {}", number);
+        println!("Serialización: {:?}", serialized);
+}
