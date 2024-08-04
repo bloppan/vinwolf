@@ -15,7 +15,7 @@ Build and run the code.
 cargo run
 ```
 ## Tests
-[Rust test Documenation](https://doc.rust-lang.org/book/ch11-01-writing-tests.html)
+[Rust test Documentation](https://doc.rust-lang.org/book/ch11-01-writing-tests.html)
 
 Run all tests
 ```bash
