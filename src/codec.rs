@@ -141,6 +141,8 @@ pub fn serial_s_and_h(s: u32, h: &str) -> [u8; 32] {
     let h_bytes: Vec<u8> = h.bytes().collect(); 
     let mut state = [0u8; 32];
 
+    if h.len() > 28 { return state }
+
     for i in 0..4 {
         state[2 * i] = s_bytes[i];
         state[2 * i + 1] = h_bytes[i];
@@ -157,7 +159,7 @@ pub fn serial_s_and_h(s: u32, h: &str) -> [u8; 32] {
 **/
 pub fn test_serial_s_and_h() {
     let s = 1000;
-    let h = "ABCDEFGHaaaaab";
+    let h = "ABCDEFGHaaaaaadddddddaaab";
     let serialized = serial_s_and_h(s, h);
     println!("Serialized: {:?}", serialized);
 }
