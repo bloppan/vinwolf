@@ -1,4 +1,4 @@
-
+/*
 // E ≡ (ET ,EV ,EP ,EA,EG)
 struct Extrinsic {
     et: String, // Tickets
@@ -86,3 +86,4 @@ pub fn test_new_block() {
 }
 
 
+*/
