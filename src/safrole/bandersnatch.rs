@@ -3,6 +3,9 @@ use ark_ec_vrfs::{prelude::ark_serialize, suites::bandersnatch::edwards::RingCon
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
 
+use crate::block::TicketEnvelope;
+use crate::safrole::{SafroleState, Input as InputSafrole, KeySet, TicketBody, bandersnatch_keys_collect};
+
 const RING_SIZE: usize = 6;
 
 // This is the IETF `Prove` procedure output as described in section 2.2
@@ -204,7 +207,7 @@ impl Verifier {
     }
 }
 
-pub fn ring_vrf_proof(ring_set_hex: Vec<String>) -> String {
+pub fn create_root_epoch(ring_set_hex: Vec<String>) -> String {
 
     let ring_set: Vec<Public> = ring_set_hex
         .iter()
@@ -230,8 +233,52 @@ pub fn ring_vrf_proof(ring_set_hex: Vec<String>) -> String {
         .collect();
 
     let verifier = Verifier::new(ring_set);
-
-    let mut buf2 = vec![];
-    verifier.commitment.serialize_compressed(&mut buf2).unwrap();
-    hex::encode(buf2)
+    let mut proof = vec![];
+    verifier.commitment.serialize_compressed(&mut proof).unwrap();
+    hex::encode(proof)
 }
+
+pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> bool {
+
+    for i in 0..input.extrinsic.len() {
+        if input.extrinsic[i].attempt < 0 || input.extrinsic[i].attempt > 1 {
+            return false;
+        }
+    }
+    let ring_keys = bandersnatch_keys_collect(state.clone(), KeySet::gamma_k);
+    let ring_set: Vec<Public> = ring_keys
+        .iter()
+        .map(|key| {
+            let bytes = hex::decode(&key[2..]).expect("Decoding hex string failed");
+            let point = bandersnatch::Public::deserialize_compressed(&bytes[..])
+                .expect("Deserialization failed");
+            point
+        })
+        .collect();
+    
+    let verifier = Verifier::new(ring_set);
+
+    for i in 0..input.extrinsic.len() {
+        let mut vrf_input_data = Vec::from(b"jam_ticket_seal");
+        vrf_input_data.extend_from_slice(&hex::decode(&state.eta[2][2..]).expect("Decoding hex string failed"));
+        vrf_input_data.push(input.extrinsic[i].attempt.try_into().unwrap());
+        let aux_data = vec![];
+        let signature_hex = hex::decode(&input.extrinsic[i].signature[2..]).expect("Decoding hex string failed");
+        let res = verifier.ring_vrf_verify(&vrf_input_data, &aux_data, &signature_hex);
+        match res {
+            Ok(result) => {
+                println!("VRF verification succeeded with result: {:?}", hex::encode(result));
+                state.gamma_a.push(TicketBody {
+                    id: format!("0x{}", hex::encode(result)),
+                    attempt: input.extrinsic[i].attempt,
+                })
+            },
+            Err(_) => {
+                println!("VRF verification failed");
+                return false;
+            }
+        }
+    }
+    return true;    
+}
+

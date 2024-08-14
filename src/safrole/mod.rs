@@ -1,10 +1,14 @@
 extern crate hex;
 extern crate array_bytes;
+
 mod bandersnatch;
 mod time;
+
+use crate::block::TicketEnvelope;
 use serde::Deserialize;
 use frame_support::Blake2_256;
 use sp_core::blake2_256;
+use ark_ec_vrfs::prelude::ark_serialize::CanonicalDeserialize;
 
 // The length of an epoch in timeslots
 const E: u32 = 12; // The length of an epoch timeslots.
@@ -17,6 +21,12 @@ pub struct ValidatorData {
     ed25519: String,
     bls: String,
     metadata: String,
+}
+
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+pub struct TicketBody {
+    pub id: String,
+    pub attempt: u8,
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
@@ -43,7 +53,7 @@ pub struct SafroleState {
     pub kappa: Vec<ValidatorData>,
     pub gamma_k: Vec<ValidatorData>,
     pub iota: Vec<ValidatorData>,
-    pub gamma_a: Vec<String>,
+    pub gamma_a: Vec<TicketBody>,
     pub gamma_s: Keys,
     pub gamma_z: String,
 }
@@ -89,7 +99,7 @@ pub struct OutputMarks {
 pub struct Input {
     pub slot: u32,
     pub entropy: String,
-    pub extrinsic: Vec<String>,
+    pub extrinsic: Vec<TicketEnvelope>,
 }
 #[allow(non_camel_case_types)]
 #[derive(Deserialize, Debug, PartialEq)]
@@ -119,26 +129,24 @@ fn update_recent_entropy(input: Input, state: &mut SafroleState) {
     state.eta[0] = format!("0x{}", hex::encode(hash));
 }
 
-fn bandersnatch_keys_collect(state: SafroleState, key_set: KeySet) -> Vec<String> {
+pub fn bandersnatch_keys_collect(state: SafroleState, key_set: KeySet) -> Vec<String> {
     let bandersnatch_keys: Vec<String> = match key_set {
         KeySet::gamma_k => state.gamma_k.iter().map(|validator| validator.bandersnatch.clone()).collect(),
         KeySet::kappa => state.kappa.iter().map(|validator| validator.bandersnatch.clone()).collect(),
         KeySet::lambda => state.lambda.iter().map(|validator| validator.bandersnatch.clone()).collect(),
         KeySet::iota => state.iota.iter().map(|validator| validator.bandersnatch.clone()).collect(),
-        KeySet::gamma_a => state.gamma_a.clone(), 
-        KeySet::gamma_s => state.gamma_s.keys.clone(), 
+        KeySet::gamma_a => vec![],
+        KeySet::gamma_s => vec![],
     };
-
     bandersnatch_keys
 }
 
 fn key_rotation(state: &mut SafroleState) { // (Eq 58)
-
     let bandersnatch_keys = bandersnatch_keys_collect(state.clone(), KeySet::gamma_k);
     state.lambda = state.kappa.clone();
     state.kappa = state.gamma_k.clone();
     state.gamma_k = state.iota.clone();
-    state.gamma_z = bandersnatch::ring_vrf_proof(bandersnatch_keys);
+    state.gamma_z = bandersnatch::create_root_epoch(bandersnatch_keys);
 }
 
 pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
@@ -148,6 +156,12 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
     let mut tickets_mark: Option<String> = None;
 
     if input.slot > state.tau {
+        if input.extrinsic.len() > 0 {
+            let validity = bandersnatch::verify_tickets(input.clone(), state);
+            if validity == false {
+                return Output::err(ErrorType::bad_ticket_attempt);
+            }
+        }
         // Check if we are in a new epoch (e' > e)
         let e: u32 = state.tau / E;
         let m: u32 = state.tau % E;
@@ -155,7 +169,6 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
         if post_e > e {
             update_entropy_pool(state); 
             key_rotation(state);
-            state.tau = input.slot; // tau' = slot
             epoch_mark = Some(EpochMark {
                 entropy: state.eta[1].clone(),
                 validators: bandersnatch_keys_collect(state.clone(), KeySet::gamma_k),  
@@ -168,7 +181,8 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
                 let bandersnatch_keys = bandersnatch_keys_collect(state.clone(), KeySet::kappa);
                 state.gamma_s = Keys { keys: fallback(state.eta[2].clone(), bandersnatch_keys.clone()) };
             } 
-        }  
+        }
+        state.tau = input.slot; // tau' = slot
         // Update recent entropy eta[0]
         update_recent_entropy(input.clone(), state);
         return Output::ok(OutputMarks {epoch_mark, tickets_mark});
@@ -179,7 +193,7 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
     }
 }
 
-pub fn fallback(entropy: String, keys: Vec<String>) -> Vec<String> {
+fn fallback(entropy: String, keys: Vec<String>) -> Vec<String> {
     let mut new_keys = vec![String::new(); (E as u32).try_into().unwrap()];
     let clean_entropy = &entropy[2..];
     assert!(keys.len() >= 6, "The keys vector must have at least 6 elements");
@@ -209,7 +223,7 @@ pub fn test_bandersnatch() {
         "f16e5352840afb47e206b5c89f560f2611835855cf2e6ebad1acc9520a72591d".to_string(),
     ];
 
-    let gamma_z = bandersnatch::ring_vrf_proof(ring_set_hex);
+    let gamma_z = bandersnatch::create_root_epoch(ring_set_hex);
 
     println!("gamma_z = {:?}", gamma_z);
 }
