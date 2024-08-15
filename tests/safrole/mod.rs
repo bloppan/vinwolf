@@ -18,7 +18,10 @@ struct JsonData {
 pub fn load_json_data() -> Result<JsonData, Box<dyn std::error::Error>> {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR")); // root project's directory
     //path.push("data/enact-epoch-change-with-no-tickets-2.json");
-    path.push("data/publish-tickets-with-mark-2.json");
+    //path.push("data/publish-tickets-no-mark-9.json");
+    //path.push("data/publish-tickets-with-mark-5.json");
+    //path.push("data/skip-epoch-tail-1.json");
+    path.push("data/skip-epochs-1.json");
 
     let mut file = File::open(&path)?;
     let mut contents = String::new();
@@ -39,7 +42,7 @@ mod tests {
             input: test.input.clone(),
             output: update_state(test.input.clone(), &mut post_state),
             pre_state: test.pre_state.clone(),
-            post_state: post_state.clone(),
+            post_state,
         };
         assert_eq!(test.post_state.tau, res.post_state.tau);
         assert_eq!(test.post_state.eta, res.post_state.eta);

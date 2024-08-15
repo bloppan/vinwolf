@@ -12,7 +12,7 @@ use ark_ec_vrfs::prelude::ark_serialize::CanonicalDeserialize;
 
 // The length of an epoch in timeslots
 const E: u32 = 12; // The length of an epoch timeslots.
-const Y: u32 = 8; // The number of slots into an epoch at which ticket-submission ends
+const Y: u32 = 10; // The number of slots into an epoch at which ticket-submission ends
 const V: u32 = 6;  // Total number of validators
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
@@ -21,6 +21,11 @@ pub struct ValidatorData {
     ed25519: String,
     bls: String,
     metadata: String,
+}
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+pub enum GammaSType {
+    keys(Vec<String>),
+    tickets(Vec<TicketBody>),
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq, Ord, PartialOrd, Eq)]
@@ -54,7 +59,7 @@ pub struct SafroleState {
     pub gamma_k: Vec<ValidatorData>,
     pub iota: Vec<ValidatorData>,
     pub gamma_a: Vec<TicketBody>,
-    pub gamma_s: Keys,
+    pub gamma_s: GammaSType,
     pub gamma_z: String,
 }
 
@@ -92,7 +97,7 @@ pub struct EpochMark {
 #[derive(Deserialize, Debug, PartialEq)]
 pub struct OutputMarks {
     pub epoch_mark: Option<EpochMark>,
-    pub tickets_mark: Option<String>,
+    pub tickets_mark: Option<Vec<TicketBody>>,
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
@@ -153,7 +158,7 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
 
     let mut output: Option<Output> = None;
     let mut epoch_mark: Option<EpochMark> = None;
-    let mut tickets_mark: Option<String> = None;
+    let mut tickets_mark: Option<Vec<TicketBody>> = None;
 
     if input.slot > state.tau {
         if input.extrinsic.len() > 0 {
@@ -172,13 +177,11 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
                 }
             }
         }
-        if input.slot == E {
-            state.gamma_a = vec![];
-        }
         // Check if we are in a new epoch (e' > e)
         let e: u32 = state.tau / E;
         let m: u32 = state.tau % E;
         let post_e: u32 = input.slot / E;
+        let post_m: u32 = post_e % E;
         if post_e > e {
             update_entropy_pool(state); 
             key_rotation(state);
@@ -186,15 +189,21 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
                 entropy: state.eta[1].clone(),
                 validators: bandersnatch_keys_collect(state.clone(), KeySet::gamma_k),  
             });
-            if post_e == e + 1 && m >= Y && state.gamma_a.len() as u32 == E {
-                // Z(gamma_a)
+            if post_e == e + 1 && m >= Y && state.gamma_a.len() == E as usize {
+                state.gamma_s = GammaSType::tickets(outside_in_sequencer(state.gamma_a.clone()));
             } else if post_e == e {
                 // gamma_s' = gamma_s
             } else {
                 let bandersnatch_keys = bandersnatch_keys_collect(state.clone(), KeySet::kappa);
-                state.gamma_s = Keys { keys: fallback(state.eta[2].clone(), bandersnatch_keys.clone()) };
+                state.gamma_s = GammaSType::keys(fallback(state.eta[2].clone(), bandersnatch_keys.clone()));
             } 
+            state.gamma_a = vec![];
+        } else if post_e == e && m < Y && Y <= post_m && state.gamma_a.len() == E as usize {
+            tickets_mark = Some(outside_in_sequencer(state.gamma_a.clone()));
         }
+        if input.slot % E == 0 {
+            state.gamma_a = vec![];
+        } 
         state.tau = input.slot; // tau' = slot
         // Update recent entropy eta[0]
         update_recent_entropy(input.clone(), state);
@@ -204,6 +213,23 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
     } else {
         return Output::ok(OutputMarks { epoch_mark: None, tickets_mark: None });
     }
+}
+
+fn outside_in_sequencer(tickets: Vec<TicketBody>) -> Vec<TicketBody> {
+
+    let mut new_ticket_accumulator: Vec<TicketBody> = Vec::with_capacity(tickets.len());
+    let mut i = 0;
+    let n_seq = tickets.len() / 2; 
+
+    while i < n_seq {
+        new_ticket_accumulator.push(tickets[i].clone());
+        new_ticket_accumulator.push(tickets[tickets.len() - 1 - i].clone());
+        i += 1;
+    }
+    if tickets.len() % 2 != 0 {
+        new_ticket_accumulator.push(tickets[n_seq].clone());
+    }
+    new_ticket_accumulator
 }
 
 fn fallback(entropy: String, keys: Vec<String>) -> Vec<String> {
