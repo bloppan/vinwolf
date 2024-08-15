@@ -18,7 +18,7 @@ struct JsonData {
 pub fn load_json_data() -> Result<JsonData, Box<dyn std::error::Error>> {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR")); // root project's directory
     //path.push("data/enact-epoch-change-with-no-tickets-2.json");
-    path.push("data/publish-tickets-no-mark-7.json");
+    path.push("data/publish-tickets-no-mark-9.json");
 
     let mut file = File::open(&path)?;
     let mut contents = String::new();

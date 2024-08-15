@@ -172,6 +172,9 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
                 }
             }
         }
+        if input.slot == E {
+            state.gamma_a = vec![];
+        }
         // Check if we are in a new epoch (e' > e)
         let e: u32 = state.tau / E;
         let m: u32 = state.tau % E;
