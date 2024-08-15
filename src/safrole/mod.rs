@@ -12,7 +12,7 @@ use ark_ec_vrfs::prelude::ark_serialize::CanonicalDeserialize;
 
 // The length of an epoch in timeslots
 const E: u32 = 12; // The length of an epoch timeslots.
-const Y: u32 = 10; // The number of slots into an epoch at which ticket-submission ends
+const Y: u32 = 8; // The number of slots into an epoch at which ticket-submission ends
 const V: u32 = 6;  // Total number of validators
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
@@ -157,7 +157,7 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
 
     if input.slot > state.tau {
         if input.extrinsic.len() > 0 {
-            if input.slot >= Y {
+            if input.slot > Y {
                 return Output::err(ErrorType::unexpected_ticket);
             }
             let validity = bandersnatch::verify_tickets(input.clone(), state);

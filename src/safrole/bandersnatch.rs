@@ -4,7 +4,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
 
 use crate::block::TicketEnvelope;
-use crate::safrole::{SafroleState, Input as InputSafrole, 
+use crate::safrole::{SafroleState, Input as InputSafrole, E,
                     KeySet, TicketBody, bandersnatch_keys_collect,
                     Output as OutputSafrole, OutputMarks, ErrorType};
 
@@ -294,7 +294,7 @@ pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> OutputSa
             Ok(result) => {
                 println!("VRF verification succeeded with result: {:?}", hex::encode(result));
                 aux_ids.push(result);
-                aux_gamma_a.push(TicketBody {
+                aux_gamma_a.insert(0, TicketBody {
                     id: format!("0x{}", hex::encode(result)),
                     attempt: input.extrinsic[i].attempt,
                 })
@@ -311,6 +311,10 @@ pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> OutputSa
     }
     if bad_order_tickets(&aux_ids) {
         return OutputSafrole::err(ErrorType::bad_ticket_order);
+    }
+    if aux_gamma_a.len() > E as usize {
+        let num_old_tickets = aux_gamma_a.len() - E as usize; 
+        aux_gamma_a.drain(E as usize..(E as usize + num_old_tickets));
     }
     state.gamma_a = aux_gamma_a.clone();
     state.gamma_a.sort();
