@@ -9,7 +9,7 @@ use crate::safrole::{SafroleState, Input as InputSafrole, E,
 
 use std::collections::HashSet;
 
-const RING_SIZE: usize = 6;
+const RING_SIZE: usize = 1023;
 
 // This is the IETF `Prove` procedure output as described in section 2.2
 // of the Bandersnatch VRFs specification
@@ -218,23 +218,18 @@ pub fn create_root_epoch(ring_set_hex: Vec<String>) -> String {
     let ring_set: Vec<Public> = ring_set_hex
         .iter()
         .map(|hex_str| {
-            // Si la cadena comienza con "0x" o "0X", eliminamos esos dos caracteres
+            // Discard the first two characteres if the string starts by 0x or 0X 
             let clean_hex = if hex_str.starts_with("0x") || hex_str.starts_with("0X") {
                 &hex_str[2..]
             } else {
                 hex_str
             };
-            // Filtramos solo los caracteres hexadecimales válidos
+            // Filter only valid hexadecimal characteres 
             let clean_hex: String = clean_hex.chars().filter(|c| c.is_digit(16)).collect();
             let bytes = hex::decode(&clean_hex).expect("Decoding hex string failed");
             let point = bandersnatch::Public::deserialize_compressed(&bytes[..])
                 .expect("Deserialization failed");
             point
-        /*.map(|hex_str| {
-            let bytes = hex::decode(hex_str).expect("Decoding hex string failed");
-            let point = bandersnatch::Public::deserialize_compressed(&bytes[..])
-                .expect("Deserialization failed");
-            point*/
         })
         .collect();
 
@@ -248,30 +243,31 @@ fn has_duplicates(id: &Vec<String>) -> bool {
     let mut seen = HashSet::new();
     for ticket in id {
         if !seen.insert(ticket) {
-            // Si no se puede insertar significa que ya estaba en el HashSet
-            return true; // Hay duplicados
+            // If the ticket can not be inserted means that it was already in the set 
+            return true; // There are duplicates
         }
     }
-    false // No hay duplicados
+    false // No duplicates
 }
 
 fn bad_order_tickets(ids: &Vec<[u8; 32]>) -> bool {
     for i in 0..ids.len() - 1 {
         if ids[i] > ids[i + 1] {
-            return true; // Los tickets no están ordenados
+            return true; // Bad order tickets
         }
     }
-    false // Los tickets están ordenados de menor a mayor
+    false // Order correct
 }
 
 pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> OutputSafrole {
-
+    // Check if attempt is correct (0 - 1)
     for i in 0..input.extrinsic.len() {
         if input.extrinsic[i].attempt > 1 {
             return OutputSafrole::err(ErrorType::bad_ticket_attempt);
         }
     }
     let ring_keys = bandersnatch_keys_collect(state.clone(), KeySet::gamma_k);
+    // Create a bandersnatch ring set 
     let ring_set: Vec<Public> = ring_keys
         .iter()
         .map(|key| {
@@ -285,12 +281,14 @@ pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> OutputSa
     let verifier = Verifier::new(ring_set);
     let mut aux_gamma_a = state.gamma_a.clone();
     let mut aux_ids: Vec<[u8; 32]> = vec![];
+    // Verify each ticket
     for i in 0..input.extrinsic.len() {
         let mut vrf_input_data = Vec::from(b"jam_ticket_seal");
         vrf_input_data.extend_from_slice(&hex::decode(&state.eta[2][2..]).expect("Decoding hex string failed"));
         vrf_input_data.push(input.extrinsic[i].attempt.try_into().unwrap());
         let aux_data = vec![];
         let signature_hex = hex::decode(&input.extrinsic[i].signature[2..]).expect("Decoding hex string failed");
+        // Verify ticket validity
         let res = verifier.ring_vrf_verify(&vrf_input_data, &aux_data, &signature_hex);
         match res {
             Ok(result) => {
@@ -307,19 +305,25 @@ pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> OutputSa
             }
         }
     }
+    // Check if there are duplicate tickets
     let ids: Vec<String> = aux_gamma_a.iter().map(|ticket| ticket.id.clone()).collect();
     if has_duplicates(&ids) {
         return OutputSafrole::err(ErrorType::duplicate_ticket);
     }
+    // Check tickets order
     if bad_order_tickets(&aux_ids) {
         return OutputSafrole::err(ErrorType::bad_ticket_order);
     }
+    // Remove old tickets to make space for new ones
     if aux_gamma_a.len() > E as usize {
         let num_old_tickets = aux_gamma_a.len() - E as usize; 
         aux_gamma_a.drain(E as usize..(E as usize + num_old_tickets));
     }
+    // Save new ticket set in state
     state.gamma_a = aux_gamma_a.clone();
+    // Sort tickets
     state.gamma_a.sort();
+    // Return ok
     OutputSafrole::ok(OutputMarks {
         epoch_mark: None,
         tickets_mark: None,

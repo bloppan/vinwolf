@@ -9,9 +9,9 @@ use serde::Deserialize;
 use sp_core::blake2_256;
 
 // The length of an epoch in timeslots
-const E: u32 = 12; // The length of an epoch timeslots.
-const Y: u32 = 10; // The number of slots into an epoch at which ticket-submission ends
-const V: u32 = 6;  // Total number of validators
+const E: u32 = 600; // The length of an epoch timeslots.
+const Y: u32 = 500; // The number of slots into an epoch at which ticket-submission ends
+const V: u32 = 1023;  // Total number of validators
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct ValidatorData {
@@ -109,8 +109,8 @@ pub enum Output {
     err(ErrorType),
 }
 
+// Update the three aditional accumulator's values (Eq 68)
 fn update_entropy_pool(state: &mut SafroleState) {
-    // Update the three aditional accumulator's values (Eq 68)
     let eta_0 = state.eta[0].clone();
     let eta_1 = state.eta[1].clone();
     let eta_2 = state.eta[2].clone();
@@ -119,8 +119,9 @@ fn update_entropy_pool(state: &mut SafroleState) {
     state.eta[3] = eta_2.clone();
 }
 
+// update eta'[0] (Equation 67)
 fn update_recent_entropy(input: Input, state: &mut SafroleState) {
-    // update eta'[0] (Eq 67)
+    
     let clean_eta0 = &state.eta[0][2..];
     let clean_entropy = &input.entropy[2..];
     let eta0_bytes = array_bytes::hex2bytes(clean_eta0).expect("Failed to convert hex to bytes");
@@ -138,7 +139,8 @@ pub fn bandersnatch_keys_collect(state: SafroleState, key_set: KeySet) -> Vec<St
     bandersnatch_keys
 }
 
-fn key_rotation(state: &mut SafroleState) { // (Eq 58)
+// Equation 58
+fn key_rotation(state: &mut SafroleState) { 
     let bandersnatch_keys = bandersnatch_keys_collect(state.clone(), KeySet::gamma_k);
     state.lambda = state.kappa.clone();
     state.kappa = state.gamma_k.clone();
@@ -146,6 +148,7 @@ fn key_rotation(state: &mut SafroleState) { // (Eq 58)
     state.gamma_z = bandersnatch::create_root_epoch(bandersnatch_keys);
 }
 
+// Update Safrole state
 pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
 
     let mut epoch_mark: Option<EpochMark> = None;
@@ -159,20 +162,20 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
             let validity = bandersnatch::verify_tickets(input.clone(), state);
             match validity {
                 Output::err(error_type) => {
-                    // Retorna el error de verify_tickets inmediatamente
+                    // Return error from verify tickets
                     return Output::err(error_type);
                 }
                 Output::ok(_) => {
-                    // Si el resultado es OK, continúa con el resto de la lógica de update_state
-                    // Aquí pones la lógica que sigue en update_state después de verificar los tickets
+                    // Continue
                 }
             }
         }
-        // Check if we are in a new epoch (e' > e)
+        // Calculate time parameters
         let e: u32 = state.tau / E;
         let m: u32 = state.tau % E;
         let post_e: u32 = input.slot / E;
         let post_m: u32 = post_e % E;
+        // Check if we are in a new epoch (e' > e)
         if post_e > e {
             update_entropy_pool(state); 
             key_rotation(state);
@@ -199,15 +202,13 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
         // Update recent entropy eta[0]
         update_recent_entropy(input.clone(), state);
         return Output::ok(OutputMarks {epoch_mark, tickets_mark});
-    } else if input.slot == state.tau {
-        return Output::err(ErrorType::bad_slot);
     } else {
-        return Output::ok(OutputMarks { epoch_mark: None, tickets_mark: None });
+        return Output::err(ErrorType::bad_slot);
     }
 }
 
+//Equation 70
 fn outside_in_sequencer(tickets: Vec<TicketBody>) -> Vec<TicketBody> {
-
     let mut new_ticket_accumulator: Vec<TicketBody> = Vec::with_capacity(tickets.len());
     let mut i = 0;
     let n_seq = tickets.len() / 2; 
@@ -223,12 +224,12 @@ fn outside_in_sequencer(tickets: Vec<TicketBody>) -> Vec<TicketBody> {
     new_ticket_accumulator
 }
 
+//Equation 71
 fn fallback(entropy: String, keys: Vec<String>) -> Vec<String> {
     let mut new_keys = vec![String::new(); (E as u32).try_into().unwrap()];
     let clean_entropy = &entropy[2..];
-    assert!(keys.len() >= 6, "The keys vector must have at least 6 elements");
 
-    for i in 0u32..E as u32 { // Limita el bucle al tamaño de keys
+    for i in 0u32..E as u32 { 
         let index_le = i.to_le_bytes();
         let index_hex = hex::encode(index_le);
         let entropy_bytes = array_bytes::hex2bytes(clean_entropy).expect("Failed to convert hex to bytes");
@@ -239,21 +240,5 @@ fn fallback(entropy: String, keys: Vec<String>) -> Vec<String> {
         let id = (hash_4 % V as u32) as usize;
         new_keys[i as usize] = keys[id].clone();
     }
-    
     new_keys
-}
-
-pub fn test_bandersnatch() {
-    let ring_set_hex = vec![
-        "5e465beb01dbafe160ce8216047f2155dd0569f058afd52dcea601025a8d161d".to_string(),
-        "3d5e5a51aab2b048f8686ecd79712a80e3265a114cc73f14bdb2a59233fb66d0".to_string(),
-        "aa2b95f7572875b0d0f186552ae745ba8222fc0b5bd456554bfe51c68938f8bc".to_string(),
-        "7f6190116d118d643a98878e294ccf62b509e214299931aad8ff9764181a4e33".to_string(),
-        "48e5fcdce10e0b64ec4eebd0d9211c7bac2f27ce54bca6f7776ff6fee86ab3e3".to_string(),
-        "f16e5352840afb47e206b5c89f560f2611835855cf2e6ebad1acc9520a72591d".to_string(),
-    ];
-
-    let gamma_z = bandersnatch::create_root_epoch(ring_set_hex);
-
-    println!("gamma_z = {:?}", gamma_z);
 }

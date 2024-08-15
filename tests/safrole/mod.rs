@@ -17,7 +17,7 @@ struct JsonData {
 
 fn load_json_data(filename: &str) -> Result<JsonData, Box<dyn std::error::Error>> {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR")); // root project's directory
-    path.push("data/safrole/tiny/");
+    path.push("data/safrole/full/");
     path.push(filename);
 
     let mut file = File::open(&path)?;
@@ -54,7 +54,7 @@ mod tests {
     #[test]
     fn test_safrole_json() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push("data/safrole/tiny/");
+        path.push("data/safrole/full/");
         // Read each file from data directory
         for entry in fs::read_dir(path).expect("Directory not found") {
             let entry = entry.expect("Failed to read directory entry");
