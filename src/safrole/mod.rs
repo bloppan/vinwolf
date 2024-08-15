@@ -23,7 +23,7 @@ pub struct ValidatorData {
     metadata: String,
 }
 
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Ord, PartialOrd, Eq)]
 pub struct TicketBody {
     pub id: String,
     pub attempt: u8,

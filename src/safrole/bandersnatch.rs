@@ -313,6 +313,7 @@ pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> OutputSa
         return OutputSafrole::err(ErrorType::bad_ticket_order);
     }
     state.gamma_a = aux_gamma_a.clone();
+    state.gamma_a.sort();
     OutputSafrole::ok(OutputMarks {
         epoch_mark: None,
         tickets_mark: None,
