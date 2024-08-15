@@ -157,6 +157,9 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
 
     if input.slot > state.tau {
         if input.extrinsic.len() > 0 {
+            if input.slot >= Y {
+                return Output::err(ErrorType::unexpected_ticket);
+            }
             let validity = bandersnatch::verify_tickets(input.clone(), state);
             match validity {
                 Output::err(error_type) => {
