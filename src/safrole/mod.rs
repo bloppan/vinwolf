@@ -6,9 +6,7 @@ mod time;
 
 use crate::block::TicketEnvelope;
 use serde::Deserialize;
-use frame_support::Blake2_256;
 use sp_core::blake2_256;
-use ark_ec_vrfs::prelude::ark_serialize::CanonicalDeserialize;
 
 // The length of an epoch in timeslots
 const E: u32 = 12; // The length of an epoch timeslots.
@@ -22,6 +20,8 @@ pub struct ValidatorData {
     bls: String,
     metadata: String,
 }
+
+#[allow(non_camel_case_types)]
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub enum GammaSType {
     keys(Vec<String>),
@@ -64,13 +64,9 @@ pub struct SafroleState {
 }
 
 #[allow(non_camel_case_types)]
-enum KeySet {
+pub enum KeySet {
     gamma_k,
     kappa,
-    lambda,
-    iota,
-    gamma_a,
-    gamma_s,
 }
 
 pub struct Safrole {
@@ -138,10 +134,6 @@ pub fn bandersnatch_keys_collect(state: SafroleState, key_set: KeySet) -> Vec<St
     let bandersnatch_keys: Vec<String> = match key_set {
         KeySet::gamma_k => state.gamma_k.iter().map(|validator| validator.bandersnatch.clone()).collect(),
         KeySet::kappa => state.kappa.iter().map(|validator| validator.bandersnatch.clone()).collect(),
-        KeySet::lambda => state.lambda.iter().map(|validator| validator.bandersnatch.clone()).collect(),
-        KeySet::iota => state.iota.iter().map(|validator| validator.bandersnatch.clone()).collect(),
-        KeySet::gamma_a => vec![],
-        KeySet::gamma_s => vec![],
     };
     bandersnatch_keys
 }
@@ -156,13 +148,12 @@ fn key_rotation(state: &mut SafroleState) { // (Eq 58)
 
 pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
 
-    let mut output: Option<Output> = None;
     let mut epoch_mark: Option<EpochMark> = None;
     let mut tickets_mark: Option<Vec<TicketBody>> = None;
 
     if input.slot > state.tau {
         if input.extrinsic.len() > 0 {
-            if input.slot > Y {
+            if input.slot >= Y {
                 return Output::err(ErrorType::unexpected_ticket);
             }
             let validity = bandersnatch::verify_tickets(input.clone(), state);

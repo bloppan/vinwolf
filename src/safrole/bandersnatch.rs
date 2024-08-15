@@ -3,7 +3,6 @@ use ark_ec_vrfs::{prelude::ark_serialize, suites::bandersnatch::edwards::RingCon
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
 
-use crate::block::TicketEnvelope;
 use crate::safrole::{SafroleState, Input as InputSafrole, E,
                     KeySet, TicketBody, bandersnatch_keys_collect,
                     Output as OutputSafrole, OutputMarks, ErrorType};
@@ -38,7 +37,7 @@ fn ring_context() -> &'static RingContext {
         use std::{fs::File, io::Read};
         let manifest_dir =
             std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not set");
-        let filename = format!("{}/data/zcash-srs-2-11-uncompressed.bin", manifest_dir);
+        let filename = format!("{}/data/safrole/zcash-srs-2-11-uncompressed.bin", manifest_dir);
         let mut file = File::open(filename).unwrap();
         let mut buf = Vec::new();
         file.read_to_end(&mut buf).unwrap();
@@ -56,12 +55,13 @@ fn vrf_input_point(vrf_input_data: &[u8]) -> Input {
 }
 
 // Prover actor.
+#[allow(dead_code)]
 struct Prover {
     pub prover_idx: usize,
     pub secret: Secret,
     pub ring: Vec<Public>,
 }
-
+#[allow(dead_code)]
 impl Prover {
     pub fn new(ring: Vec<Public>, prover_idx: usize) -> Self {
         Self {
@@ -121,6 +121,7 @@ type RingCommitment = ark_ec_vrfs::ring::RingCommitment<bandersnatch::Bandersnat
 // Verifier actor.
 struct Verifier {
     pub commitment: RingCommitment,
+    #[allow(dead_code)]
     pub ring: Vec<Public>,
 }
 
@@ -178,6 +179,7 @@ impl Verifier {
     /// Not used with Safrole test vectors.
     ///
     /// On success returns the VRF output hash.
+    #[allow(dead_code)]
     pub fn ietf_vrf_verify(
         &self,
         vrf_input_data: &[u8],
@@ -265,7 +267,7 @@ fn bad_order_tickets(ids: &Vec<[u8; 32]>) -> bool {
 pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> OutputSafrole {
 
     for i in 0..input.extrinsic.len() {
-        if input.extrinsic[i].attempt < 0 || input.extrinsic[i].attempt > 1 {
+        if input.extrinsic[i].attempt > 1 {
             return OutputSafrole::err(ErrorType::bad_ticket_attempt);
         }
     }
