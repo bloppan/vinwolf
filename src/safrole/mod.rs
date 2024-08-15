@@ -75,7 +75,7 @@ pub struct Safrole {
 
 #[allow(non_camel_case_types)]
 #[derive(Deserialize, Debug, PartialEq)]
-enum ErrorType {
+pub enum ErrorType {
     bad_slot = 0, // Timeslot value must be strictly monotonic.
     unexpected_ticket = 1, // Received a ticket while in epoch's tail.
     bad_ticket_order = 2, // Tickets must be sorted.
@@ -158,8 +158,15 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
     if input.slot > state.tau {
         if input.extrinsic.len() > 0 {
             let validity = bandersnatch::verify_tickets(input.clone(), state);
-            if validity == false {
-                return Output::err(ErrorType::bad_ticket_attempt);
+            match validity {
+                Output::err(error_type) => {
+                    // Retorna el error de verify_tickets inmediatamente
+                    return Output::err(error_type);
+                }
+                Output::ok(_) => {
+                    // Si el resultado es OK, continúa con el resto de la lógica de update_state
+                    // Aquí pones la lógica que sigue en update_state después de verificar los tickets
+                }
             }
         }
         // Check if we are in a new epoch (e' > e)

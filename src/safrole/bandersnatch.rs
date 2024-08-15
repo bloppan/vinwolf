@@ -4,7 +4,11 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
 
 use crate::block::TicketEnvelope;
-use crate::safrole::{SafroleState, Input as InputSafrole, KeySet, TicketBody, bandersnatch_keys_collect};
+use crate::safrole::{SafroleState, Input as InputSafrole, 
+                    KeySet, TicketBody, bandersnatch_keys_collect,
+                    Output as OutputSafrole, OutputMarks, ErrorType};
+
+use std::collections::HashSet;
 
 const RING_SIZE: usize = 6;
 
@@ -238,11 +242,22 @@ pub fn create_root_epoch(ring_set_hex: Vec<String>) -> String {
     hex::encode(proof)
 }
 
-pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> bool {
+fn has_duplicates(id: &Vec<String>) -> bool {
+    let mut seen = HashSet::new();
+    for ticket in id {
+        if !seen.insert(ticket) {
+            // Si no se puede insertar significa que ya estaba en el HashSet
+            return true; // Hay duplicados
+        }
+    }
+    false // No hay duplicados
+}
+
+pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> OutputSafrole {
 
     for i in 0..input.extrinsic.len() {
         if input.extrinsic[i].attempt < 0 || input.extrinsic[i].attempt > 1 {
-            return false;
+            return OutputSafrole::err(ErrorType::bad_ticket_attempt);
         }
     }
     let ring_keys = bandersnatch_keys_collect(state.clone(), KeySet::gamma_k);
@@ -257,6 +272,7 @@ pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> bool {
         .collect();
     
     let verifier = Verifier::new(ring_set);
+    let mut aux_gamma_a = state.gamma_a.clone();
 
     for i in 0..input.extrinsic.len() {
         let mut vrf_input_data = Vec::from(b"jam_ticket_seal");
@@ -268,17 +284,24 @@ pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> bool {
         match res {
             Ok(result) => {
                 println!("VRF verification succeeded with result: {:?}", hex::encode(result));
-                state.gamma_a.push(TicketBody {
+                aux_gamma_a.push(TicketBody {
                     id: format!("0x{}", hex::encode(result)),
                     attempt: input.extrinsic[i].attempt,
                 })
             },
             Err(_) => {
                 println!("VRF verification failed");
-                return false;
+                return OutputSafrole::err(ErrorType::bad_ticket_proof);
             }
         }
     }
-    return true;    
+    let ids: Vec<String> = aux_gamma_a.iter().map(|ticket| ticket.id.clone()).collect();
+    if has_duplicates(&ids) {
+        return OutputSafrole::err(ErrorType::duplicate_ticket);
+    }
+    OutputSafrole::ok(OutputMarks {
+        epoch_mark: None,
+        tickets_mark: None,
+    })
 }
 
