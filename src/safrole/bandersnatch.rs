@@ -253,6 +253,15 @@ fn has_duplicates(id: &Vec<String>) -> bool {
     false // No hay duplicados
 }
 
+fn bad_order_tickets(ids: &Vec<[u8; 32]>) -> bool {
+    for i in 0..ids.len() - 1 {
+        if ids[i] > ids[i + 1] {
+            return true; // Los tickets no están ordenados
+        }
+    }
+    false // Los tickets están ordenados de menor a mayor
+}
+
 pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> OutputSafrole {
 
     for i in 0..input.extrinsic.len() {
@@ -273,7 +282,7 @@ pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> OutputSa
     
     let verifier = Verifier::new(ring_set);
     let mut aux_gamma_a = state.gamma_a.clone();
-
+    let mut aux_ids: Vec<[u8; 32]> = vec![];
     for i in 0..input.extrinsic.len() {
         let mut vrf_input_data = Vec::from(b"jam_ticket_seal");
         vrf_input_data.extend_from_slice(&hex::decode(&state.eta[2][2..]).expect("Decoding hex string failed"));
@@ -284,6 +293,7 @@ pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> OutputSa
         match res {
             Ok(result) => {
                 println!("VRF verification succeeded with result: {:?}", hex::encode(result));
+                aux_ids.push(result);
                 aux_gamma_a.push(TicketBody {
                     id: format!("0x{}", hex::encode(result)),
                     attempt: input.extrinsic[i].attempt,
@@ -299,6 +309,10 @@ pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> OutputSa
     if has_duplicates(&ids) {
         return OutputSafrole::err(ErrorType::duplicate_ticket);
     }
+    if bad_order_tickets(&aux_ids) {
+        return OutputSafrole::err(ErrorType::bad_ticket_order);
+    }
+    state.gamma_a = aux_gamma_a.clone();
     OutputSafrole::ok(OutputMarks {
         epoch_mark: None,
         tickets_mark: None,
