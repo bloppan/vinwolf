@@ -1,13 +1,21 @@
+use serde::Deserialize;
 
-// E ≡ (ET ,EV ,EP ,EA,EG)
-struct Extrinsic {
-    et: String, // Tickets
-    ev: String, // Votes
-    ep: String, // Preimages
-    ea: String, // Availability
-    eg: String, // Reports
-    e: Vec<u8>, // Extrinsic vector serialized
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub struct TicketEnvelope {
+    pub signature: String,
+    pub attempt: u8,
 }
+// E ≡ (ET ,EV ,EP ,EA,EG)
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub struct Extrinsic {
+    pub tickets: Vec<TicketEnvelope>, // Tickets
+//    ev: String, // Votes
+//    ep: String, // Preimages
+//    ea: String, // Availability
+//    eg: String, // Reports
+//    e: Vec<u8>, // Extrinsic vector serialized
+}
+/*
 // H ≡ (Hp,Hr,Hx,Ht,He,Hw,Hj,Hk,Hv,Hs)
 struct Header {
     hp: String, // Parent hash
@@ -86,3 +94,4 @@ pub fn test_new_block() {
 }
 
 
+*/
