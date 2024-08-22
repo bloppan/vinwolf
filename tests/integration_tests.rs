@@ -3,7 +3,7 @@ extern crate vinwolf;
 use vinwolf::prueba::add;
 
 mod safrole;
-
+mod pvm;
 
 #[test]
 fn lo_prueba() {
