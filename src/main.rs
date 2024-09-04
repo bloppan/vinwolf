@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-pub mod codec;
 pub mod block;
 pub mod safrole;
 pub mod prueba;
@@ -16,4 +15,5 @@ fn main() {
     //safrole::fallback();
     //let res = codec::trivial_serialize(3, 4);
     //println!("{:?}",res);
+    //codec::test_bits_codec();
 }

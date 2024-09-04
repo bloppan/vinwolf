@@ -61,20 +61,15 @@ pub fn sequence_encoder(v: &Vec<u64>) -> Vec<u8> {
     return u;
 }
 
-pub fn serialize_bits(bits: Vec<u8>) -> Vec<u8> {
-    let mut bytes = Vec::new();
-    
-    for chunk in bits.chunks(8) {
-        let mut byte = 0u8;
-        
-        for (i, &bit) in chunk.iter().enumerate() {
-            if bit == 1 {
-                byte += 1 << i;
-            }
+pub fn serialize_bits(sequence: Vec<u8>) -> Vec<bool> {
+    let mut bools = Vec::new();
+    for byte in sequence {
+        for i in 0..8 { 
+            let bit = (byte >> i) & 1; 
+            bools.push(bit == 1); // Convert bit (0 o 1) to boolean
         }
-        bytes.push(byte);
     }
-    bytes
+    bools
 }
 
 pub fn serialize_dict(dict: &BTreeMap<String, u8>) -> Vec<u8> {
@@ -211,7 +206,7 @@ pub fn test_dict_codec() {
 
 pub fn test_bits_codec() {
 
-    let bits = vec![1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0];
+    let bits = vec![17, 6];
     let serialized = serialize_bits(bits);
     
     println!("Secuencia serializada: {:?}", serialized);
