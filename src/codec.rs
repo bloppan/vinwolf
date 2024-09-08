@@ -1,5 +1,14 @@
 use std::collections::BTreeMap;
 
+pub fn seq_to_number(v: &Vec<u8>, size: u32) -> u32 {
+    let mut result = 0;
+    println!("vec = {:?}", v);
+    for i in 0..size {
+        result |= (v[(size - i - 1) as usize] as u32) << (size - i - 1) * 8; 
+    }
+    result
+}
+
 /* Eq 272 */
 pub fn trivial_serialize(x: u64, l: u8) -> Vec<u8> {
 
