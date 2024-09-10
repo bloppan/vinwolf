@@ -2,6 +2,20 @@ use frame_support::Deserialize;
 
 use super::codec;
 
+
+const NO_ARG: usize = 0;                     // Without arguments
+const ONE_IMM: usize = 1;                    // Arguments of one immediate
+const TWO_IMM: usize = 2;                    // Arguments of two immediate
+const ONE_OFFSET: usize = 3;                 // Arguments of one offset
+const ONE_REG_ONE_IMM: usize = 4;            // Arguments of one reg and one immediate
+const ONE_REG_TWO_IMM: usize = 5;            // Arguments of one reg and two immediate
+const ONE_REG_ONE_IMM_ONE_OFFSET: usize = 6; // Arguments of one reg, one immediate and one offset
+const TWO_REG: usize = 7;                    // Arguments of two regs
+const TWO_REG_ONE_IMM: usize = 8;            // Arguments of two regs and one immediate
+const TWO_REG_ONE_OFFSET: usize = 9;         // Arguments of two regs and one offset
+const TWO_REG_TWO_IMM: usize = 10;           // Arguments of two regs and two immediates
+const THREE_REG: usize = 11;                 // Arguments of three regs
+
 /*#[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct MemoryChunk {
     address: u32,
@@ -39,15 +53,15 @@ fn panic() -> Result<(), String> {
 
 fn skip(i: u32, k: &Vec<bool>) -> u32 {
     let mut j = i + 1;
-    println!("k = {:?}", k);
+    //println!("k = {:?}", k);
     while j < k.len() as u32 && k[j as usize] == false {
         j += 1;
     }
-    println!("j = {}", j-1);
+    //println!("j = {}", j-1);
     std::cmp::min(24, j - 1)
 }
 
-fn move_reg(pvm_ctx: &mut PVM, program: &ProgramSequence) 
+fn move_reg(pvm_ctx: &mut PVM, program: &ProgramSequence) // Two regs -> 52 00 -> r0 = r0
     -> Result<(), String> {
     let dest: u8 = program.c[pvm_ctx.pc as usize + 1] >> 4;
     if dest > 13 { return Err("panic".to_string()) };
@@ -57,17 +71,39 @@ fn move_reg(pvm_ctx: &mut PVM, program: &ProgramSequence)
     Ok(())
 }
 
-fn add_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) 
+fn add_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // Two regs one imm -> 02 79 02 | r9 = r7 + 0x2
     -> Result<(), String> {
     let dest: u8 = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
     if dest > 13 { return Err("panic".to_string()) };
+    let value = get_imm(program, pvm_ctx.pc, TWO_REG_ONE_IMM);
     let b: u8 = program.c[pvm_ctx.pc as usize + 1] >> 4;
-    pvm_ctx.reg[dest as usize] = pvm_ctx.reg[b as usize].wrapping_add(program.c[pvm_ctx.pc as usize + 2] as u32);
+    pvm_ctx.reg[dest as usize] = pvm_ctx.reg[b as usize].wrapping_add(value);
     pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
     Ok(())
 }
 
-fn add(pvm_ctx: &mut PVM, program: &ProgramSequence) 
+fn calc_l_x(pc: u32, k: &Vec<bool>) -> u32 {
+    let x: isize = (skip(pc, k).saturating_sub(1).saturating_sub(pc)) as isize;
+    let x_u32 = if x < 0 { 0 } else { x as u32 }; 
+    std::cmp::min(4, std::cmp::max(0, x_u32))
+}
+
+fn get_imm(program: &ProgramSequence, pc: u32, instr_type: usize) -> u32 {
+    let mut i = pc;
+    let l_x = match instr_type {
+        ONE_REG_ONE_IMM => { i += 1; calc_l_x(i, &program.k) },
+        TWO_REG_ONE_IMM => { i += 1; calc_l_x(i, &program.k) },
+        _               => { return 0; }
+    };
+    if l_x == 0 {
+        return program.c[i as usize + 1] as u32;
+    } else if l_x >= 1 && l_x <= 2 {
+        return codec::seq_to_number(&program.c[i as usize + 1..i as usize + 4].to_vec(), 2);
+    } else {
+        return codec::seq_to_number(&program.c[i as usize + 1..i as usize + 6].to_vec(), 4);
+    }
+}
+fn add(pvm_ctx: &mut PVM, program: &ProgramSequence) // Three regs -> 08 87 09 | r9 = r7 + r8
     -> Result<(), String> {
     let dest: u8 = program.c[pvm_ctx.pc as usize + 2] & 0x0F;
     if dest > 13 { return Err("panic".to_string()) }; 
@@ -78,7 +114,7 @@ fn add(pvm_ctx: &mut PVM, program: &ProgramSequence)
     Ok(())
 }
 
-fn and(pvm_ctx: &mut PVM, program: &ProgramSequence) 
+fn and(pvm_ctx: &mut PVM, program: &ProgramSequence) // Three regs -> 17 87 09 | r9 = r7 & r8
     -> Result<(), String> {
     let dest: u8 = program.c[pvm_ctx.pc as usize + 2] & 0x0F;
     if dest > 13 { return Err("panic".to_string()) };
@@ -89,56 +125,37 @@ fn and(pvm_ctx: &mut PVM, program: &ProgramSequence)
     Ok(())
 }
 
-fn and_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) 
+fn and_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // Two regs one imm -> 12 79 03 | r9 = r7 & 0x3
     -> Result<(), String> {
     let dest: u8 = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
-    if dest > 13 {return Err("panic".to_string())};
+    if dest > 13 { return Err("panic".to_string()) };
     let b: u8 = program.c[pvm_ctx.pc as usize + 1] >> 4;
-    pvm_ctx.reg[dest as usize] = pvm_ctx.reg[b as usize] & program.c[pvm_ctx.pc as usize + 2] as u32;
+    let value = get_imm(program, pvm_ctx.pc, TWO_REG_ONE_IMM);
+    pvm_ctx.reg[dest as usize] = pvm_ctx.reg[b as usize] & value;
     pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
     Ok(())
 }
 
-fn load_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) 
+fn load_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // One reg one imm -> 04 07 d2 04 | r7 = 0x4d2
     -> Result<(), String> {
     let dest = program.c[pvm_ctx.pc as usize + 1];
     if dest > 13 { return Err("panic".to_string()) };
-    let next_i = skip(pvm_ctx.pc, &program.k);
-    let l_x = calc_l_x(pvm_ctx.pc, &program.k);
-    let value = load(&program.c, l_x, pvm_ctx.pc);
+    let value = get_imm(program, pvm_ctx.pc, ONE_REG_ONE_IMM);
     pvm_ctx.reg[dest as usize] = value as u32;
-    pvm_ctx.pc = next_i;
+    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
     Ok(())
 }
 
-fn branch_eq_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) 
+fn branch_eq_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // One reg, one imm, one offset -> 07 27 d3 04 | jump if r7 = 0x4d3
     -> Result<(), String> {
-    let l_x = calc_l_x(pvm_ctx.pc, &program.k);
-    if l_x == 0 { return Err("panic".to_string()) };
     let target = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
     if target > 13 { return Err("panic".to_string()) };
-    let value = load(&program.c, l_x, pvm_ctx.pc);
+    let value = get_imm(program, pvm_ctx.pc, ONE_REG_ONE_IMM);
     if pvm_ctx.reg[target as usize] == value as u32 {
         pvm_ctx.pc = basic_block_seq(pvm_ctx.pc, &program.k);
     } 
     pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
     Ok(())
-}
-
-fn calc_l_x(pc: u32, data: &Vec<bool>) -> u32 {
-    std::cmp::min(4,std::cmp::max(0,skip(pc, data)-1-pc))
-}
-
-fn load(data: &Vec<u8>, l_x: u32, pc: u32) -> u32 {       
-    if l_x == 1 {
-        return data[pc as usize + 1] as u32;
-    } else if l_x >= 2 && l_x <= 3 {
-        println!("first");
-        return codec::seq_to_number(&data[pc as usize + 2..pc as usize + 5].to_vec(), 2);
-    } else {
-        println!("second");
-        return codec::seq_to_number(&data[pc as usize + 2..pc as usize + 6].to_vec(), 4);
-    }
 }
 
 fn basic_block_seq(pc: u32, k: &Vec<bool>) -> u32 {
@@ -183,10 +200,15 @@ pub fn invoke_pvm(
             .into_iter()
             .chain(std::iter::repeat(0).take(25)) // Sequence of zeroes suffixed to ensure that no out-of-bounds access is possible
             .collect(),
-        k: codec::serialize_bits(p[3 + program_size as usize..p.len()].to_vec()), // Bitmask boolean vector
+        k: codec::serialize_bits(p[3 + program_size as usize..p.len()].to_vec())
+            .into_iter()
+            .chain(std::iter::repeat(true).take(25)) // Sequence of trues 
+            .collect(), // Bitmask boolean vector
         j: j, // Dynamic jump table
     };
-
+    /*println!("Program sequence = {:?}", program.c);
+    println!("Bitmask sequence = {:?}", program.k);
+    println!("Program len = {} Bitmask len = {}", program.c.len(), program.k.len());*/
     let mut pvm_ctx = PVM { pc: pc, gas: gas, reg: reg, ram: ram }; // PVM context
     let mut exit_reason;
     
