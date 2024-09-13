@@ -82,6 +82,12 @@ fn add_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // Two regs one imm -> 
     Ok(())
 }
 
+fn extend_sign(v: &Vec<u8>, n: u32) -> u32 {
+    let x = codec::seq_to_number(v, n as u32);
+    let sign_bit = (x / (1u32 << (8 * n - 1))) as u64;
+    return x + ((sign_bit * ((1u64 << 32) - (1u64 << (8 * n)))) as u32);
+}
+
 fn calc_l_x(pc: u32, k: &Vec<bool>) -> u32 {
     let x: isize = (skip(pc, k).saturating_sub(1).saturating_sub(pc)) as isize;
     let x_u32 = if x < 0 { 0 } else { x as u32 }; 
@@ -89,20 +95,21 @@ fn calc_l_x(pc: u32, k: &Vec<bool>) -> u32 {
 }
 
 fn get_imm(program: &ProgramSequence, pc: u32, instr_type: usize) -> u32 {
-    let mut i = pc;
+    let mut i = pc; 
     let l_x = match instr_type {
         ONE_REG_ONE_IMM => { i += 1; calc_l_x(i, &program.k) },
         TWO_REG_ONE_IMM => { i += 1; calc_l_x(i, &program.k) },
         _               => { return 0; }
     };
     if l_x == 0 {
-        return program.c[i as usize + 1] as u32;
+        return extend_sign(&vec![program.c[i as usize + 1]], 1);
     } else if l_x >= 1 && l_x <= 2 {
-        return codec::seq_to_number(&program.c[i as usize + 1..i as usize + 4].to_vec(), 2);
+        return extend_sign(&program.c[i as usize + 1..i as usize + 4].to_vec(), 2);
     } else {
-        return codec::seq_to_number(&program.c[i as usize + 1..i as usize + 6].to_vec(), 4);
+        return extend_sign(&program.c[i as usize + 1..i as usize + 6].to_vec(), 4);
     }
 }
+
 fn add(pvm_ctx: &mut PVM, program: &ProgramSequence) // Three regs -> 08 87 09 | r9 = r7 + r8
     -> Result<(), String> {
     let dest: u8 = program.c[pvm_ctx.pc as usize + 2] & 0x0F;
