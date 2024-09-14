@@ -76,6 +76,7 @@ fn add_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // Two regs one imm -> 
     let dest: u8 = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
     if dest > 13 { return Err("panic".to_string()) };
     let value = get_imm(program, pvm_ctx.pc, TWO_REG_ONE_IMM);
+    //println!("value = {value}");
     let b: u8 = program.c[pvm_ctx.pc as usize + 1] >> 4;
     pvm_ctx.reg[dest as usize] = pvm_ctx.reg[b as usize].wrapping_add(value);
     pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
@@ -83,31 +84,32 @@ fn add_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // Two regs one imm -> 
 }
 
 fn extend_sign(v: &Vec<u8>, n: u32) -> u32 {
-    let x = codec::seq_to_number(v, n as u32);
+    let x = codec::seq_to_number(v);
+    if n == 0 { return x; }
     let sign_bit = (x / (1u32 << (8 * n - 1))) as u64;
     return x + ((sign_bit * ((1u64 << 32) - (1u64 << (8 * n)))) as u32);
-}
-
-fn calc_l_x(pc: u32, k: &Vec<bool>) -> u32 {
-    let x: isize = (skip(pc, k).saturating_sub(1).saturating_sub(pc)) as isize;
-    let x_u32 = if x < 0 { 0 } else { x as u32 }; 
-    std::cmp::min(4, std::cmp::max(0, x_u32))
 }
 
 fn get_imm(program: &ProgramSequence, pc: u32, instr_type: usize) -> u32 {
     let mut i = pc; 
     let l_x = match instr_type {
-        ONE_REG_ONE_IMM => { i += 1; calc_l_x(i, &program.k) },
-        TWO_REG_ONE_IMM => { i += 1; calc_l_x(i, &program.k) },
-        _               => { return 0; }
+        ONE_REG_ONE_IMM | 
+        TWO_REG_ONE_IMM => { 
+                            i += 2; 
+                            //println!("TWO_REG_ONE_IMM");
+                            let x: isize = skip(pc, &program.k).saturating_sub(1) as isize;
+                            let x_u32 = if x < 0 { 0 } else { x as u32 }; 
+                            std::cmp::min(4_u32, x_u32)
+                        },
+        ONE_REG_ONE_IMM_ONE_OFFSET => {
+                            i += 2;
+                            //println!("ONE_REG_ONE_IMM_ONE_OFFSET");
+                            std::cmp::min(4_u32, (program.c[pc as usize + 1] / 16) as u32)
+        },
+        _ => return 0,
     };
-    if l_x == 0 {
-        return extend_sign(&vec![program.c[i as usize + 1]], 1);
-    } else if l_x >= 1 && l_x <= 2 {
-        return extend_sign(&program.c[i as usize + 1..i as usize + 4].to_vec(), 2);
-    } else {
-        return extend_sign(&program.c[i as usize + 1..i as usize + 6].to_vec(), 4);
-    }
+    //println!("lx = {l_x}");
+    return extend_sign(&program.c[i as usize ..i as usize + l_x as usize].to_vec(), (4 - l_x as usize) as u32);
 }
 
 fn add(pvm_ctx: &mut PVM, program: &ProgramSequence) // Three regs -> 08 87 09 | r9 = r7 + r8
@@ -149,7 +151,7 @@ fn load_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // One reg one imm -> 
     if dest > 13 { return Err("panic".to_string()) };
     let value = get_imm(program, pvm_ctx.pc, ONE_REG_ONE_IMM);
     pvm_ctx.reg[dest as usize] = value as u32;
-    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
+    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);   
     Ok(())
 }
 
@@ -157,7 +159,8 @@ fn branch_eq_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // One reg, one i
     -> Result<(), String> {
     let target = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
     if target > 13 { return Err("panic".to_string()) };
-    let value = get_imm(program, pvm_ctx.pc, ONE_REG_ONE_IMM);
+    let value = get_imm(program, pvm_ctx.pc, ONE_REG_ONE_IMM_ONE_OFFSET);
+    //println!("value branch = {value}");
     if pvm_ctx.reg[target as usize] == value as u32 {
         pvm_ctx.pc = basic_block_seq(pvm_ctx.pc, &program.k);
     } 
@@ -172,7 +175,7 @@ fn basic_block_seq(pc: u32, k: &Vec<bool>) -> u32 {
 fn single_step_pvm(pvm_ctx: &mut PVM, program: &ProgramSequence) 
     -> Result<(), String> {
 
-    println!("next instruction = {}", program.c[pvm_ctx.pc as usize]);
+    //println!("next instruction = {}", program.c[pvm_ctx.pc as usize]);
     let result = match program.c[pvm_ctx.pc as usize] {  // Next instruction
         82_u8   => { move_reg(pvm_ctx, program) }, 
         8_u8    => { add(pvm_ctx, program) },
@@ -191,10 +194,10 @@ fn single_step_pvm(pvm_ctx: &mut PVM, program: &ProgramSequence)
 
 pub fn invoke_pvm(
     p: Vec<u8>,     // Program blob
-    mut pc: u32,    // Program counter
-    mut gas: i64,   // Gas
-    mut reg: [u32; 13],     // Registers
-    mut ram: Vec<PageMap>,  // Ram memory 
+    pc: u32,    // Program counter
+    gas: i64,   // Gas
+    reg: [u32; 13],     // Registers
+    ram: Vec<PageMap>,  // Ram memory 
 ) ->  (String, u32, i64, [u32; 13], Vec<PageMap>) { // Exit, i, gas, reg, ram
     
     let j_size = p[0];          // Dynamic jump table size

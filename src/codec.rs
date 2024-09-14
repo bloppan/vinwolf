@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
 
-pub fn seq_to_number(v: &Vec<u8>, size: u32) -> u32 {
+pub fn seq_to_number(v: &Vec<u8>) -> u32 {
     let mut result = 0;
+    let size = v.len();
+    //println!("vec = {:?}, size = {size}", v);
     for i in 0..size {
         result |= (v[(size - i - 1) as usize] as u32) << (size - i - 1) * 8; 
     }
