@@ -3,19 +3,19 @@ use frame_support::Deserialize;
 use super::codec;
 
 
-const NO_ARG: usize = 0;                     // Without arguments
+/*const NO_ARG: usize = 0;                     // Without arguments
 const ONE_IMM: usize = 1;                    // Arguments of one immediate
 const TWO_IMM: usize = 2;                    // Arguments of two immediate
 const ONE_OFFSET: usize = 3;                 // Arguments of one offset
-const ONE_REG_ONE_IMM: usize = 4;            // Arguments of one reg and one immediate
-const ONE_REG_TWO_IMM: usize = 5;            // Arguments of one reg and two immediate
-const ONE_REG_ONE_IMM_ONE_OFFSET: usize = 6; // Arguments of one reg, one immediate and one offset
-const TWO_REG: usize = 7;                    // Arguments of two regs
-const TWO_REG_ONE_IMM: usize = 8;            // Arguments of two regs and one immediate
-const TWO_REG_ONE_OFFSET: usize = 9;         // Arguments of two regs and one offset
+*/const ONE_REG_ONE_IMM: usize = 4;            // Arguments of one reg and one immediate
+/*const ONE_REG_TWO_IMM: usize = 5;            // Arguments of one reg and two immediate
+*/const ONE_REG_ONE_IMM_ONE_OFFSET: usize = 6; // Arguments of one reg, one immediate and one offset
+/*const TWO_REG: usize = 7;                    // Arguments of two regs
+*/const TWO_REG_ONE_IMM: usize = 8;            // Arguments of two regs and one immediate
+/*const TWO_REG_ONE_OFFSET: usize = 9;         // Arguments of two regs and one offset
 const TWO_REG_TWO_IMM: usize = 10;           // Arguments of two regs and two immediates
 const THREE_REG: usize = 11;                 // Arguments of three regs
-
+*/
 /*#[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct MemoryChunk {
     address: u32,
@@ -33,7 +33,7 @@ pub struct PVM {
 struct ProgramSequence {
     c: Vec<u8>,   // Instrucción c
     k: Vec<bool>, // Bitmask k
-    j: Vec<u8>,   // Dynamic jump table
+    _j: Vec<u8>,   // Dynamic jump table
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
@@ -200,9 +200,9 @@ pub fn invoke_pvm(
     ram: Vec<PageMap>,  // Ram memory 
 ) ->  (String, u32, i64, [u32; 13], Vec<PageMap>) { // Exit, i, gas, reg, ram
     
-    let j_size = p[0];          // Dynamic jump table size
+    let _j_size = p[0];          // Dynamic jump table size
     let j: Vec<u8> = vec![];    // Dynamic jump table
-    let z = p[1];               // Jump octects length
+    let _z = p[1];               // Jump octects length
     let program_size = p[2] as u32;
 
     let program = ProgramSequence {
@@ -214,7 +214,7 @@ pub fn invoke_pvm(
             .into_iter()
             .chain(std::iter::repeat(true).take(25)) // Sequence of trues 
             .collect(), // Bitmask boolean vector
-        j: j, // Dynamic jump table
+        _j: j, // Dynamic jump table
     };
     /*println!("Program sequence = {:?}", program.c);
     println!("Bitmask sequence = {:?}", program.k);
