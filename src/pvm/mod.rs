@@ -210,7 +210,7 @@ pub fn invoke_pvm(
             .into_iter()
             .chain(std::iter::repeat(0).take(25)) // Sequence of zeroes suffixed to ensure that no out-of-bounds access is possible
             .collect(),
-        k: codec::serialize_bits(p[3 + program_size as usize..p.len()].to_vec())
+        k: codec::decode_to_bits(p[3 + program_size as usize..p.len()].to_vec())
             .into_iter()
             .chain(std::iter::repeat(true).take(25)) // Sequence of trues 
             .collect(), // Bitmask boolean vector

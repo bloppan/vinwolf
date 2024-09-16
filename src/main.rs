@@ -10,10 +10,11 @@ fn main() {
 
     //codec::test_integer_codec();
     //codec::test_serial_s_and_h();
-    //block::test_new_block();
+    //let res = codec::trivial_serialize(3, 4);
+    //codec::test_bits_codec();
+    
     //safrole::test_bandersnatch();
     //safrole::fallback();
-    //let res = codec::trivial_serialize(3, 4);
-    //println!("{:?}",res);
-    //codec::test_bits_codec();
+    
+    //block::test_new_block(); 
 }
