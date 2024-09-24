@@ -5,8 +5,9 @@ use std::path::PathBuf;
 
 extern crate vinwolf;
 
-use vinwolf::codec;
-
+use vinwolf::refine::RefineContext;
+use vinwolf::refine::{encode_refine_ctx, decode_refine_ctx};
+use vinwolf::work::package::{encode_work_item, decode_work_item, encode_work_pkg, decode_work_pkg};
 
 #[derive(Deserialize, Debug, PartialEq)]
 struct Testcase {
@@ -37,30 +38,37 @@ struct Testcase {
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn run_pvm_test(filename: &str) {
+    fn read_codec_test(filename: &str) -> Vec<u8> {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push(filename);
         let mut file = File::open(&path).expect("Failed to open JSON file");
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).expect("Failed to read JSON file");
-        let testcase: Testcase = serde_json::from_str(&contents).expect("Failed to deserialize JSON");
-
-
-            name: testcase.name.clone(),
-
-        };
-        assert_eq!(testcase, result);
+        let mut content = Vec::new();
+        let success = file.read_to_end(&mut content);
+        return content;
     }
 
     #[test]
-    fn test_pvm_programs() {
-        
-        let test_files = vec![
-            "data/codec/data/assurances_extrinsic.json",
-        ];
-        for file in test_files {
-            println!("Running test for file: {}", file);
-            run_pvm_test(file);
-        }
+    fn run_refine_context_test() {
+        let refine_test = read_codec_test("data/codec/data/refine_context.bin");
+        let refine_decoded = decode_refine_ctx(&refine_test);
+        let refine_result = encode_refine_ctx(&refine_decoded);
+        assert_eq!(refine_test, refine_result);
     }
+
+    #[test]
+    fn run_work_item_test() {
+        let work_item_test = read_codec_test("data/codec/data/work_item.bin");
+        let work_item_decoded = decode_work_item(&work_item_test);
+        let work_item_result = encode_work_item(&work_item_decoded);
+        assert_eq!(work_item_test, work_item_result);
+    }
+
+    #[test]
+    fn run_work_package_test() {
+        let work_pkg_test = read_codec_test("data/codec/data/work_package.bin");
+        let work_pkg_decoded = decode_work_pkg(&work_pkg_test);
+        let work_pkg_result = encode_work_pkg(&work_pkg_decoded);
+        assert_eq!(work_pkg_test, work_pkg_result);
+    }
+
 }

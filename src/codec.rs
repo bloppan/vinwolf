@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 pub fn seq_to_number(v: &Vec<u8>) -> u32 {
+
     let mut result = 0;
     let size = v.len();
     //println!("vec = {:?}, size = {size}", v);
@@ -8,15 +9,6 @@ pub fn seq_to_number(v: &Vec<u8>) -> u32 {
         result |= (v[(size - i - 1) as usize] as u32) << (size - i - 1) * 8; 
     }
     result
-}
-
-pub fn seq_to_usize(v: &Vec<u8>, size: u32) -> usize {
-    let mut result = 0;
-    //println!("vec = {:?}, size = {size}", v);
-    for i in 0..size {
-        result |= (v[(size - i - 1) as usize] as u32) << (size - i - 1) * 8; 
-    }
-    result as usize
 }
 
 pub fn encode_trivial(x: usize, l: usize) -> Vec<u8> {
@@ -65,6 +57,7 @@ pub fn encode_general(x: usize) -> Vec<u8> {
         }
         l -= 1;
     }
+
     return [vec![255], encode_trivial(x, 8)].concat();
 }
 
@@ -72,10 +65,12 @@ fn calc_l_from_prefix(prefix: u8) -> u32 {
 
     let mut i = 0x80;
     let mut l = 0;
+
     while prefix & i > 0 {
         l += 1;
         i >>= 1;
     }
+
     return l;
 }
 
@@ -139,10 +134,12 @@ pub fn decode_variable_length(v: &Vec<u8>) -> Vec<usize> {
         k += l + 1;
         i += 1;
     }
+
     return result;
 }
 
-pub fn decode_to_bits(v: Vec<u8>) -> Vec<bool> {
+pub fn decode_to_bits(v: &Vec<u8>) -> Vec<bool> {
+
     let mut bools = Vec::new();
     for byte in v {
         for i in 0..8 { 
@@ -150,10 +147,11 @@ pub fn decode_to_bits(v: Vec<u8>) -> Vec<bool> {
             bools.push(bit == 1); // Convert bit (0 o 1) to boolean
         }
     }
-    bools
+
+    return bools;
 }
 
-pub fn encode_from_bits(v: Vec<bool>) -> Vec<u8> {
+pub fn encode_from_bits(v: &Vec<bool>) -> Vec<u8> {
 
     if v.is_empty() {
         return vec![];
@@ -164,9 +162,7 @@ pub fn encode_from_bits(v: Vec<bool>) -> Vec<u8> {
     let mut j: usize = 0;
     
     for bit in v {
-        if bit {
-            result[i] |= 1 << j; 
-        }
+        result[i] |= (*bit as u8) << j;
         j += 1;
         if j % 8 == 0 {
             j = 0;
@@ -183,23 +179,23 @@ mod tests {
     
     #[test]
     fn test_encode_from_bits() {
-        assert_eq!(Vec::<u8>::new(), encode_from_bits(vec![]));
-        assert_eq!(vec![0], encode_from_bits(vec![false]));
-        assert_eq!(vec![1], encode_from_bits(vec![true]));
-        assert_eq!(vec![0x55], encode_from_bits(vec![true, false, true, false, true, false, true, false]));
-        assert_eq!(vec![0x55, 1], encode_from_bits(vec![true, false, true, false, true, false, true, false, true]));
+        assert_eq!(Vec::<u8>::new(), encode_from_bits(&vec![]));
+        assert_eq!(vec![0], encode_from_bits(&vec![false]));
+        assert_eq!(vec![1], encode_from_bits(&vec![true]));
+        assert_eq!(vec![0x55], encode_from_bits(&vec![true, false, true, false, true, false, true, false]));
+        assert_eq!(vec![0x55, 1], encode_from_bits(&vec![true, false, true, false, true, false, true, false, true]));
     }
 
     #[test]
     fn test_decode_to_bits() {
-        assert_eq!(Vec::<bool>::new(), decode_to_bits(Vec::<u8>::new()));
-        assert_eq!(vec![false, false, false, false, false, false, false, false], decode_to_bits(vec![0]));
-        assert_eq!(vec![true, false, false, false, false, false, false, false], decode_to_bits(vec![1]));
+        assert_eq!(Vec::<bool>::new(), decode_to_bits(&Vec::<u8>::new()));
+        assert_eq!(vec![false, false, false, false, false, false, false, false], decode_to_bits(&vec![0]));
+        assert_eq!(vec![true, false, false, false, false, false, false, false], decode_to_bits(&vec![1]));
         assert_eq!(vec![true, true, false, true, true, false, false, false,
-                        true, true, true, true, true, true, true, true], decode_to_bits(vec![27, 255]));
+                        true, true, true, true, true, true, true, true], decode_to_bits(&vec![27, 255]));
         assert_eq!(vec![true, false, true, false, true, false, true, false,
                         false, false, false, false, false, false, false, false,
-                        false, false, false, false, true, true, true, true], decode_to_bits(vec![0x55, 0, 0xF0]));
+                        false, false, false, false, true, true, true, true], decode_to_bits(&vec![0x55, 0, 0xF0]));
     }
 
     #[test]
@@ -248,6 +244,7 @@ mod tests {
 
     #[test]
     fn test_encode_general() {
+        assert_eq!(vec![255, 254, 255, 255, 255, 255, 255, 255, 255], encode_general(0xFFFFFFFFFFFFFFFE)); // -2
         assert_eq!(vec![0], encode_general(0));
         assert_eq!(vec![100], encode_general(100));
         assert_eq!(vec![127], encode_general(127));
@@ -259,6 +256,7 @@ mod tests {
         assert_eq!(vec![131, 255], encode_general(1023));
         assert_eq!(vec![191, 255], encode_general(0x3FFF));
         assert_eq!(vec![192, 0, 64], encode_general(0x4000));
+        assert_eq!(vec![191, 255], encode_general(16383));
         assert_eq!(vec![192, 255, 255], encode_general(65535));
         assert_eq!(vec![193, 0, 0], encode_general(65536));
         assert_eq!(vec![222, 0x60, 0x79], encode_general(1997152));

@@ -4,6 +4,7 @@ use vinwolf::prueba::add;
 
 mod safrole;
 mod pvm;
+mod codec;
 
 #[test]
 fn lo_prueba() {
