@@ -45,12 +45,6 @@ mod tests {
         file.read_to_string(&mut contents).expect("Failed to read JSON file");
         let testcase: Testcase = serde_json::from_str(&contents).expect("Failed to deserialize JSON");
 
-        let mut reg: [u32; 13];
-        let mut pc: u32;
-        let mut gas: i64;
-        let mut status: String;
-        let mut ram: Vec<PageMap>;
-
         let (status, pc, gas, reg, ram) = invoke_pvm(
                                                     testcase.program.clone(),
                                                     testcase.initial_pc,

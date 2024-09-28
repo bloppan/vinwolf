@@ -219,7 +219,7 @@ pub fn invoke_pvm(
     /*println!("Program sequence = {:?}", program.c);
     println!("Bitmask sequence = {:?}", program.k);
     println!("Program len = {} Bitmask len = {}", program.c.len(), program.k.len());*/
-    let mut pvm_ctx = PVM { pc: pc, gas: gas, reg: reg, ram: ram }; // PVM context
+    let mut pvm_ctx = PVM { pc, gas, reg, ram }; // PVM context
     let mut exit_reason;
     
     while gas > 0 {

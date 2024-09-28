@@ -12,57 +12,47 @@ pub struct RefineContext {
     pub prerequisite: Option<[u8; 32]>,
 }
 
-pub fn decode_refine_ctx(refine_blob: &Vec<u8>) -> RefineContext {
+impl RefineContext {
 
-    let mut anchor = [0u8; 32];
-    anchor.copy_from_slice(&refine_blob[0..32]);
-    let mut state_root = [0u8; 32];
-    state_root.copy_from_slice(&refine_blob[32..64]);
-    let mut beefy_root = [0u8; 32];
-    beefy_root.copy_from_slice(&refine_blob[64..96]);
-    let mut lookup_anchor = [0u8; 32];
-    lookup_anchor.copy_from_slice(&refine_blob[96..128]);
-    let mut lookup_anchor_slot: u32 = decode_trivial(&refine_blob[128..132].to_vec()) as u32;
-    let prerequisite = if refine_blob.len() >= 164 {
-        let mut prereq = [0u8; 32];
-        prereq.copy_from_slice(&refine_blob[132..164]);
-        Some(prereq)
-    } else {
-        None
-    };
+    pub fn decode(refine_blob: &[u8]) -> Self {
+        let anchor = refine_blob[0..32].try_into().expect("slice with incorrect length");
+        let state_root = refine_blob[32..64].try_into().expect("slice with incorrect length");
+        let beefy_root = refine_blob[64..96].try_into().expect("slice with incorrect length");
+        let lookup_anchor = refine_blob[96..128].try_into().expect("slice with incorrect length");
+        let lookup_anchor_slot = decode_trivial(&refine_blob[128..132]) as u32;
+        let prerequisite = if refine_blob[132] != 0 {
+            Some(refine_blob[132..164].try_into().expect("slice with incorrect length"))
+        } else {
+            None
+        };
 
-    /*println!("anchor: {:02x?}", anchor);
-    println!("state_root: {:02x?}", state_root);
-    println!("beefy_root: {:02x?}", beefy_root);
-    println!("lookup_anchor: {:02x?}", lookup_anchor);
-    println!("lookup_anchor_slot: {:02x?}", lookup_anchor_slot);
-    println!("prerequisite: {:?}", prerequisite);*/
+        RefineContext {
+            anchor,
+            state_root,
+            beefy_root,
+            lookup_anchor,
+            lookup_anchor_slot,
+            prerequisite,
+        }
+    }
 
-    RefineContext {
-        anchor,
-        state_root,
-        beefy_root,
-        lookup_anchor,
-        lookup_anchor_slot,
-        prerequisite
+    pub fn encode(&self) -> Vec<u8> {
+
+        let mut refine_blob: Vec<u8> = Vec::with_capacity(164);  // 132 fixed bytes + 32 optional (prerequisite)
+    
+        refine_blob.extend_from_slice(&self.anchor);
+        refine_blob.extend_from_slice(&self.state_root);
+        refine_blob.extend_from_slice(&self.beefy_root);
+        refine_blob.extend_from_slice(&self.lookup_anchor);
+        refine_blob.extend_from_slice(&encode_trivial(self.lookup_anchor_slot as usize, 4));
+    
+        if let Some(prereq) = &self.prerequisite {
+            refine_blob.extend_from_slice(prereq);
+        } else {
+            refine_blob.extend_from_slice(&(0u8).encode());
+        }
+    
+        refine_blob
     }
 }
 
-pub fn encode_refine_ctx(refine_ctx: &RefineContext) -> Vec<u8> {
-
-    let mut refine_blob: Vec<u8> = vec![];
-
-    refine_blob.extend_from_slice(&refine_ctx.anchor);
-    refine_blob.extend_from_slice(&refine_ctx.state_root);
-    refine_blob.extend_from_slice(&refine_ctx.beefy_root);
-    refine_blob.extend_from_slice(&refine_ctx.lookup_anchor);
-    refine_blob.extend_from_slice(&encode_trivial(refine_ctx.lookup_anchor_slot as usize, 4));
-
-    if let Some(prereq) = &refine_ctx.prerequisite {
-        refine_blob.extend_from_slice(prereq);
-    } else {
-        refine_blob.extend_from_slice(&encode_general(0));
-    }
-
-    return refine_blob;
-}
