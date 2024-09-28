@@ -56,64 +56,64 @@ mod tests {
     #[test]
     fn run_refine_context_test() {
         let test = read_codec_test("data/codec/data/refine_context.bin");
-        let refine_decoded: RefineContext = RefineContext::decode(&test);
-        let refine_result = refine_decoded.encode();
-        assert_eq!(test, refine_result);
+        let refine_decoded: RefineContext = RefineContext::decode(&test).expect("Error decoding RefineContext");
+        let res = refine_decoded.encode().expect("Error encoding RefineContext");
+        assert_eq!(test, res);
     }
 
     #[test]
     fn run_work_item_test() {
         let test = read_codec_test("data/codec/data/work_item.bin");
-        let work_item_decoded = WorkItem::decode(&test);
-        let work_item_result = work_item_decoded.encode();
-        assert_eq!(test, work_item_result);
+        let work_item_decoded: WorkItem = WorkItem::decode(&test).expect("Error decoding WorkItem");
+        let res = work_item_decoded.encode().expect("Error decoding WorkItem");
+        assert_eq!(test, res);
     }
 
     #[test]
     fn run_work_package_test() {
         let test = read_codec_test("data/codec/data/work_package.bin");
-        let work_pkg_decoded = WorkPackage::decode(&test);
-        let work_pkg_result = work_pkg_decoded.encode();
-        assert_eq!(test, work_pkg_result);
+        let work_pkg_decoded = WorkPackage::decode(&test).expect("Error decoding WorkPackage");
+        let res = work_pkg_decoded.encode().expect("Error encode WorkPackage");
+        assert_eq!(test, res);
     }
 
     #[test]
     fn run_work_result_0() {
         let test = read_codec_test("data/codec/data/work_result_0.bin");
-        let work_result_decoded = WorkResult::decode(&test);
-        let work_result = work_result_decoded.encode();
-        assert_eq!(test, work_result);
+        let work_result_decoded = WorkResult::decode(&test).expect("Error decoding WorkResult 0");
+        let res = work_result_decoded.encode().expect("Error encoding WorkResult 0");
+        assert_eq!(test, res);
     }
 
     #[test]
     fn run_work_result_1() {
         let test = read_codec_test("data/codec/data/work_result_1.bin");
-        let work_result_decoded = WorkResult::decode(&test);
-        let work_result = work_result_decoded.encode();
-        assert_eq!(test, work_result);
+        let work_result_decoded = WorkResult::decode(&test).expect("Error decoding WorkResult 1");
+        let res = work_result_decoded.encode().expect("Error encoding WorkResult 1");
+        assert_eq!(test, res);
     }
 
     #[test]
     fn run_work_report() {
         let test = read_codec_test("data/codec/data/work_report.bin");
-        let work_report_decoded = WorkReport::decode(&test);
-        let res = work_report_decoded.encode();
+        let work_report_decoded = WorkReport::decode(&test).expect("Error decoding WorkReport");
+        let res = work_report_decoded.encode().expect("Error encoding WorkReport");
         assert_eq!(test, res);
     }
 
     #[test]
     fn run_tickets_extrinsic() {
         let test = read_codec_test("data/codec/data/tickets_extrinsic.bin");
-        let ticket_decoded = TicketEnvelope::decode(&test);
-        let res = TicketEnvelope::encode(&ticket_decoded);
+        let ticket_decoded = TicketEnvelope::decode(&test).expect("Error decoding TicketEnvelope");
+        let res = TicketEnvelope::encode(&ticket_decoded).expect("Error encoding TicketEnvelope");
         assert_eq!(test, res);
     }
 
     #[test]
     fn run_disputes_extrinsic() {
         let test = read_codec_test("data/codec/data/disputes_extrinsic.bin");
-        let disputes_decoded = DisputesExtrinsic::decode(&test);
-        let res = DisputesExtrinsic::encode(&disputes_decoded);
+        let disputes_decoded = DisputesExtrinsic::decode(&test).expect("Error decoding DisputesExtrinsic");
+        let res = DisputesExtrinsic::encode(&disputes_decoded).expect("Error encoding DisputesExtrinsic");
         assert_eq!(test, res);
     }
 

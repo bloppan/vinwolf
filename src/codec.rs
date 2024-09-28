@@ -175,7 +175,16 @@ pub fn decode_trivial(v: &[u8]) -> usize {
     return result;
 }
 
+pub enum Type {
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    I64(i64),
+}
+
 pub fn decode_len(v: &[u8]) -> Vec<usize> {
+
     if v.is_empty() {
         return vec![0];
     }
@@ -205,6 +214,117 @@ pub fn decode_to_bits(v: &[u8]) -> Vec<bool> {
     }
 
     return bools;
+}
+
+use std::convert::TryInto;
+
+pub struct SliceReader<'a> {
+    data: &'a [u8],
+    position: usize,
+}
+
+#[derive(Debug)]
+pub enum ReadError {
+    NotEnoughData,
+}
+
+impl<'a> SliceReader<'a> {
+    pub fn new(data: &'a [u8]) -> Self {
+        SliceReader { data, position: 0 }
+    }
+
+    fn read_bytes(&mut self, length: usize) -> Result<&'a [u8], ReadError> {
+        let start = self.position;
+        let end = start + length;
+        if end > self.data.len() {
+            return Err(ReadError::NotEnoughData);
+        }
+        self.position = end;
+        Ok(&self.data[start..end])
+    }
+    
+    pub fn current_slice(&self) -> &'a [u8] {
+        &self.data[self.position..]
+    }
+
+    pub fn get_pos(&self) -> usize {
+        return self.position;
+    }
+
+    pub fn inc_pos(&mut self, pos: usize) -> Result<(), ReadError> {
+        let end = self.data.len();
+        if pos + self.position > end {
+            return Err(ReadError::NotEnoughData);
+        }
+        self.position += pos;
+        Ok(())
+    }
+
+    pub fn read_next_byte(&mut self) -> Result<u8, ReadError> {
+        if self.position >= self.data.len() {
+            return Err(ReadError::NotEnoughData);
+        }
+        let byte = self.data[self.position];
+        self.position += 1; // Avanzar la posición
+        Ok(byte)
+    }
+
+    pub fn read_u16(&mut self) -> Result<u16, ReadError> {
+        let bytes = self.read_bytes(2)?;
+        let mut array = [0u8; 2];
+        array.copy_from_slice(bytes);
+        Ok(u16::from_le_bytes(array))
+    }
+
+    pub fn read_u32(&mut self) -> Result<u32, ReadError> {
+        let bytes = self.read_bytes(4)?;
+        let mut array = [0u8; 4];
+        array.copy_from_slice(bytes);
+        Ok(u32::from_le_bytes(array))
+    }
+
+    pub fn read_u64(&mut self) -> Result<u64, ReadError> {
+        let bytes = self.read_bytes(8)?;
+        let mut array = [0u8; 8];
+        array.copy_from_slice(bytes);
+        Ok(u64::from_le_bytes(array))
+    }
+
+    pub fn read_i64(&mut self) -> Result<i64, ReadError> {
+        let bytes = self.read_bytes(8)?;
+        let mut array = [0u8; 8];
+        array.copy_from_slice(bytes);
+        Ok(i64::from_le_bytes(array))
+    }
+
+    pub fn read_32bytes(&mut self) -> Result<[u8; 32], ReadError> {
+        let bytes = self.read_bytes(32)?; 
+        let mut array = [0u8; 32]; 
+        array.copy_from_slice(bytes); 
+        Ok(array) 
+    }
+
+    pub fn read_64bytes(&mut self) -> Result<[u8; 64], ReadError> {
+        let bytes = self.read_bytes(64)?; 
+        let mut array = [0u8; 64]; 
+        array.copy_from_slice(bytes); 
+        Ok(array) 
+    }
+
+    pub fn read_96bytes(&mut self) -> Result<[u8; 96], ReadError> {
+        let bytes = self.read_bytes(96)?; 
+        let mut array = [0u8; 96]; 
+        array.copy_from_slice(bytes); 
+        Ok(array) 
+    }
+
+    pub fn read_784bytes(&mut self) -> Result<[u8; 784], ReadError> {
+        let bytes = self.read_bytes(784)?; 
+        let mut array = [0u8; 784]; 
+        array.copy_from_slice(bytes); 
+        Ok(array) 
+    }
+
 }
 
 #[cfg(test)]

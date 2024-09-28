@@ -13,46 +13,57 @@ pub struct RefineContext {
 }
 
 impl RefineContext {
-
-    pub fn decode(refine_blob: &[u8]) -> Self {
-        let anchor = refine_blob[0..32].try_into().expect("slice with incorrect length");
-        let state_root = refine_blob[32..64].try_into().expect("slice with incorrect length");
-        let beefy_root = refine_blob[64..96].try_into().expect("slice with incorrect length");
-        let lookup_anchor = refine_blob[96..128].try_into().expect("slice with incorrect length");
-        let lookup_anchor_slot = decode_trivial(&refine_blob[128..132]) as u32;
-        let prerequisite = if refine_blob[132] != 0 {
-            Some(refine_blob[132..164].try_into().expect("slice with incorrect length"))
+    pub fn decode(refine_blob: &[u8]) -> Result<Self, ReadError> {
+        let mut blob = SliceReader::new(refine_blob);
+        let anchor = blob.read_32bytes()?;
+        let state_root = blob.read_32bytes()?;
+        let beefy_root = blob.read_32bytes()?;
+        let lookup_anchor = blob.read_32bytes()?;
+        let lookup_anchor_slot = blob.read_u32()?;
+        let prerequisite = if blob.read_next_byte()? != 0 {
+            Some(blob.read_32bytes()?)
         } else {
             None
         };
 
-        RefineContext {
+        Ok(RefineContext {
             anchor,
             state_root,
             beefy_root,
             lookup_anchor,
             lookup_anchor_slot,
             prerequisite,
-        }
+        })
     }
-
-    pub fn encode(&self) -> Vec<u8> {
-
-        let mut refine_blob: Vec<u8> = Vec::with_capacity(164);  // 132 fixed bytes + 32 optional (prerequisite)
     
+    const MIN_SIZE: usize = 133;
+
+    pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
+
+        if self.len() < Self::MIN_SIZE {
+            return Err(ReadError::NotEnoughData);
+        }
+
+        let mut refine_blob: Vec<u8> = Vec::with_capacity(Self::MIN_SIZE);  // 133 fixed bytes 
         refine_blob.extend_from_slice(&self.anchor);
         refine_blob.extend_from_slice(&self.state_root);
         refine_blob.extend_from_slice(&self.beefy_root);
         refine_blob.extend_from_slice(&self.lookup_anchor);
-        refine_blob.extend_from_slice(&encode_trivial(self.lookup_anchor_slot as usize, 4));
-    
+        refine_blob.extend_from_slice(&self.lookup_anchor_slot.to_le_bytes());
+
         if let Some(prereq) = &self.prerequisite {
             refine_blob.extend_from_slice(prereq);
         } else {
             refine_blob.extend_from_slice(&(0u8).encode());
         }
     
-        refine_blob
+        Ok(refine_blob)
+    }
+
+    pub fn len(&self) -> usize {
+        let base_size = 32 * 4 + 4; 
+        let prerequisite_size = if self.prerequisite.is_some() { 33 } else { 1 };
+        base_size + prerequisite_size
     }
 }
 
