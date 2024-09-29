@@ -2,6 +2,160 @@ use crate::types::*;
 use crate::globals::*;
 
 use crate::codec::*;
+use crate::work::package::WorkReport;
+
+
+struct ValidatorSignature {
+    validator_index: ValidatorIndex,
+    signature: Ed25519Signature,
+}
+
+struct ReportGuarantee {
+    report: WorkReport,
+    slot: TimeSlot,
+    signatures: Vec<ValidatorSignature>,
+}
+
+pub struct GuaranteesExtrinsic {
+    report_guarantee: Vec<ReportGuarantee>,
+}
+
+impl GuaranteesExtrinsic {
+
+    pub fn decode(report_assurance_blob: &[u8]) -> Result<Self, ReadError> {
+        let mut blob = SliceReader::new(report_assurance_blob);
+        let num_guarantees = blob.read_next_byte()? as usize;
+        let mut report_guarantee: Vec<ReportGuarantee> = Vec::with_capacity(num_guarantees);
+        for _ in 0..num_guarantees {
+            let report = WorkReport::decode(blob.current_slice())?;
+            let report_len = WorkReport::len(&report);
+            blob.inc_pos(report_len);
+            let slot = blob.read_u32()?;
+            let num_signatures = blob.read_next_byte()? as usize;
+            let mut signatures: Vec<ValidatorSignature> = Vec::with_capacity(num_signatures);
+            for _ in 0..num_signatures {
+                let validator_index = blob.read_u16()?;
+                let signature = blob.read_64bytes()?;
+                signatures.push(ValidatorSignature{validator_index, signature});
+            }
+            report_guarantee.push(ReportGuarantee{report, slot, signatures});
+        }
+        Ok(GuaranteesExtrinsic{ report_guarantee })
+    }
+
+    pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
+
+        let mut blob: Vec<u8> = Vec::new();
+        blob.push(self.report_guarantee.len() as u8);
+
+        for guarantee in &self.report_guarantee {
+            let report_encoded = guarantee.report.encode()?;
+            blob.extend_from_slice(&report_encoded);
+            blob.extend_from_slice(&guarantee.slot.to_le_bytes());
+            blob.push(guarantee.signatures.len() as u8);
+            for signature in &guarantee.signatures {
+                blob.extend_from_slice(&signature.validator_index.to_le_bytes());
+                blob.extend_from_slice(&signature.signature);
+            }
+        }
+
+        Ok(blob)
+    }
+}
+
+struct AvailAssurance {
+    anchor: [u8; 32],
+    bitfield: [u8; AVAIL_BITFIELD_BYTES],
+    validator_index: ValidatorIndex,
+    signature: Ed25519Signature,
+}
+
+pub struct AssurancesExtrinsic {
+    assurances: Vec<AvailAssurance>, 
+}
+
+impl AssurancesExtrinsic {
+
+    pub fn decode(assurances_blob: &[u8]) -> Result<Self, ReadError> {
+        let mut blob = SliceReader::new(assurances_blob);
+        let num_assurances = blob.read_next_byte()? as usize;
+        let mut assurances = Vec::with_capacity(num_assurances);  
+
+        for _ in 0..num_assurances {
+            let anchor = blob.read_32bytes()?;
+            let mut bitfield = [0u8; AVAIL_BITFIELD_BYTES];
+            bitfield.copy_from_slice(&blob.read_vector(AVAIL_BITFIELD_BYTES)?);
+            let validator_index = blob.read_u16()?;
+            let signature = blob.read_64bytes()?;
+            
+            assurances.push(AvailAssurance {
+                anchor,
+                bitfield,
+                validator_index,
+                signature,
+            });
+        }
+
+        Ok(AssurancesExtrinsic { assurances })
+    }
+
+    pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
+        let mut blob: Vec<u8> = Vec::new();
+        blob.push(self.assurances.len() as u8);
+
+        for assurance in &self.assurances {
+            blob.extend_from_slice(&assurance.anchor);
+            blob.extend_from_slice(&assurance.bitfield[..]);
+            blob.extend_from_slice(&assurance.validator_index.to_le_bytes());
+            blob.extend_from_slice(&assurance.signature);
+        }
+
+        Ok(blob)
+    }
+}
+
+struct Preimage {
+    requester: ServiceId,
+    blob: Vec<u8>,
+}
+
+pub struct PreimagesExtrinsic {
+    pub preimages: Vec<Preimage>,
+}
+
+impl PreimagesExtrinsic {
+
+    pub fn decode(preimage_ext_blob: &[u8]) -> Result<Self, ReadError> {
+
+        let mut preimg = SliceReader::new(preimage_ext_blob);
+        let num_preimages = preimg.read_next_byte()? as usize;
+        let mut preimg_extrinsic: Vec<Preimage> = Vec::with_capacity(num_preimages);
+        
+        for _ in 0..num_preimages {
+            let requester = preimg.read_u32()?;
+            let blob_len = preimg.read_next_byte()? as usize;
+            let blob = preimg.read_vector(blob_len)?;
+            let preimage = Preimage { requester, blob };
+            preimg_extrinsic.push(preimage);
+        }
+
+        Ok(PreimagesExtrinsic { preimages: preimg_extrinsic })
+    }
+
+    pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
+
+        let mut preimg_encoded = Vec::new();
+        preimg_encoded.push(self.preimages.len() as u8);
+
+        for preimage in &self.preimages {
+            preimg_encoded.extend_from_slice(&preimage.requester.to_le_bytes());
+            preimg_encoded.push(preimage.blob.len() as u8);
+            preimg_encoded.extend_from_slice(&preimage.blob);
+        }
+
+        Ok(preimg_encoded)
+    }
+}
 
 struct Judgement {
     vote: bool,

@@ -175,14 +175,6 @@ pub fn decode_trivial(v: &[u8]) -> usize {
     return result;
 }
 
-pub enum Type {
-    U8(u8),
-    U16(u16),
-    U32(u32),
-    U64(u64),
-    I64(i64),
-}
-
 pub fn decode_len(v: &[u8]) -> Vec<usize> {
 
     if v.is_empty() {
@@ -215,8 +207,6 @@ pub fn decode_to_bits(v: &[u8]) -> Vec<bool> {
 
     return bools;
 }
-
-use std::convert::TryInto;
 
 pub struct SliceReader<'a> {
     data: &'a [u8],
@@ -267,6 +257,11 @@ impl<'a> SliceReader<'a> {
         let byte = self.data[self.position];
         self.position += 1; // Avanzar la posición
         Ok(byte)
+    }
+
+    pub fn read_vector(&mut self, len: usize) -> Result<Vec<u8>, ReadError> {
+        let bytes = self.read_bytes(len)?;
+        Ok(bytes.to_vec())
     }
 
     pub fn read_u16(&mut self) -> Result<u16, ReadError> {

@@ -62,7 +62,7 @@ impl RefineContext {
 
     pub fn len(&self) -> usize {
         let base_size = 32 * 4 + 4; 
-        let prerequisite_size = if self.prerequisite.is_some() { 33 } else { 1 };
+        let prerequisite_size = if self.prerequisite.is_some() { 32 + 1 } else { 1 };
         base_size + prerequisite_size
     }
 }

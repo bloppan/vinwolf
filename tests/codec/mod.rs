@@ -11,9 +11,14 @@ use vinwolf::work::package::WorkItem;
 use vinwolf::work::package::WorkPackage;
 use vinwolf::work::package::WorkResult;
 use vinwolf::work::package::WorkReport;
+
 use vinwolf::extrinsic::TicketEnvelope;
 use vinwolf::extrinsic::DisputesExtrinsic;
+use vinwolf::extrinsic::PreimagesExtrinsic;
+use vinwolf::extrinsic::AssurancesExtrinsic;
+use vinwolf::extrinsic::GuaranteesExtrinsic;
 
+use vinwolf::header::Header;
 
 #[derive(Deserialize, Debug, PartialEq)]
 struct Testcase {
@@ -117,4 +122,43 @@ mod tests {
         assert_eq!(test, res);
     }
 
+    #[test]
+    fn run_preimages_extrinsic() {
+        let test = read_codec_test("data/codec/data/preimages_extrinsic.bin");
+        let preimages_decoded = PreimagesExtrinsic::decode(&test).expect("Error decoding PreimagesExtrinsic");
+        let res = PreimagesExtrinsic::encode(&preimages_decoded).expect("Error encoding PreimagesExtrinsic");
+        assert_eq!(test, res);
+    }
+
+    #[test]
+    fn run_assurances_extrinsic() {
+        let test = read_codec_test("data/codec/data/assurances_extrinsic.bin");
+        let assurances_decoded = AssurancesExtrinsic::decode(&test).expect("Error decoding AssurancesExtrinsic");
+        let res = AssurancesExtrinsic::encode(&assurances_decoded).expect("Error encoding AssurancesExtrinsic");
+        assert_eq!(test, res);
+    }
+
+    #[test]
+    fn run_guarantees_extrinsic() {
+        let test = read_codec_test("data/codec/data/guarantees_extrinsic.bin");
+        let guarantees_decoded = GuaranteesExtrinsic::decode(&test).expect("Error decoding GuaranteesExtrinsic");
+        let res = GuaranteesExtrinsic::encode(&guarantees_decoded).expect("Error encoding GuaranteesExtrinsic");
+        assert_eq!(test, res);
+    }
+
+    #[test]
+    fn run_header_0() {
+        let test = read_codec_test("data/codec/data/header_0.bin");
+        let header_decoded = Header::decode(&test).expect("Error decoding Header");
+        let res = Header::encode(&header_decoded).expect("Error encoding Header");
+        assert_eq!(test, res);
+    }
+
+    #[test]
+    fn run_header_1() {
+        let test = read_codec_test("data/codec/data/header_1.bin");
+        let header_decoded = Header::decode(&test).expect("Error decoding Header");
+        let res = Header::encode(&header_decoded).expect("Error encoding Header");
+        assert_eq!(test, res);
+    }
 }

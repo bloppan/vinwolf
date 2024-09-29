@@ -45,30 +45,6 @@ enum WorkExecResult {
     CodeOversize = 4,
 }
 
-pub struct WorkResult {
-    service: ServiceId,
-    code_hash: [u8; 32],
-    payload_hash: [u8; 32],
-    gas_ratio: u64,
-    result: Vec<u8>,
-}
-/*
-WorkPackageSpec ::= SEQUENCE {
-    hash OpaqueHash,
-    len U32,
-    erasure-root OpaqueHash,
-    exports-root OpaqueHash
-}
-
-WorkReport ::= SEQUENCE {
-    package-spec WorkPackageSpec,
-    context RefineContext,
-    core-index CoreIndex,
-    authorizer-hash OpaqueHash,
-    auth-output ByteSequence,
-    results SEQUENCE (SIZE(1..4)) OF WorkResult
-}*/
-
 pub struct WorkPackageSpec {
     hash: [u8; 32],
     len: u32,
@@ -139,6 +115,23 @@ impl WorkReport {
 
         Ok(work_report_blob)
     }
+
+    pub fn len(&self) -> usize {
+        let mut results_len = 0;
+        for i in 0..self.results.len() {
+            results_len += 1;
+            results_len += self.results[i].len();
+        }
+        return 32 + 4 + 32 + 32 + self.context.len() + 2 + 32 + self.auth_output.len() + results_len;
+    }
+}
+
+pub struct WorkResult {
+    service: ServiceId,
+    code_hash: [u8; 32],
+    payload_hash: [u8; 32],
+    gas_ratio: u64,
+    result: Vec<u8>,
 }
 
 impl WorkResult {
