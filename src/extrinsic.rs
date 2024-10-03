@@ -2,6 +2,7 @@ use crate::types::*;
 use crate::globals::*;
 
 use crate::codec::*;
+/*
 use crate::work::package::WorkReport;
 
 
@@ -302,3 +303,4 @@ impl TicketEnvelope {
         Ok(ticket_blob)
     }
 }
+*/

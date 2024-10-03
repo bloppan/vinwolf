@@ -1,31 +1,31 @@
 use serde::Deserialize;
 use crate::codec::*;
 
+use crate::types::*;
+
 #[allow(non_camel_case_types)]
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct RefineContext {
-    pub anchor: [u8; 32],
-    pub state_root: [u8; 32],
-    pub beefy_root: [u8; 32],
-    pub lookup_anchor: [u8; 32],
-    pub lookup_anchor_slot: u32,
-    pub prerequisite: Option<[u8; 32]>,
+    pub anchor: OpaqueHash,
+    pub state_root: OpaqueHash,
+    pub beefy_root: OpaqueHash,
+    pub lookup_anchor: OpaqueHash,
+    pub lookup_anchor_slot: TimeSlot,
+    pub prerequisite: Option<OpaqueHash>,
 }
 
 impl RefineContext {
-    pub fn decode(refine_blob: &[u8]) -> Result<Self, ReadError> {
-        let mut blob = SliceReader::new(refine_blob);
-        let anchor = blob.read_32bytes()?;
-        let state_root = blob.read_32bytes()?;
-        let beefy_root = blob.read_32bytes()?;
-        let lookup_anchor = blob.read_32bytes()?;
-        let lookup_anchor_slot = blob.read_u32()?;
-        let prerequisite = if blob.read_next_byte()? != 0 {
-            Some(blob.read_32bytes()?)
+    pub fn decode(blob: &mut SliceReader) -> Result<Self, ReadError> {
+        let anchor = blob.read::<OpaqueHash>()?;
+        let state_root = blob.read::<OpaqueHash>()?;
+        let beefy_root = blob.read::<OpaqueHash>()?;
+        let lookup_anchor = blob.read::<OpaqueHash>()?;
+        let lookup_anchor_slot = blob.read::<TimeSlot>()?;
+        let prerequisite = if blob.read::<u8>()? != 0 {
+            Some(blob.read::<OpaqueHash>()?)
         } else {
             None
         };
-
         Ok(RefineContext {
             anchor,
             state_root,
@@ -54,7 +54,7 @@ impl RefineContext {
         if let Some(prereq) = &self.prerequisite {
             refine_blob.extend_from_slice(prereq);
         } else {
-            refine_blob.extend_from_slice(&(0u8).encode());
+            refine_blob.push(0u8);
         }
     
         Ok(refine_blob)

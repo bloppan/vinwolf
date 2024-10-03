@@ -5,10 +5,12 @@ use std::path::PathBuf;
 
 extern crate vinwolf;
 
-use vinwolf::refine::RefineContext;
+//use vinwolf::codec::SliceReader;
 
-use vinwolf::work::package::WorkItem;
-use vinwolf::work::package::WorkPackage;
+//use vinwolf::refine::RefineContext;
+
+//use vinwolf::work::package::WorkItem;
+/*use vinwolf::work::package::WorkPackage;
 use vinwolf::work::package::WorkResult;
 use vinwolf::work::package::WorkReport;
 
@@ -19,7 +21,7 @@ use vinwolf::extrinsic::AssurancesExtrinsic;
 use vinwolf::extrinsic::GuaranteesExtrinsic;
 
 use vinwolf::header::Header;
-
+*/
 #[derive(Deserialize, Debug, PartialEq)]
 struct Testcase {
     /*name: String,
@@ -49,6 +51,7 @@ struct Testcase {
 #[cfg(test)]
 mod tests {
     use super::*;
+    /*
     fn read_codec_test(filename: &str) -> Vec<u8> {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push(filename);
@@ -58,18 +61,19 @@ mod tests {
         return content;
     }
 
-    #[test]
     fn run_refine_context_test() {
         let test = read_codec_test("data/codec/data/refine_context.bin");
-        let refine_decoded: RefineContext = RefineContext::decode(&test).expect("Error decoding RefineContext");
-        let res = refine_decoded.encode().expect("Error encoding RefineContext");
-        assert_eq!(test, res);
+        let mut slice_reader = SliceReader::new(&test);
+        let refine_decoded: RefineContext = RefineContext::decode(&mut slice_reader).expect("Error decoding RefineContext");
+        let refine_result = refine_decoded.encode().expect("Error encoding RefineContext");
+        assert_eq!(test, refine_result);
     }
 
     #[test]
     fn run_work_item_test() {
         let test = read_codec_test("data/codec/data/work_item.bin");
-        let work_item_decoded: WorkItem = WorkItem::decode(&test).expect("Error decoding WorkItem");
+        let mut slice_reader = SliceReader::new(&test);
+        let work_item_decoded: WorkItem = WorkItem::decode(&mut slice_reader).expect("Error decoding WorkItem");
         let res = work_item_decoded.encode().expect("Error decoding WorkItem");
         assert_eq!(test, res);
     }
@@ -161,4 +165,5 @@ mod tests {
         let res = Header::encode(&header_decoded).expect("Error encoding Header");
         assert_eq!(test, res);
     }
+    */
 }

@@ -4,33 +4,7 @@ use crate::globals::*;
 use crate::codec::*;
 
 /*
--- Header
 
-EpochMark ::= SEQUENCE {
-    entropy OpaqueHash,
-    validators SEQUENCE (SIZE(validators-count)) OF BandersnatchKey
-}
-
-TicketBody ::= SEQUENCE {
-    id OpaqueHash,
-    attempt TicketAttempt
-}
-
-TicketsMark ::= SEQUENCE (SIZE(epoch-length)) OF TicketBody
-
-Header ::= SEQUENCE {
-    parent OpaqueHash,
-    parent-state-root OpaqueHash,
-    extrinsic-hash OpaqueHash,
-    slot TimeSlot,
-    epoch-mark EpochMark OPTIONAL,
-    tickets-mark TicketsMark OPTIONAL,
-    offenders-mark SEQUENCE OF Ed25519Key,
-    author-index ValidatorIndex,
-    entropy-source BandersnatchVrfSignature,
-    seal BandersnatchVrfSignature
-}
-*/
 #[derive(Debug)]
 struct EpochMark {
     entropy: [u8; 32],
@@ -167,4 +141,4 @@ impl Header {
 
         Ok(blob)
     }
-}
+}*/

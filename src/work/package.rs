@@ -1,33 +1,7 @@
 use crate::types::*;
 use crate::refine::RefineContext;
 use crate::codec::*;
-
-#[derive(Default, Clone)]
-pub struct ImportSpec {
-    pub tree_root: [u8; 32],
-    pub index: u16,
-}
-
-#[derive(Default, Clone)]
-pub struct ExtrinsicSpec {
-    pub hash: [u8; 32],
-    pub len: u32,
-}
-
-struct Authorizer {
-    code_hash: [u8; 32],
-    params: Vec<u8>,
-}
-
-pub struct WorkItem {
-    service: ServiceId,
-    code_hash: [u8; 32],
-    payload: Vec<u8>,
-    gas_limit: u64,
-    import_segments: Vec<ImportSpec>,
-    extrinsic: Vec<ExtrinsicSpec>,
-    export_count: u16,
-}
+/*
 
 pub struct WorkPackage {
     authorization: Vec<u8>,
@@ -251,8 +225,83 @@ impl WorkPackage {
         })
     }
 }
+*/
+/*
+#[derive(Default, Clone)]
+pub struct ImportSpec {
+    pub tree_root: [u8; 32],
+    pub index: u16,
+}
+
+#[derive(Default, Clone)]
+pub struct ExtrinsicSpec {
+    pub hash: [u8; 32],
+    pub len: u32,
+}
+
+struct Authorizer {
+    code_hash: [u8; 32],
+    params: Vec<u8>,
+}
+
+pub struct WorkItem {
+    service: ServiceId,
+    code_hash: [u8; 32],
+    payload: Vec<u8>,
+    gas_limit: u64,
+    import_segments: Vec<ImportSpec>,
+    extrinsic: Vec<ExtrinsicSpec>,
+    export_count: u16,
+}
 
 impl WorkItem {
+    pub fn decode(blob: &mut SliceReader) -> Result<Self, ReadError> {
+        // Leer el service (u32)
+        let service = blob.read::<u32>()?;
+    
+        // Leer el code_hash (32 bytes)
+        let code_hash = blob.read::<[u8; 32]>()?;
+    
+        // Leer el payload como un Vec<u8> después de calcular el tamaño usando decode_len
+        let payload_usize: Vec<usize> = decode_len(blob.get_slice());
+        let payload: Vec<u8> = payload_usize.iter().map(|&x| x as u8).collect();
+    
+        // Leer el gas_limit (u64)
+        let gas_limit = blob.read::<u64>()?;
+    
+        // Leer el número de segmentos de importación (u8) y construir los segmentos
+        let num_segments = blob.read::<u8>()? as usize;
+        let mut import_segments = Vec::with_capacity(num_segments);
+        for _ in 0..num_segments {
+            let tree_root = blob.read::<[u8; 32]>()?;
+            let index_segment = blob.read::<u16>()?;
+            import_segments.push(ImportSpec { tree_root, index: index_segment });
+        }
+    
+        // Leer el número de extrínsecos (u8) y construir los extrinsics
+        let num_extrinsics = blob.read::<u8>()? as usize;
+        let mut extrinsic = Vec::with_capacity(num_extrinsics);
+        for _ in 0..num_extrinsics {
+            let hash = blob.read::<[u8; 32]>()?;
+            let len = blob.read::<u32>()?;
+            extrinsic.push(ExtrinsicSpec { hash, len });
+        }
+    
+        // Leer export_count (u16)
+        let export_count = blob.read::<u16>()?;
+    
+        // Retornar el WorkItem ya construido
+        Ok(WorkItem {
+            service,
+            code_hash,
+            payload,
+            gas_limit,
+            import_segments,
+            extrinsic,
+            export_count,
+        })
+    }
+
     pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
         // Preallocate initial capacity
         let mut work_item_blob: Vec<u8> = Vec::with_capacity(self.len());
@@ -276,47 +325,9 @@ impl WorkItem {
         Ok(work_item_blob)
     }
 
-    pub fn decode(work_item_blob: &[u8]) -> Result<Self, ReadError> {
-
-        let mut blob = SliceReader::new(work_item_blob);
-
-        let service = blob.read_u32()?;
-        let code_hash = blob.read_32bytes()?;
-        let payload_usize: Vec<usize> = decode_len(&blob.current_slice());
-        let payload: Vec<u8> = payload_usize.iter().map(|&x| x as u8).collect();
-        blob.inc_pos(payload_usize.len() + 1)?;
-        let gas_limit = blob.read_u64()?;
-        let num_segments = blob.read_next_byte()? as usize;
-
-        let mut import_segments = Vec::with_capacity(num_segments);
-        for _ in 0..num_segments {
-            let tree_root = blob.read_32bytes()?; 
-            let index_segment = blob.read_u16()?;
-            import_segments.push(ImportSpec {tree_root, index: index_segment});
-        }
-
-        let num_extrinsics = blob.read_next_byte()? as usize; 
-        let mut extrinsic = Vec::with_capacity(num_extrinsics);
-        for _ in 0..num_extrinsics {
-            let hash = blob.read_32bytes()?;
-            let len = blob.read_u32()?;
-            extrinsic.push(ExtrinsicSpec { hash, len });
-        }
-
-        let export_count = blob.read_u16()?;
-
-        Ok(WorkItem {
-            service,
-            code_hash,
-            payload,
-            gas_limit,
-            import_segments,
-            extrinsic,
-            export_count,
-        })
-    }
-
     pub fn len(&self) -> usize {
         return 4 + 32 + 1 + self.payload.len() + 8 + 1 + self.import_segments.len() * (32 + 2) + 1 + self.extrinsic.len() * (32 + 4) + 2;
     }
 }
+    
+*/

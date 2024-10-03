@@ -1,73 +1,66 @@
 use std::collections::BTreeMap;
 
+pub fn compact(x: usize) -> Vec<u8> {
+
+    if x == 0 {
+        return vec![0];
+    }
+
+    let bit_length = 64 - x.leading_zeros();
+    let mut l = ((bit_length - 1) / 7) as u32;
+
+    if l > 8 {
+        l = 8;
+    }
+
+    if l == 0 && x < 128 {
+        return vec![x as u8];
+    }
+
+    let prefix = if l < 8 {
+        (256u64 - (1u64 << (8 - l)) + ((x >> (8 * l)) as u64)) as u8
+    } else {
+        255u8
+    };
+
+    let mut result = vec![prefix];
+    result.extend_from_slice(&x.encode_size(l as usize));
+    result
+}
+
+
+
 pub trait Encode {
     fn encode(&self) -> Vec<u8>;
 }
 
-impl Encode for usize {
+impl Encode for u64 {
     fn encode(&self) -> Vec<u8> {
-        let x = *self;
-    
-        if x == 0 {
-            return vec![0];
-        }
-    
-        let bit_length = 64 - x.leading_zeros();
-        let mut l = ((bit_length - 1) / 7) as u32;
-    
-        if l > 8 {
-            l = 8;
-        }
-
-        if l == 0 && x < 128 {
-            return vec![x as u8];
-        }
-    
-        let prefix = if l < 8 {
-            (256u64 - (1u64 << (8 - l)) + ((x >> (8 * l)) as u64)) as u8
-        } else {
-            255u8
-        };
-    
-        let mut result = vec![prefix];
-        result.extend_from_slice(&encode_trivial(x, l as usize));
-        result
+        self.to_le_bytes().to_vec()
     }
 }
 
 impl Encode for u8 {
     fn encode(&self) -> Vec<u8> {
-        (*self as usize).encode()
+        self.to_le_bytes().to_vec()
     }
 }
 
 impl Encode for u16 {
     fn encode(&self) -> Vec<u8> {
-        (*self as usize).encode()
+        self.to_le_bytes().to_vec()
     }
 }
 
 impl Encode for u32 {
     fn encode(&self) -> Vec<u8> {
-        (*self as usize).encode()
+        self.to_le_bytes().to_vec()
     }
 }
 
-impl Encode for i32 {
+impl Encode for usize {
     fn encode(&self) -> Vec<u8> {
-        (*self as usize).encode()
-    }
-}
-
-impl Encode for u64 {
-    fn encode(&self) -> Vec<u8> {
-        (*self as usize).encode()
-    }
-}
-
-impl Encode for i64 {
-    fn encode(&self) -> Vec<u8> {
-        (*self as usize).encode()
+        self.to_le_bytes().to_vec()
     }
 }
 
@@ -79,32 +72,45 @@ impl Encode for &[u8] {
 
 impl Encode for Vec<u8> {
     fn encode(&self) -> Vec<u8> {
-        self.as_slice().encode()  
+        self.clone() 
     }
 }
 
-pub trait EncodeLen {
-    fn encode_len(&self) -> Vec<u8>;
+pub trait EncodeSize {
+    fn encode_size(&self, l: usize) -> Vec<u8>;
 }
 
-impl<T: Encode> EncodeLen for &[T] {
-    fn encode_len(&self) -> Vec<u8> {
-        if self.is_empty() {
-            return vec![0];
-        }
-
-        let mut seq = Vec::new();
-        seq.push(self.len() as u8); 
-
-        for item in *self {
-            seq.extend_from_slice(&item.encode());
-        }
-
-        seq
+impl EncodeSize for u32 {
+    fn encode_size(&self, l: usize) -> Vec<u8> {
+        encode_integer(*self as usize, l)
     }
 }
 
-pub fn encode_trivial(x: usize, l: usize) -> Vec<u8> {
+impl EncodeSize for u64 {
+    fn encode_size(&self, l: usize) -> Vec<u8> {
+        encode_integer(*self as usize, l)
+    }
+}
+
+impl EncodeSize for i32 {
+    fn encode_size(&self, l: usize) -> Vec<u8> {
+        encode_integer(*self as usize, l)
+    }
+}
+
+impl EncodeSize for i64 {
+    fn encode_size(&self, l: usize) -> Vec<u8> {
+        encode_integer(*self as usize, l)
+    }
+}
+
+impl EncodeSize for usize {
+    fn encode_size(&self, l: usize) -> Vec<u8> {
+        encode_integer(*self as usize, l)
+    }
+}
+
+pub fn encode_integer(x: usize, l: usize) -> Vec<u8> {
 
     let mut sequence: Vec<u8> = Vec::new();
     if l == 0 { return sequence } 
@@ -122,6 +128,28 @@ pub fn encode_trivial(x: usize, l: usize) -> Vec<u8> {
     }
     
     return sequence;
+}
+
+pub trait EncodeLen {
+    fn encode_len(&self) -> Vec<u8>;
+}
+
+impl<T: Encode> EncodeLen for &[T] {
+    fn encode_len(&self) -> Vec<u8> {
+        
+        if self.is_empty() {
+            return vec![0];
+        }
+
+        let mut seq = Vec::new();
+        seq.push(self.len() as u8); 
+
+        for item in *self {
+            seq.extend_from_slice(&item.encode());
+        }
+
+        seq
+    }
 }
 
 pub fn encode_from_bits(v: &[bool]) -> Vec<u8> {
@@ -145,56 +173,6 @@ pub fn seq_to_number(v: &Vec<u8>) -> u32 {
     result
 }
 
-pub fn decode(v: &[u8]) -> usize {
-
-    let l = v[0].leading_ones();
-
-    if l == 0 { 
-        return v[0] as usize; 
-    }
-
-    let result = decode_trivial(&v[1..]);
-
-    if l == 8 {
-        return result;
-    }
-
-    let mask = (1 << (7 - l)) - 1;
-
-    return result | ((v[0] & mask) as usize) << (8 * l);
-}
-
-pub fn decode_trivial(v: &[u8]) -> usize {
-
-    let mut result: usize = 0;
-    let max_octets = std::mem::size_of::<usize>();
-    for i in 0..std::cmp::min(v.len(), max_octets) {
-        result |= (v[i as usize] as usize) << (8 * i);
-    }
-
-    return result;
-}
-
-pub fn decode_len(v: &[u8]) -> Vec<usize> {
-
-    if v.is_empty() {
-        return vec![0];
-    }
-
-    let length = v[0] as usize;
-    let mut result = Vec::with_capacity(length);
-    let mut k = 1;
-
-    for _ in 0..length {
-        let l = v[k].leading_ones() as usize;
-        let member = &v[k..=k + l]; 
-        result.push(decode(member));
-        k += l + 1;
-    }
-
-    result
-}
-
 pub fn decode_to_bits(v: &[u8]) -> Vec<bool> {
 
     let mut bools = Vec::new();
@@ -207,181 +185,229 @@ pub fn decode_to_bits(v: &[u8]) -> Vec<bool> {
 
     return bools;
 }
+/*
 
-pub struct SliceReader<'a> {
-    data: &'a [u8],
-    position: usize,
+pub fn decode_from_le(data: &[u8], l: usize) -> usize {
+    let mut bytes = [0u8; std::mem::size_of::<usize>()];
+    let len = std::cmp::min(l, data.len());
+    bytes[..len].copy_from_slice(&data[..len]);
+    usize::from_le_bytes(bytes)
 }
 
-#[derive(Debug)]
-pub enum ReadError {
-    NotEnoughData,
+ 
+pub fn decompact(v: &[u8]) -> usize {
+
+    let l = v[0].leading_ones() as usize;
+
+    if l == 0 { 
+        return v[0] as usize; 
+    }
+
+    let result = decode_from_le(&v[1..], l);
+
+    if l == 8 {
+        return result;
+    }
+
+    let mask = (1 << (7 - l)) - 1;
+
+    return result | ((v[0] & mask) as usize) << (8 * l);
 }
 
-impl<'a> SliceReader<'a> {
-    pub fn new(data: &'a [u8]) -> Self {
-        SliceReader { data, position: 0 }
+pub fn decompact_len(v: &[u8]) -> Vec<usize> {
+
+    if v.is_empty() {
+        return vec![0];
     }
 
-    fn read_bytes(&mut self, length: usize) -> Result<&'a [u8], ReadError> {
-        let start = self.position;
-        let end = start + length;
-        if end > self.data.len() {
-            return Err(ReadError::NotEnoughData);
-        }
-        self.position = end;
-        Ok(&self.data[start..end])
-    }
-    
-    pub fn current_slice(&self) -> &'a [u8] {
-        &self.data[self.position..]
+    let length = v[0] as usize;
+    let mut result = Vec::with_capacity(length);
+    let mut k = 1;
+
+    for _ in 0..length {
+        let l = v[k].leading_ones() as usize;
+        let member = &v[k..=k + l]; 
+        result.push(decompact(member));
+        k += l + 1;
     }
 
-    pub fn get_pos(&self) -> usize {
-        return self.position;
-    }
+    result
+}
+*/
 
-    pub fn inc_pos(&mut self, pos: usize) -> Result<(), ReadError> {
-        let end = self.data.len();
-        if pos + self.position > end {
-            return Err(ReadError::NotEnoughData);
-        }
-        self.position += pos;
-        Ok(())
-    }
+pub trait Decode: Sized {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError>;
+}
 
-    pub fn read_next_byte(&mut self) -> Result<u8, ReadError> {
-        if self.position >= self.data.len() {
-            return Err(ReadError::NotEnoughData);
-        }
-        let byte = self.data[self.position];
-        self.position += 1; // Avanzar la posición
-        Ok(byte)
+impl Decode for u8 {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        let bytes = reader.read_bytes(1)?;
+        Ok(bytes[0])
     }
+}
 
-    pub fn read_vector(&mut self, len: usize) -> Result<Vec<u8>, ReadError> {
-        let bytes = self.read_bytes(len)?;
-        Ok(bytes.to_vec())
-    }
-
-    pub fn read_u16(&mut self) -> Result<u16, ReadError> {
-        let bytes = self.read_bytes(2)?;
+impl Decode for u16 {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        let bytes = reader.read_bytes(2)?;
         let mut array = [0u8; 2];
         array.copy_from_slice(bytes);
         Ok(u16::from_le_bytes(array))
     }
+}
 
-    pub fn read_u32(&mut self) -> Result<u32, ReadError> {
-        let bytes = self.read_bytes(4)?;
+impl Decode for u32 {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        let bytes = reader.read_bytes(4)?;
         let mut array = [0u8; 4];
         array.copy_from_slice(bytes);
         Ok(u32::from_le_bytes(array))
     }
+}
 
-    pub fn read_u64(&mut self) -> Result<u64, ReadError> {
-        let bytes = self.read_bytes(8)?;
+impl Decode for i32 {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        let bytes = reader.read_bytes(4)?;
+        let mut array = [0u8; 4];
+        array.copy_from_slice(bytes);
+        Ok(i32::from_le_bytes(array))
+    }
+}
+
+impl Decode for u64 {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        let bytes = reader.read_bytes(8)?;
         let mut array = [0u8; 8];
         array.copy_from_slice(bytes);
         Ok(u64::from_le_bytes(array))
     }
+}
 
-    pub fn read_i64(&mut self) -> Result<i64, ReadError> {
-        let bytes = self.read_bytes(8)?;
+impl Decode for usize {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        let mut array = [0u8; std::mem::size_of::<usize>()]; 
+        let bytes = reader.read_bytes(std::mem::size_of::<usize>())?; 
+        array.copy_from_slice(bytes); 
+        Ok(usize::from_le_bytes(array)) 
+    }
+}
+
+impl Decode for i64 {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        let bytes = reader.read_bytes(8)?;
         let mut array = [0u8; 8];
         array.copy_from_slice(bytes);
         Ok(i64::from_le_bytes(array))
     }
+}
 
-    pub fn read_32bytes(&mut self) -> Result<[u8; 32], ReadError> {
-        let bytes = self.read_bytes(32)?; 
-        let mut array = [0u8; 32]; 
-        array.copy_from_slice(bytes); 
-        Ok(array) 
+impl<const N: usize> Decode for [u8; N] {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        let bytes = reader.read_bytes(N)?;
+        let mut array = [0u8; N];
+        array.copy_from_slice(bytes);
+        Ok(array)
+    }
+}
+
+pub trait DecodeLen: Sized {
+    fn decode_len(reader: &mut BytesReader) -> Result<Self, ReadError>;
+}
+
+impl<T> DecodeLen for Vec<T>
+where
+    T: Decode + Default,
+{
+    fn decode_len(reader: &mut BytesReader) -> Result<Vec<T>, ReadError> {
+        if reader.data.is_empty() {
+            return Ok(vec![T::default()]);
+        }
+        let len = reader.read_byte()? as usize;  
+        let mut result = Vec::with_capacity(len);
+        for _ in 0..len {
+            result.push(T::decode(reader)?);
+        }
+        Ok(result)
+    }
+}
+
+pub struct BytesReader<'a> {
+    position: usize,
+    data: &'a [u8],
+}
+
+impl<'a> BytesReader<'a> {
+    pub fn new(data: &'a [u8]) -> Self {
+        BytesReader { data, position: 0 }
     }
 
-    pub fn read_64bytes(&mut self) -> Result<[u8; 64], ReadError> {
-        let bytes = self.read_bytes(64)?; 
-        let mut array = [0u8; 64]; 
-        array.copy_from_slice(bytes); 
-        Ok(array) 
+    pub fn read_bytes(&mut self, length: usize) -> Result<&[u8], ReadError> {
+        if self.position + length > self.data.len() {
+            return Err(ReadError::NotEnoughData);
+        }
+        let bytes = &self.data[self.position..self.position + length];
+        self.position += length;
+        Ok(bytes)
     }
 
-    pub fn read_96bytes(&mut self) -> Result<[u8; 96], ReadError> {
-        let bytes = self.read_bytes(96)?; 
-        let mut array = [0u8; 96]; 
-        array.copy_from_slice(bytes); 
-        Ok(array) 
+    pub fn read_byte(&mut self) -> Result<u8, ReadError> {
+        if self.position + 1 > self.data.len() {
+            return Err(ReadError::NotEnoughData);
+        }
+        let byte = self.data[self.position] as u8;
+        self.position += 1;
+        Ok(byte)
     }
+}
 
-    pub fn read_784bytes(&mut self) -> Result<[u8; 784], ReadError> {
-        let bytes = self.read_bytes(784)?; 
-        let mut array = [0u8; 784]; 
-        array.copy_from_slice(bytes); 
-        Ok(array) 
-    }
-
+// Definición de `ReadError`
+#[derive(Debug)]
+pub enum ReadError {
+    NotEnoughData,
+    InvalidData,
+    ConversionError,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     
-    #[test]
-    fn test_encode_trivial() {
-        assert_eq!(vec![0xDF, 0x63, 0x00, 0x00], encode_trivial(25567, 4));
-        assert_eq!(vec![0x21, 0xFF, 0xFF, 0xFF], encode_trivial(0xFFFFFF21, 4));
-        assert_eq!(vec![0x21, 0, 0, 0, 0, 0, 0, 0, 0, 0,], encode_trivial(0x21, 10));
-        assert_eq!(vec![0x21, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], encode_trivial(0xFFFFFFFFFFFFFF21, 10));
-        assert_eq!(vec![0x1F, 0xB2, 0x01], encode_trivial(111135, 3));
-        assert_eq!(vec![0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], encode_trivial(0xFFFFFFFFFFFFFFFF, 8));
-        assert_eq!(vec![0xEF, 0x0C, 0x28, 0x31, 0x0A, 0x0D, 0xC9, 0x10], encode_trivial(1209512312351231215, 8));
-        assert_eq!(Vec::<u8>::new(), encode_trivial(56323, 0));
-        assert_eq!(vec![0x3C, 0xE2, 0x01, 0, 0, 0, 0, 0, 0], encode_trivial(123452, 9));
-        assert_eq!(vec![0x00], encode_trivial(256, 1));
+    macro_rules! reader {
+        ($($byte:expr),*) => {
+            {
+                let data: &[u8] = &[$($byte),*];
+                BytesReader::new(data)
+            }
+        };
     }
-
+    
     #[test]
-    fn test_encode() {
-        assert_eq!(vec![0], (0u8).encode());
-        assert_eq!(vec![100], (100u8).encode());
-        assert_eq!(vec![127], (127u8).encode());
-        assert_eq!(vec![128, 128], (128u8).encode());
-        assert_eq!(vec![128, 194], (194u8).encode());
-        assert_eq!(vec![128, 255], (255u8).encode());
-        assert_eq!(vec![129, 0], (256u16).encode());
-        assert_eq!(vec![129, 44], (300u16).encode());
-        assert_eq!(vec![131, 255], (1023u16).encode());
-        assert_eq!(vec![191, 255], (0x3FFFu16).encode());
-        assert_eq!(vec![192, 0, 64], (0x4000u16).encode());
-        assert_eq!(vec![191, 255], (16383u16).encode());
-        assert_eq!(vec![192, 255, 255], (65535u16).encode());
-        assert_eq!(vec![193, 0, 0], (65536u32).encode());
-        assert_eq!(vec![222, 0x60, 0x79], (1997152u32).encode());
-        assert_eq!(vec![194, 240, 73], (150000u32).encode());
-        assert_eq!(vec![224, 10, 0, 32], (2097162u32).encode());
-        assert_eq!(vec![239, 255, 255, 255], (0xFFFFFFFu32).encode());
-        assert_eq!(vec![240, 0, 0, 0, 16], (0x10000000u32).encode());
-        assert_eq!(vec![247, 255, 255, 255, 255], (0x7FFFFFFFFu64).encode());
-        assert_eq!(vec![248, 0, 0, 0, 0, 8], (0x800000000u64).encode());
-        assert_eq!(vec![251, 255, 255, 255, 255, 255], (0x3FFFFFFFFFFu64).encode());
-        assert_eq!(vec![252, 0, 0, 0, 0, 0, 4], (0x40000000000u64).encode());
-        assert_eq!(vec![253, 255, 255, 255, 255, 255, 255], (0x1FFFFFFFFFFFFu64).encode());
-        assert_eq!(vec![254, 0, 0, 0, 0, 0, 0, 2], (0x2000000000000u64).encode());
-        assert_eq!(vec![255, 253, 255, 255, 255, 255, 255, 255, 255], (-3).encode()); 
-        assert_eq!(vec![255, 254, 255, 255, 255, 255, 255, 255, 255], (0xFFFFFFFFFFFFFFFEusize).encode()); // -2 
-        assert_eq!(vec![255, 255, 255, 255, 255, 255, 255, 255, 127], (9223372036854775807u64).encode());
-        assert_eq!(vec![255, 0, 0, 0, 0, 0, 0, 0, 128], (9223372036854775808u64).encode());
-        assert_eq!(vec![255, 1, 0, 0, 0, 0, 0, 0, 128], (9223372036854775809u64).encode());
+    fn test_encode_size() {
+        assert_eq!(vec![0xDF, 0x63], 25567u32.encode_size(2));
+        assert_eq!(vec![252, 255, 255, 255], (-4_i32).encode_size(4));
+        assert_eq!(vec![0, 255, 255, 255], (-256_i32).encode_size(4));
+        assert_eq!(vec![255, 254], (-257_i32).encode_size(2));
+        assert_eq!(vec![0x1F, 0xB2, 0x01], 111135u32.encode_size(3));
+        assert_eq!(Vec::<u8>::new(), 56323u32.encode_size(0));
+        assert_eq!(vec![0x21, 0xFF, 0xFF, 0xFF], 0xFFFFFF21u32.encode_size(4));
+        assert_eq!(vec![0xDF, 0x63, 0x00, 0x00], 25567u64.encode_size(4));
+        assert_eq!(vec![0x21, 0xFF, 0xFF, 0xFF], 0xFFFFFF21u64.encode_size(4));
+        assert_eq!(vec![0x21, 0, 0, 0, 0, 0, 0, 0, 0, 0], 0x21u64.encode_size(10));
+        assert_eq!(vec![0x21, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], 0xFFFFFFFFFFFFFF21u64.encode_size(10));
+        assert_eq!(vec![0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], 0xFFFFFFFFFFFFFFFFu64.encode_size(8));
+        assert_eq!(vec![0xEF, 0x0C, 0x28, 0x31, 0x0A, 0x0D, 0xC9, 0x10], 1209512312351231215u64.encode_size(8));
+        assert_eq!(vec![0x3C, 0xE2, 0x01, 0, 0, 0, 0, 0, 0], 123452u64.encode_size(9));
+        assert_eq!(vec![0x00], 256u64.encode_size(1));
     }
 
     #[test]
     fn test_encode_len() {
         assert_eq!(vec![0], (&[] as &[u8]).encode_len());
         assert_eq!(vec![1, 0], (&[0u8][..]).encode_len());
-        assert_eq!(vec![1, 129, 44], (&[300u16][..]).encode_len());
-        assert_eq!(vec![4, 129, 44, 18, 127, 128, 128], (&[300u16, 18u16, 127u16, 128u16][..]).encode_len());
-        assert_eq!(vec![2, 194, 240, 73, 223, 255, 255], (&[150000u32, 2097151u32][..]).encode_len());
-        assert_eq!(vec![2, 255, 1, 0, 0, 0, 0, 0, 0, 128, 248, 0, 0, 0, 0, 8][..], (&[9223372036854775809u64, 0x800000000u64][..]).encode_len());
+        assert_eq!(vec![1, 0x2C, 0x1], (&[300u16][..]).encode_len());
+        assert_eq!(vec![4, 0x2C, 0x1, 18, 0, 127, 0, 128, 0], (&[300u16, 18u16, 127u16, 128u16][..]).encode_len());
+        assert_eq!(vec![2, 0xF0, 0x49, 0x02, 0, 0xFF, 0xFF, 0x1F, 0], (&[150000u32, 2097151u32][..]).encode_len());
+        assert_eq!(vec![2, 0x1, 0, 0, 0, 0, 0, 0, 0x80, 0, 0, 0, 0, 8, 0, 0, 0], (&[9223372036854775809u64, 0x800000000u64][..]).encode_len());
+        assert_eq!(vec![2, 1, 2, 3, 4], (&[vec![1,2], vec![3,4]][..]).encode_len());
     }
 
     #[test]
@@ -393,39 +419,27 @@ mod tests {
         assert_eq!(vec![0x55, 1], encode_from_bits(&[true, false, true, false, true, false, true, false, true]));
     }
 
-    #[test]
-    fn test_decode_trivial() {
-        assert_eq!(0, decode_trivial(&[]));
-        assert_eq!(0, decode_trivial(&[0]));
-        assert_eq!(27, decode_trivial(&[27]));
-        assert_eq!(150000, decode_trivial(&[0xF0, 0x49, 0x02]));
-        assert_eq!(9223372036854775809, decode_trivial(&[1, 0, 0, 0, 0, 0, 0, 0x80]));
-    } 
-
-    #[test]
-    fn test_decode() {
-        assert_eq!(0, decode(&[0]));
-        assert_eq!(100, decode(&[100]));
-        assert_eq!(300, decode(&[129, 44]));
-        assert_eq!(150000, decode(&[194, 240, 73]));
-        assert_eq!(2097151, decode(&[223, 255, 255]));
-        assert_eq!(0x800000000, decode(&[248, 0, 0, 0, 0, 8]));
-        assert_eq!(0x2000000000000, decode(&[254, 0, 0, 0, 0, 0, 0, 2]));
-        assert_eq!(9223372036854775807, decode(&[255, 255, 255, 255, 255, 255, 255, 255, 127]));
-        assert_eq!(9223372036854775808, decode(&[255, 0, 0, 0, 0, 0, 0, 0, 128]));      
-        assert_eq!(9223372036854775809, decode(&[255, 1, 0, 0, 0, 0, 0, 0, 128]));     
-    }
+    /*#[test]
+    fn test_decode_from_le() {
+        assert_eq!(0, decode_from_le(&mut reader![], 1).unwrap());
+        assert_eq!(0, decode_from_le(&mut reader![0], 1).unwrap());
+        assert_eq!(27, decode_from_le(&mut reader![27], 1).unwrap());
+        assert_eq!(150000, decode_from_le(&mut reader![0xF0, 0x49, 0x02], 3).unwrap());
+        assert_eq!(9223372036854775809, decode_from_le(&mut reader![1, 0, 0, 0, 0, 0, 0, 0x80], 8).unwrap());
+    }*/
 
     #[test]
     fn test_decode_len() {
-        assert_eq!(vec![0], decode_len(&[]));
-        assert_eq!(vec![0], decode_len(&[1, 0]));
-        assert_eq!(vec![1], decode_len(&[1, 1]));
-        assert_eq!(vec![1, 2], decode_len(&[2, 1, 2]));
-        assert_eq!(vec![300, 300], decode_len(&[2, 129, 44, 129, 44]));
-        assert_eq!(vec![300, 127], decode_len(&[2, 129, 44, 127]));
-        assert_eq!(vec![300, 127], decode_len(&[2, 129, 44, 127, 22, 38, 189, 1]));
-        assert_eq!(vec![9223372036854775809, 65535], decode_len(&[2, 255, 1, 0, 0, 0, 0, 0, 0, 128, 192, 255, 255]));
+        assert_eq!(vec![0], Vec::<u8>::decode_len(&mut reader![]).unwrap());
+        assert_eq!(vec![0], Vec::<u8>::decode_len(&mut reader![1, 0]).unwrap());
+        assert_eq!(vec![1], Vec::<u8>::decode_len(&mut reader![1, 1]).unwrap());
+        assert_eq!(vec![1, 2], Vec::<u8>::decode_len(&mut reader![2, 1, 2]).unwrap());
+        assert_eq!(vec![300, 300], Vec::<u16>::decode_len(&mut reader![2, 0x2C, 0x01, 0x2C, 0x01]).unwrap());
+        assert_eq!(vec![300, 127], Vec::<u16>::decode_len(&mut reader![2, 0x2C, 0x01, 0x7F, 0x00]).unwrap());
+        assert_eq!(vec![300, 150000, 1], Vec::<u32>::decode_len(&mut reader![3, 0x2C, 0x01, 0x00, 0x00, 0xF0, 0x49, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00]).unwrap());
+        assert_eq!(vec![9223372036854775809], Vec::<u64>::decode_len(&mut reader![1, 1, 0, 0, 0, 0, 0, 0, 0x80]).unwrap());
+        assert_eq!(vec![vec![1, 2], vec![3, 4]], Vec::<[u8; 2]>::decode_len(&mut reader![2, 1, 2, 3, 4]).unwrap());
+        assert_eq!(vec![-1, -255], Vec::<i32>::decode_len(&mut reader![2, 0xFF, 0xFF, 0xFF, 0xFF, 0x01, 0xFF, 0xFF, 0xFF]).unwrap());
     }
 
     #[test]
@@ -439,6 +453,65 @@ mod tests {
                         false, false, false, false, false, false, false, false,
                         false, false, false, false, true, true, true, true], decode_to_bits(&[0x55, 0, 0xF0]));
     }
+    
+    
+    /*#[test]
+    fn test_compact() {
+        assert_eq!(vec![0], (0u8).compact());
+        assert_eq!(vec![100], (100u8).compact());
+        assert_eq!(vec![127], (127u8).compact());
+        assert_eq!(vec![128, 128], (128u8).compact());
+        assert_eq!(vec![128, 194], (194u8).compact());
+        assert_eq!(vec![128, 255], (255u8).compact());
+        assert_eq!(vec![129, 0], (256u16).compact());
+        assert_eq!(vec![129, 44], (300u16).compact());
+        assert_eq!(vec![131, 255], (1023u16).compact());
+        assert_eq!(vec![191, 255], (0x3FFFu16).compact());
+        assert_eq!(vec![192, 0, 64], (0x4000u16).compact());
+        assert_eq!(vec![191, 255], (16383u16).compact());
+        assert_eq!(vec![192, 255, 255], (65535u16).compact());
+        assert_eq!(vec![193, 0, 0], (65536u32).compact());
+        assert_eq!(vec![222, 0x60, 0x79], (1997152u32).compact());
+        assert_eq!(vec![194, 240, 73], (150000u32).compact());
+        assert_eq!(vec![224, 10, 0, 32], (2097162u32).compact());
+        assert_eq!(vec![239, 255, 255, 255], (0xFFFFFFFu32).compact());
+        assert_eq!(vec![240, 0, 0, 0, 16], (0x10000000u32).compact());
+        assert_eq!(vec![247, 255, 255, 255, 255], (0x7FFFFFFFFu64).compact());
+        assert_eq!(vec![248, 0, 0, 0, 0, 8], (0x800000000u64).compact());
+        assert_eq!(vec![251, 255, 255, 255, 255, 255], (0x3FFFFFFFFFFu64).compact());
+        assert_eq!(vec![252, 0, 0, 0, 0, 0, 4], (0x40000000000u64).compact());
+        assert_eq!(vec![253, 255, 255, 255, 255, 255, 255], (0x1FFFFFFFFFFFFu64).compact());
+        assert_eq!(vec![254, 0, 0, 0, 0, 0, 0, 2], (0x2000000000000u64).compact());
+        assert_eq!(vec![255, 254, 255, 255, 255, 255, 255, 255, 255], (0xFFFFFFFFFFFFFFFEusize).compact()); 
+        assert_eq!(vec![255, 255, 255, 255, 255, 255, 255, 255, 127], (9223372036854775807u64).compact());
+        assert_eq!(vec![255, 0, 0, 0, 0, 0, 0, 0, 128], (9223372036854775808u64).compact());
+        assert_eq!(vec![255, 1, 0, 0, 0, 0, 0, 0, 128], (9223372036854775809u64).compact());
+    }*/
+
+    /*#[test]
+    fn test_compact_len() {
+        assert_eq!(vec![0], (&[] as &[u8]).compact_len());
+        assert_eq!(vec![1, 0], (&[0u8][..]).compact_len());
+        assert_eq!(vec![1, 129, 44], (&[300u16][..]).compact_len());
+        assert_eq!(vec![4, 129, 44, 18, 127, 128, 128], (&[300u16, 18u16, 127u16, 128u16][..]).compact_len());
+        assert_eq!(vec![2, 194, 240, 73, 223, 255, 255], (&[150000u32, 2097151u32][..]).compact_len());
+        assert_eq!(vec![2, 255, 1, 0, 0, 0, 0, 0, 0, 128, 248, 0, 0, 0, 0, 8][..], (&[9223372036854775809u64, 0x800000000u64][..]).compact_len());
+    }*/
+
+    /*#[test]
+    fn test_decompact() {
+        assert_eq!(0, usize::decompact(&mut reader![0]).unwrap());
+        assert_eq!(100, u8::decompact(&mut reader![100]).unwrap());
+        assert_eq!(300, u16::decompact(&mut reader![129, 44]).unwrap());
+        assert_eq!(150000, u32::decompact(&mut reader![194, 240, 73]).unwrap());
+        assert_eq!(2097151, usize::decompact(&mut reader![223, 255, 255]).unwrap());
+        assert_eq!(0x800000000, usize::decompact(&mut reader![248, 0, 0, 0, 0, 8]).unwrap());
+        assert_eq!(0x2000000000000, usize::decompact(&mut reader![254, 0, 0, 0, 0, 0, 0, 2]).unwrap());
+        assert_eq!(9223372036854775807, usize::decompact(&mut reader![255, 255, 255, 255, 255, 255, 255, 255, 127]).unwrap());
+        assert_eq!(9223372036854775808, usize::decompact(&mut reader![255, 0, 0, 0, 0, 0, 0, 0, 128]).unwrap());
+        assert_eq!(9223372036854775809, usize::decompact(&mut reader![255, 1, 0, 0, 0, 0, 0, 0, 128]).unwrap());
+    }*/
+
 }
 
 /**
