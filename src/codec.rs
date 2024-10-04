@@ -28,15 +28,17 @@ pub fn compact(x: usize) -> Vec<u8> {
     result
 }
 
-
-
 pub trait Encode {
     fn encode(&self) -> Vec<u8>;
+    fn encode_to(&self, writer: &mut Vec<u8>);
 }
 
 impl Encode for u64 {
     fn encode(&self) -> Vec<u8> {
         self.to_le_bytes().to_vec()
+    }
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.extend_from_slice(&self.encode())
     }
 }
 
@@ -44,11 +46,17 @@ impl Encode for u8 {
     fn encode(&self) -> Vec<u8> {
         self.to_le_bytes().to_vec()
     }
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.push(self.encode()[0])
+    }
 }
 
 impl Encode for u16 {
     fn encode(&self) -> Vec<u8> {
         self.to_le_bytes().to_vec()
+    }
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.extend_from_slice(&self.encode())
     }
 }
 
@@ -56,11 +64,17 @@ impl Encode for u32 {
     fn encode(&self) -> Vec<u8> {
         self.to_le_bytes().to_vec()
     }
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.extend_from_slice(&self.encode())
+    }
 }
 
 impl Encode for usize {
     fn encode(&self) -> Vec<u8> {
         self.to_le_bytes().to_vec()
+    }
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.extend_from_slice(&self.encode())
     }
 }
 
@@ -68,16 +82,37 @@ impl Encode for &[u8] {
     fn encode(&self) -> Vec<u8> {
         self.to_vec()        
     }
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.extend_from_slice(&self.encode())
+    }
 }
 
 impl Encode for Vec<u8> {
     fn encode(&self) -> Vec<u8> {
         self.clone() 
     }
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.extend_from_slice(&self.encode())
+    }
+}
+
+impl<const N: usize> Encode for [u8; N] {
+    fn encode(&self) -> Vec<u8> {
+        self.to_vec()
+    }
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.extend_from_slice(&self.encode())
+    }
 }
 
 pub trait EncodeSize {
     fn encode_size(&self, l: usize) -> Vec<u8>;
+}
+
+impl EncodeSize for u16 {
+    fn encode_size(&self, l: usize) -> Vec<u8> {
+        encode_integer(*self as usize, l)
+    }
 }
 
 impl EncodeSize for u32 {

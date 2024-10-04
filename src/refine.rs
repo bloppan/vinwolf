@@ -1,10 +1,6 @@
-use serde::Deserialize;
-use crate::codec::*;
+use crate::codec::{BytesReader, Encode, EncodeSize, Decode, ReadError};
+use crate::types::{OpaqueHash, TimeSlot};
 
-use crate::types::*;
-
-#[allow(non_camel_case_types)]
-#[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct RefineContext {
     pub anchor: OpaqueHash,
     pub state_root: OpaqueHash,
@@ -15,17 +11,19 @@ pub struct RefineContext {
 }
 
 impl RefineContext {
-    pub fn decode(blob: &mut SliceReader) -> Result<Self, ReadError> {
-        let anchor = blob.read::<OpaqueHash>()?;
-        let state_root = blob.read::<OpaqueHash>()?;
-        let beefy_root = blob.read::<OpaqueHash>()?;
-        let lookup_anchor = blob.read::<OpaqueHash>()?;
-        let lookup_anchor_slot = blob.read::<TimeSlot>()?;
-        let prerequisite = if blob.read::<u8>()? != 0 {
-            Some(blob.read::<OpaqueHash>()?)
+    pub fn decode(refine_blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let anchor = OpaqueHash::decode(refine_blob)?;
+        let state_root = OpaqueHash::decode(refine_blob)?;
+        let beefy_root = OpaqueHash::decode(refine_blob)?;
+        let lookup_anchor = OpaqueHash::decode(refine_blob)?;
+        let lookup_anchor_slot = u32::decode(refine_blob)?;
+        let prerequisite = if u8::decode(refine_blob)? != 0 {
+            Some(OpaqueHash::decode(refine_blob)?)
         } else {
             None
         };
+
         Ok(RefineContext {
             anchor,
             state_root,
@@ -36,20 +34,15 @@ impl RefineContext {
         })
     }
     
-    const MIN_SIZE: usize = 133;
-
     pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
 
-        if self.len() < Self::MIN_SIZE {
-            return Err(ReadError::NotEnoughData);
-        }
-
-        let mut refine_blob: Vec<u8> = Vec::with_capacity(Self::MIN_SIZE);  // 133 fixed bytes 
-        refine_blob.extend_from_slice(&self.anchor);
-        refine_blob.extend_from_slice(&self.state_root);
-        refine_blob.extend_from_slice(&self.beefy_root);
-        refine_blob.extend_from_slice(&self.lookup_anchor);
-        refine_blob.extend_from_slice(&self.lookup_anchor_slot.to_le_bytes());
+        let mut refine_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<RefineContext>());  
+        
+        self.anchor.encode_to(&mut refine_blob);
+        self.state_root.encode_to(&mut refine_blob);
+        self.beefy_root.encode_to(&mut refine_blob);
+        self.lookup_anchor.encode_to(&mut refine_blob);
+        refine_blob.extend_from_slice(&self.lookup_anchor_slot.encode_size(4));
 
         if let Some(prereq) = &self.prerequisite {
             refine_blob.extend_from_slice(prereq);
@@ -60,10 +53,9 @@ impl RefineContext {
         Ok(refine_blob)
     }
 
-    pub fn len(&self) -> usize {
-        let base_size = 32 * 4 + 4; 
-        let prerequisite_size = if self.prerequisite.is_some() { 32 + 1 } else { 1 };
-        base_size + prerequisite_size
+    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
+        into.extend_from_slice(&self.encode()?);
+        Ok(())
     }
 }
 

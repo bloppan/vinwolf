@@ -1,66 +1,37 @@
-use crate::types::*;
+use crate::types::{OpaqueHash, Gas, ServiceId, CoreIndex};
 use crate::refine::RefineContext;
-use crate::codec::*;
-/*
-
-pub struct WorkPackage {
-    authorization: Vec<u8>,
-    auth_code_host: ServiceId,
-    authorizer: Authorizer,
-    context: RefineContext,
-    pub items: Vec<WorkItem>,
-}
-
-enum WorkExecResult {
-    Ok = 0,
-    OutOfGas = 1,
-    Panic = 2,
-    BadCode = 3,
-    CodeOversize = 4,
-}
+use crate::codec::{ReadError, BytesReader, Decode, DecodeLen, Encode, EncodeLen, EncodeSize};
 
 pub struct WorkPackageSpec {
-    hash: [u8; 32],
+    hash: OpaqueHash,
     len: u32,
-    erasure_root: [u8; 32],
-    exports_root: [u8; 32],
+    erasure_root: OpaqueHash,
+    exports_root: OpaqueHash,
 }
 
 pub struct WorkReport {
     package_spec: WorkPackageSpec,
     context: RefineContext,
     core_index: CoreIndex,
-    authorizer_hash: [u8; 32],
+    authorizer_hash: OpaqueHash,
     auth_output: Vec<u8>,
     results: Vec<WorkResult>,
 }
 
 impl WorkReport {
-    pub fn decode(work_report: &[u8]) -> Result<Self, ReadError> {
-
-        let mut blob = SliceReader::new(work_report);
-
-        let hash = blob.read_32bytes()?; 
-        let len = blob.read_u32()?; 
-        let erasure_root = blob.read_32bytes()?; 
-        let exports_root = blob.read_32bytes()?; 
-        let package_spec = WorkPackageSpec { hash, len, erasure_root, exports_root };
-        let context: RefineContext = RefineContext::decode(&blob.current_slice())?;
-        blob.inc_pos(context.len())?;
-        let core_index = blob.read_u16()?; 
-        let authorizer_hash = blob.read_32bytes()?; 
-        let auth_output_usize: Vec<usize> = decode_len(&blob.current_slice());
-        let auth_output: Vec<u8> = auth_output_usize.iter().map(|&x| x as u8).collect();
-        blob.inc_pos(auth_output.len() + 1);
+    pub fn decode(work_report: &mut BytesReader) -> Result<Self, ReadError> {
+        let package_spec = WorkPackageSpec {
+            hash: OpaqueHash::decode(work_report)?,
+            len: u32::decode(work_report)?,
+            erasure_root: OpaqueHash::decode(work_report)?,
+            exports_root: OpaqueHash::decode(work_report)?,
+        };
         
-        let num_results = blob.read_next_byte()?;
-        let mut results: Vec<WorkResult> = Vec::with_capacity(4);
-        for _ in 0..num_results {
-            let item = WorkResult::decode(&blob.current_slice())?;
-            let item_size = WorkResult::len(&item);
-            results.push(item);
-            blob.inc_pos(item_size);
-        }
+        let context = RefineContext::decode(work_report)?;
+        let core_index = CoreIndex::decode(work_report)?;
+        let authorizer_hash = OpaqueHash::decode(work_report)?;
+        let auth_output = Vec::<u8>::decode_len(work_report)?;
+        let results = WorkResult::decode_len(work_report)?;
 
         Ok(WorkReport {
             package_spec,
@@ -73,59 +44,60 @@ impl WorkReport {
     }
 
     pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
-        let mut work_report_blob: Vec<u8> = vec![];
-        work_report_blob.extend_from_slice(&self.package_spec.hash);
-        work_report_blob.extend_from_slice(&self.package_spec.len.to_le_bytes());
-        work_report_blob.extend_from_slice(&self.package_spec.erasure_root);
-        work_report_blob.extend_from_slice(&self.package_spec.exports_root);
-        work_report_blob.extend_from_slice(&self.context.encode()?);
-        work_report_blob.extend_from_slice(&self.core_index.to_le_bytes());
-        work_report_blob.extend_from_slice(&self.authorizer_hash);
-        work_report_blob.extend_from_slice(&(&self.auth_output[..]).encode_len());
-        work_report_blob.push(self.results.len() as u8);
-        for item in &self.results {
-            work_report_blob.extend_from_slice(&item.encode()?);
-        }
+        let mut work_report_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkReport>());
+        
+        self.package_spec.hash.encode_to(&mut work_report_blob);
+        self.package_spec.len.encode_to(&mut work_report_blob);
+        self.package_spec.erasure_root.encode_to(&mut work_report_blob);
+        self.package_spec.exports_root.encode_to(&mut work_report_blob);
+        self.context.encode_to(&mut work_report_blob)?;
+        self.core_index.encode_to(&mut work_report_blob);
+        self.authorizer_hash.encode_to(&mut work_report_blob);
+        self.auth_output.as_slice().encode_len().encode_to(&mut work_report_blob);
+        WorkResult::encode_len(&self.results)?.encode_to(&mut work_report_blob);
 
         Ok(work_report_blob)
     }
 
-    pub fn len(&self) -> usize {
-        let mut results_len = 0;
-        for i in 0..self.results.len() {
-            results_len += 1;
-            results_len += self.results[i].len();
-        }
-        return 32 + 4 + 32 + 32 + self.context.len() + 2 + 32 + self.auth_output.len() + results_len;
+    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
+        into.extend_from_slice(&self.encode()?);
+        Ok(())
     }
+}
+
+enum WorkExecResult {
+    Ok = 0,
+    OutOfGas = 1,
+    Panic = 2,
+    BadCode = 3,
+    CodeOversize = 4,
 }
 
 pub struct WorkResult {
     service: ServiceId,
-    code_hash: [u8; 32],
-    payload_hash: [u8; 32],
-    gas_ratio: u64,
+    code_hash: OpaqueHash,
+    payload_hash: OpaqueHash,
+    gas_ratio: Gas,
     result: Vec<u8>,
 }
 
 impl WorkResult {
-    pub fn decode(work_result: &[u8]) -> Result<Self, ReadError> {
+    pub fn decode(work_result_blob: &mut BytesReader) -> Result<Self, ReadError> {
         
-        let mut blob = SliceReader::new(work_result);
-
-        let service = blob.read_u32()?; 
-        let code_hash: [u8; 32] = blob.read_32bytes()?; 
-        let payload_hash: [u8; 32] = blob.read_32bytes()?; 
-        let gas_ratio: u64 = blob.read_u64()?;
+        let service = ServiceId::decode(work_result_blob)?;
+        let code_hash = OpaqueHash::decode(work_result_blob)?;
+        let payload_hash= OpaqueHash::decode(work_result_blob)?;
+        let gas_ratio = Gas::decode(work_result_blob)?; 
         let mut result: Vec<u8> = vec![];
-        result.push(blob.read_next_byte()?);
+
+        result.push(work_result_blob.read_byte()?);
         let exec_result = result[0];
         match exec_result {
             0 => {
-                let len = blob.read_next_byte()?;
+                let len = work_result_blob.read_byte()?;
                 result.push(len);
                 for i in 0..len {
-                    result.push(blob.read_next_byte()?); 
+                    result.push(work_result_blob.read_byte()?); 
                 }
                 WorkExecResult::Ok
             },
@@ -135,6 +107,7 @@ impl WorkResult {
             4 => WorkExecResult::CodeOversize,
             _ => panic!("Valor inválido para WorkExecResult: {}", exec_result),
         };
+
         Ok(WorkResult {
             service,
             code_hash,
@@ -144,12 +117,25 @@ impl WorkResult {
         })
     }
 
+    pub fn decode_len(work_result_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
+        let num_results = work_result_blob.read_byte()? as usize;
+        let mut results: Vec<WorkResult> = Vec::with_capacity(num_results);
+        for _ in 0..num_results {
+            let work_result = WorkResult::decode(work_result_blob)?;
+            results.push(work_result);
+        }
+        Ok(results)
+    }
+
     pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
-        let mut work_res_blob: Vec<u8> = Vec::with_capacity(self.len());
-        work_res_blob.extend_from_slice(&self.service.to_le_bytes());
-        work_res_blob.extend_from_slice(&self.code_hash[..]);
-        work_res_blob.extend_from_slice(&self.payload_hash[..]);
-        work_res_blob.extend_from_slice(&self.gas_ratio.to_le_bytes());
+
+        let mut work_res_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkResult>());
+
+        self.service.encode_to(&mut work_res_blob);
+        self.code_hash.encode_to(&mut work_res_blob);
+        self.payload_hash.encode_to(&mut work_res_blob);
+        self.gas_ratio.encode_to(&mut work_res_blob);
+
         let exec_result = self.result[0];
         work_res_blob.push(exec_result);
         if exec_result == 0 {
@@ -163,58 +149,67 @@ impl WorkResult {
         Ok(work_res_blob)
     }
 
-    pub fn len(&self) -> usize {
-        return 4 + 32 + 32 + 8 + self.result.len();
+    pub fn encode_len(results: &[WorkResult]) -> Result<Vec<u8>, ReadError> {
+        let mut encoded: Vec<u8> = Vec::new();
+        encoded.push(results.len() as u8);
+        for result in results {
+            encoded.extend_from_slice(&result.encode()?);
+        }
+        Ok(encoded)
     }
+
+    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
+        self.service.encode_to(into);
+        self.code_hash.encode_to(into);
+        self.payload_hash.encode_to(into);
+        self.gas_ratio.encode_to(into);
+
+        into.push(self.result[0]); 
+
+        if self.result[0] == 0 {
+            let len = self.result[1]; 
+            into.push(len);
+            for i in 2..(2 + len as usize) {
+                into.push(self.result[i]); 
+            }
+        }
+
+        Ok(())
+    }
+}
+
+pub struct WorkPackage {
+    authorization: Vec<u8>,
+    auth_code_host: ServiceId,
+    authorizer: Authorizer,
+    context: RefineContext,
+    pub items: Vec<WorkItem>,
 }
 
 impl WorkPackage {
     pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
         // Preallocate initial capacity
-        let mut work_pkg_blob: Vec<u8> = Vec::new();
-        // Encode WorkItem params
-        work_pkg_blob.push(self.authorization.len() as u8);
-        work_pkg_blob.extend_from_slice(&self.authorization[..]);
-        work_pkg_blob.extend_from_slice(&self.auth_code_host.to_le_bytes());
-        work_pkg_blob.extend_from_slice(&self.authorizer.code_hash[..]);
-        work_pkg_blob.push(self.authorizer.params.len() as u8);
-        work_pkg_blob.extend_from_slice(&self.authorizer.params[..]);
-        work_pkg_blob.extend_from_slice(&self.context.encode()?);
-        work_pkg_blob.push(self.items.len() as u8);
-
-        for i in 0..self.items.len() {
-            work_pkg_blob.extend_from_slice(&self.items[i].encode()?);
-        }
+        let mut work_pkg_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkPackage>());
+        // Encode WorkPackage params
+        self.authorization.as_slice().encode_len().encode_to(&mut work_pkg_blob);
+        self.auth_code_host.encode_size(4).encode_to(&mut work_pkg_blob);
+        self.authorizer.code_hash.encode_to(&mut work_pkg_blob);
+        self.authorizer.params.as_slice().encode_len().encode_to(&mut work_pkg_blob);
+        self.context.encode_to(&mut work_pkg_blob)?;
+        WorkItem::encode_len(&self.items)?.encode_to(&mut work_pkg_blob);
         
         Ok(work_pkg_blob)
     }
 
-    pub fn decode(work_pkg_blob: &[u8]) -> Result<Self, ReadError> {
+    pub fn decode(work_pkg_blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        let mut blob = SliceReader::new(work_pkg_blob);
-
-        let authorization_usize: Vec<usize> = decode_len(&blob.current_slice());
-        let authorization: Vec<u8> = authorization_usize.iter().map(|&x| x as u8).collect();
-        let mut index = authorization.len() + 1;
-        blob.inc_pos(authorization.len() + 1)?;
-        let auth_code_host: u32 = blob.read_u32()?; 
-        let code_hash: [u8; 32] = blob.read_32bytes()?; 
-        let params_usize: Vec<usize> = decode_len(&blob.current_slice());
-        let params: Vec<u8> = params_usize.iter().map(|&x| x as u8).collect();
-        blob.inc_pos(params.len() + 1);
+        let authorization = Vec::<u8>::decode_len(work_pkg_blob)?;
+        let auth_code_host = ServiceId::decode(work_pkg_blob)?;
+        let code_hash = OpaqueHash::decode(work_pkg_blob)?;
+        let params = Vec::<u8>::decode_len(work_pkg_blob)?;
         let authorizer = Authorizer {code_hash, params};
-
-        let context: RefineContext = RefineContext::decode(&blob.current_slice())?;
-        blob.inc_pos(context.len())?;
-
-        let num_items = blob.read_next_byte()?; 
-        let mut items: Vec<WorkItem> = Vec::with_capacity(4);
-        for _ in 0..num_items {
-            let item = WorkItem::decode(&blob.current_slice())?;
-            let item_size = WorkItem::len(&item); 
-            items.push(item);
-            blob.inc_pos(item_size);
-        }
+        let context = RefineContext::decode(work_pkg_blob)?;
+        let items = WorkItem::decode_len(work_pkg_blob)?;
         
         Ok(WorkPackage {
             authorization,
@@ -225,72 +220,129 @@ impl WorkPackage {
         })
     }
 }
-*/
-/*
+
 #[derive(Default, Clone)]
 pub struct ImportSpec {
-    pub tree_root: [u8; 32],
+    pub tree_root: OpaqueHash,
     pub index: u16,
+}
+
+impl ImportSpec {
+    fn decode(spec_blob: &mut BytesReader) -> Result<Self, ReadError> {
+        let tree_root = OpaqueHash::decode(spec_blob)?;
+        let index = u16::decode(spec_blob)?;
+
+        Ok(ImportSpec {
+            tree_root,
+            index,
+        })
+    }
+
+    fn decode_len(spec_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
+        let num_segments = spec_blob.read_byte()? as usize;
+        let mut import_segments: Vec<ImportSpec> = Vec::with_capacity(num_segments);
+        for _ in 0..num_segments {
+            import_segments.push(ImportSpec::decode(spec_blob)?);
+        } 
+        return Ok(import_segments);
+    }
+
+    fn encode(&self) -> Result<Vec<u8>, ReadError> {
+        let mut import_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<ImportSpec>());
+        self.encode_to(&mut import_blob);
+        Ok(import_blob)
+    }
+
+    fn encode_len(import_segments: &[ImportSpec]) -> Result<Vec<u8>, ReadError> {
+        let mut import_blob_len: Vec<u8> = Vec::with_capacity(1 + import_segments.len() * std::mem::size_of::<ImportSpec>());
+        import_blob_len.push(import_segments.len() as u8); 
+        for import in import_segments {
+            import_blob_len.extend_from_slice(&import.encode()?);
+        }
+        Ok(import_blob_len)
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.tree_root.encode()); 
+        into.extend_from_slice(&self.index.encode()); 
+    }
 }
 
 #[derive(Default, Clone)]
 pub struct ExtrinsicSpec {
-    pub hash: [u8; 32],
+    pub hash: OpaqueHash,
     pub len: u32,
 }
 
+impl ExtrinsicSpec {
+    fn decode(ext_blob: &mut BytesReader) -> Result<Self, ReadError> {
+        let hash = OpaqueHash::decode(ext_blob)?;
+        let len = u32::decode(ext_blob)?;
+
+        Ok(ExtrinsicSpec {
+            hash,
+            len,
+        })
+    }
+
+    fn decode_len(ext_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
+        let num_extrinsics = ext_blob.read_byte()? as usize;
+        let mut extrinsic: Vec<ExtrinsicSpec> = Vec::with_capacity(num_extrinsics);
+        for _ in 0..num_extrinsics {
+            extrinsic.push(ExtrinsicSpec::decode(ext_blob)?);
+        }
+
+        Ok(extrinsic)
+    }
+
+    fn encode(&self) -> Result<Vec<u8>, ReadError> {
+        let mut ext_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<ExtrinsicSpec>());
+        self.hash.encode_to(&mut ext_blob);
+        self.len.encode_to(&mut ext_blob);
+        Ok(ext_blob)
+    }
+
+    fn encode_len(extrinsics: &[ExtrinsicSpec]) -> Result<Vec<u8>, ReadError> {
+        let mut ext_blob_len: Vec<u8> = Vec::with_capacity(1 + extrinsics.len() * std::mem::size_of::<ExtrinsicSpec>());
+        ext_blob_len.push(extrinsics.len() as u8); 
+        for ext in extrinsics {
+            ext_blob_len.extend_from_slice(&ext.encode()?);
+        }
+        Ok(ext_blob_len)
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.hash.encode()); 
+        into.extend_from_slice(&self.len.encode());
+    }
+}
+
 struct Authorizer {
-    code_hash: [u8; 32],
+    code_hash: OpaqueHash,
     params: Vec<u8>,
 }
 
 pub struct WorkItem {
     service: ServiceId,
-    code_hash: [u8; 32],
+    code_hash: OpaqueHash,
     payload: Vec<u8>,
-    gas_limit: u64,
+    gas_limit: Gas,
     import_segments: Vec<ImportSpec>,
     extrinsic: Vec<ExtrinsicSpec>,
     export_count: u16,
 }
 
 impl WorkItem {
-    pub fn decode(blob: &mut SliceReader) -> Result<Self, ReadError> {
-        // Leer el service (u32)
-        let service = blob.read::<u32>()?;
+    pub fn decode(work_item_blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let service = ServiceId::decode(work_item_blob)?;
+        let code_hash = OpaqueHash::decode(work_item_blob)?;
+        let payload = Vec::<u8>::decode_len(work_item_blob)?;
+        let gas_limit = Gas::decode(work_item_blob)?;  
+        let import_segments = ImportSpec::decode_len(work_item_blob)?;
+        let extrinsic = ExtrinsicSpec::decode_len(work_item_blob)?;
+        let export_count = u16::decode(work_item_blob)?;
     
-        // Leer el code_hash (32 bytes)
-        let code_hash = blob.read::<[u8; 32]>()?;
-    
-        // Leer el payload como un Vec<u8> después de calcular el tamaño usando decode_len
-        let payload_usize: Vec<usize> = decode_len(blob.get_slice());
-        let payload: Vec<u8> = payload_usize.iter().map(|&x| x as u8).collect();
-    
-        // Leer el gas_limit (u64)
-        let gas_limit = blob.read::<u64>()?;
-    
-        // Leer el número de segmentos de importación (u8) y construir los segmentos
-        let num_segments = blob.read::<u8>()? as usize;
-        let mut import_segments = Vec::with_capacity(num_segments);
-        for _ in 0..num_segments {
-            let tree_root = blob.read::<[u8; 32]>()?;
-            let index_segment = blob.read::<u16>()?;
-            import_segments.push(ImportSpec { tree_root, index: index_segment });
-        }
-    
-        // Leer el número de extrínsecos (u8) y construir los extrinsics
-        let num_extrinsics = blob.read::<u8>()? as usize;
-        let mut extrinsic = Vec::with_capacity(num_extrinsics);
-        for _ in 0..num_extrinsics {
-            let hash = blob.read::<[u8; 32]>()?;
-            let len = blob.read::<u32>()?;
-            extrinsic.push(ExtrinsicSpec { hash, len });
-        }
-    
-        // Leer export_count (u16)
-        let export_count = blob.read::<u16>()?;
-    
-        // Retornar el WorkItem ya construido
         Ok(WorkItem {
             service,
             code_hash,
@@ -302,32 +354,40 @@ impl WorkItem {
         })
     }
 
+    pub fn decode_len(work_item_blob: &mut BytesReader) -> Result<Vec<WorkItem>, ReadError> {
+        let num_items = work_item_blob.read_byte()? as usize;
+        let mut items = Vec::with_capacity(num_items);
+        for _ in 0..num_items {
+            items.push(WorkItem::decode(work_item_blob)?);
+        }
+        Ok(items)
+    }
+
     pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
         // Preallocate initial capacity
-        let mut work_item_blob: Vec<u8> = Vec::with_capacity(self.len());
+        let mut work_item_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkItem>());
         // Encode WorkItem params
-        work_item_blob.extend_from_slice(&self.service.to_le_bytes());
-        work_item_blob.extend_from_slice(&self.code_hash);
-        work_item_blob.extend_from_slice(&(&self.payload[..]).encode_len());
-        work_item_blob.extend_from_slice(&self.gas_limit.to_le_bytes());
-        work_item_blob.push(self.import_segments.len() as u8);
-        for segment in &self.import_segments {
-            work_item_blob.extend_from_slice(&segment.tree_root);
-            work_item_blob.extend_from_slice(&segment.index.to_le_bytes());
-        }
-        work_item_blob.push(self.extrinsic.len() as u8);
-        for ext in &self.extrinsic {
-            work_item_blob.extend_from_slice(&ext.hash);
-            work_item_blob.extend_from_slice(&ext.len.to_le_bytes());
-        }
-        work_item_blob.extend_from_slice(&self.export_count.to_le_bytes());
-        
+        self.service.encode_to(&mut work_item_blob);
+        self.code_hash.encode_to(&mut work_item_blob);
+        self.payload.as_slice().encode_len().encode_to(&mut work_item_blob);
+        self.gas_limit.encode_to(&mut work_item_blob);
+        ImportSpec::encode_len(&self.import_segments)?.encode_to(&mut work_item_blob);
+        ExtrinsicSpec::encode_len(&self.extrinsic)?.encode_to(&mut work_item_blob);
+        self.export_count.encode_to(&mut work_item_blob);      
         Ok(work_item_blob)
     }
 
-    pub fn len(&self) -> usize {
-        return 4 + 32 + 1 + self.payload.len() + 8 + 1 + self.import_segments.len() * (32 + 2) + 1 + self.extrinsic.len() * (32 + 4) + 2;
+    fn encode_len(items: &[WorkItem]) -> Result<Vec<u8>, ReadError> {
+        let mut blob: Vec<u8> = Vec::new();
+        blob.push(items.len() as u8);
+        for item in items {
+            blob.extend_from_slice(&item.encode()?);
+        }
+        Ok(blob)
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
+        into.extend_from_slice(&self.encode()?);
+        Ok(())
     }
 }
-    
-*/

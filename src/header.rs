@@ -3,11 +3,9 @@ use crate::globals::*;
 
 use crate::codec::*;
 
-/*
-
 #[derive(Debug)]
 struct EpochMark {
-    entropy: [u8; 32],
+    entropy: OpaqueHash,
     validators: Vec<BandersnatchKey>,
 }
 
@@ -59,29 +57,29 @@ pub struct Header {
 
 impl Header {
 
-    pub fn decode(header_blob: &[u8]) -> Result<Self, ReadError> {
-        let mut blob = SliceReader::new(header_blob);
-        let parent = blob.read_32bytes()?;
-        let parent_state_root = blob.read_32bytes()?;
-        let extrinsic_hash = blob.read_32bytes()?;
-        let slot = blob.read_u32()?;
+    pub fn decode(header_blob: &mut BytesReader) -> Result<Self, ReadError> {
         
-        let epoch_mark = if blob.read_next_byte()? != 0 {
-            let entropy = blob.read_32bytes()?;
+        let parent = OpaqueHash::decode(header_blob)?;
+        let parent_state_root = OpaqueHash::decode(header_blob)?;
+        let extrinsic_hash = OpaqueHash::decode(header_blob)?;
+        let slot = TimeSlot::decode(header_blob)?;
+        
+        let epoch_mark = if header_blob.read_byte()? != 0 {
+            let entropy = OpaqueHash::decode(header_blob)?;
             let mut validators: Vec<BandersnatchKey> = Vec::with_capacity(NUM_VALIDATORS);
             for _ in 0..NUM_VALIDATORS {
-                validators.push(blob.read_32bytes()?);
+                validators.push(BandersnatchKey::decode(header_blob)?);
             }
             Some(EpochMark { entropy, validators })
             } else {
                 None
             };
 
-        let tickets_mark = if blob.read_next_byte()? != 0 {
+        let tickets_mark = if header_blob.read_byte()? != 0 {
             let mut tickets: Vec<TicketBody> = Vec::new(); 
             for _ in 0..EPOCH_LENGTH {
-                let id = blob.read_32bytes()?;
-                let attempt = blob.read_next_byte()?;
+                let id = OpaqueHash::decode(header_blob)?;
+                let attempt = TicketAttempt::decode(header_blob)?;
                 tickets.push(TicketBody { id, attempt });
             }
             Some(TicketsMark { tickets_mark: tickets })
@@ -89,14 +87,14 @@ impl Header {
             None
         };
 
-        let num_offenders = blob.read_next_byte()? as usize;
+        let num_offenders = header_blob.read_byte()? as usize;
         let mut offenders_mark: Vec<Ed25519Key> = Vec::with_capacity(num_offenders);
         for _ in 0..num_offenders {
-            offenders_mark.push(blob.read_32bytes()?);
+            offenders_mark.push(Ed25519Key::decode(header_blob)?);
         }
-        let author_index = blob.read_u16()?;
-        let entropy_source = blob.read_96bytes()?;
-        let seal = blob.read_96bytes()?;
+        let author_index = ValidatorIndex::decode(header_blob)?;
+        let entropy_source = BandersnatchVrfSignature::decode(header_blob)?;
+        let seal = BandersnatchVrfSignature::decode(header_blob)?;
         
         Ok(Header {
             parent,
@@ -141,4 +139,9 @@ impl Header {
 
         Ok(blob)
     }
-}*/
+
+    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError {
+        into.extend_from_slice(&self.encode()?); 
+        Ok(())
+    }
+}

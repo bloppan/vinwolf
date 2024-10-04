@@ -1,4 +1,5 @@
 pub type ServiceId = u32;
+pub type Gas = u64;
 pub type TimeSlot = u32;
 pub type ValidatorIndex = u16;
 pub type CoreIndex = u16;
