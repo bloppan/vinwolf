@@ -1,4 +1,7 @@
 use serde::Deserialize;
+use crate::codec::*;
+use crate::header::Header;
+use crate::extrinsic::*;
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub struct TicketEnvelope {
@@ -25,15 +28,6 @@ pub struct Extrinsic {
 }*/
 
 
-use crate::types::*;
-use crate::globals::*;
-
-use crate::codec::*;
-
-
-use crate::header::Header;
-use crate::extrinsic::*;
-
 pub struct Extrinsic {
     tickets: TicketsExtrinsic,
     disputes: DisputesExtrinsic,
@@ -44,11 +38,11 @@ pub struct Extrinsic {
 
 impl Extrinsic {
     pub fn decode(extrinsic_blob: &mut BytesReader) -> Result<Self, ReadError> {
-        let tickets: TicketsExtrinsic::decode(extrinsic_blob)?;
-        let disputes: DisputesExtrinsic::decode(extrinsic_blob)?;
-        let preimages: PreimagesExtrinsic::decode(extrinsic_blob)?;
-        let assurances: AssurancesExtrinsic::decode(extrinsic_blob)?;
-        let guarantees: GuaranteesExtrinsic::decode(extrinsic_blob)?;
+        let tickets = TicketsExtrinsic::decode(extrinsic_blob)?;
+        let disputes = DisputesExtrinsic::decode(extrinsic_blob)?;
+        let preimages = PreimagesExtrinsic::decode(extrinsic_blob)?;
+        let assurances = AssurancesExtrinsic::decode(extrinsic_blob)?;
+        let guarantees = GuaranteesExtrinsic::decode(extrinsic_blob)?;
 
         Ok(Extrinsic {
             tickets,
@@ -62,7 +56,7 @@ impl Extrinsic {
     pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
         let mut extrinsic_blob: Vec<u8> = Vec::new();
         self.tickets.encode_to(&mut extrinsic_blob)?;
-        self.disputes.encode_to(&mut extinsic_blob)?;
+        self.disputes.encode_to(&mut extrinsic_blob)?;
         self.preimages.encode_to(&mut extrinsic_blob)?;
         self.assurances.encode_to(&mut extrinsic_blob)?;
         self.guarantees.encode_to(&mut extrinsic_blob)?;
@@ -70,7 +64,7 @@ impl Extrinsic {
         Ok(extrinsic_blob)
     }
 
-    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError {
+    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
         into.extend_from_slice(&self.encode()?); 
         Ok(())
     }
@@ -84,8 +78,8 @@ pub struct Block {
 impl Block {
 
     pub fn decode(block_blob: &mut BytesReader) -> Result<Self, ReadError> {
-        let header = Header::decode(block_blob);
-        let extrinsic = Extrinsic::decode(block_blob);
+        let header = Header::decode(block_blob)?;
+        let extrinsic = Extrinsic::decode(block_blob)?;
         Ok(Block { header, extrinsic })
     }
 

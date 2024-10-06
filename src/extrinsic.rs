@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use crate::types::*;
 use crate::globals::*;
 
@@ -60,7 +61,7 @@ impl GuaranteesExtrinsic {
         Ok(guarantees_blob)
     }
 
-    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError {
+    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
         into.extend_from_slice(&self.encode()?); 
         Ok(())
     }
@@ -116,7 +117,7 @@ impl AssurancesExtrinsic {
         Ok(assurances_blob)
     }
 
-    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError {
+    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
         into.extend_from_slice(&self.encode()?); 
         Ok(())
     }
@@ -154,7 +155,7 @@ impl PreimagesExtrinsic {
         Ok(preimg_encoded)
     }
 
-    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError {
+    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
         into.extend_from_slice(&self.encode()?); 
         Ok(())
     }
@@ -237,41 +238,41 @@ impl DisputesExtrinsic {
         })
     }
 
-    pub fn encode(dispute: &DisputesExtrinsic) -> Result<Vec<u8>, ReadError> {
+    pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
 
         let mut dispute_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<DisputesExtrinsic>());
-        let num_verdicts = dispute.verdicts.len() as u8;
+        let num_verdicts = self.verdicts.len() as u8;
         dispute_blob.push(num_verdicts);
         for i in 0..num_verdicts {
-            dispute.verdicts[i as usize].target.encode_to(&mut dispute_blob);
-            dispute.verdicts[i as usize].age.encode_size(4).encode_to(&mut dispute_blob);
+            self.verdicts[i as usize].target.encode_to(&mut dispute_blob);
+            self.verdicts[i as usize].age.encode_size(4).encode_to(&mut dispute_blob);
             
             for j in 0..VALIDATORS_SUPER_MAJORITY {
-                dispute_blob.push(dispute.verdicts[i as usize].votes[j as usize].vote as u8);
-                dispute.verdicts[i as usize].votes[j as usize].index.encode_size(2).encode_to(&mut dispute_blob);
-                dispute.verdicts[i as usize].votes[j as usize].signature.encode_to(&mut dispute_blob);
+                dispute_blob.push(self.verdicts[i as usize].votes[j as usize].vote as u8);
+                self.verdicts[i as usize].votes[j as usize].index.encode_size(2).encode_to(&mut dispute_blob);
+                self.verdicts[i as usize].votes[j as usize].signature.encode_to(&mut dispute_blob);
             }
         }
-        let num_culprits = dispute.culprits.len() as u8;
+        let num_culprits = self.culprits.len() as u8;
         dispute_blob.push(num_culprits);
         for i in 0..num_culprits {
-            dispute.culprits[i as usize].target.encode_to(&mut dispute_blob);
-            dispute.culprits[i as usize].key.encode_to(&mut dispute_blob);
-            dispute.culprits[i as usize].signature.encode_to(&mut dispute_blob);
+            self.culprits[i as usize].target.encode_to(&mut dispute_blob);
+            self.culprits[i as usize].key.encode_to(&mut dispute_blob);
+            self.culprits[i as usize].signature.encode_to(&mut dispute_blob);
         }
-        let num_faults = dispute.faults.len() as u8;
+        let num_faults = self.faults.len() as u8;
         dispute_blob.push(num_faults);
         for i in 0..num_faults {
-            dispute.faults[i as usize].target.encode_to(&mut dispute_blob);
-            dispute_blob.push(dispute.faults[i as usize].vote as u8);
-            dispute.faults[i as usize].key.encode_to(&mut dispute_blob);
-            dispute.faults[i as usize].signature.encode_to(&mut dispute_blob);
+            self.faults[i as usize].target.encode_to(&mut dispute_blob);
+            dispute_blob.push(self.faults[i as usize].vote as u8);
+            self.faults[i as usize].key.encode_to(&mut dispute_blob);
+            self.faults[i as usize].signature.encode_to(&mut dispute_blob);
         }
         
         Ok(dispute_blob)
     }
 
-    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError {
+    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
         into.extend_from_slice(&self.encode()?); 
         Ok(())
     }
@@ -281,7 +282,7 @@ pub struct TicketsExtrinsic {
     tickets: Vec<TicketEnvelope>,
 }
 
-impl TicketsExtrinsic {
+/*impl TicketsExtrinsic {
     pub fn decode(tickets_blob: &mut BytesReader) -> Result<Self, ReadError> {
         let tickets = TicketEnvelope::decode(tickets_blob)?; // Decodificar la lista de TicketEnvelope
         Ok(TicketsExtrinsic { tickets })
@@ -300,15 +301,16 @@ impl TicketsExtrinsic {
         into.extend_from_slice(&self.encode()?); // Llama al método encode y extiende
         Ok(())
     }
-}
+}*/
+
 
 pub struct TicketEnvelope {
-    attempt: TicketAttempt,
-    signature: BandersnatchRingSignature,
+    pub attempt: TicketAttempt,
+    pub signature: BandersnatchRingSignature,
 }
 
-impl TicketEnvelope {
-    pub fn decode(ticket_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
+impl TicketsExtrinsic {
+    pub fn decode(ticket_blob: &mut BytesReader) -> Result<Self, ReadError> {
         let num_tickets = ticket_blob.read_byte()? as usize;
         let mut ticket_envelop = Vec::with_capacity(num_tickets);
         for _ in 0..num_tickets {
@@ -316,17 +318,22 @@ impl TicketEnvelope {
             let signature = BandersnatchRingSignature::decode(ticket_blob)?;
             ticket_envelop.push(TicketEnvelope{ attempt, signature });
         }      
-        Ok(ticket_envelop)
+        Ok(TicketsExtrinsic { tickets: ticket_envelop })
     }
 
-    pub fn encode(tickets: &[TicketEnvelope]) -> Result<Vec<u8>, ReadError> {
-        let num_tickets = tickets.len();
+    pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
+        let num_tickets = self.tickets.len();
         let mut ticket_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<TicketEnvelope>() * num_tickets);
         ticket_blob.push(num_tickets as u8);
-        for i in 0..num_tickets {
-            tickets[i].attempt.encode_to(&mut ticket_blob);
-            tickets[i].signature.encode_to(&mut ticket_blob);
+        for ticket in &self.tickets {
+            ticket.attempt.encode_to(&mut ticket_blob);
+            ticket.signature.encode_to(&mut ticket_blob);
         }
         Ok(ticket_blob)
+    }
+
+    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
+        into.extend_from_slice(&self.encode()?); 
+        Ok(())
     }
 }

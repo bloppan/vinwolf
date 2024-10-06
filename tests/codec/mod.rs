@@ -14,7 +14,7 @@ use vinwolf::work::package::WorkPackage;
 use vinwolf::work::package::WorkResult;
 use vinwolf::work::package::WorkReport;
 
-use vinwolf::extrinsic::TicketEnvelope;
+use vinwolf::extrinsic::TicketsExtrinsic;
 use vinwolf::extrinsic::DisputesExtrinsic;
 use vinwolf::extrinsic::PreimagesExtrinsic;
 use vinwolf::extrinsic::AssurancesExtrinsic;
@@ -93,8 +93,8 @@ mod tests {
     fn run_tickets_extrinsic() {
         let test = read_codec_test("data/codec/data/tickets_extrinsic.bin");
         let mut tickets_extrinsic_test = BytesReader::new(&test);
-        let ticket_decoded = TicketEnvelope::decode(&mut tickets_extrinsic_test).expect("Error decoding TicketEnvelope");
-        let res = TicketEnvelope::encode(&ticket_decoded.as_slice()).expect("Error encoding TicketEnvelope");
+        let ticket_decoded = TicketsExtrinsic::decode(&mut tickets_extrinsic_test).expect("Error decoding TicketEnvelope");
+        let res = TicketsExtrinsic::encode(&ticket_decoded).expect("Error encoding TicketEnvelope");
         assert_eq!(test, res);
     }
 

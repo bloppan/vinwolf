@@ -140,7 +140,7 @@ impl Header {
         Ok(blob)
     }
 
-    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError {
+    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
         into.extend_from_slice(&self.encode()?); 
         Ok(())
     }
