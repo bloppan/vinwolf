@@ -69,9 +69,27 @@ impl Encode for u32 {
     }
 }
 
+impl Encode for i32 {
+    fn encode(&self) -> Vec<u8> {
+        self.to_le_bytes().to_vec()
+    }
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.extend_from_slice(&self.encode())
+    }
+}
+
 impl Encode for usize {
     fn encode(&self) -> Vec<u8> {
         self.to_le_bytes().to_vec()
+    }
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.extend_from_slice(&self.encode())
+    }
+}
+
+impl Encode for [u8] {
+    fn encode(&self) -> Vec<u8> {
+        self.to_vec()        
     }
     fn encode_to(&self, writer: &mut Vec<u8>) {
         writer.extend_from_slice(&self.encode())

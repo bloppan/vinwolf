@@ -1,11 +1,10 @@
-use serde::Deserialize;
-use crate::types::*;
-use crate::globals::*;
-
-use crate::codec::*;
-
+use crate::types::{
+    ValidatorIndex, Ed25519Key, Ed25519Signature, TimeSlot, 
+    OpaqueHash, ServiceId, BandersnatchRingSignature, TicketAttempt
+};
+use crate::globals::{VALIDATORS_SUPER_MAJORITY, AVAIL_BITFIELD_BYTES};
+use crate::codec::{Encode, EncodeSize, EncodeLen, Decode, DecodeLen, ReadError, BytesReader};
 use crate::work::package::WorkReport;
-
 
 struct ValidatorSignature {
     validator_index: ValidatorIndex,
@@ -49,7 +48,7 @@ impl GuaranteesExtrinsic {
         guarantees_blob.push(self.report_guarantee.len() as u8);
 
         for guarantee in &self.report_guarantee {
-            guarantee.report.encode_to(&mut guarantees_blob);
+            let _ = guarantee.report.encode_to(&mut guarantees_blob);
             guarantee.slot.encode_size(4).encode_to(&mut guarantees_blob);
             guarantees_blob.push(guarantee.signatures.len() as u8);
             for signature in &guarantee.signatures {
@@ -129,7 +128,7 @@ struct Preimage {
 }
 
 pub struct PreimagesExtrinsic {
-    pub preimages: Vec<Preimage>,
+    preimages: Vec<Preimage>,
 }
 
 impl PreimagesExtrinsic {
@@ -167,16 +166,65 @@ struct Judgement {
     signature: Ed25519Signature,
 }
 
-struct Verdict {
-    target: OpaqueHash,
-    age: u32,
-    votes: Vec<Judgement>,
+impl Judgement {
+    fn decode_len(judgement_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
+        let mut votes: Vec<Judgement> = Vec::with_capacity(VALIDATORS_SUPER_MAJORITY);
+        for _ in 0..VALIDATORS_SUPER_MAJORITY {
+            let vote: bool = judgement_blob.read_byte()? != 0;
+            let index = ValidatorIndex::decode(judgement_blob)?;
+            let signature = Ed25519Signature::decode(judgement_blob)?; 
+            let judgement = Judgement {vote, index, signature};
+            votes.push(judgement);
+        }
+        Ok(votes)
+    }
+}
+
+pub struct DisputesExtrinsic {
+    verdicts: Vec<Verdict>,
+    culprits: Vec<Culprit>,
+    faults: Vec<Fault>,
 }
 
 struct Culprit {
     target: OpaqueHash,
     key: Ed25519Key,
     signature: Ed25519Signature,
+}
+
+impl Culprit {
+    fn decode_len(culprit_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
+        let num_culprits = culprit_blob.read_byte()? as usize; 
+        let mut culprits: Vec<Culprit> = Vec::with_capacity(num_culprits);
+        for _ in 0..num_culprits {
+            let target = OpaqueHash::decode(culprit_blob)?;
+            let key = Ed25519Key::decode(culprit_blob)?; 
+            let signature = Ed25519Signature::decode(culprit_blob)?;
+            let culprit = Culprit {target, key, signature};
+            culprits.push(culprit);
+        }
+        Ok(culprits)
+    }
+}
+
+struct Verdict {
+    target: OpaqueHash,
+    age: u32,
+    votes: Vec<Judgement>,
+}
+
+impl Verdict {
+    fn decode_len(verdict_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
+        let num_verdicts = verdict_blob.read_byte()? as usize;
+        let mut verdicts: Vec<Verdict> = Vec::with_capacity(num_verdicts);
+        for _ in 0..num_verdicts {
+            let target = OpaqueHash::decode(verdict_blob)?;
+            let age = u32::decode(verdict_blob)?;
+            let votes = Judgement::decode_len(verdict_blob)?;
+            verdicts.push(Verdict {target, age, votes});
+        }
+        Ok(verdicts)
+    }
 }
 
 struct Fault {
@@ -186,50 +234,28 @@ struct Fault {
     signature: Ed25519Signature,
 }
 
-pub struct DisputesExtrinsic {
-    verdicts: Vec<Verdict>,
-    culprits: Vec<Culprit>,
-    faults: Vec<Fault>,
+impl Fault {
+    fn decode_len(faults_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
+        let num_faults = faults_blob.read_byte()? as usize;
+        let mut faults: Vec<Fault> = Vec::with_capacity(num_faults);
+        for _ in 0..num_faults {
+            let target = OpaqueHash::decode(faults_blob)?; 
+            let vote: bool = faults_blob.read_byte()? != 0;
+            let key = OpaqueHash::decode(faults_blob)?;
+            let signature = Ed25519Signature::decode(faults_blob)?;
+            let fault = Fault {target, vote, key, signature};
+            faults.push(fault);
+        }
+        Ok(faults)
+    }
 }
 
 impl DisputesExtrinsic {
     pub fn decode(dispute_blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        let num_verdicts = dispute_blob.read_byte()? as usize;
-        let mut verdicts: Vec<Verdict> = Vec::with_capacity(num_verdicts);
-        for _ in 0..num_verdicts {
-            let mut votes: Vec<Judgement> = Vec::with_capacity(VALIDATORS_SUPER_MAJORITY);
-            let mut target = OpaqueHash::decode(dispute_blob)?;
-            let age = u32::decode(dispute_blob)?;
-            for _ in 0..VALIDATORS_SUPER_MAJORITY {
-                let vote: bool = dispute_blob.read_byte()? != 0;
-                let index = ValidatorIndex::decode(dispute_blob)?;
-                let signature = Ed25519Signature::decode(dispute_blob)?; 
-                let judgement = Judgement {vote, index, signature};
-                votes.push(judgement);
-            }
-            let verdict = Verdict {target, age, votes};
-            verdicts.push(verdict);
-        }
-        let num_culprits = dispute_blob.read_byte()? as usize; 
-        let mut culprits: Vec<Culprit> = Vec::with_capacity(num_culprits);
-        for _ in 0..num_culprits {
-            let target = OpaqueHash::decode(dispute_blob)?;
-            let key = Ed25519Key::decode(dispute_blob)?; 
-            let signature = Ed25519Signature::decode(dispute_blob)?;
-            let culprit = Culprit {target, key, signature};
-            culprits.push(culprit);
-        }
-        let num_faults = dispute_blob.read_byte()? as usize;
-        let mut faults: Vec<Fault> = Vec::with_capacity(num_faults);
-        for _ in 0..num_faults {
-            let target = OpaqueHash::decode(dispute_blob)?; 
-            let vote: bool = dispute_blob.read_byte()? != 0;
-            let key = OpaqueHash::decode(dispute_blob)?;
-            let signature = Ed25519Signature::decode(dispute_blob)?;
-            let fault = Fault {target, vote, key, signature};
-            faults.push(fault);
-        }
+        let verdicts = Verdict::decode_len(dispute_blob)?;
+        let culprits = Culprit::decode_len(dispute_blob)?;
+        let faults = Fault::decode_len(dispute_blob)?;
 
         Ok(DisputesExtrinsic {
             verdicts,
@@ -241,32 +267,28 @@ impl DisputesExtrinsic {
     pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
 
         let mut dispute_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<DisputesExtrinsic>());
-        let num_verdicts = self.verdicts.len() as u8;
-        dispute_blob.push(num_verdicts);
-        for i in 0..num_verdicts {
-            self.verdicts[i as usize].target.encode_to(&mut dispute_blob);
-            self.verdicts[i as usize].age.encode_size(4).encode_to(&mut dispute_blob);
-            
+        dispute_blob.push(self.verdicts.len() as u8);
+        for verdict in &self.verdicts {
+            verdict.target.encode_to(&mut dispute_blob);
+            verdict.age.encode_size(4).encode_to(&mut dispute_blob);
             for j in 0..VALIDATORS_SUPER_MAJORITY {
-                dispute_blob.push(self.verdicts[i as usize].votes[j as usize].vote as u8);
-                self.verdicts[i as usize].votes[j as usize].index.encode_size(2).encode_to(&mut dispute_blob);
-                self.verdicts[i as usize].votes[j as usize].signature.encode_to(&mut dispute_blob);
+                dispute_blob.push(verdict.votes[j as usize].vote as u8);
+                verdict.votes[j as usize].index.encode_size(2).encode_to(&mut dispute_blob);
+                verdict.votes[j as usize].signature.encode_to(&mut dispute_blob);
             }
         }
-        let num_culprits = self.culprits.len() as u8;
-        dispute_blob.push(num_culprits);
-        for i in 0..num_culprits {
-            self.culprits[i as usize].target.encode_to(&mut dispute_blob);
-            self.culprits[i as usize].key.encode_to(&mut dispute_blob);
-            self.culprits[i as usize].signature.encode_to(&mut dispute_blob);
+        dispute_blob.push(self.culprits.len() as u8);
+        for culprit in &self.culprits {
+            culprit.target.encode_to(&mut dispute_blob);
+            culprit.key.encode_to(&mut dispute_blob);
+            culprit.signature.encode_to(&mut dispute_blob);
         }
-        let num_faults = self.faults.len() as u8;
-        dispute_blob.push(num_faults);
-        for i in 0..num_faults {
-            self.faults[i as usize].target.encode_to(&mut dispute_blob);
-            dispute_blob.push(self.faults[i as usize].vote as u8);
-            self.faults[i as usize].key.encode_to(&mut dispute_blob);
-            self.faults[i as usize].signature.encode_to(&mut dispute_blob);
+        dispute_blob.push(self.faults.len() as u8);
+        for fault in &self.faults {
+            fault.target.encode_to(&mut dispute_blob);
+            dispute_blob.push(fault.vote as u8);
+            fault.key.encode_to(&mut dispute_blob);
+            fault.signature.encode_to(&mut dispute_blob);
         }
         
         Ok(dispute_blob)
@@ -281,28 +303,6 @@ impl DisputesExtrinsic {
 pub struct TicketsExtrinsic { 
     tickets: Vec<TicketEnvelope>,
 }
-
-/*impl TicketsExtrinsic {
-    pub fn decode(tickets_blob: &mut BytesReader) -> Result<Self, ReadError> {
-        let tickets = TicketEnvelope::decode(tickets_blob)?; // Decodificar la lista de TicketEnvelope
-        Ok(TicketsExtrinsic { tickets })
-    }
-
-    // Método encode para TicketsExtrinsic
-    pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
-        let mut tickets_blob: Vec<u8> = Vec::new();
-        // Codificar la lista de tickets
-        tickets_blob.extend_from_slice(&TicketEnvelope::encode(&self.tickets)?);
-        Ok(tickets_blob)
-    }
-
-    // Método encode_to para TicketsExtrinsic
-    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
-        into.extend_from_slice(&self.encode()?); // Llama al método encode y extiende
-        Ok(())
-    }
-}*/
-
 
 pub struct TicketEnvelope {
     pub attempt: TicketAttempt,
@@ -322,6 +322,12 @@ impl TicketsExtrinsic {
     }
 
     pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
+        let mut ticket_blob: Vec<u8> = Vec::new();
+        self.encode_len()?.encode_to(&mut ticket_blob);
+        Ok(ticket_blob)
+    }
+
+    fn encode_len(&self) -> Result<Vec<u8>, ReadError> {
         let num_tickets = self.tickets.len();
         let mut ticket_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<TicketEnvelope>() * num_tickets);
         ticket_blob.push(num_tickets as u8);

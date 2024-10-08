@@ -9,6 +9,7 @@ pub mod refine;
 pub mod work;
 pub mod extrinsic;
 pub mod header;
+pub mod trie;
 
 
 

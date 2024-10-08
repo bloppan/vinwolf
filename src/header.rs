@@ -73,7 +73,7 @@ impl Header {
             Some(EpochMark { entropy, validators })
             } else {
                 None
-            };
+        };
 
         let tickets_mark = if header_blob.read_byte()? != 0 {
             let mut tickets: Vec<TicketBody> = Vec::new(); 
@@ -83,8 +83,8 @@ impl Header {
                 tickets.push(TicketBody { id, attempt });
             }
             Some(TicketsMark { tickets_mark: tickets })
-        } else {
-            None
+            } else {
+                None
         };
 
         let num_offenders = header_blob.read_byte()? as usize;
@@ -112,32 +112,35 @@ impl Header {
 
     pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
 
-        let mut blob: Vec<u8> = Vec::new();
-        blob.extend_from_slice(&self.parent);
-        blob.extend_from_slice(&self.parent_state_root);
-        blob.extend_from_slice(&self.extrinsic_hash);
-        blob.extend_from_slice(&self.slot.to_le_bytes());
+        let mut header_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Header>());
+        self.parent.encode_to(&mut header_blob);
+        self.parent_state_root.encode_to(&mut header_blob);
+        self.extrinsic_hash.encode_to(&mut header_blob);
+        self.slot.encode_size(4).encode_to(&mut header_blob);
+  
         if let Some(epoch_mark) = &self.epoch_mark {
-            blob.extend_from_slice(&(1u8).encode());
-            blob.extend_from_slice(&epoch_mark.encode()); 
+            (1u8).encode_to(&mut header_blob);
+            header_blob.extend_from_slice(&epoch_mark.encode());
         } else {
-            blob.extend_from_slice(&(0u8).encode());
+            (0u8).encode_to(&mut header_blob);
         }
-        if let Some(tickets_mark) = &self.tickets_mark {
-            blob.extend_from_slice(&(1u8).encode());
-            blob.extend_from_slice(&tickets_mark.encode()); 
-        } else {
-            blob.extend_from_slice(&(0u8).encode());
-        }
-        blob.push(self.offenders_mark.len() as u8);
-        for mark in &self.offenders_mark {
-            blob.extend_from_slice(mark); 
-        }
-        blob.extend_from_slice(&self.author_index.to_le_bytes());
-        blob.extend_from_slice(&self.entropy_source);
-        blob.extend_from_slice(&self.seal);
 
-        Ok(blob)
+        if let Some(tickets_mark) = &self.tickets_mark {
+            (1u8).encode_to(&mut header_blob);
+            header_blob.extend_from_slice(&tickets_mark.encode()); 
+        } else {
+            (0u8).encode_to(&mut header_blob);
+        }
+        
+        header_blob.push(self.offenders_mark.len() as u8);
+        for mark in &self.offenders_mark {
+            mark.encode_to(&mut header_blob);
+        }
+        self.author_index.encode_size(2).encode_to(&mut header_blob);
+        self.entropy_source.encode_to(&mut header_blob);
+        self.seal.encode_to(&mut header_blob);
+
+        Ok(header_blob)
     }
 
     pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {

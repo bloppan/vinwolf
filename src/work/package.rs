@@ -96,7 +96,7 @@ impl WorkResult {
             0 => {
                 let len = work_result_blob.read_byte()?;
                 result.push(len);
-                for i in 0..len {
+                for _ in 0..len {
                     result.push(work_result_blob.read_byte()?); 
                 }
                 WorkExecResult::Ok
@@ -131,10 +131,10 @@ impl WorkResult {
 
         let mut work_res_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkResult>());
 
-        self.service.encode_to(&mut work_res_blob);
+        self.service.encode_size(4).encode_to(&mut work_res_blob);
         self.code_hash.encode_to(&mut work_res_blob);
         self.payload_hash.encode_to(&mut work_res_blob);
-        self.gas_ratio.encode_to(&mut work_res_blob);
+        self.gas_ratio.encode_size(8).encode_to(&mut work_res_blob);
 
         let exec_result = self.result[0];
         work_res_blob.push(exec_result);
@@ -278,7 +278,6 @@ impl ExtrinsicSpec {
     fn decode(ext_blob: &mut BytesReader) -> Result<Self, ReadError> {
         let hash = OpaqueHash::decode(ext_blob)?;
         let len = u32::decode(ext_blob)?;
-
         Ok(ExtrinsicSpec {
             hash,
             len,
@@ -291,14 +290,13 @@ impl ExtrinsicSpec {
         for _ in 0..num_extrinsics {
             extrinsic.push(ExtrinsicSpec::decode(ext_blob)?);
         }
-
         Ok(extrinsic)
     }
 
     fn encode(&self) -> Result<Vec<u8>, ReadError> {
         let mut ext_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<ExtrinsicSpec>());
         self.hash.encode_to(&mut ext_blob);
-        self.len.encode_to(&mut ext_blob);
+        self.len.encode_size(4).encode_to(&mut ext_blob);
         Ok(ext_blob)
     }
 
@@ -309,11 +307,6 @@ impl ExtrinsicSpec {
             ext_blob_len.extend_from_slice(&ext.encode()?);
         }
         Ok(ext_blob_len)
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.hash.encode()); 
-        into.extend_from_slice(&self.len.encode());
     }
 }
 
@@ -367,13 +360,13 @@ impl WorkItem {
         // Preallocate initial capacity
         let mut work_item_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkItem>());
         // Encode WorkItem params
-        self.service.encode_to(&mut work_item_blob);
+        self.service.encode_size(4).encode_to(&mut work_item_blob);
         self.code_hash.encode_to(&mut work_item_blob);
         self.payload.as_slice().encode_len().encode_to(&mut work_item_blob);
-        self.gas_limit.encode_to(&mut work_item_blob);
+        self.gas_limit.encode_size(8).encode_to(&mut work_item_blob);
         ImportSpec::encode_len(&self.import_segments)?.encode_to(&mut work_item_blob);
         ExtrinsicSpec::encode_len(&self.extrinsic)?.encode_to(&mut work_item_blob);
-        self.export_count.encode_to(&mut work_item_blob);      
+        self.export_count.encode_size(2).encode_to(&mut work_item_blob);
         Ok(work_item_blob)
     }
 
@@ -384,10 +377,5 @@ impl WorkItem {
             blob.extend_from_slice(&item.encode()?);
         }
         Ok(blob)
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
-        into.extend_from_slice(&self.encode()?);
-        Ok(())
     }
 }

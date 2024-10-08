@@ -42,7 +42,7 @@ impl RefineContext {
         self.state_root.encode_to(&mut refine_blob);
         self.beefy_root.encode_to(&mut refine_blob);
         self.lookup_anchor.encode_to(&mut refine_blob);
-        refine_blob.extend_from_slice(&self.lookup_anchor_slot.encode_size(4));
+        self.lookup_anchor_slot.encode_size(4).encode_to(&mut refine_blob);
 
         if let Some(prereq) = &self.prerequisite {
             refine_blob.extend_from_slice(prereq);

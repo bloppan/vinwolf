@@ -1,4 +1,3 @@
-use serde::Deserialize;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
@@ -36,6 +35,7 @@ mod tests {
         return content;
     }
 
+    #[test]
     fn run_refine_context_test() {
         let test = read_codec_test("data/codec/data/refine_context.bin");
         let mut refine_test = BytesReader::new(&test);
