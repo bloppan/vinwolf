@@ -1,6 +1,12 @@
 use crate::codec::{BytesReader, Encode, EncodeSize, Decode, ReadError};
 use crate::types::{OpaqueHash, TimeSlot};
 
+// A refinement context, denoted by the set X, describes the context of the chain at the point 
+// that the report’s corresponding work-package was evaluated. It identifies two historical blocks, 
+// the anchor, header hash a along with its associated posterior state-root s and posterior Beefy root b; 
+// and the lookupanchor, header hash l and of timeslot t. Finally, it identifies the hash of an optional 
+// prerequisite work-package p.
+
 pub struct RefineContext {
     pub anchor: OpaqueHash,
     pub state_root: OpaqueHash,
@@ -34,7 +40,7 @@ impl RefineContext {
         })
     }
     
-    pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
+    pub fn encode(&self) -> Vec<u8> {
 
         let mut refine_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<RefineContext>());  
         
@@ -50,12 +56,11 @@ impl RefineContext {
             refine_blob.push(0u8);
         }
     
-        Ok(refine_blob)
+        return refine_blob;
     }
 
-    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
-        into.extend_from_slice(&self.encode()?);
-        Ok(())
+    pub fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
     }
 }
 

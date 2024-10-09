@@ -42,6 +42,15 @@ impl Encode for u64 {
     }
 }
 
+impl Encode for bool {
+    fn encode(&self) -> Vec<u8> {
+        vec![if *self { 1u8 } else { 0u8 }]
+    }
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.push(self.encode()[0])
+    }
+}
+
 impl Encode for u8 {
     fn encode(&self) -> Vec<u8> {
         self.to_le_bytes().to_vec()

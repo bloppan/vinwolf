@@ -1,9 +1,23 @@
-use crate::types::*;
-use crate::globals::*;
+use crate::types::{
+    OpaqueHash, TimeSlot, Ed25519Key, ValidatorIndex, BandersnatchVrfSignature, 
+    BandersnatchKey, TicketAttempt
+};
+use crate::globals::{EPOCH_LENGTH, NUM_VALIDATORS};
+use crate::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 
-use crate::codec::*;
+// The epoch and winning-tickets markers are information placed in the header in order to minimize 
+// data transfer necessary to determine the validator keys associated with any given epoch. They 
+// are particularly useful to nodes which do not synchronize the entire state for any given block 
+// since they facilitate the secure tracking of changes to the validator key sets using only the 
+// chain of headers.
 
-#[derive(Debug)]
+
+// The epoch marker specifies key and entropy relevant to the following epoch in case the ticket 
+// contest does not complete adequately (a very much unexpected eventuality).The epoch marker is
+// either empty or, if the block is the first in a new epoch, then a tuple of the epoch randomness 
+// and a sequence of Bandersnatch keys defining the Bandersnatch validator keys (kb) beginning in 
+// the next epoch.
+
 struct EpochMark {
     entropy: OpaqueHash,
     validators: Vec<BandersnatchKey>,
@@ -20,14 +34,17 @@ impl EpochMark {
     }
 }
 
-#[derive(Debug)]
+// The Tickets Marker provides the series of EPOCH_LENGTH (600) slot sealing “tickets” for the next epoch. Is either 
+// empty or, if the block is the first after the end of the submission period for tickets and if the ticket accumulator 
+// is saturated, then the final sequence of ticket identifiers.
+
+struct TicketsMark {
+    tickets_mark: Vec<TicketBody>,
+}
+
 struct TicketBody {
     id: OpaqueHash,
     attempt: TicketAttempt,
-}
-#[derive(Debug)]
-struct TicketsMark {
-    tickets_mark: Vec<TicketBody>,
 }
 
 impl TicketsMark {
@@ -41,7 +58,11 @@ impl TicketsMark {
     }
 }
 
-#[derive(Debug)]
+// The header comprises a parent hash and prior state root, an extrinsic hash, a time-slot index, the epoch, 
+// winning-tickets and offenders markers, and, a Bandersnatch block author index and two Bandersnatch signatures; 
+// the entropy-yielding, vrf signature, and a block seal. Excepting the Genesis header, all block headers H have
+// an associated parent header, whose hash is Hp.
+
 pub struct Header {
     parent: OpaqueHash,
     parent_state_root: OpaqueHash,
@@ -110,7 +131,7 @@ impl Header {
         })
     }
 
-    pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
+    pub fn encode(&self) -> Vec<u8> {
 
         let mut header_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Header>());
         self.parent.encode_to(&mut header_blob);
@@ -140,11 +161,10 @@ impl Header {
         self.entropy_source.encode_to(&mut header_blob);
         self.seal.encode_to(&mut header_blob);
 
-        Ok(header_blob)
+        return header_blob;
     }
 
-    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
-        into.extend_from_slice(&self.encode()?); 
-        Ok(())
+    pub fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode()); 
     }
 }

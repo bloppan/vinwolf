@@ -2,12 +2,11 @@ use crate::types::{OpaqueHash, Gas, ServiceId, CoreIndex};
 use crate::refine::RefineContext;
 use crate::codec::{ReadError, BytesReader, Decode, DecodeLen, Encode, EncodeLen, EncodeSize};
 
-pub struct WorkPackageSpec {
-    hash: OpaqueHash,
-    len: u32,
-    erasure_root: OpaqueHash,
-    exports_root: OpaqueHash,
-}
+// A work-report, of the set W, is defined as a tuple of the work-package specification, the
+// refinement context, and the core-index (i.e. on which the work is done) as well as the 
+// authorizer hash and output, a segment-root lookup dictionary, and finally the results of 
+// the evaluation of each of the items in the package, which is always at least one item and 
+// may be no more than I items.
 
 pub struct WorkReport {
     package_spec: WorkPackageSpec,
@@ -16,6 +15,13 @@ pub struct WorkReport {
     authorizer_hash: OpaqueHash,
     auth_output: Vec<u8>,
     results: Vec<WorkResult>,
+}
+
+pub struct WorkPackageSpec {
+    hash: OpaqueHash,
+    len: u32,
+    erasure_root: OpaqueHash,
+    exports_root: OpaqueHash,
 }
 
 impl WorkReport {
@@ -43,26 +49,51 @@ impl WorkReport {
         })
     }
 
-    pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
+    pub fn encode(&self) -> Vec<u8> {
         let mut work_report_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkReport>());
         
         self.package_spec.hash.encode_to(&mut work_report_blob);
         self.package_spec.len.encode_to(&mut work_report_blob);
         self.package_spec.erasure_root.encode_to(&mut work_report_blob);
         self.package_spec.exports_root.encode_to(&mut work_report_blob);
-        self.context.encode_to(&mut work_report_blob)?;
+        self.context.encode_to(&mut work_report_blob);
         self.core_index.encode_to(&mut work_report_blob);
         self.authorizer_hash.encode_to(&mut work_report_blob);
         self.auth_output.as_slice().encode_len().encode_to(&mut work_report_blob);
-        WorkResult::encode_len(&self.results)?.encode_to(&mut work_report_blob);
+        WorkResult::encode_len(&self.results).encode_to(&mut work_report_blob);
 
-        Ok(work_report_blob)
+        return work_report_blob;
     }
 
-    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
-        into.extend_from_slice(&self.encode()?);
-        Ok(())
+    pub fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
     }
+}
+
+// The Work Result is the data conduit by which services states may be altered through 
+// the computation done within a work-package. 
+
+// Work results are a tuple comprising several items. Firstly, the index of the service whose state 
+// is to be altered and thus whose refine code was already executed. We include the hash of the code 
+// of the service at the time of being reported, which must be accurately predicted within the 
+// work-report; Next, the hash of the payload within the work item which was executed in the refine 
+// stage to give this result. This has no immediate relevance, but is something provided to the 
+// accumulation logic of the service. We follow with the gas prioritization ratio used when determining 
+// how much gas should be allocated to execute of this item’s accumulate. Finally, there is the output 
+// or error of the execution of the code, which may be either an octet sequence in case it was successful, 
+// or a member of the set J (set of possible errors), if not. 
+// Possible errors are:
+//      Out-of-gas
+//      Unexpected program termination
+//      The code was not available for lookup in state at the posterior state of the lookup-anchor block.
+//      The code was available but was beyond the maximun size allowed Wc.
+
+pub struct WorkResult {
+    service: ServiceId,
+    code_hash: OpaqueHash,
+    payload_hash: OpaqueHash,
+    gas_ratio: Gas,
+    result: Vec<u8>,
 }
 
 enum WorkExecResult {
@@ -71,14 +102,7 @@ enum WorkExecResult {
     Panic = 2,
     BadCode = 3,
     CodeOversize = 4,
-}
-
-pub struct WorkResult {
-    service: ServiceId,
-    code_hash: OpaqueHash,
-    payload_hash: OpaqueHash,
-    gas_ratio: Gas,
-    result: Vec<u8>,
+    UnknownError = 5,
 }
 
 impl WorkResult {
@@ -105,7 +129,10 @@ impl WorkResult {
             2 => WorkExecResult::Panic,
             3 => WorkExecResult::BadCode,
             4 => WorkExecResult::CodeOversize,
-            _ => panic!("Valor inválido para WorkExecResult: {}", exec_result),
+            _ => { 
+                    println!("Valor inválido para WorkExecResult: {}", exec_result);
+                    WorkExecResult::UnknownError
+            }
         };
 
         Ok(WorkResult {
@@ -127,7 +154,7 @@ impl WorkResult {
         Ok(results)
     }
 
-    pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
+    pub fn encode(&self) -> Vec<u8> {
 
         let mut work_res_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkResult>());
 
@@ -146,19 +173,19 @@ impl WorkResult {
             }
         }
         
-        Ok(work_res_blob)
+        return work_res_blob;
     }
 
-    pub fn encode_len(results: &[WorkResult]) -> Result<Vec<u8>, ReadError> {
+    pub fn encode_len(results: &[WorkResult]) -> Vec<u8> {
         let mut encoded: Vec<u8> = Vec::new();
         encoded.push(results.len() as u8);
         for result in results {
-            encoded.extend_from_slice(&result.encode()?);
+            encoded.extend_from_slice(&result.encode());
         }
-        Ok(encoded)
+        return encoded;
     }
 
-    pub fn encode_to(&self, into: &mut Vec<u8>) -> Result<(), ReadError> {
+    pub fn encode_to(&self, into: &mut Vec<u8>) {
         self.service.encode_to(into);
         self.code_hash.encode_to(into);
         self.payload_hash.encode_to(into);
@@ -173,10 +200,12 @@ impl WorkResult {
                 into.push(self.result[i]); 
             }
         }
-
-        Ok(())
     }
 }
+
+// A work-package includes a simple blob acting as an authorization token, the index of the service which
+// hosts the authorization code, an authorization code hash and a parameterization blob, a context and a 
+// sequence of work items:
 
 pub struct WorkPackage {
     authorization: Vec<u8>,
@@ -187,18 +216,18 @@ pub struct WorkPackage {
 }
 
 impl WorkPackage {
-    pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
-        // Preallocate initial capacity
+    pub fn encode(&self) -> Vec<u8> {
+
         let mut work_pkg_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkPackage>());
-        // Encode WorkPackage params
+
         self.authorization.as_slice().encode_len().encode_to(&mut work_pkg_blob);
         self.auth_code_host.encode_size(4).encode_to(&mut work_pkg_blob);
         self.authorizer.code_hash.encode_to(&mut work_pkg_blob);
         self.authorizer.params.as_slice().encode_len().encode_to(&mut work_pkg_blob);
-        self.context.encode_to(&mut work_pkg_blob)?;
-        WorkItem::encode_len(&self.items)?.encode_to(&mut work_pkg_blob);
+        self.context.encode_to(&mut work_pkg_blob);
+        WorkItem::encode_len(&self.items).encode_to(&mut work_pkg_blob);
         
-        Ok(work_pkg_blob)
+        return work_pkg_blob;
     }
 
     pub fn decode(work_pkg_blob: &mut BytesReader) -> Result<Self, ReadError> {
@@ -221,7 +250,9 @@ impl WorkPackage {
     }
 }
 
-#[derive(Default, Clone)]
+// The Import Spec is a sequence of imported data segments, which identify a prior exported segment 
+// through an index and the identity of an exporting work-package. Its a member of Work Item.
+
 pub struct ImportSpec {
     pub tree_root: OpaqueHash,
     pub index: u16,
@@ -247,19 +278,19 @@ impl ImportSpec {
         return Ok(import_segments);
     }
 
-    fn encode(&self) -> Result<Vec<u8>, ReadError> {
+    fn encode(&self) -> Vec<u8> {
         let mut import_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<ImportSpec>());
         self.encode_to(&mut import_blob);
-        Ok(import_blob)
+        return import_blob;
     }
 
-    fn encode_len(import_segments: &[ImportSpec]) -> Result<Vec<u8>, ReadError> {
+    fn encode_len(import_segments: &[ImportSpec]) -> Vec<u8> {
         let mut import_blob_len: Vec<u8> = Vec::with_capacity(1 + import_segments.len() * std::mem::size_of::<ImportSpec>());
         import_blob_len.push(import_segments.len() as u8); 
         for import in import_segments {
-            import_blob_len.extend_from_slice(&import.encode()?);
+            import_blob_len.extend_from_slice(&import.encode());
         }
-        Ok(import_blob_len)
+        return import_blob_len;
     }
 
     fn encode_to(&self, into: &mut Vec<u8>) {
@@ -268,7 +299,9 @@ impl ImportSpec {
     }
 }
 
-#[derive(Default, Clone)]
+// The extrinsic spec is a sequence of blob hashes and lengths to be introduced in this block 
+// (and which we assume the validator knows). Its a member of Work Item
+
 pub struct ExtrinsicSpec {
     pub hash: OpaqueHash,
     pub len: u32,
@@ -293,20 +326,20 @@ impl ExtrinsicSpec {
         Ok(extrinsic)
     }
 
-    fn encode(&self) -> Result<Vec<u8>, ReadError> {
+    fn encode(&self) -> Vec<u8> {
         let mut ext_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<ExtrinsicSpec>());
         self.hash.encode_to(&mut ext_blob);
         self.len.encode_size(4).encode_to(&mut ext_blob);
-        Ok(ext_blob)
+        return ext_blob;
     }
 
-    fn encode_len(extrinsics: &[ExtrinsicSpec]) -> Result<Vec<u8>, ReadError> {
+    fn encode_len(extrinsics: &[ExtrinsicSpec]) -> Vec<u8> {
         let mut ext_blob_len: Vec<u8> = Vec::with_capacity(1 + extrinsics.len() * std::mem::size_of::<ExtrinsicSpec>());
         ext_blob_len.push(extrinsics.len() as u8); 
         for ext in extrinsics {
-            ext_blob_len.extend_from_slice(&ext.encode()?);
+            ext_blob_len.extend_from_slice(&ext.encode());
         }
-        Ok(ext_blob_len)
+        return ext_blob_len;
     }
 }
 
@@ -314,6 +347,13 @@ struct Authorizer {
     code_hash: OpaqueHash,
     params: Vec<u8>,
 }
+
+// A Work Item includes: the identifier of the service to which it relates, the code hash of the service at 
+// the time of reporting (whose preimage must be available from the perspective of the lookup anchor block), 
+// a payload blob, a gas limit, and the three elements of its manifest, a sequence of imported data segments, 
+// which identify a prior exported segment through an index and the identity of an exporting work-package, 
+// a sequence of blob hashes and lengths to be introduced in this block (and which we assume the validator knows) 
+// and the number of data segments exported by this work item.
 
 pub struct WorkItem {
     service: ServiceId,
@@ -356,7 +396,7 @@ impl WorkItem {
         Ok(items)
     }
 
-    pub fn encode(&self) -> Result<Vec<u8>, ReadError> {
+    pub fn encode(&self) -> Vec<u8> {
         // Preallocate initial capacity
         let mut work_item_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkItem>());
         // Encode WorkItem params
@@ -364,18 +404,18 @@ impl WorkItem {
         self.code_hash.encode_to(&mut work_item_blob);
         self.payload.as_slice().encode_len().encode_to(&mut work_item_blob);
         self.gas_limit.encode_size(8).encode_to(&mut work_item_blob);
-        ImportSpec::encode_len(&self.import_segments)?.encode_to(&mut work_item_blob);
-        ExtrinsicSpec::encode_len(&self.extrinsic)?.encode_to(&mut work_item_blob);
+        ImportSpec::encode_len(&self.import_segments).encode_to(&mut work_item_blob);
+        ExtrinsicSpec::encode_len(&self.extrinsic).encode_to(&mut work_item_blob);
         self.export_count.encode_size(2).encode_to(&mut work_item_blob);
-        Ok(work_item_blob)
+        return work_item_blob;
     }
 
-    fn encode_len(items: &[WorkItem]) -> Result<Vec<u8>, ReadError> {
+    fn encode_len(items: &[WorkItem]) -> Vec<u8> {
         let mut blob: Vec<u8> = Vec::new();
         blob.push(items.len() as u8);
         for item in items {
-            blob.extend_from_slice(&item.encode()?);
+            blob.extend_from_slice(&item.encode());
         }
-        Ok(blob)
+        return blob;
     }
 }

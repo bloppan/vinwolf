@@ -40,7 +40,7 @@ mod tests {
         let test = read_codec_test("data/codec/data/refine_context.bin");
         let mut refine_test = BytesReader::new(&test);
         let refine_decoded: RefineContext = RefineContext::decode(&mut refine_test).expect("Error decoding RefineContext");
-        let res = refine_decoded.encode().expect("Error encoding RefineContext");
+        let res = refine_decoded.encode();
         assert_eq!(test, res);
     }
 
@@ -49,7 +49,7 @@ mod tests {
         let test = read_codec_test("data/codec/data/work_item.bin");
         let mut item_test = BytesReader::new(&test);
         let work_item_decoded: WorkItem = WorkItem::decode(&mut item_test).expect("Error decoding WorkItem");
-        let res = work_item_decoded.encode().expect("Error decoding WorkItem");
+        let res = work_item_decoded.encode();
         assert_eq!(test, res);
     }
 
@@ -58,7 +58,7 @@ mod tests {
         let test = read_codec_test("data/codec/data/work_package.bin");
         let mut work_pkg_test = BytesReader::new(&test);
         let work_pkg_decoded = WorkPackage::decode(&mut work_pkg_test).expect("Error decoding WorkPackage");
-        let res = work_pkg_decoded.encode().expect("Error encode WorkPackage");
+        let res = work_pkg_decoded.encode();
         assert_eq!(test, res);
     }
 
@@ -67,7 +67,7 @@ mod tests {
         let test = read_codec_test("data/codec/data/work_result_0.bin");
         let mut work_result_test = BytesReader::new(&test);
         let work_result_decoded = WorkResult::decode(&mut work_result_test).expect("Error decoding WorkResult 0");
-        let res = work_result_decoded.encode().expect("Error encoding WorkResult 0");
+        let res = work_result_decoded.encode();
         assert_eq!(test, res);
     }
 
@@ -76,7 +76,7 @@ mod tests {
         let test = read_codec_test("data/codec/data/work_result_1.bin");
         let mut work_result_test = BytesReader::new(&test);
         let work_result_decoded = WorkResult::decode(&mut work_result_test).expect("Error decoding WorkResult 1");
-        let res = work_result_decoded.encode().expect("Error encoding WorkResult 1");
+        let res = work_result_decoded.encode();
         assert_eq!(test, res);
     }
 
@@ -85,7 +85,7 @@ mod tests {
         let test = read_codec_test("data/codec/data/work_report.bin");
         let mut work_report_test = BytesReader::new(&test);
         let work_report_decoded = WorkReport::decode(&mut work_report_test).expect("Error decoding WorkReport");
-        let res = work_report_decoded.encode().expect("Error encoding WorkReport");
+        let res = work_report_decoded.encode();
         assert_eq!(test, res);
     }
 
@@ -94,7 +94,7 @@ mod tests {
         let test = read_codec_test("data/codec/data/tickets_extrinsic.bin");
         let mut tickets_extrinsic_test = BytesReader::new(&test);
         let ticket_decoded = TicketsExtrinsic::decode(&mut tickets_extrinsic_test).expect("Error decoding TicketEnvelope");
-        let res = TicketsExtrinsic::encode(&ticket_decoded).expect("Error encoding TicketEnvelope");
+        let res = TicketsExtrinsic::encode(&ticket_decoded);
         assert_eq!(test, res);
     }
 
@@ -103,7 +103,7 @@ mod tests {
         let test = read_codec_test("data/codec/data/disputes_extrinsic.bin");
         let mut disputes_extrinsic_test = BytesReader::new(&test);
         let disputes_decoded = DisputesExtrinsic::decode(&mut disputes_extrinsic_test).expect("Error decoding DisputesExtrinsic");
-        let res = DisputesExtrinsic::encode(&disputes_decoded).expect("Error encoding DisputesExtrinsic");
+        let res = DisputesExtrinsic::encode(&disputes_decoded);
         assert_eq!(test, res);
     }
 
@@ -112,7 +112,7 @@ mod tests {
         let test = read_codec_test("data/codec/data/preimages_extrinsic.bin");
         let mut preimages_extrinsic_test = BytesReader::new(&test);
         let preimages_decoded = PreimagesExtrinsic::decode(&mut preimages_extrinsic_test).expect("Error decoding PreimagesExtrinsic");
-        let res = PreimagesExtrinsic::encode(&preimages_decoded).expect("Error encoding PreimagesExtrinsic");
+        let res = PreimagesExtrinsic::encode(&preimages_decoded);
         assert_eq!(test, res);
     }
 
@@ -121,7 +121,7 @@ mod tests {
         let test = read_codec_test("data/codec/data/assurances_extrinsic.bin");
         let mut assurances_extrinsic_test = BytesReader::new(&test);
         let assurances_decoded = AssurancesExtrinsic::decode(&mut assurances_extrinsic_test).expect("Error decoding AssurancesExtrinsic");
-        let res = AssurancesExtrinsic::encode(&assurances_decoded).expect("Error encoding AssurancesExtrinsic");
+        let res = AssurancesExtrinsic::encode(&assurances_decoded);
         assert_eq!(test, res);
     }
 
@@ -130,7 +130,7 @@ mod tests {
         let test = read_codec_test("data/codec/data/guarantees_extrinsic.bin");
         let mut guarantees_extrinsic_test = BytesReader::new(&test);
         let guarantees_decoded = GuaranteesExtrinsic::decode(&mut guarantees_extrinsic_test).expect("Error decoding GuaranteesExtrinsic");
-        let res = GuaranteesExtrinsic::encode(&guarantees_decoded).expect("Error encoding GuaranteesExtrinsic");
+        let res = GuaranteesExtrinsic::encode(&guarantees_decoded);
         assert_eq!(test, res);
     }
 
@@ -139,7 +139,7 @@ mod tests {
         let test = read_codec_test("data/codec/data/header_0.bin");
         let mut header_test = BytesReader::new(&test);
         let header_decoded = Header::decode(&mut header_test).expect("Error decoding Header");
-        let res = Header::encode(&header_decoded).expect("Error encoding Header");
+        let res = Header::encode(&header_decoded);
         assert_eq!(test, res);
     }
 
@@ -148,7 +148,7 @@ mod tests {
         let test = read_codec_test("data/codec/data/header_1.bin");
         let mut header_test = BytesReader::new(&test);
         let header_decoded = Header::decode(&mut header_test).expect("Error decoding Header");
-        let res = Header::encode(&header_decoded).expect("Error encoding Header");
+        let res = Header::encode(&header_decoded);
         assert_eq!(test, res);
     }
 
@@ -157,7 +157,7 @@ mod tests {
         let test = read_codec_test("data/codec/data/block.bin");
         let mut block_test = BytesReader::new(&test);
         let block_decoded = Block::decode(&mut block_test).expect("Error decoding Header");
-        let res = Block::encode(&block_decoded).expect("Error encoding Header");
+        let res = Block::encode(&block_decoded);
         assert_eq!(test, res);
     }
 }
