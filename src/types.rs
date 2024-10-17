@@ -1,0 +1,13 @@
+pub type ServiceId = u32;
+pub type Gas = u64;
+pub type TimeSlot = u32;
+pub type ValidatorIndex = u16;
+pub type CoreIndex = u16;
+pub type TicketAttempt = u8;
+pub type BandersnatchRingSignature = [u8; 784];
+pub type Ed25519Signature = [u8; 64];
+pub type BandersnatchVrfSignature = [u8; 96];
+pub type BandersnatchKey = [u8; 32];
+pub type OpaqueHash = [u8; 32];
+pub type Ed25519Key = [u8; 32];
+
