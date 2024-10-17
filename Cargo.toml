@@ -12,4 +12,7 @@ frame-support = "37.0.0"
 sp-core = "34.0.0"
 array-bytes = "6.2.3"
 num = "0.4"
+erasure-coding = { git = "https://github.com/paritytech/erasure-coding.git", branch = "main" }
 
+[dev-dependencies]
+quickcheck = { version = "1.0.3", default-features = false }
