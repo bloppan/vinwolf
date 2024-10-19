@@ -9,7 +9,7 @@ use crate::safrole::{SafroleState, Input as InputSafrole, E,
 
 use std::collections::HashSet;
 
-const RING_SIZE: usize = 1023;
+const RING_SIZE: usize = 6;
 
 // This is the IETF `Prove` procedure output as described in section 2.2
 // of the Bandersnatch VRFs specification

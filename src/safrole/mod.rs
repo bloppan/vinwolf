@@ -1,6 +1,8 @@
 extern crate hex;
 extern crate array_bytes;
 
+use crate::types::*;
+
 mod bandersnatch;
 mod time;
 
@@ -9,9 +11,9 @@ use serde::Deserialize;
 use sp_core::blake2_256;
 
 // The length of an epoch in timeslots
-const E: u32 = 600; // The length of an epoch timeslots.
-const Y: u32 = 500; // The number of slots into an epoch at which ticket-submission ends
-const V: u32 = 1023;  // Total number of validators
+const E: u32 = 12; // The length of an epoch timeslots.
+const Y: u32 = 10; // The number of slots into an epoch at which ticket-submission ends
+const V: u32 = 6;  // Total number of validators
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct ValidatorData {
@@ -101,7 +103,9 @@ pub struct Input {
     pub slot: u32,
     pub entropy: String,
     pub extrinsic: Vec<TicketEnvelope>,
+    pub post_offenders: Vec<String>,
 }
+
 #[allow(non_camel_case_types)]
 #[derive(Deserialize, Debug, PartialEq)]
 pub enum Output {
