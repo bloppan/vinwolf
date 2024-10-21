@@ -48,7 +48,6 @@ mod tests {
             post_state,
         };
 
-        println!("state result = {:?}", res.output);
         assert_eq!(test.post_state.tau, res.post_state.tau);
         assert_eq!(test.post_state.eta, res.post_state.eta);
         assert_eq!(test.post_state.lambda, res.post_state.lambda);
@@ -59,7 +58,7 @@ mod tests {
         assert_eq!(test.post_state.gamma_s, res.post_state.gamma_s);
     }
 
-    /*#[test]
+    #[test]
     fn test_enact_epoch_change_with_no_tickets_1() {
         run_safrole_json_file("enact-epoch-change-with-no-tickets-1.json");
     }
@@ -157,7 +156,7 @@ mod tests {
     #[test]
     fn test_skip_epochs_1() {
         run_safrole_json_file("skip-epochs-1.json");
-    }*/
+    }
 
     #[test]
     fn test_enact_epoch_change_with_padding_1() {

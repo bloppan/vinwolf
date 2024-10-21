@@ -143,12 +143,32 @@ pub fn bandersnatch_keys_collect(state: SafroleState, key_set: KeySet) -> Vec<St
     bandersnatch_keys
 }
 
+fn set_offenders_null(input: Input, state: &mut SafroleState) -> Vec<ValidatorData> {
+    if input.post_offenders.is_empty() {
+        return state.iota.clone();
+    }
+
+    let mut iota = state.iota.clone();
+
+    for offender in input.post_offenders {
+        for key in &mut iota {
+            if offender == key.ed25519 {
+                key.bandersnatch = "0x0000000000000000000000000000000000000000000000000000000000000000".to_string();
+                key.ed25519 = "0x0000000000000000000000000000000000000000000000000000000000000000".to_string();
+                key.bls = "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000".to_string();
+                key.metadata = "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000".to_string();
+            }
+        }
+    }
+    return iota;
+}
+
 // Equation 58
-fn key_rotation(state: &mut SafroleState) { 
+fn key_rotation(input: Input, state: &mut SafroleState) { 
     let bandersnatch_keys = bandersnatch_keys_collect(state.clone(), KeySet::gamma_k);
     state.lambda = state.kappa.clone();
     state.kappa = state.gamma_k.clone();
-    state.gamma_k = state.iota.clone();
+    state.gamma_k = set_offenders_null(input.clone(), state);
     state.gamma_z = bandersnatch::create_root_epoch(bandersnatch_keys);
 }
 
@@ -158,57 +178,57 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
     let mut epoch_mark: Option<EpochMark> = None;
     let mut tickets_mark: Option<Vec<TicketBody>> = None;
 
-    if input.slot > state.tau {
-        if input.extrinsic.len() > 0 {
-            if input.slot >= Y {
-                return Output::err(ErrorType::unexpected_ticket);
-            }
-            let validity = bandersnatch::verify_tickets(input.clone(), state);
-            match validity {
-                Output::err(error_type) => {
-                    // Return error from verify tickets
-                    return Output::err(error_type);
-                }
-                Output::ok(_) => {
-                    // Continue
-                }
-            }
-        }
-        // Calculate time parameters
-        let e: u32 = state.tau / E;
-        let m: u32 = state.tau % E;
-        let post_e: u32 = input.slot / E;
-        let post_m: u32 = post_e % E;
-        // Check if we are in a new epoch (e' > e)
-        if post_e > e {
-            update_entropy_pool(state); 
-            key_rotation(state);
-            epoch_mark = Some(EpochMark {
-                entropy: state.eta[1].clone(),
-                validators: bandersnatch_keys_collect(state.clone(), KeySet::gamma_k),  
-            });
-            if post_e == e + 1 && m >= Y && state.gamma_a.len() == E as usize {
-                state.gamma_s = GammaSType::tickets(outside_in_sequencer(state.gamma_a.clone()));
-            } else if post_e == e {
-                // gamma_s' = gamma_s
-            } else {
-                let bandersnatch_keys = bandersnatch_keys_collect(state.clone(), KeySet::kappa);
-                state.gamma_s = GammaSType::keys(fallback(state.eta[2].clone(), bandersnatch_keys.clone()));
-            } 
-            state.gamma_a = vec![];
-        } else if post_e == e && m < Y && Y <= post_m && state.gamma_a.len() == E as usize {
-            tickets_mark = Some(outside_in_sequencer(state.gamma_a.clone()));
-        }
-        if input.slot % E == 0 {
-            state.gamma_a = vec![];
-        } 
-        state.tau = input.slot; // tau' = slot
-        // Update recent entropy eta[0]
-        update_recent_entropy(input.clone(), state);
-        return Output::ok(OutputMarks {epoch_mark, tickets_mark});
-    } else {
+    if input.slot <= state.tau {
         return Output::err(ErrorType::bad_slot);
     }
+
+    if input.extrinsic.len() > 0 {
+        if input.slot >= Y {
+            return Output::err(ErrorType::unexpected_ticket);
+        }
+        let validity = bandersnatch::verify_tickets(input.clone(), state);
+        match validity {
+            Output::err(error_type) => {
+                // Return error from verify tickets
+                return Output::err(error_type);
+            }
+            Output::ok(_) => {
+                // Continue
+            }
+        }
+    }
+    // Calculate time parameters
+    let e: u32 = state.tau / E;
+    let m: u32 = state.tau % E;
+    let post_e: u32 = input.slot / E;
+    let post_m: u32 = post_e % E;
+    // Check if we are in a new epoch (e' > e)
+    if post_e > e {
+        update_entropy_pool(state); 
+        key_rotation(input.clone(), state);
+        epoch_mark = Some(EpochMark {
+            entropy: state.eta[1].clone(),
+            validators: bandersnatch_keys_collect(state.clone(), KeySet::gamma_k),  
+        });
+        if post_e == e + 1 && m >= Y && state.gamma_a.len() == E as usize {
+            state.gamma_s = GammaSType::tickets(outside_in_sequencer(state.gamma_a.clone()));
+        } else if post_e == e {
+            // gamma_s' = gamma_s
+        } else {
+            let bandersnatch_keys = bandersnatch_keys_collect(state.clone(), KeySet::kappa);
+            state.gamma_s = GammaSType::keys(fallback(state.eta[2].clone(), bandersnatch_keys.clone()));
+        }
+        state.gamma_a = vec![];
+    } else if post_e == e && m < Y && Y <= post_m && state.gamma_a.len() == E as usize {
+        tickets_mark = Some(outside_in_sequencer(state.gamma_a.clone()));
+    }
+    if input.slot % E == 0 {
+        state.gamma_a = vec![];
+    } 
+    state.tau = input.slot; // tau' = slot
+    // Update recent entropy eta[0]
+    update_recent_entropy(input.clone(), state);
+    return Output::ok(OutputMarks {epoch_mark, tickets_mark});
 }
 
 //Equation 70
