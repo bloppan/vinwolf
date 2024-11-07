@@ -132,6 +132,22 @@ impl<const N: usize> Encode for [u8; N] {
     }
 }
 
+impl<const N: usize> Encode for Vec<[u8; N]> {
+    fn encode(&self) -> Vec<u8> {
+        let mut encoded = Vec::new();
+        for array in self {
+            encoded.extend_from_slice(&array.encode());
+        }
+        encoded
+    }
+    
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        for array in self {
+            writer.extend_from_slice(&array.encode());
+        }
+    }
+}
+
 pub trait EncodeSize {
     fn encode_size(&self, l: usize) -> Vec<u8>;
 }
@@ -371,6 +387,18 @@ impl<const N: usize> Decode for [u8; N] {
     }
 }
 
+impl<const N: usize, const M: usize> Decode for [[u8; N]; M] {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        let mut array = [[0u8; N]; M];
+        for sub_array in array.iter_mut() {
+            let bytes = reader.read_bytes(N)?;
+            sub_array.copy_from_slice(bytes);
+        }
+        Ok(array)
+    }
+}
+
+
 pub trait DecodeLen: Sized {
     fn decode_len(reader: &mut BytesReader) -> Result<Self, ReadError>;
 }
@@ -418,6 +446,10 @@ impl<'a> BytesReader<'a> {
         let byte = self.data[self.position] as u8;
         self.position += 1;
         Ok(byte)
+    }
+
+    pub fn get_position(&self) -> usize {
+        self.position
     }
 }
 

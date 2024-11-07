@@ -432,11 +432,11 @@ impl DisputesExtrinsic {
 // becomes fixed. 
 // We define the extrinsic as a sequence of proofs of valid tickets, each of which is a tuple of an entry index 
 // (a natural number less than N) and a proof of ticket validity.
-
+#[derive(Debug, Clone, PartialEq)]
 pub struct TicketsExtrinsic { 
-    tickets: Vec<TicketEnvelope>,
+    pub tickets: Vec<TicketEnvelope>,
 }
-
+#[derive(Debug, Clone, PartialEq)]
 pub struct TicketEnvelope {
     pub attempt: TicketAttempt,
     pub signature: BandersnatchRingSignature,
@@ -473,5 +473,9 @@ impl TicketsExtrinsic {
 
     pub fn encode_to(&self, into: &mut Vec<u8>) {
         into.extend_from_slice(&self.encode()); 
+    }
+
+    pub fn len(&self) -> usize {
+        self.tickets.len()  
     }
 }

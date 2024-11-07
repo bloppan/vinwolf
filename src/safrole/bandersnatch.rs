@@ -3,13 +3,15 @@ use ark_ec_vrfs::{prelude::ark_serialize, suites::bandersnatch::edwards::RingCon
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
 
-use crate::safrole::{SafroleState, Input as InputSafrole, E,
-                    KeySet, TicketBody, bandersnatch_keys_collect,
-                    Output as OutputSafrole, OutputMarks, ErrorType};
+use crate::safrole::{SafroleState,E, KeySet, TicketBody, OutputMarks, ErrorType};
+
+use crate::safrole::codec::{Input as InputSafrole, Output as OutputSafrole};
 
 use std::collections::HashSet;
 
 const RING_SIZE: usize = 6;
+
+use crate::types::{OpaqueHash, BandersnatchKey, BandersnatchRingCommitment};
 
 // This is the IETF `Prove` procedure output as described in section 2.2
 // of the Bandersnatch VRFs specification
@@ -213,20 +215,21 @@ impl Verifier {
     }
 }
 
-pub fn create_root_epoch(ring_set_hex: Vec<String>) -> String {
+pub fn create_root_epoch(ring_set_hex: Vec<BandersnatchKey>) -> BandersnatchRingCommitment {
 
     let ring_set: Vec<Public> = ring_set_hex
         .iter()
         .map(|hex_str| {
             // Discard the first two characteres if the string starts by 0x or 0X 
-            let clean_hex = if hex_str.starts_with("0x") || hex_str.starts_with("0X") {
+            /*let clean_hex = if hex_str.starts_with("0x") || hex_str.starts_with("0X") {
                 &hex_str[2..]
             } else {
                 hex_str
-            };
+            };*/
+            let bytes = hex_str;
             // Filter only valid hexadecimal characteres 
-            let clean_hex: String = clean_hex.chars().filter(|c| c.is_digit(16)).collect();
-            let bytes = hex::decode(&clean_hex).expect("Decoding hex string failed");
+            //let clean_hex: String = clean_hex.chars().filter(|c| c.is_digit(16)).collect();
+            //let bytes = hex::decode(&clean_hex).expect("Decoding hex string failed");
             let point = bandersnatch::Public::deserialize_compressed(&bytes[..])
                 .expect("Deserialization failed");
             point
@@ -234,12 +237,12 @@ pub fn create_root_epoch(ring_set_hex: Vec<String>) -> String {
         .collect();
 
     let verifier = Verifier::new(ring_set);
-    let mut proof = vec![];
-    verifier.commitment.serialize_compressed(&mut proof).unwrap();
-    hex::encode(proof)
+    let mut proof: BandersnatchRingCommitment = [0u8; 144];
+    verifier.commitment.serialize_compressed(&mut proof[..]).unwrap();
+    return proof;
 }
 
-fn has_duplicates(id: &Vec<String>) -> bool {
+fn has_duplicates(id: &Vec<OpaqueHash>) -> bool {
     let mut seen = HashSet::new();
     for ticket in id {
         if !seen.insert(ticket) {
@@ -250,7 +253,7 @@ fn has_duplicates(id: &Vec<String>) -> bool {
     false // No duplicates
 }
 
-fn bad_order_tickets(ids: &Vec<[u8; 32]>) -> bool {
+fn bad_order_tickets(ids: &Vec<OpaqueHash>) -> bool {
     for i in 0..ids.len() - 1 {
         if ids[i] > ids[i + 1] {
             return true; // Bad order tickets
@@ -262,11 +265,14 @@ fn bad_order_tickets(ids: &Vec<[u8; 32]>) -> bool {
 pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> OutputSafrole {
     // Check if attempt is correct (0 - 1)
     for i in 0..input.extrinsic.len() {
-        if input.extrinsic[i].attempt > 1 {
+        if input.extrinsic.tickets[i].attempt > 1 {
             return OutputSafrole::err(ErrorType::bad_ticket_attempt);
         }
     }
-    let ring_keys = bandersnatch_keys_collect(state.clone(), KeySet::gamma_k);
+    let ring_keys: Vec<_> = state.gamma_k
+    .iter()
+    .map(|validator| validator.bandersnatch.clone())
+    .collect();//bandersnatch_keys_collect(state.clone(), KeySet::gamma_k);
     // Create a bandersnatch ring set 
     let ring_set: Vec<Public> = ring_keys
         .iter()
@@ -285,19 +291,20 @@ pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> OutputSa
     for i in 0..input.extrinsic.len() {
         let mut vrf_input_data = Vec::from(b"jam_ticket_seal");
         vrf_input_data.extend_from_slice(&hex::decode(&state.eta[2][2..]).expect("Decoding hex string failed"));
-        vrf_input_data.push(input.extrinsic[i].attempt.try_into().unwrap());
+        vrf_input_data.push(input.extrinsic.tickets[i].attempt.try_into().unwrap());
         let aux_data = vec![];
-        let signature_hex = hex::decode(&input.extrinsic[i].signature[2..]).expect("Decoding hex string failed");
+        let signature_hex = hex::decode(&input.extrinsic.tickets[i].signature[2..]).expect("Decoding hex string failed");
         // Verify ticket validity
         let res = verifier.ring_vrf_verify(&vrf_input_data, &aux_data, &signature_hex);
         match res {
             Ok(result) => {
                 println!("VRF verification succeeded with result: {:?}", hex::encode(result));
                 aux_ids.push(result);
-                aux_gamma_a.insert(0, TicketBody {
-                    id: format!("0x{}", hex::encode(result)),
-                    attempt: input.extrinsic[i].attempt,
-                })
+                aux_gamma_a.push(TicketBody {
+                    //id: OpaqueHash::from_hex(&hex::encode(result)).unwrap(),  // OpaqueHash
+                    id: result,
+                    attempt: input.extrinsic.tickets[i].attempt,
+                });
             },
             Err(_) => {
                 println!("VRF verification failed");
@@ -306,7 +313,7 @@ pub fn verify_tickets(input: InputSafrole, state: &mut SafroleState) -> OutputSa
         }
     }
     // Check if there are duplicate tickets
-    let ids: Vec<String> = aux_gamma_a.iter().map(|ticket| ticket.id.clone()).collect();
+    let ids: Vec<OpaqueHash> = aux_gamma_a.iter().map(|ticket| ticket.id.clone()).collect();
     if has_duplicates(&ids) {
         return OutputSafrole::err(ErrorType::duplicate_ticket);
     }
