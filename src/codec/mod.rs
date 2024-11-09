@@ -195,6 +195,19 @@ impl EncodeSize for usize {
     }
 }
 
+impl<const N: usize> EncodeSize for [u8; N] {
+    fn encode_size(&self, l: usize) -> Vec<u8> {
+        let mut res: Vec<u8> = Vec::with_capacity(l);
+        
+        if l > N {
+            return res; 
+        }
+
+        res.extend_from_slice(&self[..l]); 
+        res
+    }
+}
+
 pub fn encode_integer(x: usize, l: usize) -> Vec<u8> {
 
     let mut sequence: Vec<u8> = Vec::new();

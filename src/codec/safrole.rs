@@ -3,8 +3,7 @@ use serde::Deserialize;
 use crate::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 use crate::codec::extrinsic::{TicketsExtrinsic, TicketEnvelope};
 use crate::types::*;
-use crate::globals::{NUM_VALIDATORS};
-use crate::safrole::{E};
+use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ValidatorData {
@@ -50,7 +49,7 @@ impl ValidatorData {
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum TicketsOrKeys {
-    keys(Box<[BandersnatchKey; E as usize]>),
+    keys(Box<[BandersnatchKey; EPOCH_LENGTH]>),
     tickets(Vec<TicketBody>),
 }
 
@@ -65,13 +64,13 @@ impl Decode for TicketsOrKeys {
             }*/
             1 => {
                 // Decodificar `keys`
-                let keys = <[BandersnatchKey; E as usize]>::decode(blob)?;
+                let keys = <[BandersnatchKey; EPOCH_LENGTH]>::decode(blob)?;
                 Ok(TicketsOrKeys::keys(Box::new(keys)))
             }
             0 => {
                 // Decodificar `tickets` con `E` como la longitud del vector
-                let mut tickets: Vec<TicketBody> = Vec::with_capacity(std::mem::size_of::<TicketBody>() * E as usize);
-                for _ in 0..E as usize {
+                let mut tickets: Vec<TicketBody> = Vec::with_capacity(std::mem::size_of::<TicketBody>() * EPOCH_LENGTH);
+                for _ in 0..EPOCH_LENGTH {
                     let ticket = TicketBody::decode(blob)?;
                     tickets.push(ticket);
                 }
@@ -187,10 +186,10 @@ pub struct Keys {
 pub struct SafroleState {
     pub tau: TimeSlot,
     pub eta: Box<[OpaqueHash; 4]>,
-    pub lambda: Box<[ValidatorData; NUM_VALIDATORS]>,
-    pub kappa: Box<[ValidatorData; NUM_VALIDATORS]>,
-    pub gamma_k: Box<[ValidatorData; NUM_VALIDATORS]>,
-    pub iota: Box<[ValidatorData; NUM_VALIDATORS]>,
+    pub lambda: Box<[ValidatorData; VALIDATORS_COUNT]>,
+    pub kappa: Box<[ValidatorData; VALIDATORS_COUNT]>,
+    pub gamma_k: Box<[ValidatorData; VALIDATORS_COUNT]>,
+    pub iota: Box<[ValidatorData; VALIDATORS_COUNT]>,
     pub gamma_a: Vec<TicketBody>,
     pub gamma_s: TicketsOrKeys,
     pub gamma_z: BandersnatchRingCommitment,
@@ -205,19 +204,19 @@ impl Decode for SafroleState {
                 eta_vec.into_boxed_slice().try_into().map_err(|_| ReadError::NotEnoughData)?
             },
             lambda: {
-                let lambda_vec: Vec<ValidatorData> = (0..NUM_VALIDATORS).map(|_| ValidatorData::decode(reader)).collect::<Result<_, _>>()?;
+                let lambda_vec: Vec<ValidatorData> = (0..VALIDATORS_COUNT).map(|_| ValidatorData::decode(reader)).collect::<Result<_, _>>()?;
                 lambda_vec.into_boxed_slice().try_into().map_err(|_| ReadError::NotEnoughData)?
             },
             kappa: {
-                let kappa_vec: Vec<ValidatorData> = (0..NUM_VALIDATORS).map(|_| ValidatorData::decode(reader)).collect::<Result<_, _>>()?;
+                let kappa_vec: Vec<ValidatorData> = (0..VALIDATORS_COUNT).map(|_| ValidatorData::decode(reader)).collect::<Result<_, _>>()?;
                 kappa_vec.into_boxed_slice().try_into().map_err(|_| ReadError::NotEnoughData)?
             },
             gamma_k: {
-                let gamma_k_vec: Vec<ValidatorData> = (0..NUM_VALIDATORS).map(|_| ValidatorData::decode(reader)).collect::<Result<_, _>>()?;
+                let gamma_k_vec: Vec<ValidatorData> = (0..VALIDATORS_COUNT).map(|_| ValidatorData::decode(reader)).collect::<Result<_, _>>()?;
                 gamma_k_vec.into_boxed_slice().try_into().map_err(|_| ReadError::NotEnoughData)?
             },
             iota: {
-                let iota_vec: Vec<ValidatorData> = (0..NUM_VALIDATORS).map(|_| ValidatorData::decode(reader)).collect::<Result<_, _>>()?;
+                let iota_vec: Vec<ValidatorData> = (0..VALIDATORS_COUNT).map(|_| ValidatorData::decode(reader)).collect::<Result<_, _>>()?;
                 iota_vec.into_boxed_slice().try_into().map_err(|_| ReadError::NotEnoughData)?
             },
             /*gamma_a: {
@@ -320,7 +319,7 @@ pub enum ErrorType {
 #[derive(Debug, PartialEq)]
 pub struct EpochMark {
     pub entropy: OpaqueHash,
-    pub validators: Box<[BandersnatchKey; NUM_VALIDATORS]>,
+    pub validators: Box<[BandersnatchKey; VALIDATORS_COUNT]>,
 }
 
 impl Encode for EpochMark {
@@ -364,12 +363,12 @@ impl Decode for Output {
                     entropy: OpaqueHash::decode(blob)?,
                     validators: {
                         // Decodificamos los validadores en un `Vec`
-                        let validators_vec: Vec<BandersnatchKey> = (0..NUM_VALIDATORS)
+                        let validators_vec: Vec<BandersnatchKey> = (0..VALIDATORS_COUNT)
                             .map(|_| BandersnatchKey::decode(blob))
                             .collect::<Result<_, _>>()?;
                         
                         // Convertimos el `Vec` a un array de tamaño fijo
-                        let validators_array: [BandersnatchKey; NUM_VALIDATORS] = validators_vec
+                        let validators_array: [BandersnatchKey; VALIDATORS_COUNT] = validators_vec
                             .try_into()
                             .map_err(|_| ReadError::NotEnoughData)?;
                         
@@ -384,7 +383,7 @@ impl Decode for Output {
             let t_mark = blob.read_byte()?; 
 
             let tickets_mark = if t_mark == 1 {
-                Some((0..E)
+                Some((0..EPOCH_LENGTH)
                     .map(|_| TicketBody::decode(blob))
                     .collect::<Result<Vec<_>, _>>()?)
             } else {

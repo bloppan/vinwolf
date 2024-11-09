@@ -2,7 +2,7 @@ use crate::types::{
     OpaqueHash, TimeSlot, Ed25519Key, ValidatorIndex, BandersnatchVrfSignature, 
     BandersnatchKey, TicketAttempt
 };
-use crate::globals::{EPOCH_LENGTH, NUM_VALIDATORS};
+use crate::constants::{EPOCH_LENGTH, VALIDATORS_COUNT};
 use crate::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 
 // The epoch and winning-tickets markers are information placed in the header in order to minimize 
@@ -87,8 +87,8 @@ impl Header {
         
         let epoch_mark = if header_blob.read_byte()? != 0 {
             let entropy = OpaqueHash::decode(header_blob)?;
-            let mut validators: Vec<BandersnatchKey> = Vec::with_capacity(NUM_VALIDATORS);
-            for _ in 0..NUM_VALIDATORS {
+            let mut validators: Vec<BandersnatchKey> = Vec::with_capacity(VALIDATORS_COUNT);
+            for _ in 0..VALIDATORS_COUNT {
                 validators.push(BandersnatchKey::decode(header_blob)?);
             }
             Some(EpochMark { entropy, validators })

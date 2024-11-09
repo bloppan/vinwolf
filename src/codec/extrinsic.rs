@@ -2,7 +2,7 @@ use crate::types::{
     ValidatorIndex, Ed25519Key, Ed25519Signature, TimeSlot, 
     OpaqueHash, ServiceId, BandersnatchRingSignature, TicketAttempt
 };
-use crate::globals::{VALIDATORS_SUPER_MAJORITY, AVAIL_BITFIELD_BYTES};
+use crate::constants::{VALIDATORS_SUPER_MAJORITY, AVAIL_BITFIELD_BYTES};
 use crate::codec::{Encode, EncodeSize, EncodeLen, Decode, DecodeLen, ReadError, BytesReader};
 use crate::codec::package::WorkReport;
 
