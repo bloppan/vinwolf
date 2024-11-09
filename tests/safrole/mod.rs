@@ -3,12 +3,9 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use vinwolf::safrole::codec::{SafroleState, Output};
-use vinwolf::safrole::codec::Input;
-use vinwolf::safrole::update_state;
-
+use vinwolf::codec::safrole::{SafroleState, Output, Input};
 use vinwolf::codec::{Encode, Decode, BytesReader};
-
+use vinwolf::safrole::update_state;
 
 struct JsonData {
     input: Input,
@@ -93,7 +90,7 @@ mod tests {
         
         //println!("\n\n input  = {:0X?}", input);
 
-        let pre_state = SafroleState::decode(&mut safrole_test).expect("Error decoding pre_state");
+        let mut pre_state = SafroleState::decode(&mut safrole_test).expect("Error decoding pre_state");
         let e_pre_state = SafroleState::encode(&pre_state);
         let pos_pre_state = safrole_test.get_position();
         if let Some(diff_pos) = find_first_difference(&test_content[pos_input..pos_pre_state], &e_pre_state, "PreState") {
@@ -150,22 +147,31 @@ mod tests {
         result_encoded.extend(e_output);
         result_encoded.extend(e_post_state);
 
-        //let post_state = update_state(input_encoded, safrole_encoded)
         assert_eq!(test_content, result_encoded);
-        
+
+        let res_output = update_state(input, &mut pre_state);
+
+        assert_eq!(post_state.tau, pre_state.tau);
+        assert_eq!(post_state.eta, pre_state.eta);
+        assert_eq!(post_state.lambda, pre_state.lambda);
+        assert_eq!(post_state.kappa, pre_state.kappa);
+        assert_eq!(post_state.gamma_k, pre_state.gamma_k);
+        assert_eq!(post_state.iota, pre_state.iota);
+        assert_eq!(post_state.gamma_a, pre_state.gamma_a);
+        assert_eq!(post_state.gamma_s, pre_state.gamma_s);
+        assert_eq!(post_state.gamma_z, pre_state.gamma_z);
+
+        //assert_eq!(post_state, pre_state);
+        assert_eq!(output, res_output);
     }
 
     #[test]
     fn test_enact_epoch_change_with_no_tickets_1() {
-        //run_safrole_json_file("enact-epoch-change-with-no-tickets-1.json");
         run_safrole_bin_file("enact-epoch-change-with-no-tickets-1.bin");
-        //run_safrole_bin_file("publish-tickets-no-mark-1.bin");
-        
     }
 
     #[test]
     fn test_enact_epoch_change_with_no_tickets_2() {
-        //run_safrole_json_file("enact-epoch-change-with-no-tickets-2.json");
         run_safrole_bin_file("enact-epoch-change-with-no-tickets-2.bin");
     }
 
@@ -263,4 +269,5 @@ mod tests {
     fn test_enact_epoch_change_with_padding_1() {
         run_safrole_bin_file("enact-epoch-change-with-padding-1.bin");
     }
+
 }

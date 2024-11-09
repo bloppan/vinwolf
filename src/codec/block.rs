@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use crate::codec::{BytesReader, ReadError};
-use crate::header::Header;
-use crate::extrinsic::Extrinsic;
+use crate::codec::header::Header;
+use crate::codec::extrinsic::Extrinsic;
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub struct TicketEnvelope {

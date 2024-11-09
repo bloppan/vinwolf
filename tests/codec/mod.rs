@@ -6,21 +6,21 @@ extern crate vinwolf;
 
 use vinwolf::codec::BytesReader;
 
-use vinwolf::refine::RefineContext;
+use vinwolf::codec::refine::RefineContext;
 
-use vinwolf::work::package::WorkItem;
-use vinwolf::work::package::WorkPackage;
-use vinwolf::work::package::WorkResult;
-use vinwolf::work::package::WorkReport;
+use vinwolf::codec::package::WorkItem;
+use vinwolf::codec::package::WorkPackage;
+use vinwolf::codec::package::WorkResult;
+use vinwolf::codec::package::WorkReport;
 
-use vinwolf::extrinsic::TicketsExtrinsic;
-use vinwolf::extrinsic::DisputesExtrinsic;
-use vinwolf::extrinsic::PreimagesExtrinsic;
-use vinwolf::extrinsic::AssurancesExtrinsic;
-use vinwolf::extrinsic::GuaranteesExtrinsic;
+use vinwolf::codec::extrinsic::TicketsExtrinsic;
+use vinwolf::codec::extrinsic::DisputesExtrinsic;
+use vinwolf::codec::extrinsic::PreimagesExtrinsic;
+use vinwolf::codec::extrinsic::AssurancesExtrinsic;
+use vinwolf::codec::extrinsic::GuaranteesExtrinsic;
 
-use vinwolf::header::Header;
-use vinwolf::block::Block;
+use vinwolf::codec::header::Header;
+use vinwolf::codec::block::Block;
 
 #[cfg(test)]
 mod tests {

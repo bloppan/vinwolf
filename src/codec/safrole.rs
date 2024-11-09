@@ -1,7 +1,7 @@
 
 use serde::Deserialize;
 use crate::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
-use crate::extrinsic::{TicketsExtrinsic, TicketEnvelope};
+use crate::codec::extrinsic::{TicketsExtrinsic, TicketEnvelope};
 use crate::types::*;
 use crate::globals::{NUM_VALIDATORS};
 use crate::safrole::{E};

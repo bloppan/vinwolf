@@ -4,8 +4,9 @@ extern crate array_bytes;
 use crate::types::{BandersnatchKey, Ed25519Key, BlsKey, BandersnatchRingCommitment, Metadata, OpaqueHash, TimeSlot};
 use crate::globals::{NUM_VALIDATORS, EPOCH_LENGTH};
 
-pub mod codec;
-use crate::safrole::codec::{Input as Input, Output, SafroleState, KeySet, Safrole,
+//pub mod codec;
+use crate::codec::{Encode};
+use crate::codec::safrole::{Input as Input, Output, SafroleState, KeySet, Safrole,
                             ErrorType, EpochMark, OutputMarks, ValidatorData, 
                             TicketsOrKeys, TicketBody};
 
@@ -17,7 +18,7 @@ use serde::Deserialize;
 use sp_core::blake2_256;
 
 // The length of an epoch in timeslots
-const E: u32 = 12; // The length of an epoch timeslots.
+pub const E: u32 = 12; // The length of an epoch timeslots.
 const Y: u32 = 10; // The number of slots into an epoch at which ticket-submission ends
 const V: u32 = 6;  // Total number of validators
 
@@ -43,7 +44,8 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
     let e: u32 = state.tau / E;
     let m: u32 = state.tau % E;
     let post_e: u32 = input.slot / E;
-    let post_m: u32 = post_e % E;
+    let post_m: u32 = input.slot % E;
+    
     // Output marks
     let mut epoch_mark: Option<EpochMark> = None;
     let mut tickets_mark: Option<Vec<TicketBody>> = None;
@@ -73,9 +75,9 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
         } 
         state.gamma_a = vec![];
     } else if post_e == e && m < Y && Y <= post_m && state.gamma_a.len() == E as usize {
+        println!("----------------------------------------------------------");
         tickets_mark = Some(outside_in_sequencer(state.gamma_a.clone()));
     }
-
     state.tau = input.slot; // tau' = slot
     // Update recent entropy eta[0]
     update_recent_entropy(input.clone(), state);
@@ -95,13 +97,13 @@ fn update_entropy_pool(state: &mut SafroleState) {
 // update eta'[0] (Equation 67)
 fn update_recent_entropy(input: Input, state: &mut SafroleState) {
     
-    let clean_eta0 = &state.eta[0][2..];
+    /*let clean_eta0 = &state.eta[0][2..];
     let clean_entropy = &input.entropy[2..];
     let eta0_bytes = array_bytes::hex2bytes(clean_eta0).expect("Failed to convert hex to bytes");
-    let entropy_bytes = array_bytes::hex2bytes(clean_entropy).expect("Failed to convert hex to bytes");
-    let concatenated = [eta0_bytes, entropy_bytes].concat();
-    let hash = blake2_256(&concatenated);
-    state.eta[0] = hash;
+    let entropy_bytes = array_bytes::hex2bytes(clean_entropy).expect("Failed to convert hex to bytes");*/
+    //let concatenated = [state.eta[0], input.entropy].concat();
+    //let hash = blake2_256(&concatenated);
+    state.eta[0] = blake2_256(&[state.eta[0], input.entropy].concat());
 }
 
 /*pub fn bandersnatch_keys_collect(state: SafroleState, key_set: KeySet) -> [BandersnatchKey; NUM_VALIDATORS] {
@@ -135,13 +137,14 @@ fn set_offenders_null(input: &Input, state: &SafroleState) -> [ValidatorData; NU
 
 // Equation 58
 fn key_rotation(input: Input, state: &mut SafroleState) { 
-    let bandersnatch_keys = state.gamma_k
-    .iter()
-    .map(|validator| validator.bandersnatch.clone())
-    .collect();// bandersnatch_keys_collect(state.clone(), KeySet::gamma_k);
+    // bandersnatch_keys_collect(state.clone(), KeySet::gamma_k);
     state.lambda = state.kappa.clone();
     state.kappa = state.gamma_k.clone();
     state.gamma_k = Box::new(set_offenders_null(&input, &state));
+    let bandersnatch_keys = state.gamma_k
+    .iter()
+    .map(|validator| validator.bandersnatch.clone())
+    .collect();
     state.gamma_z = bandersnatch::create_root_epoch(bandersnatch_keys);
 }
 
@@ -168,11 +171,12 @@ fn fallback(entropy: OpaqueHash, keys: Vec<BandersnatchKey>) -> [BandersnatchKey
     let clean_entropy = entropy;
 
     for i in 0u32..E as u32 { 
-        let index_le = i.to_le_bytes();
-        let index_hex = hex::encode(index_le);
+        let index_le = i.encode();
+        /*let index_hex = hex::encode(index_le);
         let entropy_bytes = array_bytes::hex2bytes(clean_entropy).expect("Failed to convert hex to bytes");
         let index_bytes = array_bytes::hex2bytes(index_hex).expect("Failed to convert hex to bytes");
-        let concatenated = [entropy_bytes, index_bytes].concat();
+        let concatenated = [entropy_bytes, index_bytes].concat();*/
+        let concatenated = [&entropy[..], &index_le[..]].concat();
         let hash = blake2_256(&concatenated);
         let hash_4 = u32::from_be_bytes([hash[3], hash[2], hash[1], hash[0]]);
         let id = (hash_4 % V as u32) as usize;

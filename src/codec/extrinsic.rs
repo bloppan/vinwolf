@@ -4,7 +4,7 @@ use crate::types::{
 };
 use crate::globals::{VALIDATORS_SUPER_MAJORITY, AVAIL_BITFIELD_BYTES};
 use crate::codec::{Encode, EncodeSize, EncodeLen, Decode, DecodeLen, ReadError, BytesReader};
-use crate::work::package::WorkReport;
+use crate::codec::package::WorkReport;
 
 // The extrinsic data is split into its several portions:
 //     Tickets, used for the mechanism which manages the selection of validators for the permissioning of block authoring.

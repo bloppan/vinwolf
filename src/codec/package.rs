@@ -1,5 +1,5 @@
 use crate::types::{OpaqueHash, Gas, ServiceId, CoreIndex};
-use crate::refine::RefineContext;
+use crate::codec::refine::RefineContext;
 use crate::codec::{ReadError, BytesReader, Decode, DecodeLen, Encode, EncodeLen, EncodeSize};
 
 // A work-report, of the set W, is defined as a tuple of the work-package specification, the
