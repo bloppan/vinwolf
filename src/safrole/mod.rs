@@ -1,18 +1,18 @@
 extern crate hex;
 extern crate array_bytes;
 
-use crate::types::{BandersnatchKey, Ed25519Key, BlsKey, BandersnatchRingCommitment, Metadata, OpaqueHash, TimeSlot};
+use crate::types::{BandersnatchKey, Ed25519Key, BlsKey, Metadata, OpaqueHash};
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 
-use crate::codec::{Encode, EncodeSize};
-use crate::codec::safrole::{Input as Input, Output, SafroleState, KeySet, Safrole,
-                            ErrorType, EpochMark, OutputMarks, ValidatorData, 
-                            TicketsOrKeys, TicketBody};
+use crate::codec::{Encode};
+use crate::codec::safrole::{
+                            Input as Input, Output, SafroleState, ErrorType, 
+                            OutputMarks, ValidatorData, TicketsOrKeys, 
+};
+use crate::codec::header::{EpochMark, TicketBody};
 
-mod bandersnatch;
-
-use serde::Deserialize;
 use sp_core::blake2_256;
+mod bandersnatch;
 
 // Update Safrole state
 pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
@@ -56,7 +56,7 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
                 .expect("Incorrect number of validators"),  
         });
         if post_e == e + 1 && m >= TICKET_SUBMISSION_ENDS as u32 && state.gamma_a.len() == EPOCH_LENGTH {
-            state.gamma_s = TicketsOrKeys::tickets(outside_in_sequencer(&state.gamma_a));
+            state.gamma_s = TicketsOrKeys::Tickets(outside_in_sequencer(&state.gamma_a));
         } else if post_e == e {
             // gamma_s' = gamma_s
         } else {
@@ -64,7 +64,7 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
                 .iter()
                 .map(|validator| validator.bandersnatch.clone())
                 .collect();
-            state.gamma_s = TicketsOrKeys::keys(fallback(&state.eta[2], &bandersnatch_keys));
+            state.gamma_s = TicketsOrKeys::Keys(fallback(&state.eta[2], &bandersnatch_keys));
         } 
         state.gamma_a = vec![];
     } else if post_e == e && m < TICKET_SUBMISSION_ENDS as u32 && TICKET_SUBMISSION_ENDS  as u32 <= post_m && state.gamma_a.len() == EPOCH_LENGTH {
@@ -89,10 +89,10 @@ fn update_recent_entropy(input: &Input, state: &mut SafroleState) {
     state.eta[0] = blake2_256(&[state.eta[0], input.entropy].concat());
 }
 
-fn set_offenders_null(input: &Input, state: &SafroleState) -> Box<[ValidatorData; VALIDATORS_COUNT]> {
+fn set_offenders_null(input: &Input, state: &SafroleState) -> Vec<ValidatorData> {
 
     if input.post_offenders.is_empty() {
-        return Box::new(*state.iota.clone());
+        return state.iota.clone();
     }
 
     let mut iota = state.iota.clone();
@@ -107,14 +107,13 @@ fn set_offenders_null(input: &Input, state: &SafroleState) -> Box<[ValidatorData
             }
         }
     }
-    return Box::new(*iota);
+    return iota;
 }
-
 // Equation 58
 fn key_rotation(input: &Input, state: &mut SafroleState) { 
     state.lambda = state.kappa.clone();
     state.kappa = state.gamma_k.clone();
-    state.gamma_k = Box::new(*set_offenders_null(&input, &state));
+    state.gamma_k = set_offenders_null(&input, &state);
     let bandersnatch_keys = state.gamma_k
                                     .iter()
                                     .map(|validator| validator.bandersnatch.clone())
@@ -140,16 +139,16 @@ fn outside_in_sequencer(tickets: &Vec<TicketBody>) -> Vec<TicketBody> {
 }
 
 //Equation 71
-fn fallback(entropy: &OpaqueHash, keys: &Vec<BandersnatchKey>) -> Box<[BandersnatchKey; EPOCH_LENGTH]> {
+fn fallback(entropy: &OpaqueHash, keys: &Vec<BandersnatchKey>) -> Vec<BandersnatchKey> {
 
-    let mut new_keys: Box<[BandersnatchKey; EPOCH_LENGTH]> = Box::new([[0u8; std::mem::size_of::<OpaqueHash>()]; EPOCH_LENGTH]);
+    let mut new_keys: Vec<BandersnatchKey> = Vec::with_capacity(std::mem::size_of::<BandersnatchKey>() * EPOCH_LENGTH);
 
     for i in 0u32..EPOCH_LENGTH as u32 { 
         let index_le = i.encode();
         let hash = blake2_256(&[&entropy[..], &index_le].concat());
         let hash_4 = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
         let id = (hash_4 % VALIDATORS_COUNT as u32) as usize;
-        new_keys[i as usize] = keys[id].clone();
+        new_keys.push(keys[id].clone());
     }
     new_keys
 }

@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use crate::codec::{BytesReader, ReadError};
+use crate::codec::{Encode, Decode, BytesReader, ReadError};
 use crate::codec::header::Header;
 use crate::codec::extrinsic::Extrinsic;
 
