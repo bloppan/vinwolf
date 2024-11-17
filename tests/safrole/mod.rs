@@ -1,4 +1,3 @@
-use serde::Deserialize;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
@@ -7,61 +6,18 @@ use vinwolf::codec::safrole::{SafroleState, Output, Input};
 use vinwolf::codec::{Encode, Decode, BytesReader};
 use vinwolf::safrole::update_state;
 
-struct JsonData {
-    input: Input,
-    output: Output,
-    pre_state: SafroleState,
-    post_state: SafroleState,
-}
-
-/*fn load_json_data(filename: &str) -> Result<JsonData, Box<dyn std::error::Error>> {
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR")); // root project's directory
-    path.push("data/safrole/full/");
-    path.push(filename);
-
-    let mut file = File::open(&path)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    let data: JsonData = serde_json::from_str(&contents)?;
-    Ok(data)
-}*/
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     const TEST_TYPE: &str = "tiny";
 
-    /*fn run_safrole_json_file(filename: &str) {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                    .join(format!("data/safrole/{}/{}", TEST_TYPE, filename));
-
-        let test = load_json_data(path.to_str().unwrap()).expect("Failed to load JSON data");
-
-        let mut post_state: SafroleState = test.pre_state.clone();
-        // Exec update state safrole
-        let res = JsonData {
-            input: test.input.clone(),
-            output: update_state(test.input.clone(), &mut post_state),
-            pre_state: test.pre_state.clone(),
-            post_state,
-        };
-
-        assert_eq!(test.post_state.tau, res.post_state.tau);
-        assert_eq!(test.post_state.eta, res.post_state.eta);
-        assert_eq!(test.post_state.lambda, res.post_state.lambda);
-        assert_eq!(test.post_state.kappa, res.post_state.kappa);
-        assert_eq!(test.post_state.gamma_k, res.post_state.gamma_k);
-        assert_eq!(test.post_state.iota, res.post_state.iota);
-        assert_eq!(test.post_state.gamma_a, res.post_state.gamma_a);
-        assert_eq!(test.post_state.gamma_s, res.post_state.gamma_s);
-    }*/
-    fn find_first_difference(data1: &[u8], data2: &[u8], part: &str) -> Option<usize> {
+    fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
         data1.iter()
             .zip(data2.iter())
             .position(|(byte1, byte2)| byte1 != byte2)
             .map(|pos| {
-                println!("Difference at {} byte position: {}", part, pos);
+                //println!("Difference at {} byte position: {}", part, pos);
                 println!("First 32 bytes of data1: {:0X?}", &data1[pos..pos + 64.min(data1.len())]);
                 println!("First 32 bytes of data2: {:0X?}", &data2[pos..pos + 64.min(data2.len())]);
                 pos
@@ -71,7 +27,7 @@ mod tests {
     fn run_safrole_bin_file(filename: &str) {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                     .join(format!("data/safrole/{}/{}", TEST_TYPE, filename));
-
+        
         let mut file = File::open(&path).expect("Failed to open file");
         let mut test_content = Vec::new();
         let _success = file.read_to_end(&mut test_content);
@@ -81,7 +37,7 @@ mod tests {
         let e_input = Input::encode(&input);
         let pos_input = safrole_test.get_position();
         if let Some(diff_pos) = find_first_difference(&test_content[..pos_input], &e_input, "Input") {
-            panic!("Difference found in 'output' at byte position {}", pos_input + diff_pos);
+            panic!("Difference found in 'input' at byte position {}", diff_pos);
         }
         assert_eq!(test_content[..pos_input], e_input);
         if pos_input > test_content.len() {
@@ -94,7 +50,7 @@ mod tests {
         let e_pre_state = SafroleState::encode(&pre_state);
         let pos_pre_state = safrole_test.get_position();
         if let Some(diff_pos) = find_first_difference(&test_content[pos_input..pos_pre_state], &e_pre_state, "PreState") {
-            panic!("Difference found in 'output' at byte position {}", pos_pre_state + diff_pos);
+            panic!("Difference found in 'pre_state' at byte position {}", pos_input + diff_pos);
         }
         assert_eq!(test_content[pos_input..pos_pre_state], e_pre_state);
         if pos_pre_state > test_content.len() {
@@ -110,7 +66,7 @@ mod tests {
         //println!("pos_output = {pos_output}");
         
         if let Some(diff_pos) = find_first_difference(&test_content[pos_pre_state..pos_output], &e_output, "Output") {
-            panic!("Difference found in 'output' at byte position {}", pos_output + diff_pos);
+            panic!("Difference found in 'output' at byte position {}", pos_pre_state + diff_pos);
         }
         assert_eq!(test_content[pos_input..pos_pre_state], e_pre_state);
         if pos_output > test_content.len() {
@@ -126,7 +82,7 @@ mod tests {
         //println!("\n\npost_state = {:0X?}", post_state);
         
         if let Some(diff_pos) = find_first_difference(&test_content[pos_output..pos_post_state], &e_post_state, "PostState") {
-            panic!("Difference found in 'post_state' at byte position {}", pos_post_state + diff_pos);
+            panic!("Difference found in 'post_state' at byte position {}", pos_output + diff_pos);
         }
         if pos_post_state > test_content.len() {
             panic!("post_state: Out of test_bounds | pos = {}", pos_post_state);
@@ -161,7 +117,7 @@ mod tests {
         assert_eq!(post_state.gamma_s, pre_state.gamma_s);
         assert_eq!(post_state.gamma_z, pre_state.gamma_z);
 
-        //assert_eq!(post_state, pre_state);
+        assert_eq!(post_state, pre_state);
         assert_eq!(output, res_output);
     }
 

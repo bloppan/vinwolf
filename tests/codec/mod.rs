@@ -4,21 +4,17 @@ use std::path::PathBuf;
 
 extern crate vinwolf;
 
-use vinwolf::codec::BytesReader;
-
-use vinwolf::codec::refine::RefineContext;
-
-use vinwolf::codec::package::WorkItem;
-use vinwolf::codec::package::WorkPackage;
-use vinwolf::codec::package::WorkResult;
-use vinwolf::codec::package::WorkReport;
-
-use vinwolf::codec::extrinsic::TicketsExtrinsic;
-use vinwolf::codec::extrinsic::DisputesExtrinsic;
-use vinwolf::codec::extrinsic::PreimagesExtrinsic;
-use vinwolf::codec::extrinsic::AssurancesExtrinsic;
-use vinwolf::codec::extrinsic::GuaranteesExtrinsic;
-
+use vinwolf::codec::{Encode, Decode, BytesReader};
+use vinwolf::codec::refine_context::RefineContext;
+use vinwolf::codec::work_item::WorkItem;
+use vinwolf::codec::work_package::WorkPackage;
+use vinwolf::codec::work_result::WorkResult;
+use vinwolf::codec::work_report::WorkReport;
+use vinwolf::codec::tickets_extrinsic::TicketsExtrinsic;
+use vinwolf::codec::disputes_extrinsic::DisputesExtrinsic;
+use vinwolf::codec::preimages_extrinsic::PreimagesExtrinsic;
+use vinwolf::codec::assurances_extrinsic::AssurancesExtrinsic;
+use vinwolf::codec::guarantees_extrinsic::GuaranteesExtrinsic;
 use vinwolf::codec::header::Header;
 use vinwolf::codec::block::Block;
 
@@ -156,7 +152,7 @@ mod tests {
     fn run_block() {
         let test = read_codec_test("data/codec/data/block.bin");
         let mut block_test = BytesReader::new(&test);
-        let block_decoded = Block::decode(&mut block_test).expect("Error decoding Header");
+        let block_decoded = Block::decode(&mut block_test).expect("Error decoding Block");
         let res = Block::encode(&block_decoded);
         assert_eq!(test, res);
     }

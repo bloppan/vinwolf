@@ -16,31 +16,28 @@ pub struct RefineContext {
     pub prerequisite: Option<OpaqueHash>,
 }
 
-impl RefineContext {
-    pub fn decode(refine_blob: &mut BytesReader) -> Result<Self, ReadError> {
+impl Decode for RefineContext {
 
-        let anchor = OpaqueHash::decode(refine_blob)?;
-        let state_root = OpaqueHash::decode(refine_blob)?;
-        let beefy_root = OpaqueHash::decode(refine_blob)?;
-        let lookup_anchor = OpaqueHash::decode(refine_blob)?;
-        let lookup_anchor_slot = u32::decode(refine_blob)?;
-        let prerequisite = if u8::decode(refine_blob)? != 0 {
-            Some(OpaqueHash::decode(refine_blob)?)
-        } else {
-            None
-        };
+    fn decode(refine_blob: &mut BytesReader) -> Result<Self, ReadError> {
 
         Ok(RefineContext {
-            anchor,
-            state_root,
-            beefy_root,
-            lookup_anchor,
-            lookup_anchor_slot,
-            prerequisite,
+            anchor: OpaqueHash::decode(refine_blob)?,
+            state_root: OpaqueHash::decode(refine_blob)?,
+            beefy_root: OpaqueHash::decode(refine_blob)?,
+            lookup_anchor: OpaqueHash::decode(refine_blob)?,
+            lookup_anchor_slot: TimeSlot::decode(refine_blob)?,
+            prerequisite: if u8::decode(refine_blob)? != 0 {
+                Some(OpaqueHash::decode(refine_blob)?)
+            } else {
+                None
+            },
         })
     }
-    
-    pub fn encode(&self) -> Vec<u8> {
+}
+
+impl Encode for RefineContext {
+
+    fn encode(&self) -> Vec<u8> {
 
         let mut refine_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<RefineContext>());  
         
@@ -51,15 +48,15 @@ impl RefineContext {
         self.lookup_anchor_slot.encode_size(4).encode_to(&mut refine_blob);
 
         if let Some(prereq) = &self.prerequisite {
-            refine_blob.extend_from_slice(prereq);
+            prereq.encode_to(&mut refine_blob);
         } else {
-            refine_blob.push(0u8);
+            0_u8.encode_to(&mut refine_blob);
         }
     
         return refine_blob;
     }
 
-    pub fn encode_to(&self, into: &mut Vec<u8>) {
+    fn encode_to(&self, into: &mut Vec<u8>) {
         into.extend_from_slice(&self.encode());
     }
 }

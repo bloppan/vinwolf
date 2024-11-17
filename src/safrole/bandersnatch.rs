@@ -1,11 +1,10 @@
-use ark_ec_vrfs::ring::RingSuite;
 use ark_ec_vrfs::suites::bandersnatch::edwards as bandersnatch;
 use ark_ec_vrfs::{prelude::ark_serialize, suites::bandersnatch::edwards::RingContext};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use bandersnatch::{BandersnatchSha512Ell2, IetfProof, Input, Output, Public, RingProof, Secret};
+use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
 
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH};
-use crate::safrole::{SafroleState, KeySet, TicketBody, OutputMarks, ErrorType};
+use crate::safrole::{SafroleState, TicketBody, OutputMarks, ErrorType};
 use crate::codec::safrole::{Input as InputSafrole, Output as OutputSafrole};
 
 use std::collections::HashSet;
@@ -265,19 +264,19 @@ pub fn verify_tickets(input: &InputSafrole, state: &mut SafroleState) -> OutputS
 
     // Create a bandersnatch ring keys
     let ring_keys: Vec<_> = state.gamma_k
-                                .iter()
-                                .map(|validator| validator.bandersnatch.clone())
-                                .collect();
+                                        .iter()
+                                        .map(|validator| validator.bandersnatch.clone())
+                                        .collect();
 
     // Create a bandersnatch ring set 
     let ring_set: Vec<Public> = ring_keys
-                                .iter()
-                                .map(|key| {
-                                    let point = bandersnatch::Public::deserialize_compressed(&key[..])
-                                    .expect("Deserialization failed");
-                                    point
-                                })
-                                .collect();
+                                        .iter()
+                                        .map(|key| {
+                                            let point = bandersnatch::Public::deserialize_compressed(&key[..])
+                                            .expect("Deserialization failed");
+                                            point
+                                        })
+                                        .collect();
     
     let verifier = Verifier::new(ring_set);
     let mut new_gamma_a = state.gamma_a.clone();
@@ -315,11 +314,11 @@ pub fn verify_tickets(input: &InputSafrole, state: &mut SafroleState) -> OutputS
     if bad_order_tickets(&new_ids) {
         return OutputSafrole::err(ErrorType::bad_ticket_order);
     }
-    // Remove old tickets to make space for new ones
+    // Sort tickets
     new_gamma_a.sort();
+    // Remove old tickets to make space for new ones
     if new_gamma_a.len() > EPOCH_LENGTH {
-        let num_old_tickets = new_gamma_a.len() - EPOCH_LENGTH; 
-        new_gamma_a.drain(EPOCH_LENGTH..(EPOCH_LENGTH + num_old_tickets));
+        new_gamma_a.drain(EPOCH_LENGTH..new_gamma_a.len());
     }
     // Save new ticket set in state
     state.gamma_a = new_gamma_a.clone();
