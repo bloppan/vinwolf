@@ -3,7 +3,7 @@ use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH};
 use crate::codec::{Encode, Decode, DecodeLen, BytesReader, ReadError};
 use crate::codec::tickets_extrinsic::{TicketsExtrinsic};
 use crate::codec::header::{EpochMark, TicketBody};
-use crate::codec::{encode_unsigned, decode_unsigned};
+use crate::codec::{encode_unsigned};
 
 pub struct Input {
     pub slot: TimeSlot,
@@ -79,7 +79,7 @@ impl Encode for SafroleState {
         ValidatorData::encode_all(&self.kappa).encode_to(&mut state_encoded);
         ValidatorData::encode_all(&self.gamma_k).encode_to(&mut state_encoded);
         ValidatorData::encode_all(&self.iota).encode_to(&mut state_encoded);
-        TicketBody::encode_len(&self.gamma_a, self.gamma_a.len()).encode_to(&mut state_encoded);
+        TicketBody::encode_len(&self.gamma_a).encode_to(&mut state_encoded);
         self.gamma_s.encode_to(&mut state_encoded);
         self.gamma_z.encode_to(&mut state_encoded);
 
@@ -239,6 +239,12 @@ impl Decode for OutputMarks {
     }
 }
 
+/// This is a combination of a set of cryptographic public keys and metadata which is an opaque octet sequence, 
+/// but utilized to specify practical identifiers for the validator, not least a hardware address. The set of 
+/// validator keys itself is equivalent to the set of 336-octet sequences. However, for clarity, we divide the
+/// sequence into four easily denoted components. For any validator key k, the Bandersnatch key is is equivalent 
+/// to the first 32-octets; the Ed25519 key, ke, is the second 32 octets; the bls key denoted bls is equivalent 
+/// to the following 144 octets, and finally the metadata km is the last 128 octets.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ValidatorData {
     pub bandersnatch: BandersnatchKey,

@@ -1,11 +1,104 @@
 use crate::types::{
                     OpaqueHash, TimeSlot, Ed25519Key, ValidatorIndex, 
-                    BandersnatchVrfSignature, BandersnatchKey, TicketAttempt
+                    BandersnatchVrfSignature, BandersnatchKey,
 };
 use crate::constants::{EPOCH_LENGTH, VALIDATORS_COUNT};
 use crate::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 use crate::codec::{encode_unsigned, decode_unsigned};
-//use crate::codec::safrole::{EpochMark};
+
+// The header comprises a parent hash and prior state root, an extrinsic hash, a time-slot index, the epoch, 
+// winning-tickets and offenders markers, and, a Bandersnatch block author index and two Bandersnatch signatures; 
+// the entropy-yielding, vrf signature, and a block seal. Excepting the Genesis header, all block headers H have
+// an associated parent header, whose hash is Hp.
+
+pub struct Header {
+    parent: OpaqueHash,
+    parent_state_root: OpaqueHash,
+    extrinsic_hash: OpaqueHash,
+    slot: TimeSlot,
+    epoch_mark: Option<EpochMark>,
+    tickets_mark: Option<TicketsMark>,
+    offenders_mark: Vec<Ed25519Key>,
+    author_index: ValidatorIndex,
+    entropy_source: BandersnatchVrfSignature,
+    seal: BandersnatchVrfSignature,
+}
+
+impl Encode for Header {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut header_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Header>());
+        self.parent.encode_to(&mut header_blob);
+        self.parent_state_root.encode_to(&mut header_blob);
+        self.extrinsic_hash.encode_to(&mut header_blob);
+        self.slot.encode_size(4).encode_to(&mut header_blob);
+  
+        if let Some(epoch_mark) = &self.epoch_mark {
+            (1u8).encode_to(&mut header_blob); // 1 = Mark there is epoch 
+            epoch_mark.encode_to(&mut header_blob);
+        } else {
+            (0u8).encode_to(&mut header_blob); // 0 = Mark there isn't epoch
+        }
+
+        if let Some(tickets_mark) = &self.tickets_mark {
+            (1u8).encode_to(&mut header_blob); // 1 = Mark there are tickets 
+            tickets_mark.encode_to(&mut header_blob);
+        } else {
+            (0u8).encode_to(&mut header_blob); // 0 = Mark there aren't tickets
+        }
+        
+        encode_unsigned(self.offenders_mark.len()).encode_to(&mut header_blob);
+        for mark in &self.offenders_mark {
+            mark.encode_to(&mut header_blob);
+        }
+
+        self.author_index.encode_size(2).encode_to(&mut header_blob);
+        self.entropy_source.encode_to(&mut header_blob);
+        self.seal.encode_to(&mut header_blob);
+
+        return header_blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode()); 
+    }
+}
+
+impl Decode for Header {
+
+    fn decode(header_blob: &mut BytesReader) -> Result<Self, ReadError> {
+        
+        Ok(Header {
+            parent: OpaqueHash::decode(header_blob)?,
+            parent_state_root: OpaqueHash::decode(header_blob)?,
+            extrinsic_hash: OpaqueHash::decode(header_blob)?,
+            slot: TimeSlot::decode(header_blob)?,
+
+            epoch_mark: if header_blob.read_byte()? != 0 {
+                Some(EpochMark::decode(header_blob)?)
+            } else {
+                None
+            },
+            tickets_mark: if header_blob.read_byte()? != 0 {
+                Some(TicketsMark::decode(header_blob)?)
+            } else {
+                None
+            },
+            offenders_mark: {
+                let num_offenders = decode_unsigned(header_blob)?;
+                let mut offenders_mark: Vec<Ed25519Key> = Vec::with_capacity(num_offenders);
+                for _ in 0..num_offenders {
+                    offenders_mark.push(Ed25519Key::decode(header_blob)?);
+                }
+                offenders_mark
+            },
+            author_index: ValidatorIndex::decode(header_blob)?,
+            entropy_source: BandersnatchVrfSignature::decode(header_blob)?,
+            seal: BandersnatchVrfSignature::decode(header_blob)?,
+        })
+    }
+}
 
 // The epoch and winning-tickets markers are information placed in the header in order to minimize 
 // data transfer necessary to determine the validator keys associated with any given epoch. They 
@@ -156,8 +249,9 @@ impl TicketBody {
         return Ok(tickets_mark);
     }
 
-    pub fn encode_len(tickets_body: &Vec<TicketBody>, len: usize) -> Vec<u8> {
+    pub fn encode_len(tickets_body: &Vec<TicketBody>) -> Vec<u8> {
         
+        let len = tickets_body.len();
         let mut body_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<TicketBody>() * len);
         encode_unsigned(len).encode_to(&mut body_blob);
 
@@ -166,109 +260,5 @@ impl TicketBody {
         }
 
         return body_blob;
-    }
-}
-
-// The header comprises a parent hash and prior state root, an extrinsic hash, a time-slot index, the epoch, 
-// winning-tickets and offenders markers, and, a Bandersnatch block author index and two Bandersnatch signatures; 
-// the entropy-yielding, vrf signature, and a block seal. Excepting the Genesis header, all block headers H have
-// an associated parent header, whose hash is Hp.
-
-pub struct Header {
-    parent: OpaqueHash,
-    parent_state_root: OpaqueHash,
-    extrinsic_hash: OpaqueHash,
-    slot: TimeSlot,
-    epoch_mark: Option<EpochMark>,
-    tickets_mark: Option<TicketsMark>,
-    offenders_mark: Vec<Ed25519Key>,
-    author_index: ValidatorIndex,
-    entropy_source: BandersnatchVrfSignature,
-    seal: BandersnatchVrfSignature,
-}
-
-impl Decode for Header {
-
-    fn decode(header_blob: &mut BytesReader) -> Result<Self, ReadError> {
-        
-        let parent = OpaqueHash::decode(header_blob)?;
-        let parent_state_root = OpaqueHash::decode(header_blob)?;
-        let extrinsic_hash = OpaqueHash::decode(header_blob)?;
-        let slot = TimeSlot::decode(header_blob)?;
-        
-        let epoch_mark = if header_blob.read_byte()? != 0 {
-                Some(EpochMark::decode(header_blob)?)
-            } else {
-                None
-        };
-
-        let tickets_mark = if header_blob.read_byte()? != 0 {
-                Some(TicketsMark::decode(header_blob)?)
-            } else {
-                None
-        };
-
-        let num_offenders = decode_unsigned(header_blob)?;
-        let mut offenders_mark: Vec<Ed25519Key> = Vec::with_capacity(num_offenders);
-        for _ in 0..num_offenders {
-            offenders_mark.push(Ed25519Key::decode(header_blob)?);
-        }
-        let author_index = ValidatorIndex::decode(header_blob)?;
-        let entropy_source = BandersnatchVrfSignature::decode(header_blob)?;
-        let seal = BandersnatchVrfSignature::decode(header_blob)?;
-        
-        Ok(Header {
-            parent,
-            parent_state_root,
-            extrinsic_hash,
-            slot,
-            epoch_mark,
-            tickets_mark,
-            offenders_mark,
-            author_index,
-            entropy_source,
-            seal
-        })
-    }
-}
-
-impl Encode for Header {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut header_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Header>());
-        self.parent.encode_to(&mut header_blob);
-        self.parent_state_root.encode_to(&mut header_blob);
-        self.extrinsic_hash.encode_to(&mut header_blob);
-        self.slot.encode_size(4).encode_to(&mut header_blob);
-  
-        if let Some(epoch_mark) = &self.epoch_mark {
-            (1u8).encode_to(&mut header_blob); // 1 = Mark there is epoch 
-            epoch_mark.encode_to(&mut header_blob);
-        } else {
-            (0u8).encode_to(&mut header_blob); // 0 = Mark there isn't epoch
-        }
-
-        if let Some(tickets_mark) = &self.tickets_mark {
-            (1u8).encode_to(&mut header_blob); // 1 = Mark there are tickets 
-            tickets_mark.encode_to(&mut header_blob);
-        } else {
-            (0u8).encode_to(&mut header_blob); // 0 = Mark there aren't tickets
-        }
-        
-        encode_unsigned(self.offenders_mark.len()).encode_to(&mut header_blob);
-        for mark in &self.offenders_mark {
-            mark.encode_to(&mut header_blob);
-        }
-
-        self.author_index.encode_size(2).encode_to(&mut header_blob);
-        self.entropy_source.encode_to(&mut header_blob);
-        self.seal.encode_to(&mut header_blob);
-
-        return header_blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode()); 
     }
 }
