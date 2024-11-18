@@ -19,12 +19,12 @@ use crate::codec::{encode_unsigned, decode_unsigned};
 //      Unexpected program termination
 //      The code was not available for lookup in state at the posterior state of the lookup-anchor block.
 //      The code was available but was beyond the maximun size allowed Wc.
-
+#[derive(Debug)]
 pub struct WorkResult {
     service: ServiceId,
     code_hash: OpaqueHash,
     payload_hash: OpaqueHash,
-    gas_ratio: Gas,
+    gas: Gas,
     result: Vec<u8>,
 }
 
@@ -46,7 +46,7 @@ impl Encode for WorkResult {
         self.service.encode_size(4).encode_to(&mut work_res_blob);
         self.code_hash.encode_to(&mut work_res_blob);
         self.payload_hash.encode_to(&mut work_res_blob);
-        self.gas_ratio.encode_size(8).encode_to(&mut work_res_blob);
+        self.gas.encode_size(8).encode_to(&mut work_res_blob);
 
         let mut result = BytesReader::new(&self.result);
         let exec_result = decode_unsigned(&mut result).expect("Error decoding exec_result in WorkResult");
@@ -75,7 +75,7 @@ impl Decode for WorkResult {
             service: ServiceId::decode(work_result_blob)?,
             code_hash: OpaqueHash::decode(work_result_blob)?,
             payload_hash: OpaqueHash::decode(work_result_blob)?,
-            gas_ratio: Gas::decode(work_result_blob)?,
+            gas: Gas::decode(work_result_blob)?,
             result: {
                 let mut result: Vec<u8> = vec![];
                 let exec_result = work_result_blob.read_byte()?;

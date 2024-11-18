@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use vinwolf::codec::safrole::{SafroleState, Output, Input};
 use vinwolf::codec::{Encode, Decode, BytesReader};
+use crate::codec::find_first_difference;
 use vinwolf::safrole::update_state;
 
 #[cfg(test)]
@@ -11,18 +12,6 @@ mod tests {
     use super::*;
 
     const TEST_TYPE: &str = "tiny";
-
-    fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
-        data1.iter()
-            .zip(data2.iter())
-            .position(|(byte1, byte2)| byte1 != byte2)
-            .map(|pos| {
-                //println!("Difference at {} byte position: {}", part, pos);
-                println!("First 32 bytes of data1: {:0X?}", &data1[pos..pos + 64.min(data1.len())]);
-                println!("First 32 bytes of data2: {:0X?}", &data2[pos..pos + 64.min(data2.len())]);
-                pos
-            })
-    }
 
     fn run_safrole_bin_file(filename: &str) {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

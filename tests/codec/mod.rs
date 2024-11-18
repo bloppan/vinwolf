@@ -18,18 +18,31 @@ use vinwolf::codec::guarantees_extrinsic::GuaranteesExtrinsic;
 use vinwolf::codec::header::Header;
 use vinwolf::codec::block::Block;
 
+pub fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
+    data1.iter()
+        .zip(data2.iter())
+        .position(|(byte1, byte2)| byte1 != byte2)
+        .map(|pos| {
+            println!("First 32 bytes of data1: {:0X?}", &data1[pos..pos + 64.min(data1.len())]);
+            println!("First 32 bytes of data2: {:0X?}", &data2[pos..pos + 64.min(data2.len())]);
+            pos
+        })
+}
+
+
+
+fn read_codec_test(filename: &str) -> Vec<u8> {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push(filename);
+    let mut file = File::open(&path).expect("Failed to open file");
+    let mut content = Vec::new();
+    let _success = file.read_to_end(&mut content);
+    return content;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    
-    fn read_codec_test(filename: &str) -> Vec<u8> {
-        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push(filename);
-        let mut file = File::open(&path).expect("Failed to open file");
-        let mut content = Vec::new();
-        let _success = file.read_to_end(&mut content);
-        return content;
-    }
 
     #[test]
     fn run_refine_context_test() {
@@ -82,6 +95,11 @@ mod tests {
         let mut work_report_test = BytesReader::new(&test);
         let work_report_decoded = WorkReport::decode(&mut work_report_test).expect("Error decoding WorkReport");
         let res = work_report_decoded.encode();
+        /*println!("work_report decoded: {:0X?}", work_report_decoded);
+
+        if let Some(diff_pos) = find_first_difference(&test, &res, "WorkReport") {
+            panic!("Difference found at byte position {}", diff_pos);
+        }*/
         assert_eq!(test, res);
     }
 
