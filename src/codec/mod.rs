@@ -6,6 +6,7 @@ pub mod disputes_extrinsic;
 pub mod extrinsic;
 pub mod guarantees_extrinsic;
 pub mod header;
+pub mod history;
 pub mod preimages_extrinsic;
 pub mod refine_context;
 pub mod safrole;

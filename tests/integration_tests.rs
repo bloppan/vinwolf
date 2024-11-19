@@ -7,6 +7,7 @@ mod pvm;
 mod codec;
 mod trie;
 mod erasure;
+mod history;
 
 /*#[test]
 fn lo_prueba() {
