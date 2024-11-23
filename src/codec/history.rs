@@ -2,6 +2,7 @@ use crate::types::{Hash};
 use crate::codec::{Encode, Decode, BytesReader, ReadError};
 use crate::codec::{encode_unsigned, decode_unsigned};
 
+#[derive(Clone)]
 pub enum MmrPeak {
     None,
     Some(Hash),
@@ -47,8 +48,9 @@ impl Decode for MmrPeak {
     }
 }
 
-struct Mmr {
-    peaks: Vec<MmrPeak>,
+#[derive(Clone)]
+pub struct Mmr {
+    pub peaks: Vec<MmrPeak>,
 }
 
 impl Encode for Mmr {
@@ -88,7 +90,7 @@ impl Decode for Mmr {
     }
 }
 
-
+#[derive(Clone)]
 struct ReportedWorkPackage {
     hash: Hash,
     exports_root: Hash,
@@ -122,8 +124,9 @@ impl Decode for ReportedWorkPackage {
     }
 }
 
-struct ReportedWorkPackages {
-    reported_work_packages: Vec<ReportedWorkPackage>,
+#[derive(Clone)]
+pub struct ReportedWorkPackages {
+    pub reported_work_packages: Vec<ReportedWorkPackage>,
 }
 
 impl Encode for ReportedWorkPackages {
@@ -161,10 +164,10 @@ impl Decode for ReportedWorkPackages {
     }
 }
 
-
-struct BlockInfo {
+#[derive(Clone)]
+pub struct BlockInfo {
     header_hash: Hash,
-    mmr: Mmr,
+    pub mmr: Mmr,
     state_root: Hash,
     reported: ReportedWorkPackages,
 }
@@ -201,8 +204,9 @@ impl Decode for BlockInfo {
     }
 }
 
+#[derive(Clone)]
 pub struct State {
-    beta: Vec<BlockInfo>,
+    pub beta: Vec<BlockInfo>,
 }
 
 impl Encode for State {
@@ -243,10 +247,10 @@ impl Decode for State {
 }
 
 pub struct Input {
-    header_hash: Hash,
-    parent_state_root: Hash,
-    accumulate_root: Hash,
-    work_packages: ReportedWorkPackages,
+    pub header_hash: Hash,
+    pub parent_state_root: Hash,
+    pub accumulate_root: Hash,
+    pub work_packages: ReportedWorkPackages,
 }
 
 impl Encode for Input {

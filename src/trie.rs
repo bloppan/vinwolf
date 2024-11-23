@@ -1,5 +1,7 @@
 use sp_core::blake2_256;
-use crate::codec::{Encode};
+use sp_core::keccak_256;
+use crate::types::{Hash};
+use crate::codec::{Encode, EncodeSize};
 
 // State Merklization involves transforming the serialized mapping into a cryptographic commitment. 
 // We define this commitment as the root of the binary Patricia Merkle Trie with a format optimized 
@@ -7,7 +9,7 @@ use crate::codec::{Encode};
 // layouts and reducing the need for unpredictable branching.
 
 // Hash function used us blake 256
-fn hash(data: &[u8]) -> [u8; 32] {
+fn hash(data: &[u8]) -> Hash {
     return blake2_256(data);
 }
 
@@ -15,9 +17,10 @@ fn bit(k: &[u8], i: usize) -> bool {
     (k[i >> 3] & (1 << (7 - (i & 7)))) != 0
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum MerkleError {
     LengthMismatch(usize),
+    OutOfRange,
 }
 
 fn branch(l: &[u8], r: &[u8]) -> Result<[u8; 64], MerkleError> {
@@ -46,14 +49,15 @@ fn leaf(k: &[u8], v: &[u8]) -> [u8; 64] {
     if v.len() <= 32 {
         // In the case of embedded-value leaf, the remaining 6 bits of the first byte are used 
         // to store the embedded value size
-        let head = (0b10000000 | v.len()) as u8;
+        let v_len_1 = v.len().encode_size(1).pop().unwrap() & 0x3F;
+        let head = (0b10000000 | v_len_1) as u8;
         head.encode_to(&mut encoded);
         // The following 31 bytes are dedicated to the first 31 bytes of the key
         k[..31].encode_to(&mut encoded);
         // The last 32 bytes are defined as the value
         v.encode_to(&mut encoded);
         // Fill with zeroes if its length is less than 32 bytes
-        vec![0; 32 - v.len()].encode_to(&mut encoded);
+        vec![0; 32 - v_len_1 as usize].encode_to(&mut encoded);
     } else {
         // In the case of a regular leaf, the remaining 6 bits of the first byte are zeroed
         let head = 0b11000000 as u8;
@@ -68,7 +72,7 @@ fn leaf(k: &[u8], v: &[u8]) -> [u8; 64] {
     leaf_hash
 }
 
-pub fn merkle(kvs: &[(Vec<u8>, Vec<u8>)], i: usize) -> Result<[u8; 32], MerkleError> {
+pub fn merkle(kvs: &[(Vec<u8>, Vec<u8>)], i: usize) -> Result<Hash, MerkleError> {
     // Empty (sub-)tries are identified as the zero hash
     if kvs.is_empty() {
         return Ok([0u8; 32]);
@@ -99,3 +103,114 @@ pub fn merkle(kvs: &[(Vec<u8>, Vec<u8>)], i: usize) -> Result<[u8; 32], MerkleEr
     Ok(hash(&branch_value))
 }
 
+fn node<T>(v: &[u8], hash_fn: fn(&[u8]) -> Hash) -> T
+where
+    T: From<Vec<u8>> + From<Hash>,
+{
+    let len = v.len();
+
+    if len == 0 {
+        return T::from([0u8; 32]);
+    } else if len == 1 {
+        return T::from(v.to_vec());
+    } else {
+        let prefix  = Vec::from("node");
+        let left    = node::<Vec<u8>>(&v[..(len / 2)], hash_fn); 
+        let right   = node::<Vec<u8>>(&v[(len / 2)..], hash_fn); 
+        
+        let mut combined = prefix.clone();
+        combined.extend_from_slice(&left);
+        combined.extend_from_slice(&right);
+
+        return T::from(hash_fn(&combined));
+    }
+}
+
+pub fn merkle_b(v: &[u8], hash_fn: fn(&[u8]) -> Hash) -> Hash {
+
+    if v.len() == 1 {
+        return hash_fn(&[v[0]]);
+    }
+
+    let mut hash = [0u8; 32];
+    hash.copy_from_slice(&node::<Vec<u8>>(v, hash_fn));
+    return hash;
+}
+
+pub fn append(
+        r: &[Option<Hash>], 
+        l: Hash, 
+        hash_fn: fn(&[u8]) -> Hash
+    ) -> Vec<Option<Hash>> {
+
+    let result = P(r, l, 0, hash_fn);
+
+    return result;
+}
+
+fn P(
+    r: &[Option<Hash>], 
+    l: Hash, 
+    n: usize, 
+    hash_fn: fn(&[u8]) -> Hash,
+) -> Vec<Option<Hash>> {
+
+    let mut result: Vec<Option<Hash>> = Vec::new();
+
+    if n >= r.len() {
+        result = r.to_vec();
+        result.push(Some(l));
+    } else if n < r.len() && r[n].is_none() {
+        result.extend_from_slice(&R(r, n, Some(l)));
+    } else {
+        let mut combined = Vec::new();
+        if let Some(ref rn) = r[n] {
+            combined.extend_from_slice(rn);
+        }
+        combined.extend_from_slice(&l);
+        result.extend_from_slice(&P(&R(r, n, None), hash_fn(&combined), n + 1, hash_fn));
+    }
+
+    result
+}
+
+fn R(s: &[Option<Hash>], i: usize, v: Option<Hash>) -> Vec<Option<Hash>> {
+
+    let mut result = s.to_vec();
+    result[i] = v;
+
+    return result;
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_R_func() {
+        let hash_1: Hash = [1u8; 32];
+        let hash_2: Hash = [2u8; 32];
+        let s: Vec<Option<Hash>> = vec![Some(hash_1), Some(hash_2)];
+        let n = 1;
+        let l: Hash = [3u8; 32];
+        let expected: Vec<Option<Hash>> = vec![Some(hash_1), Some(l)];
+        assert_eq!(expected, R(&s, n, Some(l)));
+    }
+
+    #[test]
+    fn test_P_func() {
+        // First case (n >= r.len())
+        let hash_1: Hash = [1u8; 32];
+        let hash_2: Hash = [2u8; 32];
+        let r: Vec<Option<Hash>> = vec![Some(hash_1), Some(hash_2), None];
+        let l: Hash = [3u8; 32];
+        let result_1 = P(&r, l, 3, keccak_256);
+        let expected_1 = vec![Some(hash_1), Some(hash_2), None, Some(l)];
+        assert_eq!(expected_1, result_1);
+        // Second case n < r.len() && r[n].is_none()
+        let result_2 = P(&r, l, 2, keccak_256);
+        let expected_2 = vec![Some(hash_1), Some(hash_2), Some(l)];
+        assert_eq!(expected_2, result_2)
+    }
+}
