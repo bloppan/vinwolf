@@ -2,6 +2,7 @@ use sp_core::blake2_256;
 use sp_core::keccak_256;
 use crate::types::{Hash};
 use crate::codec::{Encode, EncodeSize};
+use crate::codec::history::{Mmr, MmrPeak};
 
 // State Merklization involves transforming the serialized mapping into a cryptographic commitment. 
 // We define this commitment as the root of the binary Patricia Merkle Trie with a format optimized 
@@ -137,47 +138,36 @@ pub fn merkle_b(v: &[u8], hash_fn: fn(&[u8]) -> Hash) -> Hash {
     return hash;
 }
 
-pub fn append(
-        r: &[Option<Hash>], 
-        l: Hash, 
-        hash_fn: fn(&[u8]) -> Hash
-    ) -> Vec<Option<Hash>> {
+pub fn append(r: &Mmr, l: Hash, hash_fn: fn(&[u8]) -> Hash) -> Mmr {
 
-    let result = P(r, l, 0, hash_fn);
+    P(r, l, 0, hash_fn)
+}
+
+fn P(r: &Mmr, l: Hash, n: usize, hash_fn: fn(&[u8]) -> Hash) -> Mmr {
+
+    let mut result: Mmr = Mmr{peaks: Vec::new()};
+
+    if n >= r.peaks.len() {
+        result.peaks.extend_from_slice(&r.peaks);
+        result.peaks.push(Some(l));
+    } else if n < r.peaks.len() && r.peaks[n].is_none() {
+        result.peaks.extend_from_slice(&R(r, n, Some(l)).peaks);
+    } else {
+        let mut combined = Vec::new();
+        if let Some(ref rn) = r.peaks[n] {
+            combined.extend_from_slice(rn);
+        }
+        combined.extend_from_slice(&l);
+        result.peaks.extend_from_slice(&P(&R(r, n, None), hash_fn(&combined), n + 1, hash_fn).peaks);
+    }
 
     return result;
 }
 
-fn P(
-    r: &[Option<Hash>], 
-    l: Hash, 
-    n: usize, 
-    hash_fn: fn(&[u8]) -> Hash,
-) -> Vec<Option<Hash>> {
+fn R(s: &Mmr, i: usize, v: MmrPeak) -> Mmr {
 
-    let mut result: Vec<Option<Hash>> = Vec::new();
-
-    if n >= r.len() {
-        result = r.to_vec();
-        result.push(Some(l));
-    } else if n < r.len() && r[n].is_none() {
-        result.extend_from_slice(&R(r, n, Some(l)));
-    } else {
-        let mut combined = Vec::new();
-        if let Some(ref rn) = r[n] {
-            combined.extend_from_slice(rn);
-        }
-        combined.extend_from_slice(&l);
-        result.extend_from_slice(&P(&R(r, n, None), hash_fn(&combined), n + 1, hash_fn));
-    }
-
-    result
-}
-
-fn R(s: &[Option<Hash>], i: usize, v: Option<Hash>) -> Vec<Option<Hash>> {
-
-    let mut result = s.to_vec();
-    result[i] = v;
+    let mut result = s.clone();
+    result.peaks[i] = v;
 
     return result;
 }
@@ -191,26 +181,26 @@ mod tests {
     fn test_R_func() {
         let hash_1: Hash = [1u8; 32];
         let hash_2: Hash = [2u8; 32];
-        let s: Vec<Option<Hash>> = vec![Some(hash_1), Some(hash_2)];
+        let s = Mmr { peaks: vec![Some(hash_1), Some(hash_2)] };
         let n = 1;
         let l: Hash = [3u8; 32];
-        let expected: Vec<Option<Hash>> = vec![Some(hash_1), Some(l)];
-        assert_eq!(expected, R(&s, n, Some(l)));
+        let expected = Mmr { peaks: vec![Some(hash_1), Some(l)] };
+        assert_eq!(expected.peaks, R(&s, n, Some(l)).peaks);
     }
 
     #[test]
     fn test_P_func() {
-        // First case (n >= r.len())
         let hash_1: Hash = [1u8; 32];
         let hash_2: Hash = [2u8; 32];
-        let r: Vec<Option<Hash>> = vec![Some(hash_1), Some(hash_2), None];
+        let r = Mmr { peaks: vec![Some(hash_1), Some(hash_2), None] };
         let l: Hash = [3u8; 32];
+
         let result_1 = P(&r, l, 3, keccak_256);
-        let expected_1 = vec![Some(hash_1), Some(hash_2), None, Some(l)];
-        assert_eq!(expected_1, result_1);
-        // Second case n < r.len() && r[n].is_none()
+        let expected_1 = Mmr { peaks: vec![Some(hash_1), Some(hash_2), None, Some(l)] };
+        assert_eq!(expected_1.peaks, result_1.peaks);
+
         let result_2 = P(&r, l, 2, keccak_256);
-        let expected_2 = vec![Some(hash_1), Some(hash_2), Some(l)];
-        assert_eq!(expected_2, result_2)
+        let expected_2 = Mmr { peaks: vec![Some(hash_1), Some(hash_2), Some(l)] };
+        assert_eq!(expected_2.peaks, result_2.peaks);
     }
 }

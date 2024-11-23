@@ -7,7 +7,7 @@ use vinwolf::codec::history::{Input, State};
 
 use crate::codec::find_first_difference;
 
-use vinwolf::history::{progress_blocks};
+use vinwolf::history::{update_recent_history, set_history_state, get_history_state};
 
 //const TEST_TYPE: &str = "tiny";
 
@@ -73,30 +73,33 @@ fn run_history_bin_file(filename: &str) {
 
     assert_eq!(test_content, result_encoded);
 
-    progress_blocks(&input, &pre_state);
-    
+    set_history_state(&pre_state);
+    update_recent_history(input.header_hash, input.parent_state_root, input.accumulate_root, input.work_packages);
+    let state_result = get_history_state();
+
+    assert_eq!(post_state, state_result);
 }
 
 
 #[cfg(test)]
 mod tests {
     use super::*;
-/*
+
     #[test]
     fn test_progress_blocks_history_1() {
         run_history_bin_file("progress_blocks_history-1.bin");
-    }*/
+    }
 
     #[test]
     fn test_progress_blocks_history_2() {
         run_history_bin_file("progress_blocks_history-2.bin");
     }
-/*
+
     #[test]
     fn test_progress_blocks_history_3() {
         run_history_bin_file("progress_blocks_history-3.bin");
     }
-
+/*
     #[test]
     fn test_progress_blocks_history_4() {
         run_history_bin_file("progress_blocks_history-4.bin");

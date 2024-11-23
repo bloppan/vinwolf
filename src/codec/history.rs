@@ -2,10 +2,22 @@ use crate::types::{Hash};
 use crate::codec::{Encode, Decode, BytesReader, ReadError};
 use crate::codec::{encode_unsigned, decode_unsigned};
 
-#[derive(Clone)]
-pub enum MmrPeak {
-    None,
-    Some(Hash),
+pub type MmrPeak = Option<Hash>;
+
+impl Encode for &[MmrPeak] {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mmr: Mmr = Mmr { peaks: self.to_vec() };
+        let mut result: Vec<u8> = Vec::with_capacity(mmr.peaks.len());
+        mmr.encode_to(&mut result);
+
+        return result;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
 }
 
 impl Encode for MmrPeak {
@@ -15,40 +27,40 @@ impl Encode for MmrPeak {
         let mut mmrpeak_blob = Vec::new();
 
         match self {
-            MmrPeak::Some(hash) => {
+            Some(hash) => {
                 mmrpeak_blob.push(1);
                 hash.encode_to(&mut mmrpeak_blob);
             }
-            MmrPeak::None => {
+            None => {
                 mmrpeak_blob.push(0);
             }
         }
 
         return mmrpeak_blob;
     }
+
     fn encode_to(&self, into: &mut Vec<u8>) {
         into.extend_from_slice(&self.encode());
     }
 }
 
 impl Decode for MmrPeak {
-
+    
     fn decode(mmrpeak_blob: &mut BytesReader) -> Result<Self, ReadError> {
-
         let option = mmrpeak_blob.read_byte()?;
-
         match option {
-            0 => Ok(MmrPeak::None),
+            0 => Ok(None),
             1 => {
-                let hash = Hash::decode(mmrpeak_blob)?; 
-                Ok(MmrPeak::Some(hash))
+                let hash = Hash::decode(mmrpeak_blob)?;
+                Ok(Some(hash))
             }
-            _ => Err(ReadError::InvalidData), 
+            _ => Err(ReadError::InvalidData),
         }
     }
 }
 
-#[derive(Clone)]
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Mmr {
     pub peaks: Vec<MmrPeak>,
 }
@@ -90,7 +102,7 @@ impl Decode for Mmr {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 struct ReportedWorkPackage {
     hash: Hash,
     exports_root: Hash,
@@ -124,7 +136,7 @@ impl Decode for ReportedWorkPackage {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ReportedWorkPackages {
     pub reported_work_packages: Vec<ReportedWorkPackage>,
 }
@@ -164,12 +176,12 @@ impl Decode for ReportedWorkPackages {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BlockInfo {
-    header_hash: Hash,
+    pub header_hash: Hash,
     pub mmr: Mmr,
-    state_root: Hash,
-    reported: ReportedWorkPackages,
+    pub state_root: Hash,
+    pub reported: ReportedWorkPackages,
 }
 
 impl Encode for BlockInfo {
@@ -204,7 +216,7 @@ impl Decode for BlockInfo {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct State {
     pub beta: Vec<BlockInfo>,
 }
