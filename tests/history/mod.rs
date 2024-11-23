@@ -99,9 +99,9 @@ mod tests {
     fn test_progress_blocks_history_3() {
         run_history_bin_file("progress_blocks_history-3.bin");
     }
-/*
+
     #[test]
     fn test_progress_blocks_history_4() {
         run_history_bin_file("progress_blocks_history-4.bin");
-    }*/
+    }
 }   

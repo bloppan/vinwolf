@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::types::{Hash};
 use crate::codec::{Encode, Decode, BytesReader, ReadError};
 use crate::codec::{encode_unsigned, decode_unsigned};
@@ -218,7 +220,7 @@ impl Decode for BlockInfo {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct State {
-    pub beta: Vec<BlockInfo>,
+    pub beta: VecDeque<BlockInfo>,
 }
 
 impl Encode for State {
@@ -248,9 +250,9 @@ impl Decode for State {
         Ok(State {
             beta: {
                 let len = decode_unsigned(state)?;
-                let mut beta_vec = Vec::with_capacity(std::mem::size_of::<Self>() * len);
+                let mut beta_vec = VecDeque::with_capacity(std::mem::size_of::<Self>() * len);
                 for _ in 0..len {
-                    beta_vec.push(BlockInfo::decode(state)?);
+                    beta_vec.push_back(BlockInfo::decode(state)?);
                 }
                 beta_vec
             }
