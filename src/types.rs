@@ -10,6 +10,7 @@ pub type Ed25519Signature = [u8; 64];
 pub type BandersnatchVrfSignature = [u8; 96];
 pub type BandersnatchKey = [u8; 32];
 pub type OpaqueHash = [u8; 32];
+pub type Hash = [u8; 32];
 pub type Ed25519Key = [u8; 32];
 pub type BlsKey = [u8; 144];
 pub type Metadata = [u8; 128];

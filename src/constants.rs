@@ -15,3 +15,5 @@ pub const VALIDATORS_SUPER_MAJORITY: usize = (VALIDATORS_COUNT * 2) / 3 + 1;
 
 pub const AVAIL_BITFIELD_BYTES: usize = (NUM_CORES + 7) / 8;
 
+// The size of recent history in blocks
+pub const RECENT_HISTORY_SIZE: usize = 8;
