@@ -77,6 +77,7 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
         // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
         epoch_mark = Some(EpochMark {
             entropy: state.eta[1].clone(),
+            tickets_entropy: state.eta[2].clone(),
             validators: state.gamma_k
                 .iter()
                 .map(|validator| validator.bandersnatch.clone())

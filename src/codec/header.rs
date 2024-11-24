@@ -116,6 +116,7 @@ impl Decode for Header {
 #[derive(Debug, PartialEq)]
 pub struct EpochMark {
     pub entropy: OpaqueHash,
+    pub tickets_entropy: OpaqueHash,
     pub validators: Vec<BandersnatchKey>,
 }
 
@@ -123,10 +124,11 @@ impl Encode for EpochMark {
     
     fn encode(&self) -> Vec<u8> {
 
-        let mut blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<EpochMark>());
+        let mut blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<EpochMark>() + (std::mem::size_of::<BandersnatchKey>() * VALIDATORS_COUNT));
         
         self.entropy.encode_to(&mut blob);
-        
+        self.tickets_entropy.encode_to(&mut blob);
+
         for validator in self.validators.iter() {
             validator.encode_to(&mut blob);
         }
@@ -145,6 +147,7 @@ impl Decode for EpochMark {
 
         Ok(EpochMark {
             entropy: OpaqueHash::decode(blob)?,
+            tickets_entropy: OpaqueHash::decode(blob)?,
             validators: {
                 let mut validators_vec: Vec<BandersnatchKey> = Vec::with_capacity(VALIDATORS_COUNT);
                 for _ in 0..VALIDATORS_COUNT {
