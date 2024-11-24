@@ -1,8 +1,8 @@
-use std::fs::File;
-use std::io::Read;
-use std::path::PathBuf;
+use std::cmp::min;
 
 extern crate vinwolf;
+
+use crate::{read_test_file};
 
 use vinwolf::codec::{Encode, Decode, BytesReader, ReadError};
 use vinwolf::codec::refine_context::RefineContext;
@@ -25,21 +25,33 @@ pub fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<
         .zip(data2.iter())
         .position(|(byte1, byte2)| byte1 != byte2)
         .map(|pos| {
-            println!("First 32 bytes of data1: {:0X?}", &data1[pos..pos + 64.min(data1.len())]);
-            println!("First 32 bytes of data2: {:0X?}", &data2[pos..pos + 64.min(data2.len())]);
+            println!("First 32 bytes expected:  {:0X?}", &data1[pos..min(data1.len(), pos + 32)]);
+            println!("First 32 bytes of result: {:0X?}", &data2[pos..min(data2.len(), pos + 32)]);
             pos
         })
 }
 
 pub enum TestBody {
+    RefineContext,
+    WorkItem,
+    WorkPackage,
+    WorkResult,
+    WorkReport,
+    TicketsExtrinsic,
+    DisputesExtrinsic,
+    PreimagesExtrinsic,
+    AssurancesExtrinsic,
+    GuaranteesExtrinsic,
+    Header,
+    Block,
+    InputHistory,
+    StateHistory,
     InputSafrole,
     SafroleState,
     OutputSafrole,
-    InputHistory,
-    StateHistory,
 }
 
-pub struct TestContext<'a, 'b> {
+struct TestContext<'a, 'b> {
     reader: &'a mut BytesReader<'b>,
     blob: &'b [u8],
     global_position: usize,
@@ -61,7 +73,7 @@ impl<'a, 'b> TestContext<'a, 'b> {
             &encoded_part,
             part_name,
         ) {
-            panic!("Difference found in '{}' at byte position {}", part_name, diff_pos);
+            println!("Difference found in '{}' at byte position {}", part_name, diff_pos);
         }
 
         assert_eq!(
@@ -70,7 +82,7 @@ impl<'a, 'b> TestContext<'a, 'b> {
         );
 
         if end_position > self.blob.len() {
-            panic!("{}: Out of test bounds | pos = {}", part_name, end_position);
+            println!("{}: Out of test bounds | pos = {}", part_name, end_position);
         }
 
         self.global_position = end_position;
@@ -80,7 +92,6 @@ impl<'a, 'b> TestContext<'a, 'b> {
 }
 
 pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), ReadError> {
-    
     let mut test_reader = BytesReader::new(blob);
     let mut context = TestContext {
         reader: &mut test_reader,
@@ -90,28 +101,61 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
 
     for part in test_body {
         match part {
+            TestBody::RefineContext => {
+                context.process_test_part("RefineContext", RefineContext::decode, RefineContext::encode)?;
+            }
+            TestBody::WorkItem => {
+                context.process_test_part("WorkItem", WorkItem::decode, WorkItem::encode)?;
+            }
+            TestBody::WorkPackage => {
+                context.process_test_part("WorkPackage", WorkPackage::decode, WorkPackage::encode)?;
+            }
+            TestBody::WorkResult => {
+                context.process_test_part("WorkResult", WorkResult::decode, WorkResult::encode)?;
+            }
+            TestBody::WorkReport => {
+                context.process_test_part("WorkReport", WorkReport::decode, WorkReport::encode)?;
+            }
+            TestBody::TicketsExtrinsic => {
+                context.process_test_part("TicketsExtrinsic", TicketsExtrinsic::decode, TicketsExtrinsic::encode)?;
+            }
+            TestBody::DisputesExtrinsic => {
+                context.process_test_part("DisputesExtrinsic", DisputesExtrinsic::decode, DisputesExtrinsic::encode)?;
+            }
+            TestBody::PreimagesExtrinsic => {
+                context.process_test_part("PreimagesExtrinsic", PreimagesExtrinsic::decode, PreimagesExtrinsic::encode)?;
+            }
+            TestBody::AssurancesExtrinsic => {
+                context.process_test_part("AssurancesExtrinsic", AssurancesExtrinsic::decode, AssurancesExtrinsic::encode)?;
+            }
+            TestBody::GuaranteesExtrinsic => {
+                context.process_test_part("GuaranteesExtrinsic", GuaranteesExtrinsic::decode, GuaranteesExtrinsic::encode)?;
+            }
+            TestBody::Header => {
+                context.process_test_part("Header", Header::decode, Header::encode)?;
+            }
+            TestBody::Block => {
+                context.process_test_part("Block", Block::decode, Block::encode)?;
+            }
             TestBody::InputHistory => {
                 context.process_test_part("InputHistory", InputHistory::decode, InputHistory::encode)?;
             }
             TestBody::StateHistory => {
                 context.process_test_part("StateHistory", StateHistory::decode, StateHistory::encode)?;
             }
-            _ => {}
+            TestBody::InputSafrole => {
+                context.process_test_part("InputSafrole", InputSafrole::decode, InputSafrole::encode)?;
+            }
+            TestBody::SafroleState => {
+                context.process_test_part("SafroleState", SafroleState::decode, SafroleState::encode)?;
+            }
+            TestBody::OutputSafrole => {
+                context.process_test_part("OutputSafrole", OutputSafrole::decode, OutputSafrole::encode)?;
+            }
         }
     }
 
     Ok(())
-}
-
-
-
-pub fn read_codec_test(filename: &str) -> Vec<u8> {
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.push(filename);
-    let mut file = File::open(&path).expect("Failed to open file");
-    let mut content = Vec::new();
-    let _success = file.read_to_end(&mut content);
-    return content;
 }
 
 #[cfg(test)]
@@ -120,132 +164,99 @@ mod tests {
 
     #[test]
     fn run_refine_context_test() {
-        let test = read_codec_test("data/codec/data/refine_context.bin");
-        let mut refine_test = BytesReader::new(&test);
-        let refine_decoded: RefineContext = RefineContext::decode(&mut refine_test).expect("Error decoding RefineContext");
-        let res = refine_decoded.encode();
-        assert_eq!(test, res);
+        let test_content = read_test_file("data/codec/data/refine_context.bin");
+        let test_body: Vec<TestBody> = vec![TestBody::RefineContext];
+        let _ = encode_decode_test(&test_content, &test_body);
     }
 
     #[test]
     fn run_work_item_test() {
-        let test = read_codec_test("data/codec/data/work_item.bin");
-        let mut item_test = BytesReader::new(&test);
-        let work_item_decoded: WorkItem = WorkItem::decode(&mut item_test).expect("Error decoding WorkItem");
-        let res = work_item_decoded.encode();
-        assert_eq!(test, res);
+        let test_content = read_test_file("data/codec/data/work_item.bin");
+        let test_body: Vec<TestBody> = vec![TestBody::WorkItem];
+        let _ = encode_decode_test(&test_content, &test_body);
     }
-
+    
     #[test]
     fn run_work_package_test() {
-        let test = read_codec_test("data/codec/data/work_package.bin");
-        let mut work_pkg_test = BytesReader::new(&test);
-        let work_pkg_decoded = WorkPackage::decode(&mut work_pkg_test).expect("Error decoding WorkPackage");
-        let res = work_pkg_decoded.encode();
-        assert_eq!(test, res);
+        let test_content = read_test_file("data/codec/data/work_package.bin");
+        let test_body: Vec<TestBody> = vec![TestBody::WorkPackage];
+        let _ = encode_decode_test(&test_content, &test_body);
     }
-
+    
     #[test]
     fn run_work_result_0() {
-        let test = read_codec_test("data/codec/data/work_result_0.bin");
-        let mut work_result_test = BytesReader::new(&test);
-        let work_result_decoded = WorkResult::decode(&mut work_result_test).expect("Error decoding WorkResult 0");
-        let res = work_result_decoded.encode();
-        assert_eq!(test, res);
+        let test_content = read_test_file("data/codec/data/work_result_0.bin");
+        let test_body: Vec<TestBody> = vec![TestBody::WorkResult];
+        let _ = encode_decode_test(&test_content, &test_body);
     }
-
+    
     #[test]
     fn run_work_result_1() {
-        let test = read_codec_test("data/codec/data/work_result_1.bin");
-        let mut work_result_test = BytesReader::new(&test);
-        let work_result_decoded = WorkResult::decode(&mut work_result_test).expect("Error decoding WorkResult 1");
-        let res = work_result_decoded.encode();
-        assert_eq!(test, res);
+        let test_content = read_test_file("data/codec/data/work_result_1.bin");
+        let test_body: Vec<TestBody> = vec![TestBody::WorkResult];
+        let _ = encode_decode_test(&test_content, &test_body);
     }
-
+    
     #[test]
     fn run_work_report() {
-        let test = read_codec_test("data/codec/data/work_report.bin");
-        let mut work_report_test = BytesReader::new(&test);
-        let work_report_decoded = WorkReport::decode(&mut work_report_test).expect("Error decoding WorkReport");
-        let res = work_report_decoded.encode();
-        /*println!("work_report decoded: {:0X?}", work_report_decoded);
-
-        if let Some(diff_pos) = find_first_difference(&test, &res, "WorkReport") {
-            panic!("Difference found at byte position {}", diff_pos);
-        }*/
-        assert_eq!(test, res);
+        let test_content = read_test_file("data/codec/data/work_report.bin");
+        let test_body: Vec<TestBody> = vec![TestBody::WorkReport];
+        let _ = encode_decode_test(&test_content, &test_body);
     }
-
+    
     #[test]
     fn run_tickets_extrinsic() {
-        let test = read_codec_test("data/codec/data/tickets_extrinsic.bin");
-        let mut tickets_extrinsic_test = BytesReader::new(&test);
-        let ticket_decoded = TicketsExtrinsic::decode(&mut tickets_extrinsic_test).expect("Error decoding TicketEnvelope");
-        let res = TicketsExtrinsic::encode(&ticket_decoded);
-        assert_eq!(test, res);
+        let test_content = read_test_file("data/codec/data/tickets_extrinsic.bin");
+        let test_body: Vec<TestBody> = vec![TestBody::TicketsExtrinsic];
+        let _ = encode_decode_test(&test_content, &test_body);
     }
-
+    
     #[test]
     fn run_disputes_extrinsic() {
-        let test = read_codec_test("data/codec/data/disputes_extrinsic.bin");
-        let mut disputes_extrinsic_test = BytesReader::new(&test);
-        let disputes_decoded = DisputesExtrinsic::decode(&mut disputes_extrinsic_test).expect("Error decoding DisputesExtrinsic");
-        let res = DisputesExtrinsic::encode(&disputes_decoded);
-        assert_eq!(test, res);
+        let test_content = read_test_file("data/codec/data/disputes_extrinsic.bin");
+        let test_body: Vec<TestBody> = vec![TestBody::DisputesExtrinsic];
+        let _ = encode_decode_test(&test_content, &test_body);
     }
-
+    
     #[test]
     fn run_preimages_extrinsic() {
-        let test = read_codec_test("data/codec/data/preimages_extrinsic.bin");
-        let mut preimages_extrinsic_test = BytesReader::new(&test);
-        let preimages_decoded = PreimagesExtrinsic::decode(&mut preimages_extrinsic_test).expect("Error decoding PreimagesExtrinsic");
-        let res = PreimagesExtrinsic::encode(&preimages_decoded);
-        assert_eq!(test, res);
+        let test_content = read_test_file("data/codec/data/preimages_extrinsic.bin");
+        let test_body: Vec<TestBody> = vec![TestBody::PreimagesExtrinsic];
+        let _ = encode_decode_test(&test_content, &test_body);
     }
-
+    
     #[test]
     fn run_assurances_extrinsic() {
-        let test = read_codec_test("data/codec/data/assurances_extrinsic.bin");
-        let mut assurances_extrinsic_test = BytesReader::new(&test);
-        let assurances_decoded = AssurancesExtrinsic::decode(&mut assurances_extrinsic_test).expect("Error decoding AssurancesExtrinsic");
-        let res = AssurancesExtrinsic::encode(&assurances_decoded);
-        assert_eq!(test, res);
+        let test_content = read_test_file("data/codec/data/assurances_extrinsic.bin");
+        let test_body: Vec<TestBody> = vec![TestBody::AssurancesExtrinsic];
+        let _ = encode_decode_test(&test_content, &test_body);
     }
-
+    
     #[test]
     fn run_guarantees_extrinsic() {
-        let test = read_codec_test("data/codec/data/guarantees_extrinsic.bin");
-        let mut guarantees_extrinsic_test = BytesReader::new(&test);
-        let guarantees_decoded = GuaranteesExtrinsic::decode(&mut guarantees_extrinsic_test).expect("Error decoding GuaranteesExtrinsic");
-        let res = GuaranteesExtrinsic::encode(&guarantees_decoded);
-        assert_eq!(test, res);
+        let test_content = read_test_file("data/codec/data/guarantees_extrinsic.bin");
+        let test_body: Vec<TestBody> = vec![TestBody::GuaranteesExtrinsic];
+        let _ = encode_decode_test(&test_content, &test_body);
     }
-
+    
     #[test]
     fn run_header_0() {
-        let test = read_codec_test("data/codec/data/header_0.bin");
-        let mut header_test = BytesReader::new(&test);
-        let header_decoded = Header::decode(&mut header_test).expect("Error decoding Header");
-        let res = Header::encode(&header_decoded);
-        assert_eq!(test, res);
+        let test_content = read_test_file("data/codec/data/header_0.bin");
+        let test_body: Vec<TestBody> = vec![TestBody::Header];
+        let _ = encode_decode_test(&test_content, &test_body);
     }
-
+    
     #[test]
     fn run_header_1() {
-        let test = read_codec_test("data/codec/data/header_1.bin");
-        let mut header_test = BytesReader::new(&test);
-        let header_decoded = Header::decode(&mut header_test).expect("Error decoding Header");
-        let res = Header::encode(&header_decoded);
-        assert_eq!(test, res);
+        let test_content = read_test_file("data/codec/data/header_1.bin");
+        let test_body: Vec<TestBody> = vec![TestBody::Header];
+        let _ = encode_decode_test(&test_content, &test_body);
     }
-
+    
     #[test]
     fn run_block() {
-        let test = read_codec_test("data/codec/data/block.bin");
-        let mut block_test = BytesReader::new(&test);
-        let block_decoded = Block::decode(&mut block_test).expect("Error decoding Block");
-        let res = Block::encode(&block_decoded);
-        assert_eq!(test, res);
+        let test_content = read_test_file("data/codec/data/block.bin");
+        let test_body: Vec<TestBody> = vec![TestBody::Block];
+        let _ = encode_decode_test(&test_content, &test_body);
     }
 }

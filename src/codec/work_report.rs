@@ -101,30 +101,9 @@ impl Decode for SegmentRootLookup {
     }
 }
 
+impl Encode for WorkReport {
 
-impl WorkReport {
-
-    pub fn decode(work_report: &mut BytesReader) -> Result<Self, ReadError> {
-        
-        Ok(WorkReport {
-            package_spec: WorkPackageSpec {
-                hash: OpaqueHash::decode(work_report)?,
-                length: u32::decode(work_report)?,
-                erasure_root: OpaqueHash::decode(work_report)?,
-                exports_root: OpaqueHash::decode(work_report)?,
-                exports_count: u16::decode(work_report)?,
-            },
-            context: RefineContext::decode(work_report)?,
-            core_index: CoreIndex::decode(work_report)?,
-            authorizer_hash: OpaqueHash::decode(work_report)?,
-            auth_output: Vec::<u8>::decode_len(work_report)?,
-            segment_root_lookup: SegmentRootLookup::decode(work_report)?,
-            results: WorkResult::decode_len(work_report)?,
-        })
-    }
-    
-
-    pub fn encode(&self) -> Vec<u8> {
+    fn encode(&self) -> Vec<u8> {
         let mut work_report_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkReport>());
         
         self.package_spec.hash.encode_to(&mut work_report_blob);
@@ -142,7 +121,30 @@ impl WorkReport {
         return work_report_blob;
     }
 
-    pub fn encode_to(&self, into: &mut Vec<u8>) {
+    fn encode_to(&self, into: &mut Vec<u8>) {
         into.extend_from_slice(&self.encode());
     }
 }
+
+impl Decode for WorkReport {
+
+    fn decode(work_report: &mut BytesReader) -> Result<Self, ReadError> {
+        
+        Ok(WorkReport {
+            package_spec: WorkPackageSpec {
+                hash: OpaqueHash::decode(work_report)?,
+                length: u32::decode(work_report)?,
+                erasure_root: OpaqueHash::decode(work_report)?,
+                exports_root: OpaqueHash::decode(work_report)?,
+                exports_count: u16::decode(work_report)?,
+            },
+            context: RefineContext::decode(work_report)?,
+            core_index: CoreIndex::decode(work_report)?,
+            authorizer_hash: OpaqueHash::decode(work_report)?,
+            auth_output: Vec::<u8>::decode_len(work_report)?,
+            segment_root_lookup: SegmentRootLookup::decode(work_report)?,
+            results: WorkResult::decode_len(work_report)?,
+        })
+    }
+}
+
