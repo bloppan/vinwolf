@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 extern crate vinwolf;
 
-use vinwolf::codec::{Encode, Decode, BytesReader};
+use vinwolf::codec::{Encode, Decode, BytesReader, ReadError};
 use vinwolf::codec::refine_context::RefineContext;
 use vinwolf::codec::work_item::WorkItem;
 use vinwolf::codec::work_package::WorkPackage;
@@ -17,6 +17,8 @@ use vinwolf::codec::assurances_extrinsic::AssurancesExtrinsic;
 use vinwolf::codec::guarantees_extrinsic::GuaranteesExtrinsic;
 use vinwolf::codec::header::Header;
 use vinwolf::codec::block::Block;
+use vinwolf::codec::safrole::{Input as InputSafrole, SafroleState, Output as OutputSafrole};
+use vinwolf::codec::history::{Input as InputHistory, State as StateHistory};
 
 pub fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
     data1.iter()
@@ -29,9 +31,81 @@ pub fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<
         })
 }
 
+pub enum TestBody {
+    InputSafrole,
+    SafroleState,
+    OutputSafrole,
+    InputHistory,
+    StateHistory,
+}
+
+pub struct TestContext<'a, 'b> {
+    reader: &'a mut BytesReader<'b>,
+    blob: &'b [u8],
+    global_position: usize,
+}
+
+impl<'a, 'b> TestContext<'a, 'b> {
+    fn process_test_part<T: Encode + Decode>(
+        &mut self,
+        part_name: &str,
+        decode_fn: fn(&mut BytesReader) -> Result<T, ReadError>,
+        encode_fn: fn(&T) -> Vec<u8>,
+    ) -> Result<(), ReadError> {
+        let part = decode_fn(self.reader)?;
+        let encoded_part = encode_fn(&part);
+        let end_position = self.reader.get_position();
+
+        if let Some(diff_pos) = find_first_difference(
+            &self.blob[self.global_position..end_position],
+            &encoded_part,
+            part_name,
+        ) {
+            panic!("Difference found in '{}' at byte position {}", part_name, diff_pos);
+        }
+
+        assert_eq!(
+            &self.blob[self.global_position..end_position],
+            &encoded_part
+        );
+
+        if end_position > self.blob.len() {
+            panic!("{}: Out of test bounds | pos = {}", part_name, end_position);
+        }
+
+        self.global_position = end_position;
+
+        Ok(())
+    }
+}
+
+pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), ReadError> {
+    
+    let mut test_reader = BytesReader::new(blob);
+    let mut context = TestContext {
+        reader: &mut test_reader,
+        blob,
+        global_position: 0,
+    };
+
+    for part in test_body {
+        match part {
+            TestBody::InputHistory => {
+                context.process_test_part("InputHistory", InputHistory::decode, InputHistory::encode)?;
+            }
+            TestBody::StateHistory => {
+                context.process_test_part("StateHistory", StateHistory::decode, StateHistory::encode)?;
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
 
 
-fn read_codec_test(filename: &str) -> Vec<u8> {
+
+pub fn read_codec_test(filename: &str) -> Vec<u8> {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.push(filename);
     let mut file = File::open(&path).expect("Failed to open file");

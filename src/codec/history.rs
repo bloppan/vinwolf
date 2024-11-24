@@ -105,9 +105,9 @@ impl Decode for Mmr {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct ReportedWorkPackage {
-    hash: Hash,
-    exports_root: Hash,
+pub struct ReportedWorkPackage {
+    pub hash: Hash,
+    pub exports_root: Hash,
 }
 
 impl Encode for ReportedWorkPackage {

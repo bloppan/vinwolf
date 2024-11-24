@@ -140,10 +140,10 @@ pub fn merkle_b(v: &[u8], hash_fn: fn(&[u8]) -> Hash) -> Hash {
 
 pub fn append(r: &Mmr, l: Hash, hash_fn: fn(&[u8]) -> Hash) -> Mmr {
 
-    P(r, l, 0, hash_fn)
+    peak(r, l, 0, hash_fn)
 }
 
-fn P(r: &Mmr, l: Hash, n: usize, hash_fn: fn(&[u8]) -> Hash) -> Mmr {
+fn peak(r: &Mmr, l: Hash, n: usize, hash_fn: fn(&[u8]) -> Hash) -> Mmr {
 
     let mut result: Mmr = Mmr{peaks: Vec::new()};
 
@@ -151,20 +151,20 @@ fn P(r: &Mmr, l: Hash, n: usize, hash_fn: fn(&[u8]) -> Hash) -> Mmr {
         result.peaks.extend_from_slice(&r.peaks);
         result.peaks.push(Some(l));
     } else if n < r.peaks.len() && r.peaks[n].is_none() {
-        result.peaks.extend_from_slice(&R(r, n, Some(l)).peaks);
+        result.peaks.extend_from_slice(&rewrite(r, n, Some(l)).peaks);
     } else {
         let mut combined = Vec::new();
         if let Some(ref rn) = r.peaks[n] {
             combined.extend_from_slice(rn);
         }
         combined.extend_from_slice(&l);
-        result.peaks.extend_from_slice(&P(&R(r, n, None), hash_fn(&combined), n + 1, hash_fn).peaks);
+        result.peaks.extend_from_slice(&peak(&rewrite(r, n, None), hash_fn(&combined), n + 1, hash_fn).peaks);
     }
 
     return result;
 }
 
-fn R(s: &Mmr, i: usize, v: MmrPeak) -> Mmr {
+fn rewrite(s: &Mmr, i: usize, v: MmrPeak) -> Mmr {
 
     let mut result = s.clone();
     result.peaks[i] = v;
@@ -178,28 +178,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_R_func() {
+    fn test_rewrite_func() {
         let hash_1: Hash = [1u8; 32];
         let hash_2: Hash = [2u8; 32];
         let s = Mmr { peaks: vec![Some(hash_1), Some(hash_2)] };
         let n = 1;
         let l: Hash = [3u8; 32];
         let expected = Mmr { peaks: vec![Some(hash_1), Some(l)] };
-        assert_eq!(expected.peaks, R(&s, n, Some(l)).peaks);
+        assert_eq!(expected.peaks, rewrite(&s, n, Some(l)).peaks);
     }
 
     #[test]
-    fn test_P_func() {
+    fn test_peak_func() {
         let hash_1: Hash = [1u8; 32];
         let hash_2: Hash = [2u8; 32];
         let r = Mmr { peaks: vec![Some(hash_1), Some(hash_2), None] };
         let l: Hash = [3u8; 32];
 
-        let result_1 = P(&r, l, 3, keccak_256);
+        let result_1 = peak(&r, l, 3, keccak_256);
         let expected_1 = Mmr { peaks: vec![Some(hash_1), Some(hash_2), None, Some(l)] };
         assert_eq!(expected_1.peaks, result_1.peaks);
 
-        let result_2 = P(&r, l, 2, keccak_256);
+        let result_2 = peak(&r, l, 2, keccak_256);
         let expected_2 = Mmr { peaks: vec![Some(hash_1), Some(hash_2), Some(l)] };
         assert_eq!(expected_2.peaks, result_2.peaks);
     }

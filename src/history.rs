@@ -5,12 +5,11 @@ use sp_core::keccak_256;
 
 use crate::types::{Hash};
 use crate::constants::{RECENT_HISTORY_SIZE};
-use crate::codec::{Encode, EncodeSize};
-use crate::codec::history::{Input, State, BlockInfo, ReportedWorkPackages, Mmr, MmrPeak};
-use crate::trie::{merkle_b, append};
+use crate::codec::history::{State, BlockInfo, ReportedWorkPackages, Mmr};
+use crate::trie::{append};
 
 
-static STATE_RECENT_HISTORY: Lazy<Mutex<State>> = Lazy::new(|| Mutex::new(State{beta: VecDeque::with_capacity(8)}));
+static STATE_RECENT_HISTORY: Lazy<Mutex<State>> = Lazy::new(|| Mutex::new(State{beta: VecDeque::with_capacity(RECENT_HISTORY_SIZE)}));
 
 pub fn set_history_state(post_state: &State) {
     let mut state = STATE_RECENT_HISTORY.lock().unwrap();
