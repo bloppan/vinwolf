@@ -1,19 +1,29 @@
+use once_cell::sync::Lazy;
 use crate::read_test_file;
+use crate::codec::{TestBody, encode_decode_test};
 
+use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 use vinwolf::codec::safrole::{SafroleState, Output as OutputSafrole, Input as InputSafrole};
 use vinwolf::codec::{Decode, BytesReader};
-use crate::codec::{TestBody, encode_decode_test};
 use vinwolf::safrole::update_state;
+
+static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
+    if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && TICKET_SUBMISSION_ENDS == 10 {
+        "tiny"
+    } else if VALIDATORS_COUNT == 1023 && EPOCH_LENGTH == 600 && TICKET_SUBMISSION_ENDS == 500 {
+        "full"
+    } else {
+        panic!("Invalid configuration for tiny nor full tests");
+    }
+});
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const TEST_TYPE: &str = "tiny";
-
     fn run_safrole_test(filename: &str) {
 
-        let test_content = read_test_file(&format!("data/safrole/{}/{}", TEST_TYPE, filename));
+        let test_content = read_test_file(&format!("data/safrole/{}/{}", *TEST_TYPE, filename));
         let test_body: Vec<TestBody> = vec![
                                         TestBody::InputSafrole, 
                                         TestBody::SafroleState, 

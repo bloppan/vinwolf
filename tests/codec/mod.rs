@@ -20,7 +20,7 @@ use vinwolf::codec::block::Block;
 use vinwolf::codec::safrole::{Input as InputSafrole, SafroleState, Output as OutputSafrole};
 use vinwolf::codec::history::{Input as InputHistory, State as StateHistory};
 
-pub fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
+fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
     data1.iter()
         .zip(data2.iter())
         .position(|(byte1, byte2)| byte1 != byte2)
