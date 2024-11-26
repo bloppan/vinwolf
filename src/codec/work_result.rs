@@ -28,6 +28,7 @@ pub struct WorkResult {
     result: Vec<u8>,
 }
 
+#[derive(Debug)]
 enum WorkExecResult {
     Ok = 0,
     OutOfGas = 1,

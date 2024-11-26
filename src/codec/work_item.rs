@@ -8,7 +8,7 @@ use crate::codec::{encode_unsigned, decode_unsigned};
 // which identify a prior exported segment through an index and the identity of an exporting work-package, 
 // a sequence of blob hashes and lengths to be introduced in this block (and which we assume the validator knows) 
 // and the number of data segments exported by this work item.
-
+#[derive(Debug)]
 pub struct WorkItem {
     service: ServiceId,
     code_hash: OpaqueHash,
@@ -86,7 +86,7 @@ impl WorkItem {
 
 // The Import Spec is a sequence of imported data segments, which identify a prior exported segment 
 // through an index and the identity of an exporting work-package. Its a member of Work Item.
-
+#[derive(Debug)]
 pub struct ImportSpec {
     pub tree_root: OpaqueHash,
     pub index: u16,
@@ -147,7 +147,7 @@ impl ImportSpec {
 
 // The extrinsic spec is a sequence of blob hashes and lengths to be introduced in this block 
 // (and which we assume the validator knows). It's a member of Work Item
-
+#[derive(Debug)]
 pub struct ExtrinsicSpec {
     pub hash: OpaqueHash,
     pub len: u32,

@@ -19,6 +19,7 @@ pub struct WorkReport {
     segment_root_lookup: SegmentRootLookup,
     results: Vec<WorkResult>,
 }
+
 #[derive(Debug)]
 pub struct WorkPackageSpec {
     hash: OpaqueHash,
@@ -27,6 +28,7 @@ pub struct WorkPackageSpec {
     exports_root: OpaqueHash,
     exports_count: u16,
 }
+
 #[derive(Debug)]
 struct SegmentRootLookupItem {
     work_package_hash: OpaqueHash,

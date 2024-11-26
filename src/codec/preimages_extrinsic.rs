@@ -6,11 +6,12 @@ use crate::codec::{encode_unsigned, decode_unsigned};
 // fetch on demand. Prior to accumulation, we must first integrate all preimages provided in the lookup extrinsic. 
 // The lookup extrinsic is a sequence of pairs of service indices and data. These pairs must be ordered and without 
 // duplicates. The data must have been solicited by a service but not yet be provided.
-
+#[derive(Debug)]
 pub struct PreimagesExtrinsic {
     preimages: Vec<Preimage>,
 }
 
+#[derive(Debug)]
 struct Preimage {
     requester: ServiceId,
     blob: Vec<u8>,

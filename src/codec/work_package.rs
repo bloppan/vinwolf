@@ -6,7 +6,7 @@ use crate::codec::work_item::WorkItem;
 // A work-package includes a simple blob acting as an authorization token, the index of the service which
 // hosts the authorization code, an authorization code hash and a parameterization blob, a context and a 
 // sequence of work items:
-
+#[derive(Debug)]
 pub struct WorkPackage {
     authorization: Vec<u8>,
     auth_code_host: ServiceId,
@@ -15,6 +15,7 @@ pub struct WorkPackage {
     pub items: Vec<WorkItem>,
 }
 
+#[derive(Debug)]
 struct Authorizer {
     code_hash: OpaqueHash,
     params: Vec<u8>,

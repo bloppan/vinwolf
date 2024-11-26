@@ -1,12 +1,386 @@
-use crate::types::{OpaqueHash, ValidatorIndex, Ed25519Signature, Ed25519Key};
-use crate::constants::{VALIDATORS_SUPER_MAJORITY};
-use crate::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
+use crate::types::{
+    TimeSlot, OpaqueHash, ValidatorIndex, Ed25519Signature, Ed25519Key, 
+    WorkReportHash, OffendersMark, Ed25519Public};
+use crate::constants::{VALIDATORS_SUPER_MAJORITY, CORES_COUNT};
+use crate::codec::{Encode, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
 use crate::codec::{encode_unsigned, decode_unsigned};
+use crate::codec::work_report::WorkReport;
+use crate::codec::safrole::ValidatorData;
+
+#[derive(Debug)]
+pub struct DisputesState {
+    pub psi: DisputesRecords,
+    pub rho: AvailabilityAssignments,
+    pub tau: TimeSlot,
+    pub kappa: Vec<ValidatorData>,
+    pub lambda: Vec<ValidatorData>,
+}
+
+impl Encode for DisputesState {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut state_blob = Vec::with_capacity(std::mem::size_of::<Self>());
+
+        self.psi.encode_to(&mut state_blob);
+        self.rho.encode_to(&mut state_blob);
+        self.tau.encode_to(&mut state_blob);
+        ValidatorData::encode_all(&self.kappa).encode_to(&mut state_blob);
+        ValidatorData::encode_all(&self.lambda).encode_to(&mut state_blob);
+
+        return state_blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for DisputesState {
+
+    fn decode(state_blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        Ok(DisputesState{
+            psi: DisputesRecords::decode(state_blob)?,
+            rho: AvailabilityAssignments::decode(state_blob)?,
+            tau: TimeSlot::decode(state_blob)?,
+            kappa: ValidatorData::decode_all(state_blob)?,
+            lambda: ValidatorData::decode_all(state_blob)?,
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct DisputesRecords {
+    good: Vec<WorkReportHash>,
+    bad: Vec<WorkReportHash>,
+    wonky: Vec<WorkReportHash>,
+    offenders: Vec<Ed25519Public>,
+}
+
+impl Encode for DisputesRecords {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
+
+        encode_unsigned(self.good.len()).encode_to(&mut blob);
+        self.good.encode_to(&mut blob);
+        encode_unsigned(self.bad.len()).encode_to(&mut blob);
+        self.bad.encode_to(&mut blob);
+        encode_unsigned(self.wonky.len()).encode_to(&mut blob);
+        self.wonky.encode_to(&mut blob);
+        encode_unsigned(self.offenders.len()).encode_to(&mut blob);
+        self.offenders.encode_to(&mut blob);
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for DisputesRecords {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        Ok(DisputesRecords {
+            good: Vec::<WorkReportHash>::decode_len(blob)?,
+            bad: Vec::<WorkReportHash>::decode_len(blob)?,
+            wonky: Vec::<WorkReportHash>::decode_len(blob)?,
+            offenders: Vec::<Ed25519Public>::decode_len(blob)?,
+        })
+    }
+}
+
+#[derive(Debug)]
+struct AvailabilityAssignment {
+    report: WorkReport,
+    timeout: u32,
+}
+
+impl Encode for AvailabilityAssignment {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
+
+        self.report.encode_to(&mut blob);
+        self.timeout.encode_to(&mut blob);
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for AvailabilityAssignment {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        Ok(AvailabilityAssignment {
+            report: WorkReport::decode(blob)?,
+            timeout: u32::decode(blob)?,
+        })
+    }
+}
+
+pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
+
+impl Encode for AvailabilityAssignmentsItem {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut blob = Vec::with_capacity(std::mem::size_of::<AvailabilityAssignment>());
+
+        match self {
+            None => {
+                blob.push(0);
+            }
+            Some(assignment) => {
+                blob.push(1);
+                assignment.encode_to(&mut blob);
+            }
+        }
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for AvailabilityAssignmentsItem {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let option = blob.read_byte()?;
+        match option {
+            0 => Ok(None),
+            1 => {
+                let assignment = AvailabilityAssignment::decode(blob)?;
+                Ok(Some(assignment))
+            }
+            _ => Err(ReadError::InvalidData),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct AvailabilityAssignments {
+    assignments: Vec<AvailabilityAssignmentsItem>,
+}
+
+impl Encode for AvailabilityAssignments {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut blob = Vec::with_capacity(std::mem::size_of::<AvailabilityAssignmentsItem>() * CORES_COUNT);
+
+        for assigment in &self.assignments {
+            assigment.encode_to(&mut blob);
+        }
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for AvailabilityAssignments {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let mut assignments = AvailabilityAssignments{assignments: Vec::with_capacity(std::mem::size_of::<AvailabilityAssignmentsItem>() * CORES_COUNT)};
+        
+        for _ in 0..CORES_COUNT {
+            assignments
+                .assignments
+                .push(AvailabilityAssignmentsItem::decode(blob)?);
+        }
+
+        Ok(assignments)
+    }
+}
+
+#[derive(Debug)]
+pub struct OutputData {
+    pub offenders_mark: OffendersMark,
+}
+
+impl Encode for OutputData {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut blob = Vec::with_capacity(std::mem::size_of::<OffendersMark>() * self.offenders_mark.len());
+
+        encode_unsigned(self.offenders_mark.len()).encode_to(&mut blob);
+
+        for mark in &self.offenders_mark {
+            mark.encode_to(&mut blob);
+        }
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for OutputData {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        Ok(OutputData {
+            offenders_mark: {
+                let num_offenders = decode_unsigned(blob)?;
+                let mut offenders_mark: OffendersMark = Vec::with_capacity(num_offenders);
+                for _ in 0..num_offenders {
+                    offenders_mark.push(Ed25519Public::decode(blob)?);
+                }
+                offenders_mark
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ErrorCode {
+    AlreadyJudged = 0,
+    BadVoteSplit = 1,
+    VerdictsNotSortedUnique = 2,
+    JudgementsNotSortedUnique = 3,
+    CulpritsNotSortedUnique = 4,
+    FaultsNotSortedUnique = 5,
+    NotEnoughCulprits = 6,
+    NotEnoughFaults = 7,
+    CulpritsVerdictNotBad = 8,
+    FaultVerdictWrong = 9,
+    OffenderAlreadyReported = 10,
+    BadJudgementAge = 11,
+    BadValidatorIndex = 12,
+    BadSignature = 13,
+}
+
+#[derive(Debug)]
+pub enum Output {
+    ok(OutputData),
+    err(ErrorCode),
+}
+
+impl Encode for Output {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut output_blob: Vec<u8> = Vec::new();
+
+        match self {
+            Output::ok(output_data) => {
+                output_blob.push(0); // 0 = OK
+                output_data.encode_to(&mut output_blob);
+            }
+            Output::err(error_code) => {
+                output_blob.push(1); // 1 = ERROR
+                output_blob.push(*error_code as u8); 
+            }
+        }
+
+        return output_blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for Output {
+
+    fn decode(output_blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let result = output_blob.read_byte()?;
+        if result == 0 {
+            Ok(Output::ok(OutputData::decode(output_blob)?))  
+        } else if result == 1 {
+            let error_type = output_blob.read_byte()?;
+            let error = match error_type {
+                0 => ErrorCode::AlreadyJudged,
+                1 => ErrorCode::BadVoteSplit,
+                2 => ErrorCode::VerdictsNotSortedUnique,
+                3 => ErrorCode::JudgementsNotSortedUnique,
+                4 => ErrorCode::CulpritsNotSortedUnique,
+                5 => ErrorCode::FaultsNotSortedUnique,
+                6 => ErrorCode::NotEnoughCulprits,
+                7 => ErrorCode::NotEnoughFaults,
+                8 => ErrorCode::CulpritsVerdictNotBad,
+                9 => ErrorCode::FaultVerdictWrong,
+                10 => ErrorCode::OffenderAlreadyReported ,
+                11 => ErrorCode::BadJudgementAge ,
+                12 => ErrorCode::BadValidatorIndex ,
+                13 => ErrorCode::BadSignature ,
+                _ => return Err(ReadError::InvalidData),
+            };
+            Ok(Output::err(error))
+        } else {
+            return Err(ReadError::InvalidData);
+        }
+    }
+}
+
+// The disputes extrinsic may contain one or more verdicts v as a compilation of judgments coming from exactly 
+// two-thirds plus one of either the active validator set or the previous epoch’s validator set, i.e. the Ed25519 
+// keys of κ or λ. Additionally, it may contain proofs of the misbehavior of one or more validators, either by 
+// guaranteeing a work-report found to be invalid (culprits), or by signing a judgment found to be contradiction 
+// to a work-report’s validity (faults). Both are considered a kind of offense.
+
+#[derive(Debug)]
+pub struct DisputesExtrinsic {
+    verdicts: Vec<Verdict>,
+    culprits: Vec<Culprit>,
+    faults: Vec<Fault>,
+}
+
+impl Encode for DisputesExtrinsic {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut dispute_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<DisputesExtrinsic>());
+        
+        Verdict::encode_len(&self.verdicts).encode_to(&mut dispute_blob);
+        Culprit::encode_len(&self.culprits).encode_to(&mut dispute_blob);
+        Fault::encode_len(&self.faults).encode_to(&mut dispute_blob);
+        
+        return dispute_blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode()); 
+    }
+}
+
+impl Decode for DisputesExtrinsic {
+
+    fn decode(dispute_blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        Ok(DisputesExtrinsic {
+            verdicts : Verdict::decode_len(dispute_blob)?,
+            culprits : Culprit::decode_len(dispute_blob)?,
+            faults : Fault::decode_len(dispute_blob)?,
+        })
+    }
+}
 
 // Judgement statements come about naturally as part of the auditing process and are expected to be positive,
 // further affirming the guarantors’ assertion that the workreport is valid. In the event of a negative judgment, 
 // then all validators audit said work-report and we assume a verdict will be reached.
 
+#[derive(Debug)]
 struct Judgement {
     vote: bool,
     index: ValidatorIndex,
@@ -49,6 +423,7 @@ impl Judgement {
 // the sum of positive judgments. We require this total to be either exactly two-thirds-plus-one, zero or one-third 
 // of the validator set indicating, respectively, that the report is good, that it’s bad, or that it’s wonky.
 
+#[derive(Debug)]
 struct Verdict {
     target: OpaqueHash,
     age: u32,
@@ -90,6 +465,7 @@ impl Verdict {
 // A culprit is a proofs of the misbehavior of one or more validators by guaranteeing a work-report found to be invalid.
 // Is a offender signature.
 
+#[derive(Debug)]
 struct Culprit {
     target: OpaqueHash,
     key: Ed25519Key,
@@ -157,6 +533,7 @@ impl Culprit {
 // work-report’s validity. Is a offender signature. Must be ordered by validators Ed25519Key. There may be no duplicate
 // report hashes within the extrinsic, nor amongst any past reported hashes.
 
+#[derive(Debug)]
 struct Fault {
     target: OpaqueHash,
     vote: bool,
@@ -225,44 +602,3 @@ impl Fault {
    
 }
 
-// The disputes extrinsic may contain one or more verdicts v as a compilation of judgments coming from exactly 
-// two-thirds plus one of either the active validator set or the previous epoch’s validator set, i.e. the Ed25519 
-// keys of κ or λ. Additionally, it may contain proofs of the misbehavior of one or more validators, either by 
-// guaranteeing a work-report found to be invalid (culprits), or by signing a judgment found to be contradiction 
-// to a work-report’s validity (faults). Both are considered a kind of offense.
-
-pub struct DisputesExtrinsic {
-    verdicts: Vec<Verdict>,
-    culprits: Vec<Culprit>,
-    faults: Vec<Fault>,
-}
-
-impl Encode for DisputesExtrinsic {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut dispute_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<DisputesExtrinsic>());
-        
-        Verdict::encode_len(&self.verdicts).encode_to(&mut dispute_blob);
-        Culprit::encode_len(&self.culprits).encode_to(&mut dispute_blob);
-        Fault::encode_len(&self.faults).encode_to(&mut dispute_blob);
-        
-        return dispute_blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode()); 
-    }
-}
-
-impl Decode for DisputesExtrinsic {
-
-    fn decode(dispute_blob: &mut BytesReader) -> Result<Self, ReadError> {
-
-        Ok(DisputesExtrinsic {
-            verdicts : Verdict::decode_len(dispute_blob)?,
-            culprits : Culprit::decode_len(dispute_blob)?,
-            faults : Fault::decode_len(dispute_blob)?,
-        })
-    }
-}

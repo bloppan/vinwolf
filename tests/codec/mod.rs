@@ -11,7 +11,7 @@ use vinwolf::codec::work_package::WorkPackage;
 use vinwolf::codec::work_result::WorkResult;
 use vinwolf::codec::work_report::WorkReport;
 use vinwolf::codec::tickets_extrinsic::TicketsExtrinsic;
-use vinwolf::codec::disputes_extrinsic::DisputesExtrinsic;
+use vinwolf::codec::disputes_extrinsic::{DisputesExtrinsic, DisputesRecords, DisputesState, OutputData};
 use vinwolf::codec::preimages_extrinsic::PreimagesExtrinsic;
 use vinwolf::codec::assurances_extrinsic::AssurancesExtrinsic;
 use vinwolf::codec::guarantees_extrinsic::GuaranteesExtrinsic;
@@ -49,6 +49,9 @@ pub enum TestBody {
     InputSafrole,
     SafroleState,
     OutputSafrole,
+    DisputesRecords,
+    DisputesState,
+    OutputData,
 }
 
 struct TestContext<'a, 'b> {
@@ -58,7 +61,7 @@ struct TestContext<'a, 'b> {
 }
 
 impl<'a, 'b> TestContext<'a, 'b> {
-    fn process_test_part<T: Encode + Decode>(
+    fn process_test_part<T: Encode + Decode + std::fmt::Debug>(
         &mut self,
         part_name: &str,
         decode_fn: fn(&mut BytesReader) -> Result<T, ReadError>,
@@ -73,7 +76,9 @@ impl<'a, 'b> TestContext<'a, 'b> {
             &encoded_part,
             part_name,
         ) {
-            println!("Difference found in '{}' at byte position {}", part_name, diff_pos);
+            println!("\nDifference found in '{}' at byte position {}\n\n", part_name, self.global_position + diff_pos);
+            println!("Result decoded: \n\n {:0x?}", part);
+            println!("\n\nResult encoded: \n\n {:0x?}\n\n", encoded_part);
         }
 
         assert_eq!(
@@ -82,7 +87,7 @@ impl<'a, 'b> TestContext<'a, 'b> {
         );
 
         if end_position > self.blob.len() {
-            println!("{}: Out of test bounds | pos = {}", part_name, end_position);
+            println!("{}: Out of test bounds | end part position = {}", part_name, end_position);
         }
 
         self.global_position = end_position;
@@ -151,6 +156,15 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
             }
             TestBody::OutputSafrole => {
                 context.process_test_part("OutputSafrole", OutputSafrole::decode, OutputSafrole::encode)?;
+            }
+            TestBody::DisputesRecords => {
+                context.process_test_part("DisputesRecords", DisputesRecords::decode, DisputesRecords::encode)?;
+            }
+            TestBody::DisputesState => {
+                context.process_test_part("DisputesState", DisputesState::decode, DisputesState::encode)?;
+            }
+            TestBody::OutputData => {
+                context.process_test_part("OutputData", OutputData::decode, OutputData::encode)?;
             }
         }
     }

@@ -8,12 +8,12 @@ pub const EPOCH_LENGTH: usize = 12;
 pub const TICKET_SUBMISSION_ENDS: usize = 10;
 
 // Total number of cores
-pub const NUM_CORES: usize = 2;
+pub const CORES_COUNT: usize = 2;
 
 // Validator super majority
 pub const VALIDATORS_SUPER_MAJORITY: usize = (VALIDATORS_COUNT * 2) / 3 + 1;
 
-pub const AVAIL_BITFIELD_BYTES: usize = (NUM_CORES + 7) / 8;
+pub const AVAIL_BITFIELD_BYTES: usize = (CORES_COUNT + 7) / 8;
 
 // The size of recent history in blocks
 pub const RECENT_HISTORY_SIZE: usize = 8;

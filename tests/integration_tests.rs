@@ -10,11 +10,16 @@ mod codec;
 mod trie;
 mod erasure;
 mod history;
+mod disputes;
+
 
 pub fn read_test_file(filename: &str) -> Vec<u8> {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(filename);
-    let mut file = File::open(&path).expect("Failed to open file");
+    let mut file = match File::open(&path) {
+        Ok(file) => file,
+        Err(e) => panic!("Failed to open file '{}': {}", path.display(), e),
+    };
     let mut test_content = Vec::new();
-    file.read_to_end(&mut test_content).expect("Failed to read file");
-    return test_content;
+    let _ = file.read_to_end(&mut test_content);
+    test_content
 }

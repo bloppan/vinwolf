@@ -14,6 +14,7 @@ use crate::codec::guarantees_extrinsic::GuaranteesExtrinsic;
 //     storing locally.
 //     Reports of newly completed workloads whose accuracy is guaranteed by specific validators.
 
+#[derive(Debug)]
 pub struct Extrinsic {
     tickets: TicketsExtrinsic,
     disputes: DisputesExtrinsic,

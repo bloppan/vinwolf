@@ -9,6 +9,7 @@ pub struct TicketEnvelope {
     pub attempt: u8,
 }
 
+#[derive(Debug)]
 pub struct Block {
     header: Header,
     extrinsic: Extrinsic,

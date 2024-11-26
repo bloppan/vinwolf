@@ -11,6 +11,7 @@ use crate::codec::{encode_unsigned, decode_unsigned};
 // the entropy-yielding, vrf signature, and a block seal. Excepting the Genesis header, all block headers H have
 // an associated parent header, whose hash is Hp.
 
+#[derive(Debug)]
 pub struct Header {
     parent: OpaqueHash,
     parent_state_root: OpaqueHash,

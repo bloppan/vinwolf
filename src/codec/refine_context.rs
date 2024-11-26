@@ -7,6 +7,7 @@ use crate::codec::{encode_unsigned, decode_unsigned};
 // the anchor, header hash a along with its associated posterior state-root s and posterior Beefy root b; 
 // and the lookupanchor, header hash l and of timeslot t. Finally, it identifies the hash of an optional 
 // prerequisite work-package p.
+
 #[derive(Debug)]
 pub struct RefineContext {
     pub anchor: OpaqueHash,

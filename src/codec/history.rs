@@ -260,6 +260,7 @@ impl Decode for State {
     }
 }
 
+#[derive(Debug)]
 pub struct Input {
     pub header_hash: Hash,
     pub parent_state_root: Hash,

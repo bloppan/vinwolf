@@ -9,10 +9,12 @@ use crate::codec::{encode_unsigned, decode_unsigned};
 // validator who is assuring. A value of 1 at any given index implies that the validator assures they are contributing 
 // to its availability.
 
+#[derive(Debug)]
 pub struct AssurancesExtrinsic {
     assurances: Vec<AvailAssurance>, 
 }
 
+#[derive(Debug)]
 struct AvailAssurance {
     anchor: OpaqueHash,
     bitfield: [u8; AVAIL_BITFIELD_BYTES],

@@ -5,6 +5,7 @@ use crate::codec::tickets_extrinsic::{TicketsExtrinsic};
 use crate::codec::header::{EpochMark, TicketBody};
 use crate::codec::{encode_unsigned};
 
+#[derive(Debug)]
 pub struct Input {
     pub slot: TimeSlot,
     pub entropy: OpaqueHash,
@@ -288,7 +289,7 @@ impl Decode for ValidatorData {
 
 impl ValidatorData {
 
-    fn encode_all(all_validators: &Vec<ValidatorData>) -> Vec<u8> {
+    pub fn encode_all(all_validators: &Vec<ValidatorData>) -> Vec<u8> {
         
         let mut data_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<ValidatorData>() * VALIDATORS_COUNT);
 
@@ -299,7 +300,7 @@ impl ValidatorData {
         return data_blob;
     }
 
-    fn decode_all(data_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
+    pub fn decode_all(data_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
         
         let mut all_validators: Vec<ValidatorData> = Vec::with_capacity(std::mem::size_of::<ValidatorData>() * VALIDATORS_COUNT);
         
