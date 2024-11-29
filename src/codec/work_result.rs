@@ -19,7 +19,7 @@ use crate::codec::{encode_unsigned, decode_unsigned};
 //      Unexpected program termination
 //      The code was not available for lookup in state at the posterior state of the lookup-anchor block.
 //      The code was available but was beyond the maximun size allowed Wc.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WorkResult {
     service: ServiceId,
     code_hash: OpaqueHash,
@@ -28,7 +28,7 @@ pub struct WorkResult {
     result: Vec<u8>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 enum WorkExecResult {
     Ok = 0,
     OutOfGas = 1,

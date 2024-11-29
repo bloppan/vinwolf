@@ -11,7 +11,7 @@ use vinwolf::codec::work_package::WorkPackage;
 use vinwolf::codec::work_result::WorkResult;
 use vinwolf::codec::work_report::WorkReport;
 use vinwolf::codec::tickets_extrinsic::TicketsExtrinsic;
-use vinwolf::codec::disputes_extrinsic::{DisputesExtrinsic, DisputesRecords, DisputesState, OutputData};
+use vinwolf::codec::disputes_extrinsic::{DisputesExtrinsic, DisputesRecords, DisputesState, OutputDisputes};
 use vinwolf::codec::preimages_extrinsic::PreimagesExtrinsic;
 use vinwolf::codec::assurances_extrinsic::AssurancesExtrinsic;
 use vinwolf::codec::guarantees_extrinsic::GuaranteesExtrinsic;
@@ -51,7 +51,7 @@ pub enum TestBody {
     OutputSafrole,
     DisputesRecords,
     DisputesState,
-    OutputData,
+    OutputDisputes,
 }
 
 struct TestContext<'a, 'b> {
@@ -59,7 +59,7 @@ struct TestContext<'a, 'b> {
     blob: &'b [u8],
     global_position: usize,
 }
-
+use hex::encode;
 impl<'a, 'b> TestContext<'a, 'b> {
     fn process_test_part<T: Encode + Decode + std::fmt::Debug>(
         &mut self,
@@ -85,10 +85,10 @@ impl<'a, 'b> TestContext<'a, 'b> {
             &self.blob[self.global_position..end_position],
             &encoded_part
         );
-
+        
         if end_position > self.blob.len() {
             println!("{}: Out of test bounds | end part position = {}", part_name, end_position);
-        }
+        } 
 
         self.global_position = end_position;
 
@@ -163,10 +163,15 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
             TestBody::DisputesState => {
                 context.process_test_part("DisputesState", DisputesState::decode, DisputesState::encode)?;
             }
-            TestBody::OutputData => {
-                context.process_test_part("OutputData", OutputData::decode, OutputData::encode)?;
+            TestBody::OutputDisputes => {
+                context.process_test_part("OutputDisputes", OutputDisputes::decode, OutputDisputes::encode)?;
             }
         }
+    }
+
+    if context.global_position != blob.len() {
+        println!("Codec test was not readed properly! Readed {} bytes. The test file has {} bytes", context.global_position, blob.len());
+        assert_eq!(context.global_position, blob.len());
     }
 
     Ok(())

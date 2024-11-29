@@ -7,7 +7,7 @@ use crate::codec::{encode_unsigned, decode_unsigned};
 use crate::codec::work_report::WorkReport;
 use crate::codec::safrole::ValidatorData;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DisputesState {
     pub psi: DisputesRecords,
     pub rho: AvailabilityAssignments,
@@ -50,12 +50,12 @@ impl Decode for DisputesState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DisputesRecords {
-    good: Vec<WorkReportHash>,
-    bad: Vec<WorkReportHash>,
-    wonky: Vec<WorkReportHash>,
-    offenders: Vec<Ed25519Public>,
+    pub good: Vec<WorkReportHash>,
+    pub bad: Vec<WorkReportHash>,
+    pub wonky: Vec<WorkReportHash>,
+    pub offenders: Vec<Ed25519Public>,
 }
 
 impl Encode for DisputesRecords {
@@ -94,7 +94,7 @@ impl Decode for DisputesRecords {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 struct AvailabilityAssignment {
     report: WorkReport,
     timeout: u32,
@@ -170,7 +170,7 @@ impl Decode for AvailabilityAssignmentsItem {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AvailabilityAssignments {
     assignments: Vec<AvailabilityAssignmentsItem>,
 }
@@ -209,7 +209,7 @@ impl Decode for AvailabilityAssignments {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct OutputData {
     pub offenders_mark: OffendersMark,
 }
@@ -267,26 +267,27 @@ pub enum ErrorCode {
     BadJudgementAge = 11,
     BadValidatorIndex = 12,
     BadSignature = 13,
+    DisputeStateNotInitialized = 14,
 }
 
-#[derive(Debug)]
-pub enum Output {
+#[derive(Debug, Clone, PartialEq)]
+pub enum OutputDisputes {
     ok(OutputData),
     err(ErrorCode),
 }
 
-impl Encode for Output {
+impl Encode for OutputDisputes {
 
     fn encode(&self) -> Vec<u8> {
 
         let mut output_blob: Vec<u8> = Vec::new();
 
         match self {
-            Output::ok(output_data) => {
+            OutputDisputes::ok(output_data) => {
                 output_blob.push(0); // 0 = OK
                 output_data.encode_to(&mut output_blob);
             }
-            Output::err(error_code) => {
+            OutputDisputes::err(error_code) => {
                 output_blob.push(1); // 1 = ERROR
                 output_blob.push(*error_code as u8); 
             }
@@ -300,13 +301,13 @@ impl Encode for Output {
     }
 }
 
-impl Decode for Output {
+impl Decode for OutputDisputes {
 
     fn decode(output_blob: &mut BytesReader) -> Result<Self, ReadError> {
 
         let result = output_blob.read_byte()?;
         if result == 0 {
-            Ok(Output::ok(OutputData::decode(output_blob)?))  
+            Ok(OutputDisputes::ok(OutputData::decode(output_blob)?))  
         } else if result == 1 {
             let error_type = output_blob.read_byte()?;
             let error = match error_type {
@@ -326,7 +327,7 @@ impl Decode for Output {
                 13 => ErrorCode::BadSignature ,
                 _ => return Err(ReadError::InvalidData),
             };
-            Ok(Output::err(error))
+            Ok(OutputDisputes::err(error))
         } else {
             return Err(ReadError::InvalidData);
         }
@@ -339,11 +340,11 @@ impl Decode for Output {
 // guaranteeing a work-report found to be invalid (culprits), or by signing a judgment found to be contradiction 
 // to a work-report’s validity (faults). Both are considered a kind of offense.
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DisputesExtrinsic {
-    verdicts: Vec<Verdict>,
-    culprits: Vec<Culprit>,
-    faults: Vec<Fault>,
+    pub verdicts: Vec<Verdict>,
+    pub culprits: Vec<Culprit>,
+    pub faults: Vec<Fault>,
 }
 
 impl Encode for DisputesExtrinsic {
@@ -376,32 +377,26 @@ impl Decode for DisputesExtrinsic {
     }
 }
 
+impl DisputesExtrinsic {
+
+    pub fn is_empty(&self) -> bool {
+        self.verdicts.is_empty()
+        && self.culprits.is_empty()
+        && self.faults.is_empty()
+    }
+}
 // Judgement statements come about naturally as part of the auditing process and are expected to be positive,
 // further affirming the guarantors’ assertion that the workreport is valid. In the event of a negative judgment, 
 // then all validators audit said work-report and we assume a verdict will be reached.
 
-#[derive(Debug)]
-struct Judgement {
-    vote: bool,
-    index: ValidatorIndex,
-    signature: Ed25519Signature,
+#[derive(Debug, Clone, PartialEq)]
+pub struct Judgement {
+    pub vote: bool,
+    pub index: ValidatorIndex,
+    pub signature: Ed25519Signature,
 }
 
 impl Judgement {
-
-    fn decode_len(judgement_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
-        
-        let mut votes: Vec<Judgement> = Vec::with_capacity(VALIDATORS_SUPER_MAJORITY);
-        
-        for _ in 0..VALIDATORS_SUPER_MAJORITY {
-            let vote: bool = judgement_blob.read_byte()? != 0;
-            let index = ValidatorIndex::decode(judgement_blob)?;
-            let signature = Ed25519Signature::decode(judgement_blob)?; 
-            votes.push(Judgement{vote, index, signature});
-        }
-        
-        Ok(votes)
-    }
 
     fn encode_len(judgments: &[Judgement]) -> Vec<u8> {
         
@@ -416,6 +411,20 @@ impl Judgement {
         
         return judgement_blob;
     }
+
+    fn decode_len(judgement_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
+        
+        let mut votes: Vec<Judgement> = Vec::with_capacity(VALIDATORS_SUPER_MAJORITY);
+        
+        for _ in 0..VALIDATORS_SUPER_MAJORITY {
+            let vote: bool = judgement_blob.read_byte()? != 0;
+            let index = ValidatorIndex::decode(judgement_blob)?;
+            let signature = Ed25519Signature::decode(judgement_blob)?; 
+            votes.push(Judgement{vote, index, signature});
+        }
+        
+        Ok(votes)
+    }
 }
 
 // A Verdict is a compilation of judgments coming from exactly two-thirds plus one of either the active validator set 
@@ -423,11 +432,11 @@ impl Judgement {
 // the sum of positive judgments. We require this total to be either exactly two-thirds-plus-one, zero or one-third 
 // of the validator set indicating, respectively, that the report is good, that it’s bad, or that it’s wonky.
 
-#[derive(Debug)]
-struct Verdict {
-    target: OpaqueHash,
-    age: u32,
-    votes: Vec<Judgement>,
+#[derive(Debug, Clone, PartialEq)]
+pub struct Verdict {
+    pub target: OpaqueHash,
+    pub age: u32,
+    pub votes: Vec<Judgement>,
 }
 
 impl Verdict {
@@ -465,10 +474,10 @@ impl Verdict {
 // A culprit is a proofs of the misbehavior of one or more validators by guaranteeing a work-report found to be invalid.
 // Is a offender signature.
 
-#[derive(Debug)]
-struct Culprit {
-    target: OpaqueHash,
-    key: Ed25519Key,
+#[derive(Debug, Clone, PartialEq)]
+pub struct Culprit {
+    pub target: OpaqueHash,
+    pub key: Ed25519Key,
     signature: Ed25519Signature,
 }
 
@@ -533,11 +542,11 @@ impl Culprit {
 // work-report’s validity. Is a offender signature. Must be ordered by validators Ed25519Key. There may be no duplicate
 // report hashes within the extrinsic, nor amongst any past reported hashes.
 
-#[derive(Debug)]
-struct Fault {
-    target: OpaqueHash,
+#[derive(Debug, Clone, PartialEq)]
+pub struct Fault {
+    pub target: OpaqueHash,
     vote: bool,
-    key: Ed25519Key,
+    pub key: Ed25519Key,
     signature: Ed25519Signature,
 }
 
@@ -565,10 +574,10 @@ impl Decode for Fault {
     fn decode(fault_blob: &mut BytesReader) -> Result<Self, ReadError> {
 
         Ok(Fault {
-            target : OpaqueHash::decode(fault_blob)?,
-            vote : fault_blob.read_byte()? != 0,
-            key : OpaqueHash::decode(fault_blob)?,
-            signature : Ed25519Signature::decode(fault_blob)?,
+            target: OpaqueHash::decode(fault_blob)?,
+            vote: fault_blob.read_byte()? != 0,
+            key: OpaqueHash::decode(fault_blob)?,
+            signature: Ed25519Signature::decode(fault_blob)?,
         })
     }
 }

@@ -23,3 +23,4 @@ pub type Ed25519Public = [u8; 32];
 pub type BlsKey = [u8; 144];
 pub type Metadata = [u8; 128];
 pub type OffendersMark = Vec<Ed25519Public>;
+

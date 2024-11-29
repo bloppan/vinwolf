@@ -13,6 +13,9 @@ pub const CORES_COUNT: usize = 2;
 // Validator super majority
 pub const VALIDATORS_SUPER_MAJORITY: usize = (VALIDATORS_COUNT * 2) / 3 + 1;
 
+// One third validators
+pub const ONE_THIRD_VALIDATORS: usize = VALIDATORS_COUNT / 3;
+
 pub const AVAIL_BITFIELD_BYTES: usize = (CORES_COUNT + 7) / 8;
 
 // The size of recent history in blocks

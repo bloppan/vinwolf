@@ -9,7 +9,7 @@ use crate::codec::work_result::WorkResult;
 // authorizer hash and output, a segment-root lookup dictionary, and finally the results of 
 // the evaluation of each of the items in the package, which is always at least one item and 
 // may be no more than I items.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WorkReport {
     package_spec: WorkPackageSpec,
     context: RefineContext,
@@ -20,7 +20,7 @@ pub struct WorkReport {
     results: Vec<WorkResult>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WorkPackageSpec {
     hash: OpaqueHash,
     length: u32,
@@ -29,7 +29,7 @@ pub struct WorkPackageSpec {
     exports_count: u16,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 struct SegmentRootLookupItem {
     work_package_hash: OpaqueHash,
     segment_tree_root: OpaqueHash,
@@ -62,7 +62,7 @@ impl Decode for SegmentRootLookupItem {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 struct SegmentRootLookup {
     segment_root_lookup: Vec<SegmentRootLookupItem>,
 }
