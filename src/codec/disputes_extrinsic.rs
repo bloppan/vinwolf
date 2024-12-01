@@ -95,9 +95,9 @@ impl Decode for DisputesRecords {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct AvailabilityAssignment {
-    report: WorkReport,
-    timeout: u32,
+pub struct AvailabilityAssignment {
+    pub report: WorkReport,
+    pub timeout: u32,
 }
 
 impl Encode for AvailabilityAssignment {
@@ -172,7 +172,7 @@ impl Decode for AvailabilityAssignmentsItem {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AvailabilityAssignments {
-    assignments: Vec<AvailabilityAssignmentsItem>,
+    pub assignments: Vec<AvailabilityAssignmentsItem>,
 }
 
 impl Encode for AvailabilityAssignments {
@@ -321,10 +321,11 @@ impl Decode for OutputDisputes {
                 7 => ErrorCode::NotEnoughFaults,
                 8 => ErrorCode::CulpritsVerdictNotBad,
                 9 => ErrorCode::FaultVerdictWrong,
-                10 => ErrorCode::OffenderAlreadyReported ,
-                11 => ErrorCode::BadJudgementAge ,
-                12 => ErrorCode::BadValidatorIndex ,
-                13 => ErrorCode::BadSignature ,
+                10 => ErrorCode::OffenderAlreadyReported,
+                11 => ErrorCode::BadJudgementAge,
+                12 => ErrorCode::BadValidatorIndex,
+                13 => ErrorCode::BadSignature,
+                14 => ErrorCode::DisputeStateNotInitialized,
                 _ => return Err(ReadError::InvalidData),
             };
             Ok(OutputDisputes::err(error))
@@ -545,7 +546,7 @@ impl Culprit {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Fault {
     pub target: OpaqueHash,
-    vote: bool,
+    pub vote: bool,
     pub key: Ed25519Key,
     signature: Ed25519Signature,
 }

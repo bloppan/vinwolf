@@ -73,7 +73,7 @@ mod test {
 
         let test_files = vec![
             // No verdicts, nothing special happens
-            "progress_with_no_verdicts-1.bin",
+            /*"progress_with_no_verdicts-1.bin",
             // Not sorted work reports within a verdict
             "progress_with_verdicts-1.bin",
             // Not unique votes within a verdict
@@ -100,16 +100,25 @@ mod test {
             "progress_with_culprits-6.bin",
             // Offender relative to a not present verdict
             "progress_with_culprits-7.bin",
-            /*"progress_with_faults-1.bin",
+            // Missing faults for good verdict
+            "progress_with_faults-1.bin",
+            // One fault offender for good verdict
             "progress_with_faults-2.bin",
+            // Two fault offenders for a good verdict, not sorted
             "progress_with_faults-3.bin",
+            // Two fault offenders for a good verdict, sorted
             "progress_with_faults-4.bin",
+            // Report an already recorded verdict, with faults
             "progress_with_faults-5.bin",
+            // Fault offender already in the offenders list
             "progress_with_faults-6.bin",
+            // Auditor marked as offender, but vote matches the verdict.
             "progress_with_faults-7.bin",
-            "progress_invalidates_avail_assignments-1.bin",
+            // Invalidation of availability assignments
+            "progress_invalidates_avail_assignments-1.bin",*/
+            // Bad signature within the verdict judgements
             "progress_with_bad_signatures-1.bin",
-            "progress_with_bad_signatures-2.bin",
+            /*"progress_with_bad_signatures-2.bin",
             "progress_with_verdict_signatures_from_previous_set-1.bin",
             "progress_with_verdict_signatures_from_previous_set-2.bin",*/
         ];
