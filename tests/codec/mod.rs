@@ -11,7 +11,7 @@ use vinwolf::codec::work_package::WorkPackage;
 use vinwolf::codec::work_result::WorkResult;
 use vinwolf::codec::work_report::WorkReport;
 use vinwolf::codec::tickets_extrinsic::TicketsExtrinsic;
-use vinwolf::codec::disputes_extrinsic::{DisputesExtrinsic, DisputesRecords, DisputesState, OutputDisputes};
+use vinwolf::codec::disputes_extrinsic::{DisputesExtrinsic, DisputesState, OutputDisputes};
 use vinwolf::codec::preimages_extrinsic::PreimagesExtrinsic;
 use vinwolf::codec::assurances_extrinsic::AssurancesExtrinsic;
 use vinwolf::codec::guarantees_extrinsic::GuaranteesExtrinsic;
@@ -49,7 +49,6 @@ pub enum TestBody {
     InputSafrole,
     SafroleState,
     OutputSafrole,
-    DisputesRecords,
     DisputesState,
     OutputDisputes,
 }
@@ -59,7 +58,7 @@ struct TestContext<'a, 'b> {
     blob: &'b [u8],
     global_position: usize,
 }
-use hex::encode;
+
 impl<'a, 'b> TestContext<'a, 'b> {
     fn process_test_part<T: Encode + Decode + std::fmt::Debug>(
         &mut self,
@@ -156,9 +155,6 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
             }
             TestBody::OutputSafrole => {
                 context.process_test_part("OutputSafrole", OutputSafrole::decode, OutputSafrole::encode)?;
-            }
-            TestBody::DisputesRecords => {
-                context.process_test_part("DisputesRecords", DisputesRecords::decode, DisputesRecords::encode)?;
             }
             TestBody::DisputesState => {
                 context.process_test_part("DisputesState", DisputesState::decode, DisputesState::encode)?;

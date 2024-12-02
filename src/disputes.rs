@@ -36,12 +36,12 @@ use std::collections::HashSet;
 use sp_core::blake2_256;
 use sp_core::{ed25519, Pair};
 
-use crate::types::{Hash, TimeSlot, Ed25519Signature, ValidatorIndex};
-use crate::constants::{VALIDATORS_COUNT, ONE_THIRD_VALIDATORS, VALIDATORS_SUPER_MAJORITY};
+use crate::types::{Hash, ValidatorIndex};
+use crate::constants::{EPOCH_LENGTH, ONE_THIRD_VALIDATORS, VALIDATORS_SUPER_MAJORITY};
 use crate::codec::Encode;
 use crate::codec::disputes_extrinsic::{
-    AvailabilityAssignments, DisputesRecords, DisputesState, DisputesExtrinsic,
-    Verdict, OutputDisputes, OutputData, ErrorCode};
+    DisputesRecords, DisputesState, DisputesExtrinsic, Verdict, OutputDisputes, OutputData, ErrorCode
+};
 
 
 static DISPUTES_STATE: Lazy<Mutex<Option<DisputesState>>> = Lazy::new(|| Mutex::new(None));
@@ -125,24 +125,33 @@ fn has_duplicates(hashes: &[Hash]) -> bool {
     false
 }
 
-enum ValidatorSet {
-    Kappa,      // Active validator set
-    Lambda,     // Previous epoch validator set
-}
-
 pub fn update_disputes_state(disputes_extrinsic: &DisputesExtrinsic) -> OutputDisputes {
 
     // The disputes extrinsic may contain one or more verdicts v as a compilation of judgments coming from 
     // exactly two-thirds plus one of either the active validator set or the previous epoch's validator set, 
     // i.e. the Ed25519 keys of κ or λ. 
     if disputes_extrinsic.is_empty() {
-        return OutputDisputes::ok(OutputData { offenders_mark: Vec::new() });
+        return OutputDisputes::Ok(OutputData { offenders_mark: Vec::new() });
+    }
+
+    // Verify culprits ed25519 signatures
+    let jam_guarantee = Vec::from(b"jam_guarantee");
+    for culprit in &disputes_extrinsic.culprits {
+
+        let mut message = Vec::new();
+        let signature = ed25519::Signature::from_raw(culprit.signature);
+        let public_key = ed25519::Public::from_raw(culprit.key);
+        message.extend_from_slice(&jam_guarantee);
+        message.extend_from_slice(&culprit.target);
+        if !ed25519::Pair::verify(&signature, &message, &public_key) {
+            return OutputDisputes::Err(ErrorCode::BadSignature);
+        }
     }
 
     // Verdicts must be ordered by report hash.
     let verdict_targets: Vec<_> = disputes_extrinsic.verdicts.iter().map(|v| v.target).collect();
     if bad_hash_order(&disputes_extrinsic.verdicts.iter().map(|v| v.target).collect()) {
-        return OutputDisputes::err(ErrorCode::VerdictsNotSortedUnique);
+        return OutputDisputes::Err(ErrorCode::VerdictsNotSortedUnique);
     }
 
     // Additionally, disputes extrinsic may contain proofs of the misbehavior of one or more validators, either 
@@ -152,13 +161,13 @@ pub fn update_disputes_state(disputes_extrinsic: &DisputesExtrinsic) -> OutputDi
     // Culprits must be ordered by Ed25519 keys.
     let culprit_keys: Vec<_> = disputes_extrinsic.culprits.iter().map(|c| c.key).collect();
     if bad_hash_order(&culprit_keys) {
-        return OutputDisputes::err(ErrorCode::CulpritsNotSortedUnique);
+        return OutputDisputes::Err(ErrorCode::CulpritsNotSortedUnique);
     }
     
     // Faults must be ordered by Ed25519 keys.
     let faults_keys: Vec<_> = disputes_extrinsic.faults.iter().map(|f| f.key).collect();
     if bad_hash_order(&faults_keys) {
-        return OutputDisputes::err(ErrorCode::FaultsNotSortedUnique);
+        return OutputDisputes::Err(ErrorCode::FaultsNotSortedUnique);
     }
 
     let mut disputes_records = Vec::new();
@@ -173,8 +182,8 @@ pub fn update_disputes_state(disputes_extrinsic: &DisputesExtrinsic) -> OutputDi
         disputes_records.extend_from_slice(&current_state.psi.wonky);
         already_reported.extend_from_slice(&current_state.psi.offenders);
     } else {
-        return OutputDisputes::err(ErrorCode::DisputeStateNotInitialized)
-    }
+        return OutputDisputes::Err(ErrorCode::DisputeStateNotInitialized)
+    }   
 
     // There may be no duplicate report hashes within the extrinsic, nor amongst any past reported hashes
     let mut offenders_reported = Vec::with_capacity(disputes_records.len() + verdict_targets.len());
@@ -182,12 +191,12 @@ pub fn update_disputes_state(disputes_extrinsic: &DisputesExtrinsic) -> OutputDi
     offenders_reported.extend_from_slice(&verdict_targets);
     // Check if there are offenders already judged
     if has_duplicates(&offenders_reported) {
-        return OutputDisputes::err(ErrorCode::AlreadyJudged);
+        return OutputDisputes::Err(ErrorCode::AlreadyJudged);
     }
     // The judgments of all verdicts must be ordered by validator index and there may be no duplicates
     for verdict in &disputes_extrinsic.verdicts {
         if bad_index_order(&verdict.votes.iter().map(|vote| vote.index).collect::<Vec<_>>()) {
-            return OutputDisputes::err(ErrorCode::JudgementsNotSortedUnique);
+            return OutputDisputes::Err(ErrorCode::JudgementsNotSortedUnique);
         }
     }
 
@@ -197,7 +206,7 @@ pub fn update_disputes_state(disputes_extrinsic: &DisputesExtrinsic) -> OutputDi
     // In the disputes extrinsic can not be offenders already reported
     already_reported.extend_from_slice(&new_offenders);
     if has_duplicates(&already_reported) {
-        return OutputDisputes::err(ErrorCode::OffenderAlreadyReported);
+        return OutputDisputes::Err(ErrorCode::OffenderAlreadyReported);
     }   
 
     // We define vote_count to derive from the sequence of verdicts introduced in the block's extrinsic, containing only 
@@ -215,7 +224,7 @@ pub fn update_disputes_state(disputes_extrinsic: &DisputesExtrinsic) -> OutputDi
                     // Any verdict containing solely valid judgments implies the same report having at least one valid
                     // entry in the faults sequence
                     if disputes_extrinsic.faults.len() < 1 {
-                        return OutputDisputes::err(ErrorCode::NotEnoughFaults)
+                        return OutputDisputes::Err(ErrorCode::NotEnoughFaults)
                     }
                     new_records.good.push(target);
             },
@@ -223,12 +232,12 @@ pub fn update_disputes_state(disputes_extrinsic: &DisputesExtrinsic) -> OutputDi
                     // Any verdict containing solely invalid judgments implies the same report having at least two 
                     // valid entries in the culprits sequence
                     if disputes_extrinsic.culprits.len() < 2 {
-                        return OutputDisputes::err(ErrorCode::NotEnoughCulprits)
+                        return OutputDisputes::Err(ErrorCode::NotEnoughCulprits)
                     }
                     new_records.bad.push(target);
             },
             ONE_THIRD_VALIDATORS => new_records.wonky.push(target),
-            _ => { return OutputDisputes::err(ErrorCode::BadVoteSplit)}
+            _ => { return OutputDisputes::Err(ErrorCode::BadVoteSplit)}
         }
     }
 
@@ -240,10 +249,10 @@ pub fn update_disputes_state(disputes_extrinsic: &DisputesExtrinsic) -> OutputDi
     for culprit in &disputes_extrinsic.culprits {
         let is_in_bad = bad_set.contains(&culprit.target);
         if !is_in_bad {
-            return OutputDisputes::err(ErrorCode::CulpritsVerdictNotBad);
+            return OutputDisputes::Err(ErrorCode::CulpritsVerdictNotBad);
         }
     }
-    /* TODO verify signatures */
+    
     /* TODO check if key belongs to a correspondig validator set */
     good_set.extend_from_slice(&new_records.good);
 
@@ -252,53 +261,64 @@ pub fn update_disputes_state(disputes_extrinsic: &DisputesExtrinsic) -> OutputDi
         let is_in_good = good_set.contains(&fault.target);
     
         if (is_in_bad && !is_in_good && !fault.vote) || (is_in_good && !is_in_bad && fault.vote) {
-            return OutputDisputes::err(ErrorCode::FaultVerdictWrong);
+            return OutputDisputes::Err(ErrorCode::FaultVerdictWrong);
         }
     }
 
-    
-    /* TODO verify signatures */
+    /* TODO check if key belongs to a correspondig validator set */
+    // Verify Ed25519 signatures
     if let Some(disputes_state) = get_disputes_state() {
-        // Recopilar los votos de los veredictos
 
         let jam_valid = Vec::from(b"jam_valid");
         let jam_invalid = Vec::from(b"jam_invalid");
-        let mut message = Vec::new();
-    
-        let signature: [u8; 64] = [
-            0x64, 0x7c, 0x04, 0x63, 0x0e, 0x91, 0x1a, 0x43, 0x2f, 0x99, 0xe6, 0xc1, 0x10, 0x8b, 0xcf, 0x4c,
-            0x06, 0x49, 0x67, 0x54, 0x03, 0x3b, 0x77, 0xc5, 0xeb, 0x82, 0x71, 0xa5, 0xd0, 0x6a, 0x85, 0xe1,
-            0x88, 0x4d, 0xb0, 0xfb, 0x97, 0x7e, 0x23, 0x2e, 0x41, 0x66, 0x43, 0xcc, 0xfa, 0xf4, 0xf3, 0x34,
-            0xe9, 0x9f, 0x3b, 0x8d, 0x9c, 0xdf, 0xc6, 0x5a, 0x8e, 0x4e, 0xcb, 0xc9, 0xdb, 0x28, 0x40, 0x05,
-        ];
-        let target: [u8; 32] = [
-            0x0e, 0x57, 0x51, 0xc0, 0x26, 0xe5, 0x43, 0xb2, 0xe8, 0xab, 0x2e, 0xb0, 0x60, 0x99, 0xda, 0xa1,
-            0xd1, 0xe5, 0xdf, 0x47, 0x77, 0x8f, 0x77, 0x87, 0xfa, 0xab, 0x45, 0xcd, 0xf1, 0x2f, 0xe3, 0xa8,
-        ];
-        let public_key: [u8; 32] = [
-            0x3b, 0x6a, 0x27, 0xbc, 0xce, 0xb6, 0xa4, 0x2d, 0x62, 0xa3, 0xa8, 0xd0, 0x2a, 0x6f, 0x0d, 0x73,
-            0x65, 0x32, 0x15, 0x77, 0x1d, 0xe2, 0x43, 0xa6, 0x3a, 0xc0, 0x48, 0xa1, 0x8b, 0x59, 0xda, 0x29,
-        ];
-    
-        // Construir el mensaje
-        message.extend_from_slice(&jam_invalid);
-        message.extend_from_slice(&target);
-    
-        // Convertir a los tipos esperados
-        let signature = ed25519::Signature::from_raw(signature);
-        let public_key = ed25519::Public::from_raw(public_key);
-    
-        // Verificar la firma
-        if ed25519::Pair::verify(&signature, &message, &public_key) {
-            println!("La firma es válida");
-        } else {
-            println!("La firma no es válida");
-        }      
         
+        // Verify verdict ed25519 signatures
+        for verdict in &disputes_extrinsic.verdicts {
+            
+            let epoch = disputes_state.tau as usize / EPOCH_LENGTH;
+            if epoch - verdict.age as usize > 1 {
+                return OutputDisputes::Err(ErrorCode::BadJudgementAge); 
+            }
+
+            let validator_set: Vec<_> = if epoch == verdict.age as usize {
+                disputes_state.kappa.iter().collect()
+            } else {
+                disputes_state.lambda.iter().collect()
+            };
+
+            for vote in &verdict.votes {
+                let mut message = Vec::new();
+                let signature = ed25519::Signature::from_raw(vote.signature);
+                let public_key = ed25519::Public::from_raw(validator_set[vote.index as usize].ed25519);
+                if vote.vote == true {
+                    message.extend_from_slice(&jam_valid);
+                } else {
+                    message.extend_from_slice(&jam_invalid);
+                }
+                message.extend_from_slice(&verdict.target);
+                if !ed25519::Pair::verify(&signature, &message, &public_key) {
+                    return OutputDisputes::Err(ErrorCode::BadSignature);
+                }
+            }
+        }
+        // Verify fault ed25519 signatures
+        for fault in &disputes_extrinsic.faults {
+
+            let mut message = Vec::new();
+            let signature = ed25519::Signature::from_raw(fault.signature);
+            let public_key = ed25519::Public::from_raw(fault.key);
+            if fault.vote == true {
+                message.extend_from_slice(&jam_valid);
+            } else {
+                message.extend_from_slice(&jam_invalid);
+            }
+            message.extend_from_slice(&fault.target);
+            if !ed25519::Pair::verify(&signature, &message, &public_key) {
+                return OutputDisputes::Err(ErrorCode::BadSignature);
+            }
+        }
     }
     
-    /* TODO check if key belongs to a correspondig validator set */
-
     // Read the disputes global state
     let mut state = DISPUTES_STATE.lock().unwrap();
     // If the state was initialized, then we save the auxiliar records in the state
@@ -326,16 +346,52 @@ pub fn update_disputes_state(disputes_extrinsic: &DisputesExtrinsic) -> OutputDi
             }
         }
     } else {
-        return OutputDisputes::err(ErrorCode::DisputeStateNotInitialized)
+        return OutputDisputes::Err(ErrorCode::DisputeStateNotInitialized)
     }
     
-    OutputDisputes::ok(OutputData { offenders_mark: new_offenders })
+    OutputDisputes::Ok(OutputData { offenders_mark: new_offenders })
 }
 
 #[cfg(test)]
 mod test {
 
     use super::*;
+
+    #[test]
+    fn verify_ed25519_signature() {
+        let jam_invalid = Vec::from(b"jam_invalid");
+        let signature: [u8; 64] = [
+            0x64, 0x7c, 0x04, 0x63, 0x0e, 0x91, 0x1a, 0x43, 0x2f, 0x99, 0xe6, 0xc1, 0x10, 0x8b, 0xcf, 0x4c,
+            0x06, 0x49, 0x67, 0x54, 0x03, 0x3b, 0x77, 0xc5, 0xeb, 0x82, 0x71, 0xa5, 0xd0, 0x6a, 0x85, 0xe1,
+            0x88, 0x4d, 0xb0, 0xfb, 0x97, 0x7e, 0x23, 0x2e, 0x41, 0x66, 0x43, 0xcc, 0xfa, 0xf4, 0xf3, 0x34,
+            0xe9, 0x9f, 0x3b, 0x8d, 0x9c, 0xdf, 0xc6, 0x5a, 0x8e, 0x4e, 0xcb, 0xc9, 0xdb, 0x28, 0x40, 0x05,
+        ];
+        let target: [u8; 32] = [
+            0x0e, 0x57, 0x51, 0xc0, 0x26, 0xe5, 0x43, 0xb2, 0xe8, 0xab, 0x2e, 0xb0, 0x60, 0x99, 0xda, 0xa1,
+            0xd1, 0xe5, 0xdf, 0x47, 0x77, 0x8f, 0x77, 0x87, 0xfa, 0xab, 0x45, 0xcd, 0xf1, 0x2f, 0xe3, 0xa8,
+        ];
+        let public_key: [u8; 32] = [
+            0x3b, 0x6a, 0x27, 0xbc, 0xce, 0xb6, 0xa4, 0x2d, 0x62, 0xa3, 0xa8, 0xd0, 0x2a, 0x6f, 0x0d, 0x73,
+            0x65, 0x32, 0x15, 0x77, 0x1d, 0xe2, 0x43, 0xa6, 0x3a, 0xc0, 0x48, 0xa1, 0x8b, 0x59, 0xda, 0x29,
+        ];
+    
+        // Build the message
+        let mut message = Vec::new();
+        message.extend_from_slice(&jam_invalid);
+        message.extend_from_slice(&target);
+    
+        // Convert to ed25519 types
+        let signature = ed25519::Signature::from_raw(signature);
+        let public_key = ed25519::Public::from_raw(public_key);
+    
+        let mut signature_result: bool = false;
+        // Verificar la firma
+        if ed25519::Pair::verify(&signature, &message, &public_key) {
+            signature_result = true;
+        }
+
+        assert_eq!(true, signature_result);
+    }
 
     #[test]
     fn sorted_arrays() {

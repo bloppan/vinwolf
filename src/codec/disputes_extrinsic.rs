@@ -272,8 +272,8 @@ pub enum ErrorCode {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum OutputDisputes {
-    ok(OutputData),
-    err(ErrorCode),
+    Ok(OutputData),
+    Err(ErrorCode),
 }
 
 impl Encode for OutputDisputes {
@@ -283,11 +283,11 @@ impl Encode for OutputDisputes {
         let mut output_blob: Vec<u8> = Vec::new();
 
         match self {
-            OutputDisputes::ok(output_data) => {
+            OutputDisputes::Ok(output_data) => {
                 output_blob.push(0); // 0 = OK
                 output_data.encode_to(&mut output_blob);
             }
-            OutputDisputes::err(error_code) => {
+            OutputDisputes::Err(error_code) => {
                 output_blob.push(1); // 1 = ERROR
                 output_blob.push(*error_code as u8); 
             }
@@ -307,7 +307,7 @@ impl Decode for OutputDisputes {
 
         let result = output_blob.read_byte()?;
         if result == 0 {
-            Ok(OutputDisputes::ok(OutputData::decode(output_blob)?))  
+            Ok(OutputDisputes::Ok(OutputData::decode(output_blob)?))  
         } else if result == 1 {
             let error_type = output_blob.read_byte()?;
             let error = match error_type {
@@ -328,7 +328,7 @@ impl Decode for OutputDisputes {
                 14 => ErrorCode::DisputeStateNotInitialized,
                 _ => return Err(ReadError::InvalidData),
             };
-            Ok(OutputDisputes::err(error))
+            Ok(OutputDisputes::Err(error))
         } else {
             return Err(ReadError::InvalidData);
         }
@@ -479,7 +479,7 @@ impl Verdict {
 pub struct Culprit {
     pub target: OpaqueHash,
     pub key: Ed25519Key,
-    signature: Ed25519Signature,
+    pub signature: Ed25519Signature,
 }
 
 impl Encode for Culprit {
@@ -548,7 +548,7 @@ pub struct Fault {
     pub target: OpaqueHash,
     pub vote: bool,
     pub key: Ed25519Key,
-    signature: Ed25519Signature,
+    pub signature: Ed25519Signature,
 }
 
 impl Encode for Fault {

@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 use crate::{read_test_file};
 use crate::codec::{TestBody, encode_decode_test};
 
-use vinwolf::codec::{Encode, Decode, BytesReader};
+use vinwolf::codec::{Decode, BytesReader};
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, CORES_COUNT};
 use vinwolf::codec::disputes_extrinsic::{DisputesExtrinsic, DisputesState, OutputDisputes};
 use vinwolf::disputes::{set_disputes_state, get_disputes_state, update_disputes_state};
@@ -73,7 +73,7 @@ mod test {
 
         let test_files = vec![
             // No verdicts, nothing special happens
-            /*"progress_with_no_verdicts-1.bin",
+            "progress_with_no_verdicts-1.bin",
             // Not sorted work reports within a verdict
             "progress_with_verdicts-1.bin",
             // Not unique votes within a verdict
@@ -115,12 +115,15 @@ mod test {
             // Auditor marked as offender, but vote matches the verdict.
             "progress_with_faults-7.bin",
             // Invalidation of availability assignments
-            "progress_invalidates_avail_assignments-1.bin",*/
+            "progress_invalidates_avail_assignments-1.bin",
             // Bad signature within the verdict judgements
             "progress_with_bad_signatures-1.bin",
-            /*"progress_with_bad_signatures-2.bin",
+            // Use previous epoch validators set for verdict signatures verification
             "progress_with_verdict_signatures_from_previous_set-1.bin",
-            "progress_with_verdict_signatures_from_previous_set-2.bin",*/
+            // Age too old for verdicts judgements
+            "progress_with_verdict_signatures_from_previous_set-2.bin",
+            // Bad signature within the culprits sequence
+            "progress_with_bad_signatures-2.bin",
         ];
         for file in test_files {
             println!("Running test: {}", file);
