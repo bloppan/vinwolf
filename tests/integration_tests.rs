@@ -11,7 +11,7 @@ mod trie;
 mod erasure;
 mod history;
 mod disputes;
-
+mod shuffle;
 
 pub fn read_test_file(filename: &str) -> Vec<u8> {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(filename);
