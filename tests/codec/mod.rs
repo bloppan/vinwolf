@@ -9,7 +9,7 @@ use vinwolf::codec::refine_context::RefineContext;
 use vinwolf::codec::work_item::WorkItem;
 use vinwolf::codec::work_package::WorkPackage;
 use vinwolf::codec::work_result::WorkResult;
-use vinwolf::codec::work_report::WorkReport;
+use vinwolf::codec::work_report::{WorkReport, InputWorkReport, WorkReportState, OutputWorkReport};
 use vinwolf::codec::tickets_extrinsic::TicketsExtrinsic;
 use vinwolf::codec::disputes_extrinsic::{DisputesExtrinsic, DisputesState, OutputDisputes};
 use vinwolf::codec::preimages_extrinsic::PreimagesExtrinsic;
@@ -51,6 +51,9 @@ pub enum TestBody {
     OutputSafrole,
     DisputesState,
     OutputDisputes,
+    InputWorkReport,
+    WorkReportState,
+    OutputWorkReport,
 }
 
 struct TestContext<'a, 'b> {
@@ -161,6 +164,15 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
             }
             TestBody::OutputDisputes => {
                 context.process_test_part("OutputDisputes", OutputDisputes::decode, OutputDisputes::encode)?;
+            }
+            TestBody::InputWorkReport => {
+                context.process_test_part("InputWorkReport", InputWorkReport::decode, InputWorkReport::encode)?;
+            }
+            TestBody::WorkReportState => {
+                context.process_test_part("WorkReportState", WorkReportState::decode, WorkReportState::encode)?;
+            }
+            TestBody::OutputWorkReport => {
+                context.process_test_part("OutputWorkReport", OutputWorkReport::decode, OutputWorkReport::encode)?;
             }
         }
     }

@@ -11,19 +11,19 @@ use crate::codec::{encode_unsigned, decode_unsigned};
 // into its corresponding workreport, which similarly comprises several work outputs and then presented 
 // on-chain within the guarantees extrinsic.
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct GuaranteesExtrinsic {
     report_guarantee: Vec<ReportGuarantee>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 struct ReportGuarantee {
     report: WorkReport,
     slot: TimeSlot,
     signatures: Vec<ValidatorSignature>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 struct ValidatorSignature {
     validator_index: ValidatorIndex,
     signature: Ed25519Signature,

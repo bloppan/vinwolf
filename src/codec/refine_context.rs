@@ -31,8 +31,8 @@ impl Encode for RefineContext {
         self.lookup_anchor_slot.encode_size(4).encode_to(&mut refine_blob);
 
         encode_unsigned(self.prerequisites.len()).encode_to(&mut refine_blob);
-        for _ in 0..self.prerequisites.len() {
-            self.prerequisites.encode_to(&mut refine_blob);
+        for prerequisite in &self.prerequisites {
+            prerequisite.encode_to(&mut refine_blob);
         }
    
         return refine_blob;

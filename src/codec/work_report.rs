@@ -1,8 +1,529 @@
-use crate::types::{CoreIndex, OpaqueHash};
+use crate::types::{ServiceId, Gas, CoreIndex, OpaqueHash, TimeSlot, Ed25519Public, WorkPackageHash};
+use crate::constants::{CORES_COUNT};
 use crate::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 use crate::codec::{encode_unsigned, decode_unsigned};
 use crate::codec::refine_context::RefineContext;
 use crate::codec::work_result::WorkResult;
+use crate::codec::guarantees_extrinsic::GuaranteesExtrinsic;
+use crate::codec::disputes_extrinsic::AvailabilityAssignments;
+use crate::codec::safrole::{ValidatorData};
+use crate::codec::history::{State as BlockHistory};
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct InputWorkReport {
+    guarantees: GuaranteesExtrinsic,
+    slot: TimeSlot,
+}
+
+impl Encode for InputWorkReport {
+
+    fn encode(&self) -> Vec<u8> {
+        let mut blob = Vec::with_capacity(std::mem::size_of::<InputWorkReport>());
+        self.guarantees.encode_to(&mut blob);
+        self.slot.encode_to(&mut blob);
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for InputWorkReport {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        Ok(InputWorkReport{
+            guarantees: GuaranteesExtrinsic::decode(blob)?,
+            slot: TimeSlot::decode(blob)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ServiceInfo {
+    code_hash: OpaqueHash,
+    balance: u64,
+    min_item_gas: Gas,
+    min_memo_gas: Gas,
+    bytes: u64,
+    items: u32,
+}
+
+impl Encode for ServiceInfo {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
+        
+        self.code_hash.encode_to(&mut blob);
+        self.balance.encode_to(&mut blob);
+        self.min_item_gas.encode_to(&mut blob);
+        self.min_memo_gas.encode_to(&mut blob);
+        self.bytes.encode_to(&mut blob);
+        self.items.encode_to(&mut blob);
+        
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for ServiceInfo {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        Ok(ServiceInfo {
+            code_hash: OpaqueHash::decode(blob)?,
+            balance: u64::decode(blob)?,
+            min_item_gas: Gas::decode(blob)?,
+            min_memo_gas: Gas::decode(blob)?,
+            bytes: u64::decode(blob)?,
+            items: u32::decode(blob)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ServiceItem {
+    id: ServiceId,
+    info: ServiceInfo,
+}
+
+impl Encode for ServiceItem {
+
+    fn encode(&self) -> Vec<u8> {
+        
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
+        self.id.encode_to(&mut blob);
+        self.info.encode_to(&mut blob);
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for ServiceItem {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        Ok(ServiceItem{
+            id: ServiceId::decode(blob)?,
+            info: ServiceInfo::decode(blob)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct Services {
+    services: Vec<ServiceItem>,
+}
+
+impl Encode for Services {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>() * self.services.len());
+
+        encode_unsigned(self.services.len()).encode_to(&mut blob);
+
+        for item in &self.services {
+            item.encode_to(&mut blob);
+        }
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for Services {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let len = decode_unsigned(blob)?;
+        let mut services = Vec::with_capacity(std::mem::size_of::<Self>() * len);
+
+        for _ in 0..len {
+            services.push(ServiceItem::decode(blob)?);
+        }
+
+        Ok(Services{services: services})
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct AuthPool {
+    auth_pool: Vec<OpaqueHash>,
+}
+
+impl Encode for AuthPool {
+
+    fn encode(&self) -> Vec<u8> {
+        
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>() * self.auth_pool.len());
+        
+        encode_unsigned(self.auth_pool.len()).encode_to(&mut blob);      
+        
+        for item in &self.auth_pool {
+            item.encode_to(&mut blob);
+        }
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>)  {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for AuthPool {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let len = decode_unsigned(blob)?;
+        let mut auth_pool = Vec::with_capacity(len);
+
+        for _ in 0..len {
+            auth_pool.push(OpaqueHash::decode(blob)?);
+        }
+
+        Ok(AuthPool{
+            auth_pool: auth_pool,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct AuthPools {
+    auth_pools: Vec<AuthPool>,
+}
+
+impl Encode for AuthPools {
+
+    fn encode(&self) -> Vec<u8> {
+        
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>() * CORES_COUNT);
+
+        for item in &self.auth_pools {
+            item.encode_to(&mut blob);
+        }
+        
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for AuthPools {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let mut auth_pools = Vec::with_capacity(std::mem::size_of::<Self>() * CORES_COUNT);
+
+        for _ in 0..CORES_COUNT {
+            auth_pools.push(AuthPool::decode(blob)?);
+        }
+
+        Ok(AuthPools{
+            auth_pools: auth_pools,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct Offenders {
+    offenders: Vec<Ed25519Public>,
+}
+
+impl Encode for Offenders {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>() * self.offenders.len());
+
+        encode_unsigned(self.offenders.len()).encode_to(&mut blob);
+
+        for offender in &self.offenders {
+            offender.encode_to(&mut blob);
+        }
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for Offenders {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        Ok(Offenders {
+            offenders: {
+                let num_offenders = decode_unsigned(blob)?;
+                let mut offenders = Vec::with_capacity(num_offenders);
+                for _ in 0..num_offenders {
+                    offenders.push(Ed25519Public::decode(blob)?);
+                }
+                offenders
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WorkReportState {
+
+    avail_assignments: AvailabilityAssignments,
+    curr_validators: Vec<ValidatorData>,
+    prev_validators: Vec<ValidatorData>,
+    entropy: Box<[OpaqueHash; 4]>,
+    offenders: Offenders,
+    recent_blocks: BlockHistory,
+    auth_pools: AuthPools,
+    services: Services,
+}
+
+impl Encode for WorkReportState {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
+
+        self.avail_assignments.encode_to(&mut blob);
+        ValidatorData::encode_all(&self.curr_validators).encode_to(&mut blob);
+        ValidatorData::encode_all(&self.prev_validators).encode_to(&mut blob);
+        self.entropy.encode_to(&mut blob);
+        self.offenders.encode_to(&mut blob);
+        self.recent_blocks.encode_to(&mut blob);
+        self.auth_pools.encode_to(&mut blob);
+        self.services.encode_to(&mut blob);
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for WorkReportState {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        Ok(WorkReportState{
+            avail_assignments: AvailabilityAssignments::decode(blob)?,
+            curr_validators: ValidatorData::decode_all(blob)?,
+            prev_validators: ValidatorData::decode_all(blob)?,
+            entropy: Box::new(<[OpaqueHash; 4]>::decode(blob)?),
+            offenders: Offenders::decode(blob)?,
+            recent_blocks: BlockHistory::decode(blob)?,
+            auth_pools: AuthPools::decode(blob)?,
+            services: Services::decode(blob)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ReportedPackage {
+    work_package_hash: WorkPackageHash,
+    segment_tree_root: OpaqueHash,
+}
+
+impl Encode for ReportedPackage {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
+
+        self.work_package_hash.encode_to(&mut blob);
+        self.segment_tree_root.encode_to(&mut blob);
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for ReportedPackage {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        Ok(ReportedPackage{
+            work_package_hash: WorkPackageHash::decode(blob)?,
+            segment_tree_root: OpaqueHash::decode(blob)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OutputData {
+    reported: Vec<ReportedPackage>,
+    reporters: Vec<Ed25519Public>,
+}
+
+impl Encode for OutputData {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let blob_size = std::mem::size_of::<ReportedPackage>() * self.reported.len() + std::mem::size_of::<Ed25519Public>() * self.reporters.len(); 
+        let mut blob = Vec::with_capacity(blob_size);
+
+        encode_unsigned(self.reported.len()).encode_to(&mut blob);
+
+        for package in &self.reported {
+            package.encode_to(&mut blob);
+        }
+        
+        encode_unsigned(self.reporters.len()).encode_to(&mut blob);
+
+        for reporter in &self.reporters {
+            reporter.encode_to(&mut blob);
+        }
+        
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for OutputData {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        Ok(OutputData{
+            reported: {
+                let reported_len = decode_unsigned(blob)?;
+                let mut reported = Vec::with_capacity(std::mem::size_of::<ReportedPackage>() * reported_len);
+                for _ in 0..reported_len {
+                    reported.push(ReportedPackage::decode(blob)?);
+                }
+                reported
+            },
+            reporters: {
+                let reporters_len = decode_unsigned(blob)?;
+                let mut reporters = Vec::with_capacity(std::mem::size_of::<Ed25519Public>() * reporters_len);
+                for _ in 0..reporters_len {
+                    reporters.push(Ed25519Public::decode(blob)?);
+                }
+                reporters
+            }
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum ErrorCode {
+    BadCoreIndex = 0,
+    FutureReportSlot = 1,
+    ReportEpochBeforeLast = 2,
+    InsufficientGuarantees = 3,
+    OutOfOrderGuarantee = 4,
+    NotSortedOrUniqueGuarantors = 5,
+    WrongAssignment = 6,
+    CoreEngaged = 7,
+    AnchorNotRecent = 8,
+    BadServiceId = 9,
+    BadCodeHash = 10,
+    DependencyMissing = 11,
+    DuplicatePackage = 12,
+    BadStateRoot = 13,
+    BadBeefyMmrRoot = 14,
+    CoreUnauthorized = 15,
+    BadValidatorIndex = 16,
+    WorkReportGasTooHigh = 17,
+    ServiceItemGasTooLow = 18,
+    TooManyDependencies = 19,
+    SegmentRootLookupInvalid = 20,
+    BadSignature = 21,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OutputWorkReport {
+    Ok(OutputData),
+    Err(ErrorCode),
+}
+
+impl Encode for OutputWorkReport {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut output_blob = Vec::new();
+
+        match self {
+            OutputWorkReport::Ok(output_data) => {
+                output_blob.push(0);   // OK
+                output_data.encode_to(&mut output_blob);
+            }
+            OutputWorkReport::Err(error_code) => {
+                output_blob.push(1);   // ERROR
+                output_blob.push(*error_code as u8);
+            }
+        }
+
+        return output_blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for OutputWorkReport {
+
+    fn decode(output_blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let result = output_blob.read_byte()?;
+        if result == 0 {
+            Ok(OutputWorkReport::Ok(OutputData::decode(output_blob)?))
+        } else if result == 1 {
+            let error_type = output_blob.read_byte()?;
+            let error = match error_type {
+                0 => ErrorCode::BadCoreIndex,
+                1 => ErrorCode::FutureReportSlot,
+                2 => ErrorCode::ReportEpochBeforeLast,
+                3 => ErrorCode::InsufficientGuarantees,
+                4 => ErrorCode::OutOfOrderGuarantee,
+                5 => ErrorCode::NotSortedOrUniqueGuarantors,
+                6 => ErrorCode::WrongAssignment,
+                7 => ErrorCode::CoreEngaged,
+                8 => ErrorCode::AnchorNotRecent,
+                9 => ErrorCode::BadServiceId,
+                10 => ErrorCode::BadCodeHash,
+                11 => ErrorCode::DependencyMissing,
+                12 => ErrorCode::DuplicatePackage,
+                13 => ErrorCode::BadStateRoot,
+                14 => ErrorCode::BadBeefyMmrRoot,
+                15 => ErrorCode::CoreUnauthorized,
+                16 => ErrorCode::BadValidatorIndex,
+                17 => ErrorCode::WorkReportGasTooHigh,
+                18 => ErrorCode::ServiceItemGasTooLow,
+                19 => ErrorCode::TooManyDependencies,
+                20 => ErrorCode::SegmentRootLookupInvalid,
+                21 => ErrorCode::BadSignature,
+                _ => return Err(ReadError::InvalidData),
+            };
+            Ok(OutputWorkReport::Err(error))
+        } else {
+            return Err(ReadError::InvalidData);
+        }
+    }
+}
+
 
 // A work-report, of the set W, is defined as a tuple of the work-package specification, the
 // refinement context, and the core-index (i.e. on which the work is done) as well as the 
