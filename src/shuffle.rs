@@ -1,8 +1,8 @@
 use sp_core::blake2_256;
 use std::convert::TryInto;
 
-use crate::types::{Hash};
-use crate::codec::{EncodeSize};
+use crate::types::Hash;
+use crate::codec::EncodeSize;
 
 // The Fisher-Yates shuffle function is defined formally as:
 fn fisher_yattes_shuffle<T: Clone>(s: &[T], r: &[u32]) -> Vec<T> {

@@ -6,13 +6,13 @@ use crate::codec::refine_context::RefineContext;
 use crate::codec::work_result::WorkResult;
 use crate::codec::guarantees_extrinsic::GuaranteesExtrinsic;
 use crate::codec::disputes_extrinsic::AvailabilityAssignments;
-use crate::codec::safrole::{ValidatorData};
+use crate::codec::safrole::{ValidatorData, ValidatorsData};
 use crate::codec::history::{State as BlockHistory};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputWorkReport {
-    guarantees: GuaranteesExtrinsic,
-    slot: TimeSlot,
+    pub guarantees: GuaranteesExtrinsic,
+    pub slot: TimeSlot,
 }
 
 impl Encode for InputWorkReport {
@@ -87,9 +87,9 @@ impl Decode for ServiceInfo {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct ServiceItem {
-    id: ServiceId,
-    info: ServiceInfo,
+pub struct ServiceItem {
+    pub id: ServiceId,
+    pub info: ServiceInfo,
 }
 
 impl Encode for ServiceItem {
@@ -119,8 +119,8 @@ impl Decode for ServiceItem {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct Services {
-    services: Vec<ServiceItem>,
+pub struct Services {
+    pub services: Vec<ServiceItem>,
 }
 
 impl Encode for Services {
@@ -159,8 +159,8 @@ impl Decode for Services {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct AuthPool {
-    auth_pool: Vec<OpaqueHash>,
+pub struct AuthPool {
+    pub auth_pool: Vec<OpaqueHash>,
 }
 
 impl Encode for AuthPool {
@@ -201,8 +201,8 @@ impl Decode for AuthPool {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct AuthPools {
-    auth_pools: Vec<AuthPool>,
+pub struct AuthPools {
+    pub auth_pools: Vec<AuthPool>,
 }
 
 impl Encode for AuthPools {
@@ -240,8 +240,8 @@ impl Decode for AuthPools {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct Offenders {
-    offenders: Vec<Ed25519Public>,
+pub struct Offenders {
+    pub offenders: Vec<Ed25519Public>,
 }
 
 impl Encode for Offenders {
@@ -284,14 +284,14 @@ impl Decode for Offenders {
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorkReportState {
 
-    avail_assignments: AvailabilityAssignments,
-    curr_validators: Vec<ValidatorData>,
-    prev_validators: Vec<ValidatorData>,
-    entropy: Box<[OpaqueHash; 4]>,
-    offenders: Offenders,
-    recent_blocks: BlockHistory,
-    auth_pools: AuthPools,
-    services: Services,
+    pub avail_assignments: AvailabilityAssignments,
+    pub curr_validators: ValidatorsData,
+    pub prev_validators: ValidatorsData,
+    pub entropy: Box<[OpaqueHash; 4]>,
+    pub offenders: Offenders,
+    pub recent_blocks: BlockHistory,
+    pub auth_pools: AuthPools,
+    pub services: Services,
 }
 
 impl Encode for WorkReportState {
@@ -301,8 +301,8 @@ impl Encode for WorkReportState {
         let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
 
         self.avail_assignments.encode_to(&mut blob);
-        ValidatorData::encode_all(&self.curr_validators).encode_to(&mut blob);
-        ValidatorData::encode_all(&self.prev_validators).encode_to(&mut blob);
+        self.curr_validators.encode_to(&mut blob);
+        self.prev_validators.encode_to(&mut blob);
         self.entropy.encode_to(&mut blob);
         self.offenders.encode_to(&mut blob);
         self.recent_blocks.encode_to(&mut blob);
@@ -323,8 +323,8 @@ impl Decode for WorkReportState {
 
         Ok(WorkReportState{
             avail_assignments: AvailabilityAssignments::decode(blob)?,
-            curr_validators: ValidatorData::decode_all(blob)?,
-            prev_validators: ValidatorData::decode_all(blob)?,
+            curr_validators: ValidatorsData::decode(blob)?,
+            prev_validators: ValidatorsData::decode(blob)?,
             entropy: Box::new(<[OpaqueHash; 4]>::decode(blob)?),
             offenders: Offenders::decode(blob)?,
             recent_blocks: BlockHistory::decode(blob)?,
@@ -335,9 +335,9 @@ impl Decode for WorkReportState {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct ReportedPackage {
-    work_package_hash: WorkPackageHash,
-    segment_tree_root: OpaqueHash,
+pub struct ReportedPackage {
+    pub work_package_hash: WorkPackageHash,
+    pub segment_tree_root: OpaqueHash,
 }
 
 impl Encode for ReportedPackage {
@@ -370,8 +370,8 @@ impl Decode for ReportedPackage {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OutputData {
-    reported: Vec<ReportedPackage>,
-    reporters: Vec<Ed25519Public>,
+    pub reported: Vec<ReportedPackage>,
+    pub reporters: Vec<Ed25519Public>,
 }
 
 impl Encode for OutputData {
@@ -427,7 +427,7 @@ impl Decode for OutputData {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum ErrorCode {
+pub enum ErrorCode {
     BadCoreIndex = 0,
     FutureReportSlot = 1,
     ReportEpochBeforeLast = 2,
@@ -450,6 +450,8 @@ enum ErrorCode {
     TooManyDependencies = 19,
     SegmentRootLookupInvalid = 20,
     BadSignature = 21,
+    TooManyGuarantees = 22,
+    NoAuthorization = 23,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -515,6 +517,8 @@ impl Decode for OutputWorkReport {
                 19 => ErrorCode::TooManyDependencies,
                 20 => ErrorCode::SegmentRootLookupInvalid,
                 21 => ErrorCode::BadSignature,
+                22 => ErrorCode::TooManyGuarantees,
+                23 => ErrorCode::NoAuthorization,
                 _ => return Err(ReadError::InvalidData),
             };
             Ok(OutputWorkReport::Err(error))
@@ -532,28 +536,28 @@ impl Decode for OutputWorkReport {
 // may be no more than I items.
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorkReport {
-    package_spec: WorkPackageSpec,
-    context: RefineContext,
-    core_index: CoreIndex,
-    authorizer_hash: OpaqueHash,
-    auth_output: Vec<u8>,
-    segment_root_lookup: SegmentRootLookup,
-    results: Vec<WorkResult>,
+    pub package_spec: WorkPackageSpec,
+    pub context: RefineContext,
+    pub core_index: CoreIndex,
+    pub authorizer_hash: OpaqueHash,
+    pub auth_output: Vec<u8>,
+    pub segment_root_lookup: SegmentRootLookup,
+    pub results: Vec<WorkResult>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorkPackageSpec {
-    hash: OpaqueHash,
-    length: u32,
-    erasure_root: OpaqueHash,
-    exports_root: OpaqueHash,
-    exports_count: u16,
+    pub hash: OpaqueHash,
+    pub length: u32,
+    pub erasure_root: OpaqueHash,
+    pub exports_root: OpaqueHash,
+    pub exports_count: u16,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct SegmentRootLookupItem {
-    work_package_hash: OpaqueHash,
-    segment_tree_root: OpaqueHash,
+pub struct SegmentRootLookupItem {
+    pub work_package_hash: OpaqueHash,
+    pub segment_tree_root: OpaqueHash,
 }
 
 impl Encode for SegmentRootLookupItem {

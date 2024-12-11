@@ -2,14 +2,22 @@ use once_cell::sync::Lazy;
 use crate::read_test_file;
 use crate::codec::{TestBody, encode_decode_test};
 
-use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH};
+use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, ROTATION_PERIOD};
+use vinwolf::blockchain::state::disputes::{set_disputes_state, get_disputes_state};
+use vinwolf::blockchain::state::validators::{set_validators_state, get_validators_state, ValidatorSet};
+use vinwolf::blockchain::state::entropy::{set_entropy_state, get_entropy_state};
+use vinwolf::blockchain::state::reporting_assurance::{update_reporting_assurance_state,set_reporting_assurance_state, get_reporting_assurance_state};
+use vinwolf::blockchain::state::recent_history::{set_history_state, get_history_state}; // TODO update this
+use vinwolf::blockchain::state::authorization::{set_authpool_state, get_authpool_state};
+use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
+
 use vinwolf::codec::{Decode, BytesReader};
-use vinwolf::codec::work_report::{InputWorkReport, WorkReportState, OutputWorkReport};
+use vinwolf::codec::work_report::{InputWorkReport, WorkReportState, OutputWorkReport, OutputData, ErrorCode};
 
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
-    if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 {
+    if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && ROTATION_PERIOD == 4 {
         "tiny"
-    } else if VALIDATORS_COUNT == 1023 && EPOCH_LENGTH == 600  {
+    } else if VALIDATORS_COUNT == 1023 && EPOCH_LENGTH == 600 && ROTATION_PERIOD == 10 {
         "full"
     } else {
         panic!("Invalid configuration for tiny nor full tests");
@@ -18,8 +26,9 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use vinwolf::{blockchain::state::time::{get_time_state, set_time_state}, codec::disputes_extrinsic::DisputesRecords, types::Ed25519Public};
 
+    use super::*;
 
     fn run_test(filename: &str) {
 
@@ -37,11 +46,54 @@ mod tests {
         let pre_state = WorkReportState::decode(&mut reader).expect("Error decoding post WorkReport PreState");
         let expected_output = OutputWorkReport::decode(&mut reader).expect("Error decoding post OutputWorkReport");
         let expected_state = WorkReportState::decode(&mut reader).expect("Error decoding post WorkReport PostState");
+        
+        set_time_state(&input.slot);
+        set_reporting_assurance_state(&pre_state.avail_assignments);
+        set_validators_state(&pre_state.curr_validators, ValidatorSet::Current);
+        set_validators_state(&pre_state.prev_validators, ValidatorSet::Previous);
+        set_entropy_state(&pre_state.entropy);
+        set_history_state(&pre_state.recent_blocks);
+        set_authpool_state(&pre_state.auth_pools);
+        set_services_state(&pre_state.services);
 
-        assert_eq!(1, 1);
 
-        //assert_eq!(expected_state, state);
-        //assert_eq!(expected_output, output_result);
+        let disputes_state = DisputesRecords {
+            good: vec![],
+            bad: vec![],
+            wonky: vec![],
+            offenders: pre_state.offenders.offenders.clone(),
+        };
+
+        set_disputes_state(&disputes_state);
+        
+        let output_result = update_reporting_assurance_state(&input.guarantees, input.slot);
+
+        let result_avail_assignments = get_reporting_assurance_state();
+        let result_curr_validators = get_validators_state(ValidatorSet::Current);
+        let result_prev_validators = get_validators_state(ValidatorSet::Previous);
+        let result_entropy = get_entropy_state();
+        let result_disputes = get_disputes_state();
+        let result_history = get_history_state();
+        let result_authpool = get_authpool_state();
+        let result_services = get_services_state();
+
+        assert_eq!(expected_state.avail_assignments, result_avail_assignments);
+        assert_eq!(expected_state.curr_validators, result_curr_validators);
+        assert_eq!(expected_state.prev_validators, result_prev_validators);
+        assert_eq!(expected_state.entropy, result_entropy);
+        assert_eq!(expected_state.offenders.offenders, result_disputes.offenders);
+        assert_eq!(expected_state.recent_blocks, result_history);
+        assert_eq!(expected_state.auth_pools, result_authpool);
+        assert_eq!(expected_state.services, result_services);
+
+        match output_result {
+            Ok(OutputData { reported, reporters }) => {
+                assert_eq!(expected_output, OutputWorkReport::Ok(OutputData {reported, reporters}));
+            }
+            Err(error_code) => {
+                assert_eq!(expected_output, OutputWorkReport::Err(error_code));
+            }
+        }
     }
 
     #[test]
@@ -55,7 +107,7 @@ mod tests {
             // Report uses previous guarantors rotation.
             // Previous rotation falls within previous epoch, thus previous epoch validators set is used to construct 
             // report core assignment to pick expected guarantors.
-            /*"report_prev_rotation-1.bin",
+            "report_prev_rotation-1.bin",
             // Multiple good work reports.
             "multiple_reports-1.bin",
             // Context anchor is not recent enough.
@@ -63,7 +115,7 @@ mod tests {
             // Context Beefy MMR root doesn't match the one at anchor.
             "bad_beefy_mmr-1.bin",
             // Work result code hash doesn't match the one expected for the service.
-            "bad_code_hash-1.bin",
+            /*"bad_code_hash-1.bin",
             // Core index is too big.
             "bad_core_index-1.bin",
             // Work result service identifier doesn't have any associated account in state.

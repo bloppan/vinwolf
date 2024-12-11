@@ -7,7 +7,7 @@ pub mod trie;
 pub mod history;
 pub mod disputes;
 pub mod shuffle;
-pub mod reporting_assurance;
+pub mod blockchain;
 
 
 

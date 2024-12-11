@@ -128,6 +128,7 @@ impl Decode for AvailabilityAssignment {
     }
 }
 
+
 pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
 
 impl Encode for AvailabilityAssignmentsItem {
@@ -172,7 +173,7 @@ impl Decode for AvailabilityAssignmentsItem {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AvailabilityAssignments {
-    pub assignments: Vec<AvailabilityAssignmentsItem>,
+    pub assignments: Box<[AvailabilityAssignmentsItem; CORES_COUNT]>,
 }
 
 impl Encode for AvailabilityAssignments {
@@ -181,7 +182,7 @@ impl Encode for AvailabilityAssignments {
 
         let mut blob = Vec::with_capacity(std::mem::size_of::<AvailabilityAssignmentsItem>() * CORES_COUNT);
 
-        for assigment in &self.assignments {
+        for assigment in self.assignments.iter() {
             assigment.encode_to(&mut blob);
         }
 
@@ -197,12 +198,10 @@ impl Decode for AvailabilityAssignments {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        let mut assignments = AvailabilityAssignments{assignments: Vec::with_capacity(std::mem::size_of::<AvailabilityAssignmentsItem>() * CORES_COUNT)};
+        let mut assignments: AvailabilityAssignments = AvailabilityAssignments{assignments: Box::new(std::array::from_fn(|_| None))};
         
-        for _ in 0..CORES_COUNT {
-            assignments
-                .assignments
-                .push(AvailabilityAssignmentsItem::decode(blob)?);
+        for assignment in assignments.assignments.iter_mut() {
+            *assignment = AvailabilityAssignmentsItem::decode(blob)?;
         }
 
         Ok(assignments)

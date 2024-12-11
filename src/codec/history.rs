@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::types::{Hash};
+use crate::types::Hash;
 use crate::codec::{Encode, Decode, BytesReader, ReadError};
 use crate::codec::{encode_unsigned, decode_unsigned};
 

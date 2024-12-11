@@ -13,20 +13,20 @@ use crate::codec::{encode_unsigned, decode_unsigned};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GuaranteesExtrinsic {
-    report_guarantee: Vec<ReportGuarantee>,
+    pub report_guarantee: Vec<ReportGuarantee>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct ReportGuarantee {
-    report: WorkReport,
-    slot: TimeSlot,
-    signatures: Vec<ValidatorSignature>,
+pub struct ReportGuarantee {
+    pub report: WorkReport,
+    pub slot: TimeSlot,
+    pub signatures: Vec<ValidatorSignature>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct ValidatorSignature {
-    validator_index: ValidatorIndex,
-    signature: Ed25519Signature,
+pub struct ValidatorSignature {
+    pub validator_index: ValidatorIndex,
+    pub signature: Ed25519Signature,
 }
 
 impl Encode for GuaranteesExtrinsic {

@@ -20,3 +20,11 @@ pub const AVAIL_BITFIELD_BYTES: usize = (CORES_COUNT + 7) / 8;
 
 // The size of recent history in blocks
 pub const RECENT_HISTORY_SIZE: usize = 8;
+
+pub const MAX_ITEMS_AUTHORIZATION_POOL: usize = 8;
+
+pub const MAX_ITEMS_AUTHORIZATION_QUEUE: usize = 80;
+
+pub const ROTATION_PERIOD: u32 = 4;
+
+pub const WORK_REPORT_TIMEOUT: u32 = 5;

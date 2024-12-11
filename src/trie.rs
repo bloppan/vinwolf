@@ -1,6 +1,6 @@
 use sp_core::blake2_256;
 use sp_core::keccak_256;
-use crate::types::{Hash};
+use crate::types::Hash;
 use crate::codec::{Encode, EncodeSize};
 use crate::codec::history::{Mmr, MmrPeak};
 
@@ -151,20 +151,20 @@ fn peak(r: &Mmr, l: Hash, n: usize, hash_fn: fn(&[u8]) -> Hash) -> Mmr {
         result.peaks.extend_from_slice(&r.peaks);
         result.peaks.push(Some(l));
     } else if n < r.peaks.len() && r.peaks[n].is_none() {
-        result.peaks.extend_from_slice(&rewrite(r, n, Some(l)).peaks);
+        result.peaks.extend_from_slice(&replace(r, n, Some(l)).peaks);
     } else {
         let mut combined = Vec::new();
         if let Some(ref rn) = r.peaks[n] {
             combined.extend_from_slice(rn);
         }
         combined.extend_from_slice(&l);
-        result.peaks.extend_from_slice(&peak(&rewrite(r, n, None), hash_fn(&combined), n + 1, hash_fn).peaks);
+        result.peaks.extend_from_slice(&peak(&replace(r, n, None), hash_fn(&combined), n + 1, hash_fn).peaks);
     }
 
     return result;
 }
 
-fn rewrite(s: &Mmr, i: usize, v: MmrPeak) -> Mmr {
+fn replace(s: &Mmr, i: usize, v: MmrPeak) -> Mmr {
 
     let mut result = s.clone();
     result.peaks[i] = v;
@@ -172,20 +172,56 @@ fn rewrite(s: &Mmr, i: usize, v: MmrPeak) -> Mmr {
     return result;
 }
 
+fn extract_non_empty_peaks(h: &Mmr) -> Vec<Hash> {
+
+    let mut peaks = Vec::new();
+
+    for peak in &h.peaks {
+
+        if let Some(peak) = peak {
+            peaks.push(*peak);
+        }
+    }
+    
+    return peaks;
+}
+
+fn mmr(h: &[Hash]) -> Hash {
+
+    let h_len = h.len();
+
+    if h_len == 0 {
+        return [0u8; 32];
+    } else if h_len == 1 {
+        return h[0];
+    } else {
+        let mut payload  = Vec::from(b"node");
+        payload.extend_from_slice(&mmr(&h[..(h_len - 1)]));
+        payload.extend(h[h_len - 1]);
+        return keccak_256(&payload);
+    }
+}
+
+pub fn mmr_super_peak(h: &Mmr) -> Hash {
+
+    return mmr(&extract_non_empty_peaks(h));
+}
+
+
 #[cfg(test)]
 mod tests {
 
     use super::*;
 
     #[test]
-    fn test_rewrite_func() {
+    fn test_replace_func() {
         let hash_1: Hash = [1u8; 32];
         let hash_2: Hash = [2u8; 32];
         let s = Mmr { peaks: vec![Some(hash_1), Some(hash_2)] };
         let n = 1;
         let l: Hash = [3u8; 32];
         let expected = Mmr { peaks: vec![Some(hash_1), Some(l)] };
-        assert_eq!(expected.peaks, rewrite(&s, n, Some(l)).peaks);
+        assert_eq!(expected.peaks, replace(&s, n, Some(l)).peaks);
     }
 
     #[test]

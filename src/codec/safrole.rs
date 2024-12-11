@@ -286,6 +286,43 @@ impl Decode for ValidatorData {
     }
 }
 
+#[derive(Clone, PartialEq, Debug)]
+pub struct ValidatorsData {
+    pub validators: Vec<ValidatorData>,
+}
+
+impl Encode for ValidatorsData {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut validators_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<ValidatorData>() * VALIDATORS_COUNT);
+
+        for validator in &self.validators {
+            validator.encode_to(&mut validators_blob);
+        }
+
+        return validators_blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for ValidatorsData {
+
+    fn decode(validators_blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let mut all_validators: ValidatorsData = ValidatorsData{ validators: Vec::with_capacity(std::mem::size_of::<ValidatorData>() * VALIDATORS_COUNT) };
+            
+        for _ in 0..VALIDATORS_COUNT {
+            all_validators
+                .validators.push(ValidatorData::decode(validators_blob)?);
+        }
+
+        Ok(all_validators)
+    }
+}
 
 impl ValidatorData {
 
