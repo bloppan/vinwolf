@@ -73,14 +73,14 @@ mod tests {
     fn test_pvm_programs() {
         
         let test_files = vec![
-            "data/pvm/programs/gas_basic_consume_all.json",
-            "data/pvm/programs/inst_add.json",
-            "data/pvm/programs/inst_add_imm.json",
-            "data/pvm/programs/inst_add_with_overflow.json",
-            "data/pvm/programs/inst_and.json",
-            "data/pvm/programs/inst_and_imm.json",
-            "data/pvm/programs/inst_branch_eq_imm_nok.json",
-            "data/pvm/programs/inst_branch_eq_imm_ok.json"
+            "tests/jamtestvectors/pvm/programs/gas_basic_consume_all.json",
+            "tests/jamtestvectors/pvm/programs/inst_add.json",
+            "tests/jamtestvectors/pvm/programs/inst_add_imm.json",
+            "tests/jamtestvectors/pvm/programs/inst_add_with_overflow.json",
+            "tests/jamtestvectors/pvm/programs/inst_and.json",
+            "tests/jamtestvectors/pvm/programs/inst_and_imm.json",
+            "tests/jamtestvectors/pvm/programs/inst_branch_eq_imm_nok.json",
+            "tests/jamtestvectors/pvm/programs/inst_branch_eq_imm_ok.json"
         ];
         for file in test_files {
             println!("Running test for file: {}", file);

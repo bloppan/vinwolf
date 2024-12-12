@@ -51,7 +51,7 @@ mod tests {
     fn run_shuffle_test() {
 
         // Set file path
-        let file_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data/shuffle/shuffle_tests.json");
+        let file_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/jamtestvectors/shuffle/shuffle_tests.json");
         // Read JSON file as string
         let file_content = fs::read_to_string(file_path).expect("Could not read JSON shuffle test file");
 

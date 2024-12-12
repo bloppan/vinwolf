@@ -24,7 +24,7 @@ use crate::codec::refine_context::RefineContext;
 use crate::types::{Entropy, OpaqueHash, TimeSlot, WorkPackageHash, Ed25519Public};
 use crate::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT, WORK_REPORT_TIMEOUT};
 use crate::codec::disputes_extrinsic::{AvailabilityAssignments, AvailabilityAssignment};
-use crate::codec::guarantees_extrinsic::GuaranteesExtrinsic;
+use crate::blockchain::block::extrinsic::guarantees::GuaranteesExtrinsic;
 use crate::codec::work_report::{ReportedPackage, OutputData, OutputWorkReport, AuthPool, AuthPools, ErrorCode};
 use crate::codec::history::{Mmr, BlockInfo};
 use crate::shuffle::shuffle;
@@ -74,57 +74,15 @@ fn place_reports(guarantees: &GuaranteesExtrinsic, slot: TimeSlot) -> Result<Out
 
         reported.extend_from_slice(&new_reported);
         reporters.extend_from_slice(&new_reporters);
-
-        // A report is valid only if the authorizer hash is present in the authorizer pool of the core on which the
-        // work is reported
-        /*if let Some(auth_pool) = authorization.auth_pools
-                                                        .iter_mut()
-                                                        .find(|auth| auth.auth_pool
-                                                        .contains(&guarantee.report.authorizer_hash)) {
-                       
-            auth_pool.auth_pool.retain(|hash| hash != &guarantee.report.authorizer_hash);
-            // No reports may be placed on cores with a report pending availability on it unless it has timed out.
-            // It has timed out, WORK_REPORT_TIMEOUT = 5 slots must have elapsed after de report was made
-            if availability.assignments[guarantee.report.core_index as usize].is_none() || tau > guarantee.slot + WORK_REPORT_TIMEOUT {
-            
-                report_is_recent(&guarantee.report.context)?;
-                
-                let assignment = AvailabilityAssignment {
-                    report: guarantee.report.clone(),
-                    timeout: slot,
-                };
-
-                // Update the reporting assurance state
-                add_assignment(&assignment);
-                // Update authorization state
-                let new_auth_pool = authorization.clone();
-                set_authpool_state(&new_auth_pool);
-
-                // The signing validators must be assigned to the core in either this block if the timeslot for the guarantee 
-                // is in the same rotation as this block’s timeslot, or in the most recent previous set of assignments
-                let validators = if guarantee.slot / ROTATION_PERIOD == tau / ROTATION_PERIOD {
-                    &curr_validators.validators
-                } else {
-                    &prev_validators.validators
-                };
-                
-                for signature in &guarantee.signatures {
-                    reporters.push(validators[signature.validator_index as usize].ed25519);
-                }
-                reporters.sort();
-                reported.push(ReportedPackage{
-                    work_package_hash: guarantee.report.package_spec.hash, 
-                    segment_tree_root: guarantee.report.package_spec.exports_root
-                });
-            }
-        }*/
-        
+       
     }
+
     reporters.sort();
+
     return Ok(OutputData{reported: reported, reporters: reporters});
 }
 
-pub fn update_reporting_assurance_state(guarantees: &GuaranteesExtrinsic, slot: TimeSlot) -> Result<OutputData, ErrorCode> {
+pub fn process_report_assurance(guarantees: &GuaranteesExtrinsic, slot: TimeSlot) -> Result<OutputData, ErrorCode> {
 
     // Work report - is valid?
     // Work report - is recent?

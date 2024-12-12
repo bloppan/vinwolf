@@ -3,8 +3,6 @@ use std::collections::BTreeMap;
 pub mod assurances_extrinsic;
 pub mod block;
 pub mod disputes_extrinsic;
-pub mod extrinsic;
-pub mod guarantees_extrinsic;
 pub mod header;
 pub mod history;
 pub mod preimages_extrinsic;

@@ -92,7 +92,7 @@ mod tests {
     fn test_ec_x() {
 
         // Decode chunks test
-        let test_data = read_ec_test("data/erasure_coding/vectors/ec_x.json").unwrap();
+        let test_data = read_ec_test("tests/jamtestvectors/erasure_coding/vectors/ec_x.json").unwrap();
         let segments = run_decode_chunks_test(test_data.clone());
 
         if let Some(first_segment) = segments.get(0) {
@@ -113,7 +113,7 @@ mod tests {
     fn test_ec_1() {
 
         // Decode chunks test
-        let test_data = read_ec_test("data/erasure_coding/vectors/ec_1.json").unwrap();
+        let test_data = read_ec_test("tests/jamtestvectors/erasure_coding/vectors/ec_1.json").unwrap();
         let segments = run_decode_chunks_test(test_data.clone());
 
         if let Some(first_segment) = segments.get(0) {

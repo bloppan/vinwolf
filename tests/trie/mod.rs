@@ -61,7 +61,7 @@ mod tests {
     #[test]
     fn run_trie_test() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push("data/trie/trie.json");
+        path.push("tests/jamtestvectors/trie/trie.json");
         let mut file = File::open(&path).expect("Couldn't open trie json test file");
         // Read test json content
         let mut contents = String::new();

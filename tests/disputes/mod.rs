@@ -19,7 +19,7 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
 
 fn run_test(filename: &str) {
 
-    let test_content = read_test_file(&format!("data/disputes/{}/{}", *TEST_TYPE, filename));
+    let test_content = read_test_file(&format!("tests/jamtestvectors/disputes/{}/{}", *TEST_TYPE, filename));
     let test_body: Vec<TestBody> = vec![
                                         TestBody::DisputesExtrinsic,
                                         TestBody::DisputesState,

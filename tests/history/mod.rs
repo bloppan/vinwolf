@@ -7,7 +7,7 @@ use vinwolf::history::{update_recent_history, set_history_state, get_history_sta
 
 fn run_recent_history_test(filename: &str) {
   
-    let test_content = read_test_file(&format!("data/history/data/{}", filename));
+    let test_content = read_test_file(&format!("tests/jamtestvectors/history/data/{}", filename));
     let test_body: Vec<TestBody> = vec![TestBody::InputHistory, TestBody::StateHistory, TestBody::StateHistory];
 
     let _ = encode_decode_test(&test_content, &test_body);

@@ -5,7 +5,7 @@ use crate::constants::{WORK_REPORT_TIMEOUT, ROTATION_PERIOD};
 use crate::codec::work_report::{WorkReport, ReportedPackage, OutputData, OutputWorkReport, AuthPool, AuthPools, ErrorCode};
 use crate::codec::refine_context::RefineContext;
 use crate::codec::disputes_extrinsic::AvailabilityAssignment;
-use crate::codec::guarantees_extrinsic::ValidatorSignature;
+use crate::blockchain::block::extrinsic::guarantees::ValidatorSignature;
 use crate::blockchain::state::validators::{get_validators_state, ValidatorSet};
 use crate::blockchain::state::authorization::{get_authpool_state, set_authpool_state};
 use crate::blockchain::state::recent_history::get_history_state;
@@ -25,11 +25,6 @@ impl WorkReport {
                                                                         .find(|auth| auth.auth_pool
                                                                             .contains(&self.authorizer_hash))
         {
-
-            // Remove the authorization of the pool
-            auth_pool.auth_pool.retain(|hash| hash != &self.authorizer_hash);
-            // Update authorization state
-            set_authpool_state(&authorization.clone());
             return Ok(true);
         }
 

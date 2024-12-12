@@ -4,7 +4,7 @@ use crate::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError}
 use crate::codec::{encode_unsigned, decode_unsigned};
 use crate::codec::refine_context::RefineContext;
 use crate::codec::work_result::WorkResult;
-use crate::codec::guarantees_extrinsic::GuaranteesExtrinsic;
+use crate::blockchain::block::extrinsic::guarantees::GuaranteesExtrinsic;
 use crate::codec::disputes_extrinsic::AvailabilityAssignments;
 use crate::codec::safrole::{ValidatorData, ValidatorsData};
 use crate::codec::history::{State as BlockHistory};

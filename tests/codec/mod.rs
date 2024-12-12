@@ -14,7 +14,7 @@ use vinwolf::codec::tickets_extrinsic::TicketsExtrinsic;
 use vinwolf::codec::disputes_extrinsic::{DisputesExtrinsic, DisputesState, OutputDisputes};
 use vinwolf::codec::preimages_extrinsic::PreimagesExtrinsic;
 use vinwolf::codec::assurances_extrinsic::AssurancesExtrinsic;
-use vinwolf::codec::guarantees_extrinsic::GuaranteesExtrinsic;
+use vinwolf::blockchain::block::extrinsic::guarantees::GuaranteesExtrinsic;
 use vinwolf::codec::header::Header;
 use vinwolf::codec::block::Block;
 use vinwolf::codec::safrole::{Input as InputSafrole, SafroleState, Output as OutputSafrole};
@@ -191,98 +191,98 @@ mod tests {
 
     #[test]
     fn run_refine_context_test() {
-        let test_content = read_test_file("data/codec/data/refine_context.bin");
+        let test_content = read_test_file("tests/jamtestvectors/codec/data/refine_context.bin");
         let test_body: Vec<TestBody> = vec![TestBody::RefineContext];
         let _ = encode_decode_test(&test_content, &test_body);
     }
 
     #[test]
     fn run_work_item_test() {
-        let test_content = read_test_file("data/codec/data/work_item.bin");
+        let test_content = read_test_file("tests/jamtestvectors/codec/data/work_item.bin");
         let test_body: Vec<TestBody> = vec![TestBody::WorkItem];
         let _ = encode_decode_test(&test_content, &test_body);
     }
     
     #[test]
     fn run_work_package_test() {
-        let test_content = read_test_file("data/codec/data/work_package.bin");
+        let test_content = read_test_file("tests/jamtestvectors/codec/data/work_package.bin");
         let test_body: Vec<TestBody> = vec![TestBody::WorkPackage];
         let _ = encode_decode_test(&test_content, &test_body);
     }
     
     #[test]
     fn run_work_result_0() {
-        let test_content = read_test_file("data/codec/data/work_result_0.bin");
+        let test_content = read_test_file("tests/jamtestvectors/codec/data/work_result_0.bin");
         let test_body: Vec<TestBody> = vec![TestBody::WorkResult];
         let _ = encode_decode_test(&test_content, &test_body);
     }
     
     #[test]
     fn run_work_result_1() {
-        let test_content = read_test_file("data/codec/data/work_result_1.bin");
+        let test_content = read_test_file("tests/jamtestvectors/codec/data/work_result_1.bin");
         let test_body: Vec<TestBody> = vec![TestBody::WorkResult];
         let _ = encode_decode_test(&test_content, &test_body);
     }
     
     #[test]
     fn run_work_report() {
-        let test_content = read_test_file("data/codec/data/work_report.bin");
+        let test_content = read_test_file("tests/jamtestvectors/codec/data/work_report.bin");
         let test_body: Vec<TestBody> = vec![TestBody::WorkReport];
         let _ = encode_decode_test(&test_content, &test_body);
     }
     
     #[test]
     fn run_tickets_extrinsic() {
-        let test_content = read_test_file("data/codec/data/tickets_extrinsic.bin");
+        let test_content = read_test_file("tests/jamtestvectors/codec/data/tickets_extrinsic.bin");
         let test_body: Vec<TestBody> = vec![TestBody::TicketsExtrinsic];
         let _ = encode_decode_test(&test_content, &test_body);
     }
     
     #[test]
     fn run_disputes_extrinsic() {
-        let test_content = read_test_file("data/codec/data/disputes_extrinsic.bin");
+        let test_content = read_test_file("tests/jamtestvectors/codec/data/disputes_extrinsic.bin");
         let test_body: Vec<TestBody> = vec![TestBody::DisputesExtrinsic];
         let _ = encode_decode_test(&test_content, &test_body);
     }
     
     #[test]
     fn run_preimages_extrinsic() {
-        let test_content = read_test_file("data/codec/data/preimages_extrinsic.bin");
+        let test_content = read_test_file("tests/jamtestvectors/codec/data/preimages_extrinsic.bin");
         let test_body: Vec<TestBody> = vec![TestBody::PreimagesExtrinsic];
         let _ = encode_decode_test(&test_content, &test_body);
     }
     
     #[test]
     fn run_assurances_extrinsic() {
-        let test_content = read_test_file("data/codec/data/assurances_extrinsic.bin");
+        let test_content = read_test_file("tests/jamtestvectors/codec/data/assurances_extrinsic.bin");
         let test_body: Vec<TestBody> = vec![TestBody::AssurancesExtrinsic];
         let _ = encode_decode_test(&test_content, &test_body);
     }
     
     #[test]
     fn run_guarantees_extrinsic() {
-        let test_content = read_test_file("data/codec/data/guarantees_extrinsic.bin");
+        let test_content = read_test_file("tests/jamtestvectors/codec/data/guarantees_extrinsic.bin");
         let test_body: Vec<TestBody> = vec![TestBody::GuaranteesExtrinsic];
         let _ = encode_decode_test(&test_content, &test_body);
     }
     
     #[test]
     fn run_header_0() {
-        let test_content = read_test_file("data/codec/data/header_0.bin");
+        let test_content = read_test_file("tests/jamtestvectors/codec/data/header_0.bin");
         let test_body: Vec<TestBody> = vec![TestBody::Header];
         let _ = encode_decode_test(&test_content, &test_body);
     }
     
     #[test]
     fn run_header_1() {
-        let test_content = read_test_file("data/codec/data/header_1.bin");
+        let test_content = read_test_file("tests/jamtestvectors/codec/data/header_1.bin");
         let test_body: Vec<TestBody> = vec![TestBody::Header];
         let _ = encode_decode_test(&test_content, &test_body);
     }
     
     #[test]
     fn run_block() {
-        let test_content = read_test_file("data/codec/data/block.bin");
+        let test_content = read_test_file("tests/jamtestvectors/codec/data/block.bin");
         let test_body: Vec<TestBody> = vec![TestBody::Block];
         let _ = encode_decode_test(&test_content, &test_body);
     }

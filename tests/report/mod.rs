@@ -6,7 +6,7 @@ use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, ROTATION_PERIOD};
 use vinwolf::blockchain::state::disputes::{set_disputes_state, get_disputes_state};
 use vinwolf::blockchain::state::validators::{set_validators_state, get_validators_state, ValidatorSet};
 use vinwolf::blockchain::state::entropy::{set_entropy_state, get_entropy_state};
-use vinwolf::blockchain::state::reporting_assurance::{update_reporting_assurance_state,set_reporting_assurance_state, get_reporting_assurance_state};
+use vinwolf::blockchain::state::reporting_assurance::{process_report_assurance,set_reporting_assurance_state, get_reporting_assurance_state};
 use vinwolf::blockchain::state::recent_history::{set_history_state, get_history_state}; // TODO update this
 use vinwolf::blockchain::state::authorization::{set_authpool_state, get_authpool_state};
 use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
@@ -32,7 +32,7 @@ mod tests {
 
     fn run_test(filename: &str) {
 
-        let test_content = read_test_file(&format!("data/reports/{}/{}", *TEST_TYPE, filename));
+        let test_content = read_test_file(&format!("tests/jamtestvectors/reports/{}/{}", *TEST_TYPE, filename));
         let test_body: Vec<TestBody> = vec![
                                         TestBody::InputWorkReport,
                                         TestBody::WorkReportState,
@@ -66,7 +66,7 @@ mod tests {
 
         set_disputes_state(&disputes_state);
         
-        let output_result = update_reporting_assurance_state(&input.guarantees, input.slot);
+        let output_result = process_report_assurance(&input.guarantees, input.slot);
 
         let result_avail_assignments = get_reporting_assurance_state();
         let result_curr_validators = get_validators_state(ValidatorSet::Current);
