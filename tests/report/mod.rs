@@ -115,11 +115,11 @@ mod tests {
             // Context Beefy MMR root doesn't match the one at anchor.
             "bad_beefy_mmr-1.bin",
             // Work result code hash doesn't match the one expected for the service.
-            /*"bad_code_hash-1.bin",
+            //"bad_code_hash-1.bin",
             // Core index is too big.
             "bad_core_index-1.bin",
             // Work result service identifier doesn't have any associated account in state.
-            "bad_service_id-1.bin",
+            /*"bad_service_id-1.bin",
             // Context state root doesn't match the one at anchor.
             "bad_state_root-1.bin",
             // Validator index is too big.
@@ -147,9 +147,9 @@ mod tests {
             "many_dependencies-1.bin",
             // Work report has too many dependencies.
             "too_many_dependencies-1.bin",
-            // Report with no enough guarantors signatures.
+            // Report with no enough guarantors signatures.*/
             "no_enough_guarantees-1.bin",
-            // Target core without any authorizer.
+            /*// Target core without any authorizer.
             "not_authorized-1.bin",
             // Target core with unexpected authorizer.
             "not_authorized-2.bin",

@@ -8,7 +8,7 @@ pub mod history;
 pub mod disputes;
 pub mod shuffle;
 pub mod blockchain;
-
+pub mod utils;
 
 
 

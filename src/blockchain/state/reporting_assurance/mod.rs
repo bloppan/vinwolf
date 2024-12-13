@@ -18,21 +18,25 @@ use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use sp_core::keccak_256;
 
+use crate::codec::safrole::ValidatorsData;
 use crate::codec::{Encode};
 use crate::codec::block;
 use crate::codec::refine_context::RefineContext;
-use crate::types::{Entropy, OpaqueHash, TimeSlot, WorkPackageHash, Ed25519Public};
+use crate::types::{CoreIndex, Ed25519Public, Entropy, OpaqueHash, TimeSlot, WorkPackageHash};
 use crate::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT, WORK_REPORT_TIMEOUT};
 use crate::codec::disputes_extrinsic::{AvailabilityAssignments, AvailabilityAssignment};
 use crate::blockchain::block::extrinsic::guarantees::GuaranteesExtrinsic;
 use crate::codec::work_report::{ReportedPackage, OutputData, OutputWorkReport, AuthPool, AuthPools, ErrorCode};
 use crate::codec::history::{Mmr, BlockInfo};
+use crate::utils::common::set_offenders_null;
 use crate::shuffle::shuffle;
 use crate::trie::mmr_super_peak;
 use crate::blockchain::state::validators::{get_validators_state, ValidatorSet};
 use crate::blockchain::state::authorization::{get_authpool_state, set_authpool_state};
 use crate::blockchain::state::recent_history::get_history_state;
 use crate::blockchain::state::time::get_time_state;
+
+use super::disputes::get_disputes_state;
 
 
 mod work_report;
@@ -57,53 +61,17 @@ pub fn add_assignment(assignment: &AvailabilityAssignment) {
     state.assignments[assignment.report.core_index as usize] = Some(assignment.clone());
 }
 
-fn place_reports(guarantees: &GuaranteesExtrinsic, slot: TimeSlot) -> Result<OutputData, ErrorCode> {
+pub fn process_report_assurance(guarantees: &GuaranteesExtrinsic, post_tau: TimeSlot) -> Result<OutputData, ErrorCode> {
 
-    let mut reported: Vec<ReportedPackage> = Vec::new();
-    let mut reporters: Vec<Ed25519Public> = Vec::new();
-
-    for guarantee in &guarantees.report_guarantee {
-        
-        guarantee.report.validate_authorization()?;
-        guarantee.report.is_recent()?;
-        
-        let OutputData {
-            reported: new_reported,
-            reporters: new_reporters,
-        } = guarantee.report.try_place(guarantee.slot, &guarantee.signatures)?;
-
-        reported.extend_from_slice(&new_reported);
-        reporters.extend_from_slice(&new_reporters);
-       
-    }
-
-    reporters.sort();
-
-    return Ok(OutputData{reported: reported, reporters: reporters});
-}
-
-pub fn process_report_assurance(guarantees: &GuaranteesExtrinsic, slot: TimeSlot) -> Result<OutputData, ErrorCode> {
-
-    // Work report - is valid?
-    // Work report - is recent?
     if guarantees.report_guarantee.len() > CORES_COUNT {
         return Err(ErrorCode::TooManyGuarantees);
     }
 
-    let mut reported: Vec<ReportedPackage> = Vec::new();
-    let mut reporters: Vec<Ed25519Public> = Vec::new();
-
-    let OutputData {
-        reported: new_reported,
-        reporters: new_reporters,
-    } = place_reports(guarantees, slot)?;
-
-    reported.extend_from_slice(&new_reported);
-    reporters.extend_from_slice(&new_reporters);
+    let output_data = guarantees.process(&post_tau)?;
 
     Ok(OutputData {
-        reported,
-        reporters,
+        reported: output_data.reported,
+        reporters: output_data.reporters,
     })
 }
 
@@ -119,7 +87,7 @@ fn rotation(c: &[u16], n: u16) -> Vec<u16> {
     return result;
 }
 
-fn permute(entropy: &Entropy, t: u16) -> Vec<u16> {
+pub fn permute(entropy: &Entropy, t: TimeSlot) -> Vec<u16> {
 
     let mut items: Vec<u16> = Vec::with_capacity(VALIDATORS_COUNT);
 
@@ -128,11 +96,22 @@ fn permute(entropy: &Entropy, t: u16) -> Vec<u16> {
     }
 
     let res_shuffle = shuffle(&items, entropy);
-    let n = t % EPOCH_LENGTH as u16 / ROTATION_PERIOD as u16;
+    let n = ((t as u32 % EPOCH_LENGTH as u32) as u16) / ROTATION_PERIOD as u16;
     rotation(&res_shuffle, n)
 }
 
-//fn guarantor_assignments(assignmets: &[u16], )
+pub fn guarantor_assignments(core_assignments: &[u16], validators_data: &mut ValidatorsData) -> Box<[(CoreIndex, Ed25519Public); VALIDATORS_COUNT]> {
+
+    let mut guarantor_assignments: Box<[(CoreIndex, Ed25519Public); VALIDATORS_COUNT]> = Box::new([(0, Ed25519Public::default()); VALIDATORS_COUNT]);
+
+    set_offenders_null(validators_data, &get_disputes_state().offenders);
+
+    for i in 0..VALIDATORS_COUNT {
+        guarantor_assignments[i] = (core_assignments[i], validators_data.validators[i].ed25519.clone());
+    }
+
+    return guarantor_assignments;
+}   
 
 #[cfg(test)]
 mod tests {

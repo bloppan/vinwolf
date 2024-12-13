@@ -1,7 +1,12 @@
-use crate::types::{TimeSlot, ValidatorIndex, Ed25519Signature};
+use ark_ec_vrfs::prelude::ark_serialize::Valid;
+use frame_support::sp_runtime::offchain::storage_lock::Time;
+
+use crate::constants::CORES_COUNT;
+use crate::types::{TimeSlot, ValidatorIndex, Ed25519Signature, Ed25519Public, CoreIndex};
 use crate::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
-use crate::codec::work_report::WorkReport;
+use crate::codec::work_report::{ReportedPackage, OutputData, WorkReport, ErrorCode};
 use crate::codec::{encode_unsigned, decode_unsigned};
+use crate::utils::common::is_sorted_and_unique;
 
 // The guarantees extrinsic is a series of guarantees, at most one for each core, each of which is 
 // a tuple of a work-report, a credential and its corresponding timeslot. The core index of each 
@@ -28,6 +33,64 @@ pub struct ValidatorSignature {
     pub validator_index: ValidatorIndex,
     pub signature: Ed25519Signature,
 }
+
+impl GuaranteesExtrinsic {
+
+    pub fn process(&self, post_tau: &TimeSlot) -> Result<OutputData, ErrorCode> {
+
+        if self.report_guarantee.len() == 0 {
+            return Err(ErrorCode::InsufficientGuarantees);
+        }
+        // At most one guarantee for each core
+        if self.report_guarantee.len() > CORES_COUNT {
+            return Err(ErrorCode::TooManyGuarantees);
+        }
+
+        let mut reported = Vec::new();
+        let mut reporters = Vec::new();
+        
+        let mut core_index: Vec<CoreIndex> = Vec::new();
+
+        for guarantee in &self.report_guarantee {
+
+            // The core index of each guarantee must be unique and guarantees must be in ascending order of this
+            core_index.push(guarantee.report.core_index);
+            if !is_sorted_and_unique(&core_index) {
+                return Err(ErrorCode::BadCoreIndex);
+            }
+
+            if guarantee.report.core_index > CORES_COUNT as CoreIndex {
+                return Err(ErrorCode::BadCoreIndex);
+            }
+
+            // The credential is a sequence of two or three tuples of a unique validator index and a signature
+            if guarantee.signatures.len() < 2 || guarantee.signatures.len() > 3 {
+                return Err(ErrorCode::InsufficientGuarantees);
+            }
+
+            // Credentials must be ordered by their validator index
+            let validator_indexes: Vec<ValidatorIndex> = guarantee.signatures.iter().map(|i| i.validator_index).collect();
+            if !is_sorted_and_unique(&validator_indexes) {
+                return Err(ErrorCode::BadValidatorIndex);
+            }
+
+            // Process the work report
+            let OutputData {
+                reported: new_reported,
+                reporters: new_reporters,
+            } = guarantee.report.process(post_tau, guarantee.slot, &guarantee.signatures)?;
+    
+            reported.extend(new_reported);
+            reporters.extend(new_reporters);
+        }
+    
+        reporters.sort();
+    
+        Ok(OutputData { reported, reporters })
+    }
+    
+}
+
 
 impl Encode for GuaranteesExtrinsic {
 

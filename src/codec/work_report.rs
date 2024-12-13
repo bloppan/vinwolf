@@ -452,6 +452,8 @@ pub enum ErrorCode {
     BadSignature = 21,
     TooManyGuarantees = 22,
     NoAuthorization = 23,
+    BadNumberCredentials = 24,
+    TooOldGuarantee = 25,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -519,6 +521,8 @@ impl Decode for OutputWorkReport {
                 21 => ErrorCode::BadSignature,
                 22 => ErrorCode::TooManyGuarantees,
                 23 => ErrorCode::NoAuthorization,
+                24 => ErrorCode::BadNumberCredentials,
+                25 => ErrorCode::TooOldGuarantee,
                 _ => return Err(ReadError::InvalidData),
             };
             Ok(OutputWorkReport::Err(error))
