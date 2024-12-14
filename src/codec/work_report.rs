@@ -454,6 +454,7 @@ pub enum ErrorCode {
     NoAuthorization = 23,
     BadNumberCredentials = 24,
     TooOldGuarantee = 25,
+    GuarantorNotFound = 26,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -523,6 +524,7 @@ impl Decode for OutputWorkReport {
                 23 => ErrorCode::NoAuthorization,
                 24 => ErrorCode::BadNumberCredentials,
                 25 => ErrorCode::TooOldGuarantee,
+                26 => ErrorCode::GuarantorNotFound,
                 _ => return Err(ReadError::InvalidData),
             };
             Ok(OutputWorkReport::Err(error))

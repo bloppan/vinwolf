@@ -8,13 +8,7 @@ use crate::codec::work_report::{ReportedPackage, OutputData, WorkReport, ErrorCo
 use crate::codec::{encode_unsigned, decode_unsigned};
 use crate::utils::common::is_sorted_and_unique;
 
-// The guarantees extrinsic is a series of guarantees, at most one for each core, each of which is 
-// a tuple of a work-report, a credential and its corresponding timeslot. The core index of each 
-// guarantee must be unique and guarantees must be in ascending order of this.
-// They are reports of newly completed workloads whose accuracy is guaranteed by specific validators. 
-// A work-package, which comprises several work items, is transformed by validators acting as guarantors 
-// into its corresponding workreport, which similarly comprises several work outputs and then presented 
-// on-chain within the guarantees extrinsic.
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GuaranteesExtrinsic {
@@ -35,7 +29,13 @@ pub struct ValidatorSignature {
 }
 
 impl GuaranteesExtrinsic {
-
+    /// The guarantees extrinsic is a series of guarantees, at most one for each core, each of which is 
+    // a tuple of a work-report, a credential and its corresponding timeslot. The core index of each 
+    // guarantee must be unique and guarantees must be in ascending order of this.
+    // They are reports of newly completed workloads whose accuracy is guaranteed by specific validators. 
+    // A work-package, which comprises several work items, is transformed by validators acting as guarantors 
+    // into its corresponding workreport, which similarly comprises several work outputs and then presented 
+    // on-chain within the guarantees extrinsic.
     pub fn process(&self, post_tau: &TimeSlot) -> Result<OutputData, ErrorCode> {
 
         if self.report_guarantee.len() == 0 {

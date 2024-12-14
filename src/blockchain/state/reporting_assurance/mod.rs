@@ -17,6 +17,7 @@ use frame_support::sp_runtime::offchain::storage_lock::Time;
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use sp_core::keccak_256;
+use std::collections::HashMap;
 
 use crate::codec::safrole::ValidatorsData;
 use crate::codec::{Encode};
