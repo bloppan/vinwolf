@@ -3,8 +3,8 @@ use crate::blockchain::state::entropy::get_entropy_state;
 use crate::codec::safrole::ValidatorsData;
 use crate::codec::Encode;
 use crate::utils::common::Verify;
-use crate::types::{Ed25519Public, TimeSlot, CoreIndex};
-use crate::constants::{EPOCH_LENGTH, ROTATION_PERIOD, WORK_REPORT_TIMEOUT};
+use crate::types::{Ed25519Public, TimeSlot, CoreIndex, Gas};
+use crate::constants::{EPOCH_LENGTH, ROTATION_PERIOD, WORK_REPORT_TIMEOUT, WORK_REPORT_GAS_LIMIT};
 use crate::codec::work_report::{WorkReport, ReportedPackage, OutputData, OutputWorkReport, AuthPool, AuthPools, ErrorCode};
 use crate::codec::refine_context::RefineContext;
 use crate::codec::disputes_extrinsic::AvailabilityAssignment;
@@ -13,6 +13,7 @@ use crate::blockchain::state::validators::{get_validators_state, ValidatorSet};
 use crate::blockchain::state::authorization::{get_authpool_state, set_authpool_state};
 use crate::blockchain::state::recent_history::get_history_state;
 use crate::blockchain::state::time::get_time_state;
+use crate::blockchain::state::services::get_services_state;
 use crate::blockchain::state::reporting_assurance::{get_reporting_assurance_state, add_assignment};
 use crate::trie::mmr_super_peak;
 
@@ -31,6 +32,11 @@ impl WorkReport {
             return Err(ErrorCode::AnchorNotRecent);
         }
 
+        match self.gas_meets_requirements() {
+            Err(error) => return Err(error),
+            Ok(_) => {},
+        }
+
         let OutputData {
             reported: new_reported,
             reporters: new_reporters,
@@ -39,12 +45,38 @@ impl WorkReport {
         return Ok(OutputData{reported: new_reported, reporters: new_reporters});
     }
 
+    fn gas_meets_requirements(&self) -> Result<bool, ErrorCode> {
+        let list = get_services_state();
+        let mut total_accumulation_gas: Gas = 0;
+        // We require that the gas allotted for accumulation of each work item in each work-report respects its service's
+        // minimum gas requirements
+        'next_result: for result in &self.results {
+            for service in &list.services {
+                if service.id == result.service {
+                    if result.gas >= service.info.balance {
+                        return Err(ErrorCode::ServiceItemGasTooLow);
+                    }
+                    total_accumulation_gas += result.gas;
+                    continue 'next_result;
+                }
+            }
+            return Err(ErrorCode::BadServiceId);
+        }
+
+        // We also require that all work-reports total allotted accumulation gas is no greater than the WORK_REPORT_GAS_LIMIT
+        if total_accumulation_gas > WORK_REPORT_GAS_LIMIT {
+            return Err(ErrorCode::WorkReportGasTooHigh);
+        }
+
+        return Ok(true);
+    }
+
     fn validate_authorization(&self) -> Result<bool, ErrorCode> {
 
-        let mut authorization = get_authpool_state();
+        let authorization = get_authpool_state();
         // A report is valid only if the authorizer hash is present in the authorizer pool of the core on which the
         // work is reported
-        if let Some(_) = authorization.auth_pools.iter_mut()
+        if let Some(_) = authorization.auth_pools.iter()
                                                     .find(|auth| auth.auth_pool
                                                     .contains(&self.authorizer_hash))
         {
@@ -83,7 +115,7 @@ impl WorkReport {
         let availability = get_reporting_assurance_state();
         // No reports may be placed on cores with a report pending availability on it unless it has timed out.
         // It has timed out, WORK_REPORT_TIMEOUT = 5 slots must have elapsed after de report was made
-        if availability.assignments[self.core_index as usize].is_none() || *post_tau > self.context.lookup_anchor_slot + WORK_REPORT_TIMEOUT {
+        if availability.assignments[self.core_index as usize].is_none() || *post_tau >= self.context.lookup_anchor_slot + WORK_REPORT_TIMEOUT {
 
             let chain_entropy = get_entropy_state();
             let current_validators = get_validators_state(ValidatorSet::Current);

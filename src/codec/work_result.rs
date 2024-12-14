@@ -21,11 +21,11 @@ use crate::codec::{encode_unsigned, decode_unsigned};
 //      The code was available but was beyond the maximun size allowed Wc.
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorkResult {
-    service: ServiceId,
-    code_hash: OpaqueHash,
-    payload_hash: OpaqueHash,
-    gas: Gas,
-    result: Vec<u8>,
+    pub service: ServiceId,
+    pub code_hash: OpaqueHash,
+    pub payload_hash: OpaqueHash,
+    pub gas: Gas,
+    pub result: Vec<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

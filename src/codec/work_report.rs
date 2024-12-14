@@ -41,13 +41,13 @@ impl Decode for InputWorkReport {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct ServiceInfo {
-    code_hash: OpaqueHash,
-    balance: u64,
-    min_item_gas: Gas,
-    min_memo_gas: Gas,
-    bytes: u64,
-    items: u32,
+pub struct ServiceInfo {
+    pub code_hash: OpaqueHash,
+    pub balance: u64,
+    pub min_item_gas: Gas,
+    pub min_memo_gas: Gas,
+    pub bytes: u64,
+    pub items: u32,
 }
 
 impl Encode for ServiceInfo {
