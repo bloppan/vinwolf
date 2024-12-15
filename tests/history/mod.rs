@@ -1,9 +1,9 @@
 use crate::{read_test_file};
 use crate::codec::{TestBody, encode_decode_test};
 
-use vinwolf::codec::{Decode, BytesReader};
-use vinwolf::codec::history::{Input as InputHistory, State as StateHistory};
-use vinwolf::history::{update_recent_history, set_history_state, get_history_state};
+use vinwolf::utils::codec::{Decode, BytesReader};
+use vinwolf::blockchain::state::recent_history::codec::{Input as InputHistory, State as StateHistory};
+use vinwolf::blockchain::state::recent_history::{update_recent_history, set_history_state, get_history_state};
 
 fn run_recent_history_test(filename: &str) {
   

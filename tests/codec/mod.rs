@@ -4,21 +4,21 @@ extern crate vinwolf;
 
 use crate::{read_test_file};
 
-use vinwolf::codec::{Encode, Decode, BytesReader, ReadError};
-use vinwolf::codec::refine_context::RefineContext;
-use vinwolf::codec::work_item::WorkItem;
-use vinwolf::codec::work_package::WorkPackage;
-use vinwolf::codec::work_result::WorkResult;
-use vinwolf::codec::work_report::{WorkReport, InputWorkReport, WorkReportState, OutputWorkReport};
-use vinwolf::codec::tickets_extrinsic::TicketsExtrinsic;
-use vinwolf::codec::disputes_extrinsic::{DisputesExtrinsic, DisputesState, OutputDisputes};
-use vinwolf::codec::preimages_extrinsic::PreimagesExtrinsic;
-use vinwolf::codec::assurances_extrinsic::AssurancesExtrinsic;
+use vinwolf::utils::codec::{Encode, Decode, BytesReader, ReadError};
+use vinwolf::blockchain::state::reporting_assurance::refine_context::RefineContext;
+use vinwolf::blockchain::state::reporting_assurance::work_item::WorkItem;
+use vinwolf::blockchain::state::reporting_assurance::work_package::WorkPackage;
+use vinwolf::blockchain::state::reporting_assurance::work_result::WorkResult;
+use vinwolf::utils::codec::work_report::{WorkReport, InputWorkReport, WorkReportState, OutputWorkReport};
+use vinwolf::blockchain::block::extrinsic::tickets::TicketsExtrinsic;
+use vinwolf::blockchain::block::extrinsic::disputes::{DisputesExtrinsic, DisputesState, OutputDisputes};
+use vinwolf::blockchain::block::extrinsic::preimages::PreimagesExtrinsic;
+use vinwolf::blockchain::block::extrinsic::assurances::AssurancesExtrinsic;
 use vinwolf::blockchain::block::extrinsic::guarantees::GuaranteesExtrinsic;
-use vinwolf::codec::header::Header;
-use vinwolf::codec::block::Block;
-use vinwolf::codec::safrole::{Input as InputSafrole, SafroleState, Output as OutputSafrole};
-use vinwolf::codec::history::{Input as InputHistory, State as StateHistory};
+use vinwolf::blockchain::block::header::Header;
+use vinwolf::blockchain::block::Block;
+use vinwolf::blockchain::state::safrole::codec::{Input as InputSafrole, SafroleState, Output as OutputSafrole};
+use vinwolf::blockchain::state::recent_history::codec::{Input as InputHistory, State as StateHistory};
 
 fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
     data1.iter()

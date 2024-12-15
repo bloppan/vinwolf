@@ -1,13 +1,13 @@
 use crate::types::{ServiceId, Gas, CoreIndex, OpaqueHash, TimeSlot, Ed25519Public, WorkPackageHash};
-use crate::constants::{CORES_COUNT};
-use crate::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
-use crate::codec::{encode_unsigned, decode_unsigned};
-use crate::codec::refine_context::RefineContext;
-use crate::codec::work_result::WorkResult;
+use crate::constants::CORES_COUNT;
 use crate::blockchain::block::extrinsic::guarantees::GuaranteesExtrinsic;
-use crate::codec::disputes_extrinsic::AvailabilityAssignments;
-use crate::codec::safrole::{ValidatorData, ValidatorsData};
-use crate::codec::history::{State as BlockHistory};
+use crate::blockchain::block::extrinsic::disputes::AvailabilityAssignments;
+use crate::blockchain::state::safrole::codec::ValidatorsData;
+use crate::blockchain::state::recent_history::codec::State as BlockHistory;
+use crate::blockchain::state::reporting_assurance::refine_context::RefineContext;
+use crate::blockchain::state::reporting_assurance::work_result::WorkResult;
+use crate::utils::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
+use crate::utils::codec::{encode_unsigned, decode_unsigned};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputWorkReport {

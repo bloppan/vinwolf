@@ -1,11 +1,16 @@
-use crate::codec::{Encode, Decode, ReadError, BytesReader};
-use crate::codec::tickets_extrinsic::TicketsExtrinsic;
-use crate::codec::disputes_extrinsic::DisputesExtrinsic;
-use crate::codec::preimages_extrinsic::PreimagesExtrinsic;
-use crate::codec::assurances_extrinsic::AssurancesExtrinsic;
+use crate::utils::codec::{Encode, Decode, ReadError, BytesReader};
+use crate::blockchain::block::extrinsic::tickets::TicketsExtrinsic;
+use crate::blockchain::block::extrinsic::disputes::DisputesExtrinsic;
+use crate::blockchain::block::extrinsic::preimages::PreimagesExtrinsic;
+use crate::blockchain::block::extrinsic::assurances::AssurancesExtrinsic;
 use crate::blockchain::block::extrinsic::guarantees::GuaranteesExtrinsic;
 
+pub mod assurances;
+pub mod disputes;
+pub mod preimages;
+pub mod tickets;
 pub mod guarantees;
+
 // The extrinsic data is split into its several portions:
 //     Tickets, used for the mechanism which manages the selection of validators for the permissioning of block authoring.
 //     Votes, by validators, on dispute(s) arising between them presently taking place.

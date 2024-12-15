@@ -5,19 +5,20 @@ use sp_core::keccak_256;
 
 use crate::types::Hash;
 use crate::constants::RECENT_HISTORY_SIZE;
-use crate::codec::history::{State, BlockInfo, ReportedWorkPackages, Mmr};
-use crate::trie::append;
+use crate::blockchain::state::recent_history::codec::{State as BlockHistory, BlockInfo, ReportedWorkPackages, Mmr};
+use crate::utils::trie::append;
 
+pub mod codec;
 
-static STATE_RECENT_HISTORY: Lazy<Mutex<State>> = Lazy::new(|| Mutex::new(State{beta: VecDeque::with_capacity(RECENT_HISTORY_SIZE)}));
+static RECENT_HISTORY_STATE: Lazy<Mutex<BlockHistory>> = Lazy::new(|| Mutex::new(BlockHistory{beta: VecDeque::with_capacity(RECENT_HISTORY_SIZE)}));
 
-pub fn set_history_state(post_state: &State) {
-    let mut state = STATE_RECENT_HISTORY.lock().unwrap();
+pub fn set_history_state(post_state: &BlockHistory) {
+    let mut state = RECENT_HISTORY_STATE.lock().unwrap();
     *state = post_state.clone();
 }
 
-pub fn get_history_state() -> State {
-    let state = STATE_RECENT_HISTORY.lock().unwrap(); 
+pub fn get_history_state() -> BlockHistory {
+    let state = RECENT_HISTORY_STATE.lock().unwrap(); 
     return state.clone();
 }
 
@@ -27,7 +28,7 @@ pub fn update_recent_history(
     accumulate_root: Hash, 
     work_packages: ReportedWorkPackages
 ) {
-    let mut pre_state = STATE_RECENT_HISTORY.lock().unwrap(); 
+    let mut pre_state = RECENT_HISTORY_STATE.lock().unwrap(); 
     let history_len = pre_state.beta.len();
 
     if history_len == 0 {

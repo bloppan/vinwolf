@@ -1,9 +1,9 @@
 use crate::types::{BandersnatchKey, Ed25519Key, BlsKey, Metadata, OpaqueHash, TimeSlot, BandersnatchRingCommitment};
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH};
-use crate::codec::{Encode, Decode, DecodeLen, BytesReader, ReadError};
-use crate::codec::tickets_extrinsic::{TicketsExtrinsic};
-use crate::codec::header::{EpochMark, TicketBody};
-use crate::codec::{encode_unsigned};
+use crate::blockchain::block::extrinsic::tickets::TicketsExtrinsic;
+use crate::blockchain::block::header::{EpochMark, TicketBody};
+use crate::utils::codec::{Encode, Decode, DecodeLen, BytesReader, ReadError};
+use crate::utils::codec::encode_unsigned;
 
 #[derive(Debug)]
 pub struct Input {

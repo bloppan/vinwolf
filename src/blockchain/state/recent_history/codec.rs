@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
 use crate::types::Hash;
-use crate::codec::{Encode, Decode, BytesReader, ReadError};
-use crate::codec::{encode_unsigned, decode_unsigned};
+use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
+use crate::utils::codec::{encode_unsigned, decode_unsigned};
 
 pub type MmrPeak = Option<Hash>;
 

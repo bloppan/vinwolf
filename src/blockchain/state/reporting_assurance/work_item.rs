@@ -1,6 +1,6 @@
 use crate::types::{ServiceId, OpaqueHash, Gas};
-use crate::codec::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
-use crate::codec::{encode_unsigned, decode_unsigned};
+use crate::utils::codec::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
+use crate::utils::codec::{encode_unsigned, decode_unsigned};
 
 // A Work Item includes: the identifier of the service to which it relates, the code hash of the service at 
 // the time of reporting (whose preimage must be available from the perspective of the lookup anchor block), 

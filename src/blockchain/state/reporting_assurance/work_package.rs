@@ -1,7 +1,7 @@
 use crate::types::{ServiceId, OpaqueHash};
-use crate::codec::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
-use crate::codec::refine_context::RefineContext;
-use crate::codec::work_item::WorkItem;
+use crate::utils::codec::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
+use crate::blockchain::state::reporting_assurance::refine_context::RefineContext;
+use crate::blockchain::state::reporting_assurance::work_item::WorkItem;
 
 // A work-package includes a simple blob acting as an authorization token, the index of the service which
 // hosts the authorization code, an authorization code hash and a parameterization blob, a context and a 

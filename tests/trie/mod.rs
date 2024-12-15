@@ -4,7 +4,7 @@ use std::convert::TryInto;
 use serde::de::{self, Deserializer};
 
 extern crate vinwolf;
-use vinwolf::trie::merkle;
+use vinwolf::utils::trie::merkle;
 
 #[derive(Debug, Deserialize)]
 struct Entry {

@@ -1,6 +1,6 @@
-use crate::codec::{BytesReader, Encode, EncodeSize, Decode, ReadError};
 use crate::types::{OpaqueHash, TimeSlot};
-use crate::codec::{encode_unsigned, decode_unsigned};
+use crate::utils::codec::{BytesReader, Encode, EncodeSize, Decode, ReadError};
+use crate::utils::codec::{encode_unsigned, decode_unsigned};
 
 // A refinement context, denoted by the set X, describes the context of the chain at the point 
 // that the report’s corresponding work-package was evaluated. It identifies two historical blocks, 

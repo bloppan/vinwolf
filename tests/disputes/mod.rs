@@ -1,11 +1,11 @@
 use once_cell::sync::Lazy;
-use crate::{read_test_file};
+use crate::read_test_file;
 use crate::codec::{TestBody, encode_decode_test};
 
-use vinwolf::codec::{Decode, BytesReader};
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, CORES_COUNT};
-use vinwolf::codec::disputes_extrinsic::{DisputesExtrinsic, DisputesState, OutputDisputes};
-use vinwolf::disputes::{set_disputes_state, get_disputes_state, update_disputes_state};
+use vinwolf::blockchain::block::extrinsic::disputes::{DisputesExtrinsic, DisputesState, OutputDisputes};
+use vinwolf::blockchain::state::disputes::{set_old_disputes_state, get_old_disputes_state, update_disputes_state};
+use vinwolf::utils::codec::{Decode, BytesReader};
 
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
     if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && CORES_COUNT == 2 {
@@ -34,9 +34,9 @@ fn run_test(filename: &str) {
         let expected_output = OutputDisputes::decode(&mut reader).expect("Error decoding post OutputDisputes");
         let expected_state = DisputesState::decode(&mut reader).expect("Error decoding post DisputesState");
         
-        set_disputes_state(&disputes_state);
+        set_old_disputes_state(&disputes_state);
 
-        if let Some(current_state) = get_disputes_state() {
+        if let Some(current_state) = get_old_disputes_state() {
             assert_eq!(disputes_state, current_state);
         } else {
             panic!("Disputes State was not set before comparison");
@@ -45,7 +45,7 @@ fn run_test(filename: &str) {
         let output_result = update_disputes_state(&disputes_extrinsic);
 
 
-        if let Some(state_result) = get_disputes_state() {
+        if let Some(state_result) = get_old_disputes_state() {
             /*assert_eq!(expected_state, state_result);
             assert_eq!(expected_output, output_result);*/
 

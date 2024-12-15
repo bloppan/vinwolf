@@ -1,23 +1,23 @@
 use sp_core::blake2_256;
-use crate::blockchain::state::entropy::get_entropy_state;
-use crate::codec::safrole::ValidatorsData;
-use crate::codec::Encode;
-use crate::utils::common::Verify;
-use crate::types::{Ed25519Public, TimeSlot, CoreIndex, Gas};
-use crate::constants::{EPOCH_LENGTH, ROTATION_PERIOD, WORK_REPORT_TIMEOUT, WORK_REPORT_GAS_LIMIT};
-use crate::codec::work_report::{WorkReport, ReportedPackage, OutputData, OutputWorkReport, AuthPool, AuthPools, ErrorCode};
-use crate::codec::refine_context::RefineContext;
-use crate::codec::disputes_extrinsic::AvailabilityAssignment;
+
+use crate::types::{Entropy, Ed25519Public, TimeSlot, CoreIndex, Gas};
+use crate::constants::{EPOCH_LENGTH, ROTATION_PERIOD, WORK_REPORT_TIMEOUT, WORK_REPORT_GAS_LIMIT, CORES_COUNT, VALIDATORS_COUNT};
+
+use crate::blockchain::block::extrinsic::disputes::AvailabilityAssignment;
 use crate::blockchain::block::extrinsic::guarantees::ValidatorSignature;
+use crate::blockchain::state::safrole::codec::ValidatorsData;
+use crate::blockchain::state::entropy::get_entropy_state;
+use crate::blockchain::state::disputes::get_disputes_state;
 use crate::blockchain::state::validators::{get_validators_state, ValidatorSet};
-use crate::blockchain::state::authorization::{get_authpool_state, set_authpool_state};
+use crate::blockchain::state::authorization::get_authpool_state;
 use crate::blockchain::state::recent_history::get_history_state;
-use crate::blockchain::state::time::get_time_state;
 use crate::blockchain::state::services::get_services_state;
 use crate::blockchain::state::reporting_assurance::{get_reporting_assurance_state, add_assignment};
-use crate::trie::mmr_super_peak;
-
-use super::{guarantor_assignments, permute};
+use crate::utils::trie::mmr_super_peak;
+use crate::utils::shuffle::shuffle;
+use crate::utils::codec::Encode;
+use crate::utils::common::{Verify, set_offenders_null};
+use crate::utils::codec::work_report::{WorkReport, ReportedPackage, OutputData, ErrorCode};
 
 
 impl WorkReport {
@@ -187,5 +187,57 @@ impl WorkReport {
             add_assignment(&assignment);
         }
         return Ok(OutputData{reported: reported, reporters: reporters});
+    }
+}
+
+fn rotation(c: &[u16], n: u16) -> Vec<u16> {
+
+    let mut result: Vec<u16> = Vec::with_capacity(c.len());
+
+    for x in c {
+        result.push((x + n) % CORES_COUNT as u16);
+    }
+
+    return result;
+}
+
+fn permute(entropy: &Entropy, t: TimeSlot) -> Vec<u16> {
+
+    let mut items: Vec<u16> = Vec::with_capacity(VALIDATORS_COUNT);
+
+    for i in 0..VALIDATORS_COUNT {
+        items.push(((CORES_COUNT * i) / VALIDATORS_COUNT) as u16);
+    }
+
+    let res_shuffle = shuffle(&items, entropy);
+    let n = ((t as u32 % EPOCH_LENGTH as u32) as u16) / ROTATION_PERIOD as u16;
+    rotation(&res_shuffle, n)
+}
+
+fn guarantor_assignments(core_assignments: &[u16], validators_data: &mut ValidatorsData) -> Box<[(CoreIndex, Ed25519Public); VALIDATORS_COUNT]> {
+
+    let mut guarantor_assignments: Box<[(CoreIndex, Ed25519Public); VALIDATORS_COUNT]> = Box::new([(0, Ed25519Public::default()); VALIDATORS_COUNT]);
+
+    set_offenders_null(validators_data, &get_disputes_state().offenders);
+
+    for i in 0..VALIDATORS_COUNT {
+        guarantor_assignments[i] = (core_assignments[i], validators_data.validators[i].ed25519.clone());
+    }
+
+    return guarantor_assignments;
+}   
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn rotation_test() {
+
+        let c: Vec<u16> = vec![0, 1, 2, 3, 4, 5];
+        let n = 5;
+
+        assert_eq!(vec![1, 0, 1, 0, 1, 0], rotation(&c, n));
     }
 }

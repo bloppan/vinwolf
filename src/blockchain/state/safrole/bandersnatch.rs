@@ -4,8 +4,8 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
 
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH};
-use crate::safrole::{SafroleState, TicketBody, OutputMarks, ErrorType};
-use crate::codec::safrole::{Input as InputSafrole, Output as OutputSafrole};
+use crate::blockchain::state::safrole::{SafroleState, TicketBody, OutputMarks, ErrorType};
+use crate::blockchain::state::safrole::codec::{Input as InputSafrole, Output as OutputSafrole};
 
 use std::collections::HashSet;
 

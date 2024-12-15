@@ -2,8 +2,8 @@ use std::collections::HashSet;
 use std::hash::Hash;
 use sp_core::{ed25519, Pair};
 
-use crate::{blockchain::block::extrinsic::guarantees::ValidatorSignature, codec::safrole::ValidatorsData, types::{BandersnatchKey, BlsKey, Ed25519Key, Ed25519Public, Ed25519Signature, Metadata}};
-use crate::codec::work_report::Offenders;
+use crate::types::{BandersnatchKey, BlsKey, Ed25519Key, Ed25519Public, Ed25519Signature, Metadata};
+use crate::blockchain::state::safrole::codec::ValidatorsData;
 
 pub fn is_sorted_and_unique<T: PartialOrd + Hash + Eq>(vec: &[T]) -> bool {
     let mut seen = HashSet::new();

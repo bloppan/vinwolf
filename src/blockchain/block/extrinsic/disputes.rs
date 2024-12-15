@@ -2,10 +2,10 @@ use crate::types::{
     TimeSlot, OpaqueHash, ValidatorIndex, Ed25519Signature, Ed25519Key, 
     WorkReportHash, OffendersMark, Ed25519Public};
 use crate::constants::{VALIDATORS_SUPER_MAJORITY, CORES_COUNT};
-use crate::codec::{Encode, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
-use crate::codec::{encode_unsigned, decode_unsigned};
-use crate::codec::work_report::WorkReport;
-use crate::codec::safrole::ValidatorData;
+use crate::utils::codec::{Encode, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
+use crate::utils::codec::{encode_unsigned, decode_unsigned};
+use crate::utils::codec::work_report::WorkReport;
+use crate::blockchain::state::safrole::codec::ValidatorData;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DisputesState {

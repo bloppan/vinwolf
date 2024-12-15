@@ -1,7 +1,7 @@
 use crate::types::{OpaqueHash, Ed25519Signature, ValidatorIndex};
-use crate::constants::{AVAIL_BITFIELD_BYTES};
-use crate::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
-use crate::codec::{encode_unsigned, decode_unsigned};
+use crate::constants::AVAIL_BITFIELD_BYTES;
+use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
+use crate::utils::codec::{encode_unsigned, decode_unsigned};
 
 // The assurances extrinsic are the input data of workloads they have correctly received and are storing locally.
 // The assurances extrinsic is a sequence of assurance values, at most one per validator. Each assurance is a 

@@ -1,8 +1,8 @@
 use serde::Deserialize;
 use std::path::PathBuf;
 
-use vinwolf::types::{Hash};
-use vinwolf::shuffle::{shuffle};
+use vinwolf::types::Hash;
+use vinwolf::utils::shuffle::shuffle;
 
 // Test case struct
 #[derive(Debug, Deserialize)]

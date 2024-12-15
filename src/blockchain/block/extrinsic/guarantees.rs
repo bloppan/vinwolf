@@ -1,15 +1,9 @@
-use ark_ec_vrfs::prelude::ark_serialize::Valid;
-use frame_support::sp_runtime::offchain::storage_lock::Time;
-
-use crate::blockchain::state::services::get_services_state;
 use crate::constants::CORES_COUNT;
-use crate::types::{Gas, TimeSlot, ValidatorIndex, Ed25519Signature, Ed25519Public, CoreIndex};
-use crate::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
-use crate::codec::work_report::{ReportedPackage, OutputData, WorkReport, ErrorCode};
-use crate::codec::{encode_unsigned, decode_unsigned};
+use crate::types::{TimeSlot, ValidatorIndex, Ed25519Signature, CoreIndex};
+use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
+use crate::utils::codec::work_report::{OutputData, WorkReport, ErrorCode};
+use crate::utils::codec::{encode_unsigned, decode_unsigned};
 use crate::utils::common::is_sorted_and_unique;
-
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GuaranteesExtrinsic {

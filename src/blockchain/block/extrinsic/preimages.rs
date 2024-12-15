@@ -1,6 +1,6 @@
 use crate::types::ServiceId;
-use crate::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
-use crate::codec::{encode_unsigned, decode_unsigned};
+use crate::utils::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
+use crate::utils::codec::{encode_unsigned, decode_unsigned};
 
 // Preimages are static data which is presently being requested to be available for workloads to be able to 
 // fetch on demand. Prior to accumulation, we must first integrate all preimages provided in the lookup extrinsic. 

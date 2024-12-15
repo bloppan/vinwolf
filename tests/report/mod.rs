@@ -11,8 +11,8 @@ use vinwolf::blockchain::state::recent_history::{set_history_state, get_history_
 use vinwolf::blockchain::state::authorization::{set_authpool_state, get_authpool_state};
 use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
 
-use vinwolf::codec::{Decode, BytesReader};
-use vinwolf::codec::work_report::{InputWorkReport, WorkReportState, OutputWorkReport, OutputData, ErrorCode};
+use vinwolf::utils::codec::{Decode, BytesReader};
+use vinwolf::utils::codec::work_report::{InputWorkReport, WorkReportState, OutputWorkReport, OutputData, ErrorCode};
 
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
     if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && ROTATION_PERIOD == 4 {
@@ -26,7 +26,7 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
 
 #[cfg(test)]
 mod tests {
-    use vinwolf::{blockchain::state::time::{get_time_state, set_time_state}, codec::disputes_extrinsic::DisputesRecords, types::Ed25519Public};
+    use vinwolf::{blockchain::state::time::{get_time_state, set_time_state}, blockchain::block::extrinsic::disputes::DisputesRecords, types::Ed25519Public};
 
     use super::*;
 

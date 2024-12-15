@@ -1,6 +1,6 @@
 use crate::types::{TicketAttempt, BandersnatchRingSignature};
-use crate::codec::{Encode, Decode, BytesReader, ReadError};
-use crate::codec::{encode_unsigned, decode_unsigned};
+use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
+use crate::utils::codec::{encode_unsigned, decode_unsigned};
 
 // Tickets Extrinsic is a sequence of proofs of valid tickets; a ticket implies an entry in our epochal “contest” 
 // to determine which validators are privileged to author a block for each timeslot in the following epoch. 

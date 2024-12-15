@@ -1,6 +1,6 @@
 use crate::types::{ServiceId, OpaqueHash, Gas};
-use crate::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
-use crate::codec::{encode_unsigned, decode_unsigned};
+use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
+use crate::utils::codec::{encode_unsigned, decode_unsigned};
 
 // The Work Result is the data conduit by which services states may be altered through 
 // the computation done within a work-package. 

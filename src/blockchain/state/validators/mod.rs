@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
-use crate::codec::safrole::ValidatorsData;
+use crate::blockchain::state::safrole::codec::ValidatorsData;
 
 static PREV_VALIDATORS_STATE: Lazy<Mutex<ValidatorsData>> = Lazy::new(|| Mutex::new(ValidatorsData{validators: vec![]}));
 static CURR_VALIDATORS_STATE: Lazy<Mutex<ValidatorsData>> = Lazy::new(|| Mutex::new(ValidatorsData{validators: vec![]}));

@@ -38,21 +38,32 @@ use sp_core::{ed25519, Pair};
 
 use crate::types::{Hash, ValidatorIndex};
 use crate::constants::{EPOCH_LENGTH, ONE_THIRD_VALIDATORS, VALIDATORS_SUPER_MAJORITY};
-use crate::codec::Encode;
-use crate::codec::disputes_extrinsic::{
+use crate::utils::codec::Encode;
+use crate::blockchain::block::extrinsic::disputes::{
     DisputesRecords, DisputesState, DisputesExtrinsic, Verdict, OutputDisputes, OutputData, ErrorCode
 };
 
+static DISPUTES_STATE: Lazy<Mutex<DisputesRecords>> = Lazy::new(|| Mutex::new(DisputesRecords{good: vec![], bad: vec![], wonky: vec![], offenders: vec![]}));
 
-static DISPUTES_STATE: Lazy<Mutex<Option<DisputesState>>> = Lazy::new(|| Mutex::new(None));
-
-pub fn set_disputes_state(post_state: &DisputesState) {
+pub fn set_disputes_state(post_state: &DisputesRecords) {
     let mut state = DISPUTES_STATE.lock().unwrap();
+    *state = post_state.clone();
+}
+
+pub fn get_disputes_state() -> DisputesRecords {
+    let state = DISPUTES_STATE.lock().unwrap(); 
+    return state.clone();
+}
+
+static DISPUTES_OLD_STATE: Lazy<Mutex<Option<DisputesState>>> = Lazy::new(|| Mutex::new(None));
+
+pub fn set_old_disputes_state(post_state: &DisputesState) {
+    let mut state = DISPUTES_OLD_STATE.lock().unwrap();
     *state = Some(post_state.clone());
 }
 
-pub fn get_disputes_state() -> Option<DisputesState> {
-    let state = DISPUTES_STATE.lock().unwrap(); 
+pub fn get_old_disputes_state() -> Option<DisputesState> {
+    let state = DISPUTES_OLD_STATE.lock().unwrap(); 
     return state.clone();
 }
 
@@ -174,7 +185,7 @@ pub fn update_disputes_state(disputes_extrinsic: &DisputesExtrinsic) -> OutputDi
     let mut already_reported = Vec::new();
     let mut bad_set = Vec::new();
     let mut good_set = Vec::new();
-    if let Some(current_state) = get_disputes_state() {
+    if let Some(current_state) = get_old_disputes_state() {
         bad_set.extend_from_slice(&current_state.psi.bad);
         good_set.extend_from_slice(&current_state.psi.good);
         disputes_records.extend_from_slice(&current_state.psi.good);
@@ -267,7 +278,7 @@ pub fn update_disputes_state(disputes_extrinsic: &DisputesExtrinsic) -> OutputDi
 
     /* TODO check if key belongs to a correspondig validator set */
     // Verify Ed25519 signatures
-    if let Some(disputes_state) = get_disputes_state() {
+    if let Some(disputes_state) = get_old_disputes_state() {
 
         let jam_valid = Vec::from(b"jam_valid");
         let jam_invalid = Vec::from(b"jam_invalid");
@@ -320,7 +331,7 @@ pub fn update_disputes_state(disputes_extrinsic: &DisputesExtrinsic) -> OutputDi
     }
     
     // Read the disputes global state
-    let mut state = DISPUTES_STATE.lock().unwrap();
+    let mut state = DISPUTES_OLD_STATE.lock().unwrap();
     // If the state was initialized, then we save the auxiliar records in the state
     if let Some(disputes_state) = &mut *state {
         disputes_state.psi.good.extend_from_slice(&new_records.good);

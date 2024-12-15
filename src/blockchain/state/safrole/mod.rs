@@ -31,11 +31,13 @@
 
 use crate::types::{BandersnatchKey, Ed25519Key, BlsKey, Metadata, OpaqueHash};
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
-use crate::codec::{Encode};
-use crate::codec::safrole::{Input, Output, SafroleState, ErrorType, OutputMarks, ValidatorData, TicketsOrKeys};
-use crate::codec::header::{EpochMark, TicketBody};
+use crate::utils::codec::Encode;
+use crate::blockchain::state::safrole::codec::{Input, Output, SafroleState, ErrorType, OutputMarks, ValidatorData, TicketsOrKeys};
+use crate::blockchain::block::header::{EpochMark, TicketBody};
 
 use sp_core::blake2_256;
+
+pub mod codec;
 mod bandersnatch;
 
 // Update Safrole state
