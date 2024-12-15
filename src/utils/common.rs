@@ -11,13 +11,13 @@ pub fn is_sorted_and_unique<T: PartialOrd + Hash + Eq>(vec: &[T]) -> bool {
     vec.windows(2).all(|window| window[0] < window[1]) && vec.iter().all(|x| seen.insert(x.clone()))
 }
 
-pub trait Verify {
-    fn verify(&self, message: &[u8], public_key: &Ed25519Public) -> bool;
+pub trait VerifySignature {
+    fn verify_signature(&self, message: &[u8], public_key: &Ed25519Public) -> bool;
 }
 
-impl Verify for Ed25519Signature {
+impl VerifySignature for Ed25519Signature {
     
-    fn verify(&self, message: &[u8], public_key: &Ed25519Public) -> bool {
+    fn verify_signature(&self, message: &[u8], public_key: &Ed25519Public) -> bool {
 
         let signature = ed25519::Signature::from_raw(*self);
         let public_key = ed25519::Public::from_raw(*public_key);

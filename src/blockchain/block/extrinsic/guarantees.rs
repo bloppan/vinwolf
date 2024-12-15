@@ -41,6 +41,17 @@ impl GuaranteesExtrinsic {
             return Err(ErrorCode::TooManyGuarantees);
         }
 
+        // There must be no duplicate work-package hashes (i.e. two work-reports of the same package).
+        let mut packages_hashes = self.report_guarantee.iter().map(|i| i.report.package_spec.hash).collect::<Vec<_>>();
+        packages_hashes.sort(); 
+        if !is_sorted_and_unique(&packages_hashes) {
+            return Err(ErrorCode::DuplicatePackage);
+        }
+        // Therefore, we require the cardinality of all work-packages to be the length of the work-report sequence
+        if packages_hashes.len() != self.report_guarantee.len() {
+            return Err(ErrorCode::LengthNotEqual);
+        }
+
         let mut reported = Vec::new();
         let mut reporters = Vec::new();
         

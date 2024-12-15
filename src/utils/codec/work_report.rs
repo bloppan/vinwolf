@@ -455,6 +455,8 @@ pub enum ErrorCode {
     BadNumberCredentials = 24,
     TooOldGuarantee = 25,
     GuarantorNotFound = 26,
+    LengthNotEqual = 27,
+    BadLookupAnchorSlot = 28,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -525,6 +527,8 @@ impl Decode for OutputWorkReport {
                 24 => ErrorCode::BadNumberCredentials,
                 25 => ErrorCode::TooOldGuarantee,
                 26 => ErrorCode::GuarantorNotFound,
+                27 => ErrorCode::LengthNotEqual,    
+                28 => ErrorCode::BadLookupAnchorSlot,                    
                 _ => return Err(ReadError::InvalidData),
             };
             Ok(OutputWorkReport::Err(error))
@@ -594,8 +598,8 @@ impl Decode for SegmentRootLookupItem {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct SegmentRootLookup {
-    segment_root_lookup: Vec<SegmentRootLookupItem>,
+pub struct SegmentRootLookup {
+    pub segment_root_lookup: Vec<SegmentRootLookupItem>,
 }
 
 impl Encode for SegmentRootLookup {

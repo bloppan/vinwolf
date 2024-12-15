@@ -3,6 +3,7 @@ use crate::read_test_file;
 use crate::codec::{TestBody, encode_decode_test};
 
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, ROTATION_PERIOD};
+use vinwolf::blockchain::block::extrinsic::disputes::DisputesRecords;
 use vinwolf::blockchain::state::disputes::{set_disputes_state, get_disputes_state};
 use vinwolf::blockchain::state::validators::{set_validators_state, get_validators_state, ValidatorSet};
 use vinwolf::blockchain::state::entropy::{set_entropy_state, get_entropy_state};
@@ -10,7 +11,7 @@ use vinwolf::blockchain::state::reporting_assurance::{process_report_assurance,s
 use vinwolf::blockchain::state::recent_history::{set_history_state, get_history_state}; // TODO update this
 use vinwolf::blockchain::state::authorization::{set_authpool_state, get_authpool_state};
 use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
-
+use vinwolf::blockchain::state::time::set_time_state;
 use vinwolf::utils::codec::{Decode, BytesReader};
 use vinwolf::utils::codec::work_report::{InputWorkReport, WorkReportState, OutputWorkReport, OutputData, ErrorCode};
 
@@ -26,7 +27,7 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
 
 #[cfg(test)]
 mod tests {
-    use vinwolf::{blockchain::state::time::{get_time_state, set_time_state}, blockchain::block::extrinsic::disputes::DisputesRecords, types::Ed25519Public};
+    
 
     use super::*;
 
@@ -119,20 +120,20 @@ mod tests {
             // Context Beefy MMR root doesn't match the one at anchor.
             "bad_beefy_mmr-1.bin",
             // Work result code hash doesn't match the one expected for the service.
-            //"bad_code_hash-1.bin",
+            "bad_code_hash-1.bin",
             // Core index is too big.
             "bad_core_index-1.bin",
             // Work result service identifier doesn't have any associated account in state.
-            /*"bad_service_id-1.bin",
+            "bad_service_id-1.bin",
             // Context state root doesn't match the one at anchor.
             "bad_state_root-1.bin",
             // Validator index is too big.
             "bad_validator_index-1.bin",
             // Multiple authorizers are available for the same work report.
             // Only one is consumed.
-            "consume_authorization_once-1.bin",
+            // "consume_authorization_once-1.bin", Este no se por que lo tengo, no esta en el repo original
             // A core is not available.
-            "core_engaged-1.bin",
+            /*"core_engaged-1.bin",
             // Prerequisite is missing.
             "dependency_missing-1.bin",
             // Package was already available in recent history.
@@ -151,9 +152,9 @@ mod tests {
             "many_dependencies-1.bin",
             // Work report has too many dependencies.
             "too_many_dependencies-1.bin",
-            // Report with no enough guarantors signatures.*/
+            // Report with no enough guarantors signatures.
             "no_enough_guarantees-1.bin",
-            /*// Target core without any authorizer.
+            // Target core without any authorizer.
             "not_authorized-1.bin",
             // Target core with unexpected authorizer.
             "not_authorized-2.bin",

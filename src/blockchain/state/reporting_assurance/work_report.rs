@@ -1,7 +1,9 @@
 use sp_core::blake2_256;
 
 use crate::types::{Entropy, Ed25519Public, TimeSlot, CoreIndex, Gas};
-use crate::constants::{EPOCH_LENGTH, ROTATION_PERIOD, WORK_REPORT_TIMEOUT, WORK_REPORT_GAS_LIMIT, CORES_COUNT, VALIDATORS_COUNT};
+use crate::constants::{
+    EPOCH_LENGTH, ROTATION_PERIOD, WORK_REPORT_TIMEOUT, WORK_REPORT_GAS_LIMIT, CORES_COUNT, 
+    VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR};
 
 use crate::blockchain::block::extrinsic::disputes::AvailabilityAssignment;
 use crate::blockchain::block::extrinsic::guarantees::ValidatorSignature;
@@ -11,18 +13,24 @@ use crate::blockchain::state::disputes::get_disputes_state;
 use crate::blockchain::state::validators::{get_validators_state, ValidatorSet};
 use crate::blockchain::state::authorization::get_authpool_state;
 use crate::blockchain::state::recent_history::get_history_state;
+use crate::blockchain::state::recent_history::codec::ReportedWorkPackage;
 use crate::blockchain::state::services::get_services_state;
 use crate::blockchain::state::reporting_assurance::{get_reporting_assurance_state, add_assignment};
 use crate::utils::trie::mmr_super_peak;
 use crate::utils::shuffle::shuffle;
 use crate::utils::codec::Encode;
-use crate::utils::common::{Verify, set_offenders_null};
+use crate::utils::common::{VerifySignature, set_offenders_null};
 use crate::utils::codec::work_report::{WorkReport, ReportedPackage, OutputData, ErrorCode};
 
 
 impl WorkReport {
 
-    pub fn process(&self, post_tau: &TimeSlot, guarantee_slot: TimeSlot, validators_signatures: &[ValidatorSignature]) -> Result<OutputData, ErrorCode> {
+    pub fn process(
+        &self, 
+        post_tau: &TimeSlot, 
+        guarantee_slot: TimeSlot, 
+        validators_signatures: &[ValidatorSignature]) 
+    -> Result<OutputData, ErrorCode> {
 
         if !self.validate_authorization()? {
             return Err(ErrorCode::NoAuthorization);
@@ -32,11 +40,34 @@ impl WorkReport {
             return Err(ErrorCode::AnchorNotRecent);
         }
 
-        match self.gas_meets_requirements() {
-            Err(error) => return Err(error),
-            Ok(_) => {},
+        if let Err(error) = self.results_meets_requirements() {
+            return Err(error);
         }
 
+        // We require that each lookup-anchor block be within the last MAX_AGE_LOOKUP_ANCHOR timeslots
+        if *post_tau > self.context.lookup_anchor_slot + MAX_AGE_LOOKUP_ANCHOR {
+            return Err(ErrorCode::BadLookupAnchorSlot);
+        }
+
+        // TODO 11.36 
+        // TODO 11.37 11.38 11.39
+        // We require that the prerequisite work-packages, if present, and any work-packages mentioned in the
+        // segment-root lookup, be either in the extrinsic or in our recent history
+
+        // TODO 11.40 mirar diccionarios con hashmap
+        /*if self.context.prerequisites.len() > 0 {
+            'next_prerequisite: for prerequisite in self.context.prerequisites.iter() {
+                for block in &get_history_state().beta {
+                    let reported_wp: Vec<&ReportedWorkPackage> = block.reported.reported_work_packages
+                                                                                                        .iter()
+                                                                                                        .collect::<Vec<_>>();
+                
+                    continue 'next_prerequisite;
+                }
+                return Err(ErrorCode::DependencyMissing);
+            }
+        }*/
+        
         let OutputData {
             reported: new_reported,
             reporters: new_reporters,
@@ -45,14 +76,20 @@ impl WorkReport {
         return Ok(OutputData{reported: new_reported, reporters: new_reporters});
     }
 
-    fn gas_meets_requirements(&self) -> Result<bool, ErrorCode> {
+    fn results_meets_requirements(&self) -> Result<bool, ErrorCode> {
         let list = get_services_state();
         let mut total_accumulation_gas: Gas = 0;
-        // We require that the gas allotted for accumulation of each work item in each work-report respects its service's
-        // minimum gas requirements
+        
         'next_result: for result in &self.results {
             for service in &list.services {
                 if service.id == result.service {
+                    // We require that all work results within the extrinsic predicted the correct code hash for their 
+                    // corresponding service
+                    if result.code_hash != service.info.code_hash {
+                        return Err(ErrorCode::BadCodeHash);
+                    }
+                    // We require that the gas allotted for accumulation of each work item in each work-report respects 
+                    // its service's minimum gas requirements
                     if result.gas >= service.info.balance {
                         return Err(ErrorCode::ServiceItemGasTooLow);
                     }
@@ -107,7 +144,12 @@ impl WorkReport {
         Err(ErrorCode::AnchorNotRecent)
     }
 
-    fn try_place(&self, post_tau: &TimeSlot, guarantee_slot: TimeSlot, credentials: &[ValidatorSignature]) -> Result<OutputData, ErrorCode> {
+    fn try_place(
+        &self, 
+        post_tau: &TimeSlot, 
+        guarantee_slot: TimeSlot, 
+        credentials: &[ValidatorSignature]) 
+    -> Result<OutputData, ErrorCode> {
 
         let mut reported: Vec<ReportedPackage> = Vec::new();
         let mut reporters: Vec<Ed25519Public> = Vec::new();
@@ -151,8 +193,11 @@ impl WorkReport {
             message.extend_from_slice(&blake2_256(&self.encode()));
 
             for credential in credentials {
+                if credential.validator_index as usize >= VALIDATORS_COUNT {
+                    return Err(ErrorCode::BadValidatorIndex);
+                }
                 let validator = &validators_data.validators[credential.validator_index as usize];
-                if !credential.signature.verify(&message, &validator.ed25519) {
+                if !credential.signature.verify_signature(&message, &validator.ed25519) {
                     return Err(ErrorCode::BadSignature);
                 }
                 // The signing validators must be assigned to the core in question in either this block if the timeslot for the
@@ -214,14 +259,17 @@ fn permute(entropy: &Entropy, t: TimeSlot) -> Vec<u16> {
     rotation(&res_shuffle, n)
 }
 
-fn guarantor_assignments(core_assignments: &[u16], validators_data: &mut ValidatorsData) -> Box<[(CoreIndex, Ed25519Public); VALIDATORS_COUNT]> {
+fn guarantor_assignments(
+    core_assignments: &[u16], 
+    validators_set: &mut ValidatorsData) 
+-> Box<[(CoreIndex, Ed25519Public); VALIDATORS_COUNT]> {
 
     let mut guarantor_assignments: Box<[(CoreIndex, Ed25519Public); VALIDATORS_COUNT]> = Box::new([(0, Ed25519Public::default()); VALIDATORS_COUNT]);
 
-    set_offenders_null(validators_data, &get_disputes_state().offenders);
+    set_offenders_null(validators_set, &get_disputes_state().offenders);
 
     for i in 0..VALIDATORS_COUNT {
-        guarantor_assignments[i] = (core_assignments[i], validators_data.validators[i].ed25519.clone());
+        guarantor_assignments[i] = (core_assignments[i], validators_set.validators[i].ed25519.clone());
     }
 
     return guarantor_assignments;

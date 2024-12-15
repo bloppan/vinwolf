@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{Read};
+use std::io::Read;
 use std::path::PathBuf;
 
 extern crate vinwolf;
@@ -12,7 +12,7 @@ mod erasure;
 mod history;
 mod disputes;
 mod shuffle;
-mod report;
+mod reports;
 
 
 pub fn read_test_file(filename: &str) -> Vec<u8> {

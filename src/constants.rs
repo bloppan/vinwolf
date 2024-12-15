@@ -47,3 +47,5 @@ pub const WORK_PACKAGE_REFINE_GAS: Gas = 5_000_000_000;
 // The total gas allocated across for all Accumulation.
 pub const TOTAL_GAS_ALLOCATED: Gas = 3_500_000_000;
 
+// The maximum age of a lookup anchor in timeslots.
+pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 14_400;
