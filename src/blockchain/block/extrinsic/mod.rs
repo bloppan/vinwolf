@@ -16,11 +16,11 @@ pub mod guarantees;
 
 #[derive(Debug)]
 pub struct Extrinsic {
-    tickets: TicketsExtrinsic,
-    disputes: DisputesExtrinsic,
-    preimages: PreimagesExtrinsic,
-    assurances: AssurancesExtrinsic,
-    guarantees: GuaranteesExtrinsic,
+    pub tickets: TicketsExtrinsic,
+    pub disputes: DisputesExtrinsic,
+    pub preimages: PreimagesExtrinsic,
+    pub assurances: AssurancesExtrinsic,
+    pub guarantees: GuaranteesExtrinsic,
 }
 
 impl Extrinsic {

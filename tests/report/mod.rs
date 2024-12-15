@@ -66,7 +66,11 @@ mod tests {
 
         set_disputes_state(&disputes_state);
         
-        let output_result = process_report_assurance(&input.guarantees, input.slot);
+        let mut assurances_state = get_reporting_assurance_state();
+        let output_result = process_report_assurance(
+                                                                            &mut assurances_state, 
+                                                                            &input.guarantees, 
+                                                                            &input.slot);
 
         let result_avail_assignments = get_reporting_assurance_state();
         let result_curr_validators = get_validators_state(ValidatorSet::Current);

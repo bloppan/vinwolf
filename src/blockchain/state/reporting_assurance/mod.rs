@@ -62,13 +62,21 @@ pub fn add_assignment(assignment: &AvailabilityAssignment) {
     state.assignments[assignment.report.core_index as usize] = Some(assignment.clone());
 }
 
-pub fn process_report_assurance(guarantees: &GuaranteesExtrinsic, post_tau: TimeSlot) -> Result<OutputData, ErrorCode> {
+pub fn process_report_assurance(
+    assurances_state: &mut AvailabilityAssignments, 
+    guarantees: &GuaranteesExtrinsic, 
+    post_tau: &TimeSlot) 
+-> Result<OutputData, ErrorCode> {
 
     if guarantees.report_guarantee.len() > CORES_COUNT {
         return Err(ErrorCode::TooManyGuarantees);
     }
 
-    let output_data = guarantees.process(&post_tau)?;
+    set_reporting_assurance_state(&assurances_state.clone());
+
+    let output_data = guarantees.process(post_tau)?;
+
+    *assurances_state = get_reporting_assurance_state();
 
     Ok(OutputData {
         reported: output_data.reported,

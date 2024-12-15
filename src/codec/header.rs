@@ -13,16 +13,16 @@ use crate::codec::{encode_unsigned, decode_unsigned};
 
 #[derive(Debug)]
 pub struct Header {
-    parent: OpaqueHash,
-    parent_state_root: OpaqueHash,
-    extrinsic_hash: OpaqueHash,
-    slot: TimeSlot,
-    epoch_mark: Option<EpochMark>,
-    tickets_mark: Option<TicketsMark>,
-    offenders_mark: Vec<Ed25519Key>,
-    author_index: ValidatorIndex,
-    entropy_source: BandersnatchVrfSignature,
-    seal: BandersnatchVrfSignature,
+    pub parent: OpaqueHash,
+    pub parent_state_root: OpaqueHash,
+    pub extrinsic_hash: OpaqueHash,
+    pub slot: TimeSlot,
+    pub epoch_mark: Option<EpochMark>,
+    pub tickets_mark: Option<TicketsMark>,
+    pub offenders_mark: Vec<Ed25519Key>,
+    pub author_index: ValidatorIndex,
+    pub entropy_source: BandersnatchVrfSignature,
+    pub seal: BandersnatchVrfSignature,
 }
 
 impl Encode for Header {

@@ -11,8 +11,8 @@ pub struct TicketEnvelope {
 
 #[derive(Debug)]
 pub struct Block {
-    header: Header,
-    extrinsic: Extrinsic,
+    pub header: Header,
+    pub extrinsic: Extrinsic,
 }
 
 impl Encode for Block {
