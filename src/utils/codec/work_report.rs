@@ -158,7 +158,7 @@ impl Decode for Services {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct AuthPool {
     pub auth_pool: Vec<OpaqueHash>,
 }
@@ -200,7 +200,7 @@ impl Decode for AuthPool {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct AuthPools {
     pub auth_pools: Vec<AuthPool>,
 }
@@ -239,7 +239,7 @@ impl Decode for AuthPools {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Offenders {
     pub offenders: Vec<Ed25519Public>,
 }
@@ -334,7 +334,7 @@ impl Decode for WorkReportState {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct ReportedPackage {
     pub work_package_hash: WorkPackageHash,
     pub segment_tree_root: OpaqueHash,
@@ -368,7 +368,7 @@ impl Decode for ReportedPackage {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct OutputData {
     pub reported: Vec<ReportedPackage>,
     pub reporters: Vec<Ed25519Public>,
@@ -426,7 +426,7 @@ impl Decode for OutputData {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum ErrorCode {
     BadCoreIndex = 0,
     FutureReportSlot = 1,
@@ -459,7 +459,7 @@ pub enum ErrorCode {
     BadLookupAnchorSlot = 28,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum OutputWorkReport {
     Ok(OutputData),
     Err(ErrorCode),

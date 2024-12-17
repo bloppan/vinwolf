@@ -12,10 +12,10 @@ use crate::blockchain::state::entropy::get_entropy_state;
 use crate::blockchain::state::disputes::get_disputes_state;
 use crate::blockchain::state::validators::{get_validators_state, ValidatorSet};
 use crate::blockchain::state::authorization::get_authpool_state;
-use crate::blockchain::state::recent_history::get_history_state;
+use crate::blockchain::state::recent_history::{self, get_history_state};
 use crate::blockchain::state::recent_history::codec::ReportedWorkPackage;
 use crate::blockchain::state::services::get_services_state;
-use crate::blockchain::state::reporting_assurance::{get_reporting_assurance_state, add_assignment};
+use crate::blockchain::state::reporting_assurance::{get_reporting_assurance_staging_state, add_assignment};
 use crate::utils::trie::mmr_super_peak;
 use crate::utils::shuffle::shuffle;
 use crate::utils::codec::Encode;
@@ -50,24 +50,7 @@ impl WorkReport {
         }
 
         // TODO 11.36 
-        // TODO 11.37 11.38 11.39
-        // We require that the prerequisite work-packages, if present, and any work-packages mentioned in the
-        // segment-root lookup, be either in the extrinsic or in our recent history
-
-        // TODO 11.40 mirar diccionarios con hashmap
-        /*if self.context.prerequisites.len() > 0 {
-            'next_prerequisite: for prerequisite in self.context.prerequisites.iter() {
-                for block in &get_history_state().beta {
-                    let reported_wp: Vec<&ReportedWorkPackage> = block.reported.reported_work_packages
-                                                                                                        .iter()
-                                                                                                        .collect::<Vec<_>>();
-                
-                    continue 'next_prerequisite;
-                }
-                return Err(ErrorCode::DependencyMissing);
-            }
-        }*/
-        
+          
         let OutputData {
             reported: new_reported,
             reporters: new_reporters,
@@ -80,24 +63,24 @@ impl WorkReport {
         let list = get_services_state();
         let mut total_accumulation_gas: Gas = 0;
         
-        'next_result: for result in &self.results {
-            for service in &list.services {
-                if service.id == result.service {
-                    // We require that all work results within the extrinsic predicted the correct code hash for their 
-                    // corresponding service
-                    if result.code_hash != service.info.code_hash {
-                        return Err(ErrorCode::BadCodeHash);
-                    }
-                    // We require that the gas allotted for accumulation of each work item in each work-report respects 
-                    // its service's minimum gas requirements
-                    if result.gas >= service.info.balance {
-                        return Err(ErrorCode::ServiceItemGasTooLow);
-                    }
-                    total_accumulation_gas += result.gas;
-                    continue 'next_result;
+        let service_map: std::collections::HashMap<_, _> = list.services.iter().map(|s| (s.id, s)).collect();
+
+        for result in &self.results {
+            if let Some(service) = service_map.get(&result.service) {
+                // We require that all work results within the extrinsic predicted the correct code hash for their 
+                // corresponding service
+                if result.code_hash != service.info.code_hash {
+                    return Err(ErrorCode::BadCodeHash);
                 }
+                // We require that the gas allotted for accumulation of each work item in each work-report respects 
+                // its service's minimum gas requirements
+                if result.gas < service.info.min_item_gas {
+                    return Err(ErrorCode::ServiceItemGasTooLow);
+                }
+                total_accumulation_gas += result.gas;
+            } else {
+                return Err(ErrorCode::BadServiceId);
             }
-            return Err(ErrorCode::BadServiceId);
         }
 
         // We also require that all work-reports total allotted accumulation gas is no greater than the WORK_REPORT_GAS_LIMIT
@@ -120,7 +103,7 @@ impl WorkReport {
             return Ok(true);
         }
 
-        return Err(ErrorCode::NoAuthorization);
+        return Err(ErrorCode::CoreUnauthorized);
     }
 
     fn is_recent(&self) -> Result<bool, ErrorCode> {
@@ -154,10 +137,9 @@ impl WorkReport {
         let mut reported: Vec<ReportedPackage> = Vec::new();
         let mut reporters: Vec<Ed25519Public> = Vec::new();
 
-        let availability = get_reporting_assurance_state();
-        // No reports may be placed on cores with a report pending availability on it unless it has timed out.
-        // It has timed out, WORK_REPORT_TIMEOUT = 5 slots must have elapsed after de report was made
-        if availability.assignments[self.core_index as usize].is_none() || *post_tau >= self.context.lookup_anchor_slot + WORK_REPORT_TIMEOUT {
+        let availability = get_reporting_assurance_staging_state();
+        // No reports may be placed on cores with a report pending availability on it 
+        if availability.assignments[self.core_index as usize].is_none() {
 
             let chain_entropy = get_entropy_state();
             let current_validators = get_validators_state(ValidatorSet::Current);
@@ -204,11 +186,11 @@ impl WorkReport {
                 // guarantee is in the same rotation as this block's timeslot, or in the most recent previous set of assigmments.
                 match guarantors_hashmap.get(&validator.ed25519) {
                     Some(&core_index) if core_index == self.core_index => {},
-                    Some(_) => return Err(ErrorCode::BadCoreIndex),
+                    Some(_) => return Err(ErrorCode::WrongAssignment),
                     None => return Err(ErrorCode::GuarantorNotFound),
                 }
                 if !(ROTATION_PERIOD * ((*post_tau / ROTATION_PERIOD) - 1) <= guarantee_slot && guarantee_slot <= *post_tau) {
-                    return Err(ErrorCode::TooOldGuarantee);
+                    return Err(ErrorCode::FutureReportSlot);
                 }
                 // We note that the Ed25519 key of each validator whose signature is in a credential is placed in the reporters set.
                 // This is utilized by the validator activity statistics book-keeping system.
@@ -230,8 +212,10 @@ impl WorkReport {
 
             // Update the reporting assurance state
             add_assignment(&assignment);
-        }
-        return Ok(OutputData{reported: reported, reporters: reporters});
+            return Ok(OutputData{reported: reported, reporters: reporters});
+        } 
+        
+        return Err(ErrorCode::CoreEngaged);
     }
 }
 

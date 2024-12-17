@@ -26,10 +26,10 @@ pub mod validators;
 
 #[derive(Clone)]
 pub struct GlobalState {
-    availability: AvailabilityAssignments,
-    entropy: EntropyBuffer,
-    recent_history: BlockHistory,
-    auth_pools: Box<[AuthPool; CORES_COUNT]>,
+    pub availability: AvailabilityAssignments,
+    pub entropy: EntropyBuffer,
+    pub recent_history: BlockHistory,
+    pub auth_pools: Box<[AuthPool; CORES_COUNT]>,
     /*prev_validators: Box<[ValidatorData; VALIDATORS_COUNT]>,
     curr_validators: Box<[ValidatorData; VALIDATORS_COUNT]>,
     next_validators: Box<[ValidatorData; VALIDATORS_COUNT]>,*/
@@ -57,6 +57,16 @@ pub fn get_global_state() -> GlobalState {
 pub fn set_global_state(new_state: &GlobalState) {
     let mut state = GLOBAL_STATE.lock().unwrap();
     *state = new_state.clone();
+}
+
+pub fn set_reporting_assurance_state(new_availability: &AvailabilityAssignments) {
+    let mut state = GLOBAL_STATE.lock().unwrap();
+    state.availability = new_availability.clone();
+}
+
+pub fn get_reporting_assurance_state() -> AvailabilityAssignments {
+    let state = GLOBAL_STATE.lock().unwrap();
+    state.availability.clone()
 }
 
 enum GlobalError {

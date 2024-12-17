@@ -18,6 +18,7 @@ use std::sync::Mutex;
 
 use crate::types::{CoreIndex, Ed25519Public, Entropy, TimeSlot};
 use crate::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
+use crate::blockchain::state::set_reporting_assurance_state;
 use crate::blockchain::block::extrinsic::disputes::{AvailabilityAssignments, AvailabilityAssignment};
 use crate::blockchain::block::extrinsic::guarantees::GuaranteesExtrinsic;
 use crate::blockchain::state::safrole::codec::ValidatorsData;
@@ -38,12 +39,12 @@ pub mod work_result;
 // with the time at which each was reported. As mentioned earlier, only one report may be assigned to a core at any given time.
 static REPORT_AVAILABILITY_STATE: Lazy<Mutex<AvailabilityAssignments>> = Lazy::new(|| Mutex::new(AvailabilityAssignments{assignments: Box::new(std::array::from_fn(|_| None))}));
 
-pub fn set_reporting_assurance_state(post_state: &AvailabilityAssignments) {
+pub fn set_reporting_assurance_staging_state(post_state: &AvailabilityAssignments) {
     let mut state = REPORT_AVAILABILITY_STATE.lock().unwrap();
     *state = post_state.clone();
 }
 
-pub fn get_reporting_assurance_state() -> AvailabilityAssignments {
+pub fn get_reporting_assurance_staging_state() -> AvailabilityAssignments {
     let state = REPORT_AVAILABILITY_STATE.lock().unwrap(); 
     return state.clone();
 }
@@ -59,16 +60,13 @@ pub fn process_report_assurance(
     post_tau: &TimeSlot) 
 -> Result<OutputData, ErrorCode> {
 
-    if guarantees.report_guarantee.len() > CORES_COUNT {
-        return Err(ErrorCode::TooManyGuarantees);
-    }
-
-    set_reporting_assurance_state(&assurances_state.clone());
-
+    let stg_assurances_state = assurances_state.clone();
+    set_reporting_assurance_staging_state(&stg_assurances_state);
+    //println!("assurances pre: {:0x?}", assurances_state);
     let output_data = guarantees.process(post_tau)?;
-
-    *assurances_state = get_reporting_assurance_state();
-
+    //println!("output_data = {:0x?}", output_data);
+    *assurances_state = get_reporting_assurance_staging_state();
+    //println!("asssurances post: {:0x?}", assurances_state);
     Ok(OutputData {
         reported: output_data.reported,
         reporters: output_data.reporters,

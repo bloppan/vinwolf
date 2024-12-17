@@ -4,10 +4,11 @@ use crate::codec::{TestBody, encode_decode_test};
 
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, ROTATION_PERIOD};
 use vinwolf::blockchain::block::extrinsic::disputes::DisputesRecords;
+use vinwolf::blockchain::state::{get_global_state, set_reporting_assurance_state, get_reporting_assurance_state};
 use vinwolf::blockchain::state::disputes::{set_disputes_state, get_disputes_state};
 use vinwolf::blockchain::state::validators::{set_validators_state, get_validators_state, ValidatorSet};
 use vinwolf::blockchain::state::entropy::{set_entropy_state, get_entropy_state};
-use vinwolf::blockchain::state::reporting_assurance::{process_report_assurance,set_reporting_assurance_state, get_reporting_assurance_state};
+use vinwolf::blockchain::state::reporting_assurance::process_report_assurance;
 use vinwolf::blockchain::state::recent_history::{set_history_state, get_history_state}; // TODO update this
 use vinwolf::blockchain::state::authorization::{set_authpool_state, get_authpool_state};
 use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
@@ -48,6 +49,13 @@ mod tests {
         let expected_output = OutputWorkReport::decode(&mut reader).expect("Error decoding post OutputWorkReport");
         let expected_state = WorkReportState::decode(&mut reader).expect("Error decoding post WorkReport PostState");
         
+        let disputes_state = DisputesRecords {
+            good: vec![],
+            bad: vec![],
+            wonky: vec![],
+            offenders: pre_state.offenders.offenders.clone(),
+        };
+        set_disputes_state(&disputes_state);
         set_time_state(&input.slot);
         set_reporting_assurance_state(&pre_state.avail_assignments);
         set_validators_state(&pre_state.curr_validators, ValidatorSet::Current);
@@ -57,22 +65,20 @@ mod tests {
         set_authpool_state(&pre_state.auth_pools);
         set_services_state(&pre_state.services);
 
+        let current_state = get_global_state();
+        let mut assurances_state = current_state.availability.clone();
 
-        let disputes_state = DisputesRecords {
-            good: vec![],
-            bad: vec![],
-            wonky: vec![],
-            offenders: pre_state.offenders.offenders.clone(),
-        };
-
-        set_disputes_state(&disputes_state);
-        
-        let mut assurances_state = get_reporting_assurance_state();
         let output_result = process_report_assurance(
                                                                             &mut assurances_state, 
                                                                             &input.guarantees, 
                                                                             &input.slot);
+        
+        match output_result {
+            Ok(_) => { set_reporting_assurance_state(&assurances_state);},
+            Err(_) => { },
+        }
 
+        //println!("output_result = {:0x?}", output_result);
         let result_avail_assignments = get_reporting_assurance_state();
         let result_curr_validators = get_validators_state(ValidatorSet::Current);
         let result_prev_validators = get_validators_state(ValidatorSet::Previous);
@@ -133,7 +139,7 @@ mod tests {
             // Only one is consumed.
             // "consume_authorization_once-1.bin", Este no se por que lo tengo, no esta en el repo original
             // A core is not available.
-            /*"core_engaged-1.bin",
+            "core_engaged-1.bin",
             // Prerequisite is missing.
             "dependency_missing-1.bin",
             // Package was already available in recent history.
@@ -151,11 +157,11 @@ mod tests {
             // Work report has many dependencies, still less than the limit.
             "many_dependencies-1.bin",
             // Work report has too many dependencies.
-            "too_many_dependencies-1.bin",
+            //"too_many_dependencies-1.bin", ----------------------------------------------------------------
             // Report with no enough guarantors signatures.
             "no_enough_guarantees-1.bin",
             // Target core without any authorizer.
-            "not_authorized-1.bin",
+            //"not_authorized-1.bin",       ----------------------------------------------------------------
             // Target core with unexpected authorizer.
             "not_authorized-2.bin",
             // Guarantors indices are not sorted or unique.
@@ -163,7 +169,7 @@ mod tests {
             // Reports cores are not sorted or unique.
             "out_of_order_guarantees-1.bin",
             // Report guarantee slot is too old with respect to block slot.
-            "report_before_last_rotation-1.bin",
+            //"report_before_last_rotation-1.bin",  ----------------------------------------------------------------
             // Simple report dependency satisfied by another work report in the same extrinsic.
             "reports_with_dependencies-1.bin",
             // Work reports mutual dependency (indirect self-referential dependencies).
@@ -182,7 +188,7 @@ mod tests {
             "segment_root_lookup_invalid-2.bin",
             // Unexpected guarantor for work report core.
             "wrong_assignment-1.bin",
-            "service_item_gas_too_low-1.bin",*/
+            "service_item_gas_too_low-1.bin",
         ];
         for file in test_files {
             println!("Running test: {}", file);
