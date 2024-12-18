@@ -1,42 +1,6 @@
-use crate::types::{ServiceId, OpaqueHash, Gas};
+use crate::types::{ServiceId, OpaqueHash, Gas, WorkResult, WorkExecResult};
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
-
-// The Work Result is the data conduit by which services states may be altered through 
-// the computation done within a work-package. 
-
-// Work results are a tuple comprising several items. Firstly, the index of the service whose state 
-// is to be altered and thus whose refine code was already executed. We include the hash of the code 
-// of the service at the time of being reported, which must be accurately predicted within the 
-// work-report; Next, the hash of the payload within the work item which was executed in the refine 
-// stage to give this result. This has no immediate relevance, but is something provided to the 
-// accumulation logic of the service. We follow with the gas prioritization ratio used when determining 
-// how much gas should be allocated to execute of this item’s accumulate. Finally, there is the output 
-// or error of the execution of the code, which may be either an octet sequence in case it was successful, 
-// or a member of the set J (set of possible errors), if not. 
-// Possible errors are:
-//      Out-of-gas
-//      Unexpected program termination
-//      The code was not available for lookup in state at the posterior state of the lookup-anchor block.
-//      The code was available but was beyond the maximun size allowed Wc.
-#[derive(Debug, Clone, PartialEq)]
-pub struct WorkResult {
-    pub service: ServiceId,
-    pub code_hash: OpaqueHash,
-    pub payload_hash: OpaqueHash,
-    pub gas: Gas,
-    pub result: Vec<u8>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-enum WorkExecResult {
-    Ok = 0,
-    OutOfGas = 1,
-    Panic = 2,
-    BadCode = 3,
-    CodeOversize = 4,
-    UnknownError = 5,
-}
 
 impl Encode for WorkResult {
 

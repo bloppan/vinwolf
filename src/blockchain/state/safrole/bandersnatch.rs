@@ -11,7 +11,7 @@ use std::collections::HashSet;
 
 const RING_SIZE: usize = VALIDATORS_COUNT;
 
-use crate::types::{OpaqueHash, BandersnatchKey, BandersnatchRingCommitment};
+use crate::types::{OpaqueHash, BandersnatchPublic, BandersnatchRingCommitment};
 
 // This is the IETF `Prove` procedure output as described in section 2.2
 // of the Bandersnatch VRFs specification
@@ -215,7 +215,7 @@ impl Verifier {
     }
 }
 
-pub fn create_root_epoch(ring_set_hex: &Vec<BandersnatchKey>) -> BandersnatchRingCommitment {
+pub fn create_root_epoch(ring_set_hex: &Vec<BandersnatchPublic>) -> BandersnatchRingCommitment {
 
     let padding_point = Public::from(ring_context().padding_point());
     let ring_set: Vec<Public> = ring_set_hex

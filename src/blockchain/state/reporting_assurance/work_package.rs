@@ -1,25 +1,5 @@
-use crate::types::{ServiceId, OpaqueHash};
-use crate::utils::codec::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
-use crate::blockchain::state::reporting_assurance::refine_context::RefineContext;
-use crate::blockchain::state::reporting_assurance::work_item::WorkItem;
-
-// A work-package includes a simple blob acting as an authorization token, the index of the service which
-// hosts the authorization code, an authorization code hash and a parameterization blob, a context and a 
-// sequence of work items:
-#[derive(Debug)]
-pub struct WorkPackage {
-    authorization: Vec<u8>,
-    auth_code_host: ServiceId,
-    authorizer: Authorizer,
-    context: RefineContext,
-    pub items: Vec<WorkItem>,
-}
-
-#[derive(Debug)]
-struct Authorizer {
-    code_hash: OpaqueHash,
-    params: Vec<u8>,
-}
+use crate::types::{ServiceId, OpaqueHash, RefineContext, WorkPackage, Authorizer, WorkItem};
+use crate::utils::codec::{Encode, EncodeSize, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 
 impl Encode for WorkPackage {
 

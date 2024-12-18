@@ -2,8 +2,7 @@ use std::collections::HashSet;
 use std::hash::Hash;
 use sp_core::{ed25519, Pair};
 
-use crate::types::{BandersnatchKey, BlsKey, Ed25519Key, Ed25519Public, Ed25519Signature, Metadata};
-use crate::blockchain::state::safrole::codec::ValidatorsData;
+use crate::types::{BandersnatchPublic, BlsPublic, Ed25519Public, Ed25519Signature, Metadata, ValidatorsData};
 
 pub fn is_sorted_and_unique<T: PartialOrd + Hash + Eq>(vec: &[T]) -> bool {
     let mut seen = HashSet::new();
@@ -37,9 +36,9 @@ pub fn set_offenders_null(validators_data: &mut ValidatorsData, offenders: &[Ed2
     'next_offender: for offender in offenders {
         for validator in validators_data.validators.iter_mut() {
             if *offender == validator.ed25519 {
-                validator.bandersnatch = [0u8; std::mem::size_of::<BandersnatchKey>()];
-                validator.ed25519 = [0u8; std::mem::size_of::<Ed25519Key>()];
-                validator.bls = [0u8; std::mem::size_of::<BlsKey>()];
+                validator.bandersnatch = [0u8; std::mem::size_of::<BandersnatchPublic>()];
+                validator.ed25519 = [0u8; std::mem::size_of::<Ed25519Public>()];
+                validator.bls = [0u8; std::mem::size_of::<BlsPublic>()];
                 validator.metadata = [0u8; std::mem::size_of::<Metadata>()];
                 continue 'next_offender;
             }

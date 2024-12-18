@@ -36,12 +36,10 @@ use std::collections::HashSet;
 use sp_core::blake2_256;
 use sp_core::{ed25519, Pair};
 
-use crate::types::{Hash, ValidatorIndex};
+use crate::types::{Hash, ValidatorIndex, Verdict, DisputesRecords, DisputesExtrinsic};
 use crate::constants::{EPOCH_LENGTH, ONE_THIRD_VALIDATORS, VALIDATORS_SUPER_MAJORITY};
 use crate::utils::codec::Encode;
-use crate::blockchain::block::extrinsic::disputes::{
-    DisputesRecords, DisputesState, DisputesExtrinsic, Verdict, OutputDisputes, OutputData, ErrorCode
-};
+use crate::blockchain::block::extrinsic::disputes::{DisputesState, OutputDisputes, OutputData, ErrorCode};
 
 static DISPUTES_STATE: Lazy<Mutex<DisputesRecords>> = Lazy::new(|| Mutex::new(DisputesRecords{good: vec![], bad: vec![], wonky: vec![], offenders: vec![]}));
 

@@ -1,10 +1,8 @@
 use std::collections::VecDeque;
 
-use crate::types::Hash;
+use crate::types::{Hash, MmrPeak, Mmr, ReportedWorkPackage, ReportedWorkPackages, BlockInfo, BlockHistory};
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
-
-pub type MmrPeak = Option<Hash>;
 
 impl Encode for &[MmrPeak] {
 
@@ -61,12 +59,6 @@ impl Decode for MmrPeak {
     }
 }
 
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Mmr {
-    pub peaks: Vec<MmrPeak>,
-}
-
 impl Encode for Mmr {
 
     fn encode(&self) -> Vec<u8> {
@@ -104,12 +96,6 @@ impl Decode for Mmr {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct ReportedWorkPackage {
-    pub hash: Hash,
-    pub exports_root: Hash,
-}
-
 impl Encode for ReportedWorkPackage {
 
     fn encode(&self) -> Vec<u8> {
@@ -136,11 +122,6 @@ impl Decode for ReportedWorkPackage {
             exports_root: Hash::decode(blob)?,
         })
     }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct ReportedWorkPackages {
-    pub reported_work_packages: Vec<ReportedWorkPackage>,
 }
 
 impl Encode for ReportedWorkPackages {
@@ -178,14 +159,6 @@ impl Decode for ReportedWorkPackages {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct BlockInfo {
-    pub header_hash: Hash,
-    pub mmr: Mmr,
-    pub state_root: Hash,
-    pub reported: ReportedWorkPackages,
-}
-
 impl Encode for BlockInfo {
 
     fn encode(&self) -> Vec<u8> {
@@ -218,12 +191,7 @@ impl Decode for BlockInfo {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct State {
-    pub beta: VecDeque<BlockInfo>,
-}
-
-impl Encode for State {
+impl Encode for BlockHistory {
 
     fn encode(&self) -> Vec<u8> {
 
@@ -243,11 +211,11 @@ impl Encode for State {
     }
 }
 
-impl Decode for State {
+impl Decode for BlockHistory {
 
     fn decode(state: &mut BytesReader) -> Result<Self, ReadError> {
 
-        Ok(State {
+        Ok(BlockHistory {
             beta: {
                 let len = decode_unsigned(state)?;
                 let mut beta_vec = VecDeque::with_capacity(std::mem::size_of::<Self>() * len);

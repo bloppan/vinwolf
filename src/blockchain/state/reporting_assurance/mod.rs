@@ -16,17 +16,8 @@
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
-use crate::types::{CoreIndex, Ed25519Public, Entropy, TimeSlot};
-use crate::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
-use crate::blockchain::state::set_reporting_assurance_state;
-use crate::blockchain::block::extrinsic::disputes::{AvailabilityAssignments, AvailabilityAssignment};
-use crate::blockchain::block::extrinsic::guarantees::GuaranteesExtrinsic;
-use crate::blockchain::state::safrole::codec::ValidatorsData;
+use crate::types::{TimeSlot, AvailabilityAssignment, AvailabilityAssignments, GuaranteesExtrinsic};
 use crate::utils::codec::work_report::{OutputData, ErrorCode};
-use crate::utils::common::set_offenders_null;
-use crate::utils::shuffle::shuffle;
-
-use super::disputes::get_disputes_state;
 
 pub mod refine_context;
 pub mod work_report;
@@ -60,8 +51,8 @@ pub fn process_report_assurance(
     post_tau: &TimeSlot) 
 -> Result<OutputData, ErrorCode> {
 
-    let stg_assurances_state = assurances_state.clone();
-    set_reporting_assurance_staging_state(&stg_assurances_state);
+    //let stg_assurances_state = assurances_state.clone();
+    set_reporting_assurance_staging_state(&assurances_state.clone());
     //println!("assurances pre: {:0x?}", assurances_state);
     let output_data = guarantees.process(post_tau)?;
     //println!("output_data = {:0x?}", output_data);

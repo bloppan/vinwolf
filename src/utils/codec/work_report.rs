@@ -1,11 +1,9 @@
-use crate::types::{ServiceId, Gas, CoreIndex, OpaqueHash, TimeSlot, Ed25519Public, WorkPackageHash};
+use crate::types::{
+    ServiceId, Gas, CoreIndex, OpaqueHash, TimeSlot, Ed25519Public, WorkPackageHash, ValidatorsData, ServiceInfo, 
+    AvailabilityAssignments, RefineContext, AuthPool, AuthPools, WorkResult, SegmentRootLookupItem, SegmentRootLookup, 
+    WorkReport, WorkPackageSpec, BlockHistory, GuaranteesExtrinsic
+};
 use crate::constants::CORES_COUNT;
-use crate::blockchain::block::extrinsic::guarantees::GuaranteesExtrinsic;
-use crate::blockchain::block::extrinsic::disputes::AvailabilityAssignments;
-use crate::blockchain::state::safrole::codec::ValidatorsData;
-use crate::blockchain::state::recent_history::codec::State as BlockHistory;
-use crate::blockchain::state::reporting_assurance::refine_context::RefineContext;
-use crate::blockchain::state::reporting_assurance::work_result::WorkResult;
 use crate::utils::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
 
@@ -38,16 +36,6 @@ impl Decode for InputWorkReport {
             slot: TimeSlot::decode(blob)?,
         })
     }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ServiceInfo {
-    pub code_hash: OpaqueHash,
-    pub balance: u64,
-    pub min_item_gas: Gas,
-    pub min_memo_gas: Gas,
-    pub bytes: u64,
-    pub items: u32,
 }
 
 impl Encode for ServiceInfo {
@@ -158,10 +146,7 @@ impl Decode for Services {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct AuthPool {
-    pub auth_pool: Vec<OpaqueHash>,
-}
+
 
 impl Encode for AuthPool {
 
@@ -200,18 +185,15 @@ impl Decode for AuthPool {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct AuthPools {
-    pub auth_pools: Vec<AuthPool>,
-}
+
 
 impl Encode for AuthPools {
 
     fn encode(&self) -> Vec<u8> {
         
-        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>() * CORES_COUNT);
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
 
-        for item in &self.auth_pools {
+        for item in self.auth_pools.iter() {
             item.encode_to(&mut blob);
         }
         
@@ -227,14 +209,14 @@ impl Decode for AuthPools {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        let mut auth_pools = Vec::with_capacity(std::mem::size_of::<Self>() * CORES_COUNT);
+        let mut pools: AuthPools = AuthPools { auth_pools: Box::new(std::array::from_fn(|_| AuthPool { auth_pool: Vec::new() })) };
 
-        for _ in 0..CORES_COUNT {
-            auth_pools.push(AuthPool::decode(blob)?);
+        for i in 0..CORES_COUNT {
+            pools.auth_pools[i] = AuthPool::decode(blob)?;
         }
 
         Ok(AuthPools{
-            auth_pools: auth_pools,
+            auth_pools: pools.auth_pools,
         })
     }
 }
@@ -538,38 +520,6 @@ impl Decode for OutputWorkReport {
     }
 }
 
-
-// A work-report, of the set W, is defined as a tuple of the work-package specification, the
-// refinement context, and the core-index (i.e. on which the work is done) as well as the 
-// authorizer hash and output, a segment-root lookup dictionary, and finally the results of 
-// the evaluation of each of the items in the package, which is always at least one item and 
-// may be no more than I items.
-#[derive(Debug, Clone, PartialEq)]
-pub struct WorkReport {
-    pub package_spec: WorkPackageSpec,
-    pub context: RefineContext,
-    pub core_index: CoreIndex,
-    pub authorizer_hash: OpaqueHash,
-    pub auth_output: Vec<u8>,
-    pub segment_root_lookup: SegmentRootLookup,
-    pub results: Vec<WorkResult>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct WorkPackageSpec {
-    pub hash: OpaqueHash,
-    pub length: u32,
-    pub erasure_root: OpaqueHash,
-    pub exports_root: OpaqueHash,
-    pub exports_count: u16,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct SegmentRootLookupItem {
-    pub work_package_hash: OpaqueHash,
-    pub segment_tree_root: OpaqueHash,
-}
-
 impl Encode for SegmentRootLookupItem {
 
     fn encode(&self) -> Vec<u8> {
@@ -595,11 +545,6 @@ impl Decode for SegmentRootLookupItem {
             segment_tree_root: OpaqueHash::decode(item)?,
         })
     }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct SegmentRootLookup {
-    pub segment_root_lookup: Vec<SegmentRootLookupItem>,
 }
 
 impl Encode for SegmentRootLookup {

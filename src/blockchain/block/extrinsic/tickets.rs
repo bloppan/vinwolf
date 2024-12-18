@@ -1,4 +1,4 @@
-use crate::types::{TicketAttempt, BandersnatchRingSignature};
+use crate::types::{TicketAttempt, BandersnatchRingVrfSignature, TicketEnvelope, TicketsExtrinsic};
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
 
@@ -13,17 +13,6 @@ use crate::utils::codec::{encode_unsigned, decode_unsigned};
 // We define the extrinsic as a sequence of proofs of valid tickets, each of which is a tuple of an entry index 
 // (a natural number less than N) and a proof of ticket validity.
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct TicketsExtrinsic { 
-    pub tickets: Vec<TicketEnvelope>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct TicketEnvelope {
-    pub attempt: TicketAttempt,
-    pub signature: BandersnatchRingSignature,
-}
-
 impl Decode for TicketsExtrinsic {
     
     fn decode(ticket_blob: &mut BytesReader) -> Result<Self, ReadError> {
@@ -33,7 +22,7 @@ impl Decode for TicketsExtrinsic {
     
         for _ in 0..num_tickets {
             let attempt = TicketAttempt::decode(ticket_blob)?;
-            let signature = BandersnatchRingSignature::decode(ticket_blob)?;
+            let signature = BandersnatchRingVrfSignature::decode(ticket_blob)?;
             ticket_envelop.push(TicketEnvelope{ attempt, signature });
         }      
     

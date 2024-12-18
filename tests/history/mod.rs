@@ -2,20 +2,21 @@ use crate::{read_test_file};
 use crate::codec::{TestBody, encode_decode_test};
 
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::blockchain::state::recent_history::codec::{Input as InputHistory, State as StateHistory};
+use vinwolf::types::BlockHistory;
+use vinwolf::blockchain::state::recent_history::codec::Input as InputHistory;
 use vinwolf::blockchain::state::recent_history::{update_recent_history, set_history_state, get_history_state};
 
 fn run_recent_history_test(filename: &str) {
   
     let test_content = read_test_file(&format!("tests/jamtestvectors/history/data/{}", filename));
-    let test_body: Vec<TestBody> = vec![TestBody::InputHistory, TestBody::StateHistory, TestBody::StateHistory];
+    let test_body: Vec<TestBody> = vec![TestBody::InputHistory, TestBody::BlockHistory, TestBody::BlockHistory];
 
     let _ = encode_decode_test(&test_content, &test_body);
     
     let mut reader = BytesReader::new(&test_content);
     let input = InputHistory::decode(&mut reader).expect("Error decoding InputHistory");
-    let expected_pre_state = StateHistory::decode(&mut reader).expect("Error decoding pre StateHistory");
-    let expected_post_state = StateHistory::decode(&mut reader).expect("Error decoding post StateHistory");
+    let expected_pre_state = BlockHistory::decode(&mut reader).expect("Error decoding pre BlockHistory");
+    let expected_post_state = BlockHistory::decode(&mut reader).expect("Error decoding post BlockHistory");
     
     set_history_state(&expected_pre_state);
     let pre_state_result = get_history_state();

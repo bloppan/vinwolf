@@ -1,23 +1,6 @@
-use crate::types::{ServiceId, OpaqueHash, Gas};
+use crate::types::{ServiceId, OpaqueHash, Gas, WorkItem, ImportSpec, ExtrinsicSpec};
 use crate::utils::codec::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
-
-// A Work Item includes: the identifier of the service to which it relates, the code hash of the service at 
-// the time of reporting (whose preimage must be available from the perspective of the lookup anchor block), 
-// a payload blob, a gas limit, and the three elements of its manifest, a sequence of imported data segments, 
-// which identify a prior exported segment through an index and the identity of an exporting work-package, 
-// a sequence of blob hashes and lengths to be introduced in this block (and which we assume the validator knows) 
-// and the number of data segments exported by this work item.
-#[derive(Debug)]
-pub struct WorkItem {
-    service: ServiceId,
-    code_hash: OpaqueHash,
-    payload: Vec<u8>,
-    gas_limit: Gas,
-    import_segments: Vec<ImportSpec>,
-    extrinsic: Vec<ExtrinsicSpec>,
-    export_count: u16,
-}
 
 impl Encode for WorkItem {
     
@@ -84,13 +67,7 @@ impl WorkItem {
     }
 }
 
-// The Import Spec is a sequence of imported data segments, which identify a prior exported segment 
-// through an index and the identity of an exporting work-package. Its a member of Work Item.
-#[derive(Debug)]
-pub struct ImportSpec {
-    pub tree_root: OpaqueHash,
-    pub index: u16,
-}
+
 
 impl Encode for ImportSpec {
 
@@ -145,13 +122,7 @@ impl ImportSpec {
     }
 }
 
-// The extrinsic spec is a sequence of blob hashes and lengths to be introduced in this block 
-// (and which we assume the validator knows). It's a member of Work Item
-#[derive(Debug)]
-pub struct ExtrinsicSpec {
-    pub hash: OpaqueHash,
-    pub len: u32,
-}
+
 
 impl Decode for ExtrinsicSpec {
     fn decode(ext_blob: &mut BytesReader) -> Result<Self, ReadError> {

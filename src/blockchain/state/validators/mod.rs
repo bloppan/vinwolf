@@ -1,11 +1,30 @@
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
+use std::array::from_fn;
 
-use crate::blockchain::state::safrole::codec::ValidatorsData;
+use crate::types::{ValidatorsData, ValidatorData, BandersnatchPublic, Ed25519Public, BlsPublic, Metadata};
 
-static PREV_VALIDATORS_STATE: Lazy<Mutex<ValidatorsData>> = Lazy::new(|| Mutex::new(ValidatorsData{validators: vec![]}));
-static CURR_VALIDATORS_STATE: Lazy<Mutex<ValidatorsData>> = Lazy::new(|| Mutex::new(ValidatorsData{validators: vec![]}));
-static NEXT_VALIDATORS_STATE: Lazy<Mutex<ValidatorsData>> = Lazy::new(|| Mutex::new(ValidatorsData{validators: vec![]}));
+static PREV_VALIDATORS_STATE: Lazy<Mutex<ValidatorsData>> = Lazy::new(|| Mutex::new(ValidatorsData{validators: Box::new(from_fn(|_| ValidatorData {
+    bandersnatch: [0u8; std::mem::size_of::<BandersnatchPublic>()],
+    ed25519: [0u8; std::mem::size_of::<Ed25519Public>()],
+    bls: [0u8; std::mem::size_of::<BlsPublic>()],
+    metadata: [0u8; std::mem::size_of::<Metadata>()],
+    }))}));
+
+static CURR_VALIDATORS_STATE: Lazy<Mutex<ValidatorsData>> = Lazy::new(|| Mutex::new(ValidatorsData{validators: Box::new(from_fn(|_| ValidatorData {
+    bandersnatch: [0u8; std::mem::size_of::<BandersnatchPublic>()],
+    ed25519: [0u8; std::mem::size_of::<Ed25519Public>()],
+    bls: [0u8; std::mem::size_of::<BlsPublic>()],
+    metadata: [0u8; std::mem::size_of::<Metadata>()],
+    }))}));
+
+static NEXT_VALIDATORS_STATE: Lazy<Mutex<ValidatorsData>> = Lazy::new(|| Mutex::new(ValidatorsData{validators: Box::new(from_fn(|_| ValidatorData {
+    bandersnatch: [0u8; std::mem::size_of::<BandersnatchPublic>()],
+    ed25519: [0u8; std::mem::size_of::<Ed25519Public>()],
+    bls: [0u8; std::mem::size_of::<BlsPublic>()],
+    metadata: [0u8; std::mem::size_of::<Metadata>()],
+    }))}));
+
 
 pub enum ValidatorSet {
     Previous,

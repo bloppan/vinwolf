@@ -2,23 +2,18 @@ use std::cmp::min;
 
 extern crate vinwolf;
 
-use crate::{read_test_file};
+use crate::read_test_file;
 
+use vinwolf::types::{
+    RefineContext, WorkItem, WorkPackage, WorkResult, TicketsExtrinsic, DisputesExtrinsic, PreimagesExtrinsic, AssurancesExtrinsic, 
+    GuaranteesExtrinsic, Header, Block, BlockHistory, WorkReport};
 use vinwolf::utils::codec::{Encode, Decode, BytesReader, ReadError};
-use vinwolf::blockchain::state::reporting_assurance::refine_context::RefineContext;
-use vinwolf::blockchain::state::reporting_assurance::work_item::WorkItem;
-use vinwolf::blockchain::state::reporting_assurance::work_package::WorkPackage;
-use vinwolf::blockchain::state::reporting_assurance::work_result::WorkResult;
-use vinwolf::utils::codec::work_report::{WorkReport, InputWorkReport, WorkReportState, OutputWorkReport};
-use vinwolf::blockchain::block::extrinsic::tickets::TicketsExtrinsic;
-use vinwolf::blockchain::block::extrinsic::disputes::{DisputesExtrinsic, DisputesState, OutputDisputes};
-use vinwolf::blockchain::block::extrinsic::preimages::PreimagesExtrinsic;
-use vinwolf::blockchain::block::extrinsic::assurances::AssurancesExtrinsic;
-use vinwolf::blockchain::block::extrinsic::guarantees::GuaranteesExtrinsic;
-use vinwolf::blockchain::block::header::Header;
-use vinwolf::blockchain::block::Block;
+
+use vinwolf::utils::codec::work_report::{InputWorkReport, WorkReportState, OutputWorkReport};
+
+use vinwolf::blockchain::block::extrinsic::disputes::{DisputesState, OutputDisputes};
 use vinwolf::blockchain::state::safrole::codec::{Input as InputSafrole, SafroleState, Output as OutputSafrole};
-use vinwolf::blockchain::state::recent_history::codec::{Input as InputHistory, State as StateHistory};
+use vinwolf::blockchain::state::recent_history::codec::Input as InputHistory;
 
 fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
     data1.iter()
@@ -45,7 +40,7 @@ pub enum TestBody {
     Header,
     Block,
     InputHistory,
-    StateHistory,
+    BlockHistory,
     InputSafrole,
     SafroleState,
     OutputSafrole,
@@ -147,8 +142,8 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
             TestBody::InputHistory => {
                 context.process_test_part("InputHistory", InputHistory::decode, InputHistory::encode)?;
             }
-            TestBody::StateHistory => {
-                context.process_test_part("StateHistory", StateHistory::decode, StateHistory::encode)?;
+            TestBody::BlockHistory => {
+                context.process_test_part("BlockHistory", BlockHistory::decode, BlockHistory::encode)?;
             }
             TestBody::InputSafrole => {
                 context.process_test_part("InputSafrole", InputSafrole::decode, InputSafrole::encode)?;

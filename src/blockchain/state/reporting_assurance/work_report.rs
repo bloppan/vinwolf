@@ -1,26 +1,23 @@
 use sp_core::blake2_256;
 
-use crate::types::{Entropy, Ed25519Public, TimeSlot, CoreIndex, Gas};
+use crate::types::{
+    Entropy, Ed25519Public, TimeSlot, CoreIndex, Gas, ValidatorsData, AvailabilityAssignment, WorkReport, ValidatorSignature
+};
 use crate::constants::{
-    EPOCH_LENGTH, ROTATION_PERIOD, WORK_REPORT_TIMEOUT, WORK_REPORT_GAS_LIMIT, CORES_COUNT, 
-    VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR};
-
-use crate::blockchain::block::extrinsic::disputes::AvailabilityAssignment;
-use crate::blockchain::block::extrinsic::guarantees::ValidatorSignature;
-use crate::blockchain::state::safrole::codec::ValidatorsData;
+    EPOCH_LENGTH, ROTATION_PERIOD, WORK_REPORT_GAS_LIMIT, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR
+};
 use crate::blockchain::state::entropy::get_entropy_state;
 use crate::blockchain::state::disputes::get_disputes_state;
 use crate::blockchain::state::validators::{get_validators_state, ValidatorSet};
 use crate::blockchain::state::authorization::get_authpool_state;
-use crate::blockchain::state::recent_history::{self, get_history_state};
-use crate::blockchain::state::recent_history::codec::ReportedWorkPackage;
+use crate::blockchain::state::recent_history::get_history_state;
 use crate::blockchain::state::services::get_services_state;
 use crate::blockchain::state::reporting_assurance::{get_reporting_assurance_staging_state, add_assignment};
 use crate::utils::trie::mmr_super_peak;
 use crate::utils::shuffle::shuffle;
 use crate::utils::codec::Encode;
 use crate::utils::common::{VerifySignature, set_offenders_null};
-use crate::utils::codec::work_report::{WorkReport, ReportedPackage, OutputData, ErrorCode};
+use crate::utils::codec::work_report::{ReportedPackage, OutputData, ErrorCode};
 
 
 impl WorkReport {

@@ -2,9 +2,11 @@ use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
 use crate::constants::{MAX_ITEMS_AUTHORIZATION_POOL, CORES_COUNT};
-use crate::utils::codec::work_report::AuthPools;
+use crate::types::{AuthPools, AuthPool};
 
-static AUTHORIZER_POOL_STATE: Lazy<Mutex<AuthPools>> = Lazy::new(|| Mutex::new(AuthPools{auth_pools: Vec::with_capacity(MAX_ITEMS_AUTHORIZATION_POOL * CORES_COUNT)}));
+mod codec;
+
+static AUTHORIZER_POOL_STATE: Lazy<Mutex<AuthPools>> = Lazy::new(|| Mutex::new(AuthPools{auth_pools: Box::new(std::array::from_fn(|_| AuthPool { auth_pool: Vec::new() }))}));
 
 pub fn set_authpool_state(post_state: &AuthPools) {
     let mut state = AUTHORIZER_POOL_STATE.lock().unwrap();

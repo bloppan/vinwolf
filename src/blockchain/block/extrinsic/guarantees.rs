@@ -1,29 +1,13 @@
 use crate::constants::CORES_COUNT;
-use crate::types::{TimeSlot, ValidatorIndex, Ed25519Signature, CoreIndex, OpaqueHash, Hash};
-use crate::blockchain::state::recent_history::{self, get_history_state};
-use crate::blockchain::state::reporting_assurance::{get_reporting_assurance_staging_state, set_reporting_assurance_staging_state};
+use crate::types::{
+    TimeSlot, ValidatorIndex, Ed25519Signature, CoreIndex, WorkReport, Hash, GuaranteesExtrinsic, ReportGuarantee, ValidatorSignature
+};
+use crate::blockchain::state::recent_history::get_history_state;
+use crate::blockchain::state::reporting_assurance::get_reporting_assurance_staging_state;
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
-use crate::utils::codec::work_report::{ErrorCode, OutputData, SegmentRootLookup, WorkReport};
+use crate::utils::codec::work_report::{ErrorCode, OutputData};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
 use crate::utils::common::is_sorted_and_unique;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct GuaranteesExtrinsic {
-    pub report_guarantee: Vec<ReportGuarantee>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ReportGuarantee {
-    pub report: WorkReport,
-    pub slot: TimeSlot,
-    pub signatures: Vec<ValidatorSignature>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ValidatorSignature {
-    pub validator_index: ValidatorIndex,
-    pub signature: Ed25519Signature,
-}
 
 impl GuaranteesExtrinsic {
     /// The guarantees extrinsic is a series of guarantees, at most one for each core, each of which is 

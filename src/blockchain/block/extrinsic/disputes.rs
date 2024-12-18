@@ -1,11 +1,9 @@
 use crate::types::{
-    TimeSlot, OpaqueHash, ValidatorIndex, Ed25519Signature, Ed25519Key, 
-    WorkReportHash, OffendersMark, Ed25519Public};
-use crate::constants::{VALIDATORS_SUPER_MAJORITY, CORES_COUNT};
+    TimeSlot, OpaqueHash, ValidatorIndex, Ed25519Signature, Ed25519Public, WorkReportHash, OffendersMark, 
+    ValidatorData, AvailabilityAssignments, DisputesRecords, DisputesExtrinsic, Verdict, Judgement, Culprit, Fault};
+use crate::constants::VALIDATORS_SUPER_MAJORITY;
 use crate::utils::codec::{Encode, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
-use crate::utils::codec::work_report::WorkReport;
-use crate::blockchain::state::safrole::codec::ValidatorData;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DisputesState {
@@ -50,14 +48,6 @@ impl Decode for DisputesState {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct DisputesRecords {
-    pub good: Vec<WorkReportHash>,
-    pub bad: Vec<WorkReportHash>,
-    pub wonky: Vec<WorkReportHash>,
-    pub offenders: Vec<Ed25519Public>,
-}
-
 impl Encode for DisputesRecords {
 
     fn encode(&self) -> Vec<u8> {
@@ -91,120 +81,6 @@ impl Decode for DisputesRecords {
             wonky: Vec::<WorkReportHash>::decode_len(blob)?,
             offenders: Vec::<Ed25519Public>::decode_len(blob)?,
         })
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct AvailabilityAssignment {
-    pub report: WorkReport,
-    pub timeout: u32,
-}
-
-impl Encode for AvailabilityAssignment {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
-
-        self.report.encode_to(&mut blob);
-        self.timeout.encode_to(&mut blob);
-
-        return blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-impl Decode for AvailabilityAssignment {
-
-    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
-
-        Ok(AvailabilityAssignment {
-            report: WorkReport::decode(blob)?,
-            timeout: u32::decode(blob)?,
-        })
-    }
-}
-
-
-pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
-
-impl Encode for AvailabilityAssignmentsItem {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut blob = Vec::with_capacity(std::mem::size_of::<AvailabilityAssignment>());
-
-        match self {
-            None => {
-                blob.push(0);
-            }
-            Some(assignment) => {
-                blob.push(1);
-                assignment.encode_to(&mut blob);
-            }
-        }
-
-        return blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-impl Decode for AvailabilityAssignmentsItem {
-
-    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
-
-        let option = blob.read_byte()?;
-        match option {
-            0 => Ok(None),
-            1 => {
-                let assignment = AvailabilityAssignment::decode(blob)?;
-                Ok(Some(assignment))
-            }
-            _ => Err(ReadError::InvalidData),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct AvailabilityAssignments {
-    pub assignments: Box<[AvailabilityAssignmentsItem; CORES_COUNT]>,
-}
-
-impl Encode for AvailabilityAssignments {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut blob = Vec::with_capacity(std::mem::size_of::<AvailabilityAssignmentsItem>() * CORES_COUNT);
-
-        for assigment in self.assignments.iter() {
-            assigment.encode_to(&mut blob);
-        }
-
-        return blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-impl Decode for AvailabilityAssignments {
-
-    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
-
-        let mut assignments: AvailabilityAssignments = AvailabilityAssignments{assignments: Box::new(std::array::from_fn(|_| None))};
-        
-        for assignment in assignments.assignments.iter_mut() {
-            *assignment = AvailabilityAssignmentsItem::decode(blob)?;
-        }
-
-        Ok(assignments)
     }
 }
 
@@ -340,13 +216,6 @@ impl Decode for OutputDisputes {
 // guaranteeing a work-report found to be invalid (culprits), or by signing a judgment found to be contradiction 
 // to a work-report’s validity (faults). Both are considered a kind of offense.
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct DisputesExtrinsic {
-    pub verdicts: Vec<Verdict>,
-    pub culprits: Vec<Culprit>,
-    pub faults: Vec<Fault>,
-}
-
 impl Encode for DisputesExtrinsic {
 
     fn encode(&self) -> Vec<u8> {
@@ -389,12 +258,6 @@ impl DisputesExtrinsic {
 // further affirming the guarantors’ assertion that the workreport is valid. In the event of a negative judgment, 
 // then all validators audit said work-report and we assume a verdict will be reached.
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Judgement {
-    pub vote: bool,
-    pub index: ValidatorIndex,
-    pub signature: Ed25519Signature,
-}
 
 impl Judgement {
 
@@ -432,13 +295,6 @@ impl Judgement {
 // the sum of positive judgments. We require this total to be either exactly two-thirds-plus-one, zero or one-third 
 // of the validator set indicating, respectively, that the report is good, that it’s bad, or that it’s wonky.
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Verdict {
-    pub target: OpaqueHash,
-    pub age: u32,
-    pub votes: Vec<Judgement>,
-}
-
 impl Verdict {
 
     fn decode_len(verdict_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
@@ -474,13 +330,6 @@ impl Verdict {
 // A culprit is a proofs of the misbehavior of one or more validators by guaranteeing a work-report found to be invalid.
 // Is a offender signature.
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Culprit {
-    pub target: OpaqueHash,
-    pub key: Ed25519Key,
-    pub signature: Ed25519Signature,
-}
-
 impl Encode for Culprit {
 
     fn encode(&self) -> Vec<u8> {
@@ -505,7 +354,7 @@ impl Decode for Culprit {
 
         Ok(Culprit {
             target: OpaqueHash::decode(culprit_blob)?,
-            key: Ed25519Key::decode(culprit_blob)?,
+            key: Ed25519Public::decode(culprit_blob)?,
             signature : Ed25519Signature::decode(culprit_blob)?,
         })
     }
@@ -541,14 +390,6 @@ impl Culprit {
 // A fault is a proofs of the misbehavior of one or more validators by signing a judgment found to be contradiction to a 
 // work-report’s validity. Is a offender signature. Must be ordered by validators Ed25519Key. There may be no duplicate
 // report hashes within the extrinsic, nor amongst any past reported hashes.
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Fault {
-    pub target: OpaqueHash,
-    pub vote: bool,
-    pub key: Ed25519Key,
-    pub signature: Ed25519Signature,
-}
 
 impl Encode for Fault {
 

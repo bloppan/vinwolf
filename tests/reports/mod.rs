@@ -3,7 +3,7 @@ use crate::read_test_file;
 use crate::codec::{TestBody, encode_decode_test};
 
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, ROTATION_PERIOD};
-use vinwolf::blockchain::block::extrinsic::disputes::DisputesRecords;
+use vinwolf::types::DisputesRecords;
 use vinwolf::blockchain::state::{get_global_state, set_reporting_assurance_state, get_reporting_assurance_state};
 use vinwolf::blockchain::state::disputes::{set_disputes_state, get_disputes_state};
 use vinwolf::blockchain::state::validators::{set_validators_state, get_validators_state, ValidatorSet};

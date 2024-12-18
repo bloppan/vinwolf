@@ -1,7 +1,6 @@
 use sp_core::blake2_256;
 use sp_core::keccak_256;
-use crate::types::Hash;
-use crate::blockchain::state::recent_history::codec::{Mmr, MmrPeak};
+use crate::types::{Hash, Mmr, MmrPeak};
 use crate::utils::codec::{Encode, EncodeSize};
 
 // State Merklization involves transforming the serialized mapping into a cryptographic commitment. 

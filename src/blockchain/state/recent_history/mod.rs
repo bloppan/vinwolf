@@ -3,9 +3,8 @@ use std::sync::Mutex;
 use std::collections::VecDeque;
 use sp_core::keccak_256;
 
-use crate::types::Hash;
+use crate::types::{Hash, BlockHistory, BlockInfo, ReportedWorkPackages, Mmr};
 use crate::constants::RECENT_HISTORY_SIZE;
-use crate::blockchain::state::recent_history::codec::{State as BlockHistory, BlockInfo, ReportedWorkPackages, Mmr};
 use crate::utils::trie::append;
 
 pub mod codec;

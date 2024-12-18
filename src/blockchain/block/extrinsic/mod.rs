@@ -1,9 +1,5 @@
+use crate::types::{TicketsExtrinsic, DisputesExtrinsic, PreimagesExtrinsic, AssurancesExtrinsic, GuaranteesExtrinsic, Extrinsic};
 use crate::utils::codec::{Encode, Decode, ReadError, BytesReader};
-use crate::blockchain::block::extrinsic::tickets::TicketsExtrinsic;
-use crate::blockchain::block::extrinsic::disputes::DisputesExtrinsic;
-use crate::blockchain::block::extrinsic::preimages::PreimagesExtrinsic;
-use crate::blockchain::block::extrinsic::assurances::AssurancesExtrinsic;
-use crate::blockchain::block::extrinsic::guarantees::GuaranteesExtrinsic;
 
 pub mod assurances;
 pub mod disputes;
@@ -18,15 +14,6 @@ pub mod guarantees;
 //     Assurances by each validator concerning which of the input data of workloads they have correctly received and are 
 //     storing locally.
 //     Reports of newly completed workloads whose accuracy is guaranteed by specific validators.
-
-#[derive(Debug)]
-pub struct Extrinsic {
-    pub tickets: TicketsExtrinsic,
-    pub disputes: DisputesExtrinsic,
-    pub preimages: PreimagesExtrinsic,
-    pub assurances: AssurancesExtrinsic,
-    pub guarantees: GuaranteesExtrinsic,
-}
 
 impl Extrinsic {
     pub fn decode(extrinsic_blob: &mut BytesReader) -> Result<Self, ReadError> {

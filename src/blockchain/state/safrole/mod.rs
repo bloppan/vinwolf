@@ -29,11 +29,11 @@
 /// output is a ticket and validators' tickets with the best score define the new sealing keys allowing the chosen validators 
 /// to exercise their privilege and create a new block at the appropriate time.
 
-use crate::types::{BandersnatchKey, Ed25519Key, BlsKey, Metadata, OpaqueHash};
+use crate::types::{
+    BandersnatchPublic, Ed25519Public, BlsPublic, Metadata, OpaqueHash, ValidatorData, TicketBody, TicketsOrKeys, EpochMark};
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 use crate::utils::codec::Encode;
-use crate::blockchain::state::safrole::codec::{Input, Output, SafroleState, ErrorType, OutputMarks, ValidatorData, TicketsOrKeys};
-use crate::blockchain::block::header::{EpochMark, TicketBody};
+use crate::blockchain::state::safrole::codec::{Input, Output, SafroleState, ErrorType, OutputMarks};
 
 use sp_core::blake2_256;
 
@@ -83,7 +83,7 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
             validators: state.gamma_k
                 .iter()
                 .map(|validator| validator.bandersnatch.clone())
-                .collect::<Vec<BandersnatchKey>>()  
+                .collect::<Vec<BandersnatchPublic>>()  
                 .try_into()  
                 .expect("Incorrect number of validators"),  
         });
@@ -143,9 +143,9 @@ fn set_offenders_null(input: &Input, state: &SafroleState) -> Vec<ValidatorData>
     for offender in &input.post_offenders {
         for key in &mut *iota {
             if *offender == key.ed25519 {
-                key.bandersnatch = [0u8; std::mem::size_of::<BandersnatchKey>()];
-                key.ed25519 = [0u8; std::mem::size_of::<Ed25519Key>()];
-                key.bls = [0u8; std::mem::size_of::<BlsKey>()];
+                key.bandersnatch = [0u8; std::mem::size_of::<BandersnatchPublic>()];
+                key.ed25519 = [0u8; std::mem::size_of::<Ed25519Public>()];
+                key.bls = [0u8; std::mem::size_of::<BlsPublic>()];
                 key.metadata = [0u8; std::mem::size_of::<Metadata>()];
             }
         }
@@ -193,10 +193,10 @@ fn outside_in_sequencer(tickets: &Vec<TicketBody>) -> Vec<TicketBody> {
     new_ticket_accumulator
 }
 
-fn fallback(entropy: &OpaqueHash, keys: &Vec<BandersnatchKey>) -> Vec<BandersnatchKey> {
+fn fallback(entropy: &OpaqueHash, keys: &Vec<BandersnatchPublic>) -> Vec<BandersnatchPublic> {
     // This is the fallback key sequence function which selects an epoch's worth of validator Bandersnatch keys from the 
     // validator key set using the entropy collected on-chain
-    let mut new_keys: Vec<BandersnatchKey> = Vec::with_capacity(std::mem::size_of::<BandersnatchKey>() * EPOCH_LENGTH);
+    let mut new_keys: Vec<BandersnatchPublic> = Vec::with_capacity(std::mem::size_of::<BandersnatchPublic>() * EPOCH_LENGTH);
     for i in 0u32..EPOCH_LENGTH as u32 { 
         let index_le = i.encode();
         let hash = blake2_256(&[&entropy[..], &index_le].concat());

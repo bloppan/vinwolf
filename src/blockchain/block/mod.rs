@@ -1,22 +1,8 @@
-use serde::Deserialize;
+use crate::types::{Header, Extrinsic, Block};
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
-use crate::blockchain::block::header::Header;
-use crate::blockchain::block::extrinsic::Extrinsic;
 
 pub mod header;
 pub mod extrinsic;
-
-#[derive(Deserialize, Debug, PartialEq, Clone)]
-pub struct TicketEnvelope {
-    pub signature: String,
-    pub attempt: u8,
-}
-
-#[derive(Debug)]
-pub struct Block {
-    pub header: Header,
-    pub extrinsic: Extrinsic,
-}
 
 impl Encode for Block {
 

@@ -1,4 +1,4 @@
-use crate::types::{OpaqueHash, Ed25519Signature, ValidatorIndex};
+use crate::types::{OpaqueHash, Ed25519Signature, ValidatorIndex, AssurancesExtrinsic, AvailAssurance};
 use crate::constants::AVAIL_BITFIELD_BYTES;
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
@@ -8,19 +8,6 @@ use crate::utils::codec::{encode_unsigned, decode_unsigned};
 // sequence of binary values (i.e. a bitstring), one per core, together with a signature and the index of the 
 // validator who is assuring. A value of 1 at any given index implies that the validator assures they are contributing 
 // to its availability.
-
-#[derive(Debug)]
-pub struct AssurancesExtrinsic {
-    assurances: Vec<AvailAssurance>, 
-}
-
-#[derive(Debug)]
-struct AvailAssurance {
-    anchor: OpaqueHash,
-    bitfield: [u8; AVAIL_BITFIELD_BYTES],
-    validator_index: ValidatorIndex,
-    signature: Ed25519Signature,
-}
 
 impl Encode for AssurancesExtrinsic {
     

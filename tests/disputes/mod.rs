@@ -3,7 +3,8 @@ use crate::read_test_file;
 use crate::codec::{TestBody, encode_decode_test};
 
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, CORES_COUNT};
-use vinwolf::blockchain::block::extrinsic::disputes::{DisputesExtrinsic, DisputesState, OutputDisputes};
+use vinwolf::types::DisputesExtrinsic;
+use vinwolf::blockchain::block::extrinsic::disputes::{DisputesState, OutputDisputes};
 use vinwolf::blockchain::state::disputes::{set_old_disputes_state, get_old_disputes_state, update_disputes_state};
 use vinwolf::utils::codec::{Decode, BytesReader};
 

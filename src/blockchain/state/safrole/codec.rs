@@ -1,7 +1,8 @@
-use crate::types::{BandersnatchKey, Ed25519Key, BlsKey, Metadata, OpaqueHash, TimeSlot, BandersnatchRingCommitment};
+use std::array::from_fn;
+use crate::types::{
+    BandersnatchPublic, Ed25519Public, BlsPublic, Metadata, OpaqueHash, TimeSlot, BandersnatchRingCommitment,
+    ValidatorData, ValidatorsData, TicketsExtrinsic, TicketBody, TicketsOrKeys, EpochMark};
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH};
-use crate::blockchain::block::extrinsic::tickets::TicketsExtrinsic;
-use crate::blockchain::block::header::{EpochMark, TicketBody};
 use crate::utils::codec::{Encode, Decode, DecodeLen, BytesReader, ReadError};
 use crate::utils::codec::encode_unsigned;
 
@@ -10,7 +11,7 @@ pub struct Input {
     pub slot: TimeSlot,
     pub entropy: OpaqueHash,
     pub extrinsic: TicketsExtrinsic,
-    pub post_offenders: Vec<Ed25519Key>,
+    pub post_offenders: Vec<Ed25519Public>,
 }
 
 impl Encode for Input {
@@ -40,7 +41,7 @@ impl Decode for Input {
             slot: TimeSlot::decode(input_blob)?,
             entropy: OpaqueHash::decode(input_blob)?,
             extrinsic: TicketsExtrinsic::decode(input_blob)?,
-            post_offenders: Vec::<Ed25519Key>::decode_len(input_blob)?,
+            post_offenders: Vec::<Ed25519Public>::decode_len(input_blob)?,
         })
     }
 }
@@ -240,19 +241,6 @@ impl Decode for OutputMarks {
     }
 }
 
-/// This is a combination of a set of cryptographic public keys and metadata which is an opaque octet sequence, 
-/// but utilized to specify practical identifiers for the validator, not least a hardware address. The set of 
-/// validator keys itself is equivalent to the set of 336-octet sequences. However, for clarity, we divide the
-/// sequence into four easily denoted components. For any validator key k, the Bandersnatch key is is equivalent 
-/// to the first 32-octets; the Ed25519 key, ke, is the second 32 octets; the bls key denoted bls is equivalent 
-/// to the following 144 octets, and finally the metadata km is the last 128 octets.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ValidatorData {
-    pub bandersnatch: BandersnatchKey,
-    pub ed25519: Ed25519Key,
-    pub bls: BlsKey,
-    pub metadata: Metadata,
-}
 
 impl Encode for ValidatorData {
     
@@ -278,26 +266,21 @@ impl Decode for ValidatorData {
     fn decode(data_blob: &mut BytesReader) -> Result<Self, ReadError> {
     
         Ok(ValidatorData {
-            bandersnatch: BandersnatchKey::decode(data_blob)?,
-            ed25519: Ed25519Key::decode(data_blob)?,
-            bls: BlsKey::decode(data_blob)?,
+            bandersnatch: BandersnatchPublic::decode(data_blob)?,
+            ed25519: Ed25519Public::decode(data_blob)?,
+            bls: BlsPublic::decode(data_blob)?,
             metadata: Metadata::decode(data_blob)?,
         })
     }
-}
-
-#[derive(Clone, PartialEq, Debug)]
-pub struct ValidatorsData {
-    pub validators: Vec<ValidatorData>,
 }
 
 impl Encode for ValidatorsData {
 
     fn encode(&self) -> Vec<u8> {
 
-        let mut validators_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<ValidatorData>() * VALIDATORS_COUNT);
+        let mut validators_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Self>());
 
-        for validator in &self.validators {
+        for validator in self.validators.iter() {
             validator.encode_to(&mut validators_blob);
         }
 
@@ -313,14 +296,20 @@ impl Decode for ValidatorsData {
 
     fn decode(validators_blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        let mut all_validators: ValidatorsData = ValidatorsData{ validators: Vec::with_capacity(std::mem::size_of::<ValidatorData>() * VALIDATORS_COUNT) };
-            
-        for _ in 0..VALIDATORS_COUNT {
-            all_validators
-                .validators.push(ValidatorData::decode(validators_blob)?);
+        let mut list: ValidatorsData = ValidatorsData {
+            validators: Box::new(from_fn(|_| ValidatorData {
+                bandersnatch: [0u8; std::mem::size_of::<BandersnatchPublic>()],
+                ed25519: [0u8; std::mem::size_of::<Ed25519Public>()],
+                bls: [0u8; std::mem::size_of::<BlsPublic>()],
+                metadata: [0u8; std::mem::size_of::<Metadata>()],
+            })),
+        };
+
+        for i in 0..VALIDATORS_COUNT {
+            list.validators[i] = ValidatorData::decode(validators_blob)?;
         }
 
-        Ok(all_validators)
+        Ok(list)
     }
 }
 
@@ -349,12 +338,6 @@ impl ValidatorData {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum TicketsOrKeys {
-    Keys(Vec<BandersnatchKey>),
-    Tickets(Vec<TicketBody>),
-}
-
 impl Decode for TicketsOrKeys {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
         
@@ -362,9 +345,9 @@ impl Decode for TicketsOrKeys {
 
         match marker {
             1 => {
-                let mut keys: Vec<BandersnatchKey> = Vec::with_capacity(std::mem::size_of::<BandersnatchKey>() * EPOCH_LENGTH);
+                let mut keys: Vec<BandersnatchPublic> = Vec::with_capacity(std::mem::size_of::<BandersnatchPublic>() * EPOCH_LENGTH);
                 for _ in 0..EPOCH_LENGTH {
-                    keys.push(BandersnatchKey::decode(blob)?);
+                    keys.push(BandersnatchPublic::decode(blob)?);
                 }
                 Ok(TicketsOrKeys::Keys(keys))
             }

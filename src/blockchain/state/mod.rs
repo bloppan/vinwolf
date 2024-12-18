@@ -2,14 +2,10 @@ use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use std::collections::VecDeque;
 
-use crate::constants::{CORES_COUNT, MAX_ITEMS_AUTHORIZATION_POOL, MAX_ITEMS_AUTHORIZATION_QUEUE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT};
-use crate::types::{EntropyBuffer, Hash};
-use crate::blockchain::block::Block;
-use crate::blockchain::block::extrinsic::disputes::AvailabilityAssignments;
-use crate::blockchain::state::recent_history::codec::State as BlockHistory;
-use crate::blockchain::state::safrole::codec::ValidatorData;
+use crate::constants::{CORES_COUNT, RECENT_HISTORY_SIZE};
+use crate::types::{EntropyBuffer, Hash, AvailabilityAssignments, AuthPool, BlockHistory, Block};
 use crate::blockchain::state::reporting_assurance::process_report_assurance;
-use crate::utils::codec::work_report::{AuthPool, ErrorCode as ReportErrorCode};
+use crate::utils::codec::work_report::{ErrorCode as ReportErrorCode};
 
 pub mod accumulation;
 pub mod authorization;

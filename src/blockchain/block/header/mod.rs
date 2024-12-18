@@ -1,6 +1,6 @@
 use crate::types::{
-                    OpaqueHash, TimeSlot, Ed25519Key, ValidatorIndex, 
-                    BandersnatchVrfSignature, BandersnatchKey,
+    OpaqueHash, TimeSlot, Ed25519Public, ValidatorIndex, BandersnatchVrfSignature, BandersnatchPublic,
+    TicketBody, TicketsMark, EpochMark, Header
 };
 use crate::constants::{EPOCH_LENGTH, VALIDATORS_COUNT};
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
@@ -10,20 +10,6 @@ use crate::utils::codec::{encode_unsigned, decode_unsigned};
 // winning-tickets and offenders markers, and, a Bandersnatch block author index and two Bandersnatch signatures; 
 // the entropy-yielding, vrf signature, and a block seal. Excepting the Genesis header, all block headers H have
 // an associated parent header, whose hash is Hp.
-
-#[derive(Debug)]
-pub struct Header {
-    pub parent: OpaqueHash,
-    pub parent_state_root: OpaqueHash,
-    pub extrinsic_hash: OpaqueHash,
-    pub slot: TimeSlot,
-    pub epoch_mark: Option<EpochMark>,
-    pub tickets_mark: Option<TicketsMark>,
-    pub offenders_mark: Vec<Ed25519Key>,
-    pub author_index: ValidatorIndex,
-    pub entropy_source: BandersnatchVrfSignature,
-    pub seal: BandersnatchVrfSignature,
-}
 
 impl Encode for Header {
 
@@ -88,9 +74,9 @@ impl Decode for Header {
             },
             offenders_mark: {
                 let num_offenders = decode_unsigned(header_blob)?;
-                let mut offenders_mark: Vec<Ed25519Key> = Vec::with_capacity(num_offenders);
+                let mut offenders_mark: Vec<Ed25519Public> = Vec::with_capacity(num_offenders);
                 for _ in 0..num_offenders {
-                    offenders_mark.push(Ed25519Key::decode(header_blob)?);
+                    offenders_mark.push(Ed25519Public::decode(header_blob)?);
                 }
                 offenders_mark
             },
@@ -114,18 +100,11 @@ impl Decode for Header {
 // and a sequence of Bandersnatch keys defining the Bandersnatch validator keys (kb) beginning in 
 // the next epoch.
 
-#[derive(Debug, PartialEq)]
-pub struct EpochMark {
-    pub entropy: OpaqueHash,
-    pub tickets_entropy: OpaqueHash,
-    pub validators: Vec<BandersnatchKey>,
-}
-
 impl Encode for EpochMark {
     
     fn encode(&self) -> Vec<u8> {
 
-        let mut blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<EpochMark>() + (std::mem::size_of::<BandersnatchKey>() * VALIDATORS_COUNT));
+        let mut blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<EpochMark>() + (std::mem::size_of::<BandersnatchPublic>() * VALIDATORS_COUNT));
         
         self.entropy.encode_to(&mut blob);
         self.tickets_entropy.encode_to(&mut blob);
@@ -150,9 +129,9 @@ impl Decode for EpochMark {
             entropy: OpaqueHash::decode(blob)?,
             tickets_entropy: OpaqueHash::decode(blob)?,
             validators: {
-                let mut validators_vec: Vec<BandersnatchKey> = Vec::with_capacity(VALIDATORS_COUNT);
+                let mut validators_vec: Vec<BandersnatchPublic> = Vec::with_capacity(VALIDATORS_COUNT);
                 for _ in 0..VALIDATORS_COUNT {
-                    validators_vec.push(BandersnatchKey::decode(blob)?);
+                    validators_vec.push(BandersnatchPublic::decode(blob)?);
                 }
                 validators_vec
             },
@@ -163,10 +142,6 @@ impl Decode for EpochMark {
 // The Tickets Marker provides the series of EPOCH_LENGTH (600) slot sealing “tickets” for the next epoch. Is either 
 // empty or, if the block is the first after the end of the submission period for tickets and if the ticket accumulator 
 // is saturated, then the final sequence of ticket identifiers.
-#[derive(Debug, PartialEq, Clone)]
-pub struct TicketsMark {
-    pub tickets_mark: Vec<TicketBody>,
-}
 
 impl Encode for TicketsMark {
 
@@ -203,12 +178,6 @@ impl Decode for TicketsMark {
             tickets_mark: tickets,
         })
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Ord, PartialOrd, Eq)]
-pub struct TicketBody {
-    pub id: OpaqueHash,
-    pub attempt: u8,
 }
 
 impl Decode for TicketBody {
