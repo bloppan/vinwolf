@@ -93,13 +93,10 @@ impl WorkReport {
         let authorization = get_authpool_state();
         // A report is valid only if the authorizer hash is present in the authorizer pool of the core on which the
         // work is reported
-        if let Some(_) = authorization.auth_pools.iter()
-                                                    .find(|auth| auth.auth_pool
-                                                    .contains(&self.authorizer_hash))
-        {
+        if authorization.auth_pools[self.core_index as usize].auth_pool.contains(&self.authorizer_hash) {
             return Ok(true);
         }
-
+        
         return Err(ErrorCode::CoreUnauthorized);
     }
 
@@ -139,8 +136,8 @@ impl WorkReport {
         if availability.assignments[self.core_index as usize].is_none() {
 
             let chain_entropy = get_entropy_state();
-            let current_validators = get_validators_state(ValidatorSet::Current);
-            let prev_validators = get_validators_state(ValidatorSet::Previous);
+            let mut current_validators = get_validators_state(ValidatorSet::Current);
+            let mut prev_validators = get_validators_state(ValidatorSet::Previous);
 
             // Each core has three validators uniquely assigned to guarantee work-reports for it. This is ensured with 
             // VALIDATORS_COUNT and CORES_COUNT, since V/C = 3. The core index is assigned to each of the validators, 
@@ -150,14 +147,14 @@ impl WorkReport {
             // for the epochal entropy rather than η1 to avoid the possibility of fork-magnification where uncertainty 
             // about chain state at the end of an epoch could give rise to two established forks before it naturally resolves.
             let (validators_data, guarantors_assignments) = if *post_tau / ROTATION_PERIOD == guarantee_slot / ROTATION_PERIOD {
-                let assignments = guarantor_assignments(&permute(&chain_entropy[2], *post_tau), &mut current_validators.clone());
+                let assignments = guarantor_assignments(&permute(&chain_entropy[2], *post_tau), &mut current_validators);
                 (current_validators, assignments)
             } else {
                 // We also define the previous 'guarantors_assigments' as it would have been under the previous rotation
                 let epoch_diff = (*post_tau - ROTATION_PERIOD) / EPOCH_LENGTH as u32 == *post_tau / EPOCH_LENGTH as u32;
                 let entropy_index = if epoch_diff { 2 } else { 3 };
-                let validators = if epoch_diff { current_validators } else { prev_validators };
-                let assignments = guarantor_assignments(&permute(&chain_entropy[entropy_index], *post_tau), &mut validators.clone());
+                let mut validators = if epoch_diff { current_validators } else { prev_validators };
+                let assignments = guarantor_assignments(&permute(&chain_entropy[entropy_index], *post_tau - ROTATION_PERIOD), &mut validators);
                 (validators, assignments)
             };
 
@@ -179,15 +176,20 @@ impl WorkReport {
                 if !credential.signature.verify_signature(&message, &validator.ed25519) {
                     return Err(ErrorCode::BadSignature);
                 }
+                if ROTATION_PERIOD * ((*post_tau / ROTATION_PERIOD) - 1) > guarantee_slot {
+                    return Err(ErrorCode::ReportEpochBeforeLast);
+                }
+                if guarantee_slot > *post_tau {
+                    return Err(ErrorCode::FutureReportSlot);
+                }
                 // The signing validators must be assigned to the core in question in either this block if the timeslot for the
                 // guarantee is in the same rotation as this block's timeslot, or in the most recent previous set of assigmments.
-                match guarantors_hashmap.get(&validator.ed25519) {
-                    Some(&core_index) if core_index == self.core_index => {},
-                    Some(_) => return Err(ErrorCode::WrongAssignment),
-                    None => return Err(ErrorCode::GuarantorNotFound),
-                }
-                if !(ROTATION_PERIOD * ((*post_tau / ROTATION_PERIOD) - 1) <= guarantee_slot && guarantee_slot <= *post_tau) {
-                    return Err(ErrorCode::FutureReportSlot);
+                if let Some(&core_index) = guarantors_hashmap.get(&validator.ed25519) {
+                    if core_index != self.core_index {
+                        return Err(ErrorCode::WrongAssignment);
+                    }
+                } else {
+                    return Err(ErrorCode::GuarantorNotFound);
                 }
                 // We note that the Ed25519 key of each validator whose signature is in a credential is placed in the reporters set.
                 // This is utilized by the validator activity statistics book-keeping system.

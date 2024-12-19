@@ -1,4 +1,4 @@
-use crate::constants::CORES_COUNT;
+use crate::constants::{CORES_COUNT, MAX_DEPENDENCY_ITEMS};
 use crate::types::{
     TimeSlot, ValidatorIndex, Ed25519Signature, CoreIndex, WorkReport, Hash, GuaranteesExtrinsic, ReportGuarantee, ValidatorSignature
 };
@@ -34,6 +34,13 @@ impl GuaranteesExtrinsic {
         // Therefore, we require the cardinality of all work-packages to be the length of the work-report sequence
         if packages_hashes.len() != self.report_guarantee.len() {
             return Err(ErrorCode::LengthNotEqual);
+        }
+
+        // We limit the sum of the number of items in the segment-root lookup dictionary and the number of prerequisites to MAX_DEPENDENCY_ITEMS
+        for guarantee in &self.report_guarantee {
+            if guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.segment_root_lookup.len() > MAX_DEPENDENCY_ITEMS {
+                return Err(ErrorCode::TooManyDependencies);
+            }
         }
 
         let mut reported = Vec::new();

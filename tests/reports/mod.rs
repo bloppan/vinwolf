@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 use crate::read_test_file;
 use crate::codec::{TestBody, encode_decode_test};
 
-use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, ROTATION_PERIOD};
+use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
 use vinwolf::types::DisputesRecords;
 use vinwolf::blockchain::state::{get_global_state, set_reporting_assurance_state, get_reporting_assurance_state};
 use vinwolf::blockchain::state::disputes::{set_disputes_state, get_disputes_state};
@@ -17,9 +17,9 @@ use vinwolf::utils::codec::{Decode, BytesReader};
 use vinwolf::utils::codec::work_report::{InputWorkReport, WorkReportState, OutputWorkReport, OutputData, ErrorCode};
 
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
-    if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && ROTATION_PERIOD == 4 {
+    if VALIDATORS_COUNT == 6 && CORES_COUNT == 2 && ROTATION_PERIOD == 4 && EPOCH_LENGTH == 12 {
         "tiny"
-    } else if VALIDATORS_COUNT == 1023 && EPOCH_LENGTH == 600 && ROTATION_PERIOD == 10 {
+    } else if VALIDATORS_COUNT == 1023 && CORES_COUNT == 341 && ROTATION_PERIOD == 10 && EPOCH_LENGTH == 600{
         "full"
     } else {
         panic!("Invalid configuration for tiny nor full tests");
@@ -118,7 +118,7 @@ mod tests {
             // Report uses previous guarantors rotation.
             // Previous rotation falls within previous epoch, thus previous epoch validators set is used to construct 
             // report core assignment to pick expected guarantors.
-            "report_prev_rotation-1.bin",
+            "report_prev_rotation-1.bin",             
             // Multiple good work reports.
             "multiple_reports-1.bin",
             // Context anchor is not recent enough.
@@ -154,14 +154,16 @@ mod tests {
             "high_work_report_gas-1.bin",
             // Work report per core gas is too much high.
             "too_high_work_report_gas-1.bin",
+            // Accumulate gas is below the service minimum.
+            "service_item_gas_too_low-1.bin",
             // Work report has many dependencies, still less than the limit.
             "many_dependencies-1.bin",
             // Work report has too many dependencies.
-            //"too_many_dependencies-1.bin", ----------------------------------------------------------------
+            "too_many_dependencies-1.bin", 
             // Report with no enough guarantors signatures.
             "no_enough_guarantees-1.bin",
             // Target core without any authorizer.
-            //"not_authorized-1.bin",       ----------------------------------------------------------------
+            "not_authorized-1.bin",       
             // Target core with unexpected authorizer.
             "not_authorized-2.bin",
             // Guarantors indices are not sorted or unique.
@@ -169,7 +171,7 @@ mod tests {
             // Reports cores are not sorted or unique.
             "out_of_order_guarantees-1.bin",
             // Report guarantee slot is too old with respect to block slot.
-            //"report_before_last_rotation-1.bin",  ----------------------------------------------------------------
+            "report_before_last_rotation-1.bin",                         
             // Simple report dependency satisfied by another work report in the same extrinsic.
             "reports_with_dependencies-1.bin",
             // Work reports mutual dependency (indirect self-referential dependencies).
@@ -188,7 +190,6 @@ mod tests {
             "segment_root_lookup_invalid-2.bin",
             // Unexpected guarantor for work report core.
             "wrong_assignment-1.bin",
-            "service_item_gas_too_low-1.bin",
         ];
         for file in test_files {
             println!("Running test: {}", file);

@@ -1,16 +1,23 @@
 use crate::types::Gas;
 
 // Total number of validators
+//pub const VALIDATORS_COUNT: usize = 1023;
 pub const VALIDATORS_COUNT: usize = 6;
 
 // The length of an epoch timeslots.
+//pub const EPOCH_LENGTH: usize = 600;
 pub const EPOCH_LENGTH: usize = 12;
+
+// The rotation period of validator-core assignments, in timeslots.
+pub const ROTATION_PERIOD: u32 = 4;
+//pub const ROTATION_PERIOD: u32 = 10;
+
+// Total number of cores
+//pub const CORES_COUNT: usize = 341;
+pub const CORES_COUNT: usize = 2;
 
 // The number of slots into an epoch at which ticket-submission ends
 pub const TICKET_SUBMISSION_ENDS: usize = 10;
-
-// Total number of cores
-pub const CORES_COUNT: usize = 2;
 
 // Validator super majority
 pub const VALIDATORS_SUPER_MAJORITY: usize = (VALIDATORS_COUNT * 2) / 3 + 1;
@@ -29,8 +36,8 @@ pub const MAX_ITEMS_AUTHORIZATION_POOL: usize = 8;
 // The number of items in the authorizations queue.
 pub const MAX_ITEMS_AUTHORIZATION_QUEUE: usize = 80;
 
-// The rotation period of validator-core assignments, in timeslots.
-pub const ROTATION_PERIOD: u32 = 4;
+// The maximum sum of dependency items in a work-report.
+pub const MAX_DEPENDENCY_ITEMS: usize = 8;
 
 // The period in timeslots after which reported but unavailable work may be replaced.
 pub const WORK_REPORT_TIMEOUT: u32 = 5;
