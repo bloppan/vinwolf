@@ -16,8 +16,11 @@
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
-use crate::types::{TimeSlot, AvailabilityAssignment, AvailabilityAssignments, GuaranteesExtrinsic};
-use crate::utils::codec::work_report::{OutputData, ErrorCode};
+use crate::types::{
+    Hash, AssurancesExtrinsic, AvailabilityAssignment, AvailabilityAssignments, GuaranteesExtrinsic, TimeSlot, CoreIndex
+};
+use crate::blockchain::block::extrinsic::assurances::{OutputDataAssurances, ErrorCode as AssurancesErrorCode};
+use crate::utils::codec::work_report::{OutputData, ErrorCode as WorkReportErrorCode};
 
 pub mod refine_context;
 pub mod work_report;
@@ -45,11 +48,16 @@ pub fn add_assignment(assignment: &AvailabilityAssignment) {
     state.assignments[assignment.report.core_index as usize] = Some(assignment.clone());
 }
 
-pub fn process_report_assurance(
+pub fn remove_assignment(core_index: &CoreIndex) {
+    let mut state = REPORT_AVAILABILITY_STATE.lock().unwrap();
+    state.assignments[*core_index as usize] = None;
+}
+
+pub fn process_guarantees(
     assurances_state: &mut AvailabilityAssignments, 
     guarantees: &GuaranteesExtrinsic, 
     post_tau: &TimeSlot) 
--> Result<OutputData, ErrorCode> {
+-> Result<OutputData, WorkReportErrorCode> {
 
     //let stg_assurances_state = assurances_state.clone();
     set_reporting_assurance_staging_state(&assurances_state.clone());
@@ -61,5 +69,24 @@ pub fn process_report_assurance(
     Ok(OutputData {
         reported: output_data.reported,
         reporters: output_data.reporters,
+    })
+}
+
+pub fn process_assurances(
+    assurances_state: &mut AvailabilityAssignments, 
+    assurances: &AssurancesExtrinsic, 
+    post_tau: &TimeSlot,
+    parent: &Hash) 
+-> Result<OutputDataAssurances, AssurancesErrorCode> {
+
+    //let stg_assurances_state = assurances_state.clone();
+    set_reporting_assurance_staging_state(&assurances_state.clone());
+    //println!("assurances pre: {:0x?}", assurances_state);
+    let output_data = assurances.process(post_tau, parent)?;
+    //println!("output_data = {:0x?}", output_data);
+    *assurances_state = get_reporting_assurance_staging_state();
+    //println!("asssurances post: {:0x?}", assurances_state);
+    Ok(OutputDataAssurances {
+        reported: output_data.reported,
     })
 }

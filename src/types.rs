@@ -372,12 +372,12 @@ pub struct PreimagesExtrinsic {
 // ----------------------------------------------------------------------------------------------------------
 // Assurances
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AssurancesExtrinsic {
     pub assurances: Vec<AvailAssurance>, 
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AvailAssurance {
     pub anchor: OpaqueHash,
     pub bitfield: [u8; AVAIL_BITFIELD_BYTES],

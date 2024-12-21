@@ -11,9 +11,12 @@ use vinwolf::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
 use vinwolf::utils::codec::work_report::{InputWorkReport, WorkReportState, OutputWorkReport};
 
+use vinwolf::blockchain::block::extrinsic::assurances::OutputAssurances;
 use vinwolf::blockchain::block::extrinsic::disputes::{DisputesState, OutputDisputes};
 use vinwolf::blockchain::state::safrole::codec::{Input as InputSafrole, SafroleState, Output as OutputSafrole};
 use vinwolf::blockchain::state::recent_history::codec::Input as InputHistory;
+use crate::assurances::schema::{InputAssurances, StateAssurances};
+
 
 fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
     data1.iter()
@@ -49,6 +52,9 @@ pub enum TestBody {
     InputWorkReport,
     WorkReportState,
     OutputWorkReport,
+    InputAssurances,
+    StateAssurances,
+    OutputAssurances,
 }
 
 struct TestContext<'a, 'b> {
@@ -168,6 +174,15 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
             }
             TestBody::OutputWorkReport => {
                 context.process_test_part("OutputWorkReport", OutputWorkReport::decode, OutputWorkReport::encode)?;
+            }
+            TestBody::InputAssurances => {
+                context.process_test_part("InputAssurances", InputAssurances::decode, InputAssurances::encode)?;
+            }
+            TestBody::StateAssurances => {
+                context.process_test_part("StateAssurances", StateAssurances::decode, StateAssurances::encode)?;
+            }
+            TestBody::OutputAssurances => {
+                context.process_test_part("OutputAssurances", OutputAssurances::decode, OutputAssurances::encode)?;
             }
         }
     }

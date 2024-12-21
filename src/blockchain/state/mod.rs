@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 
 use crate::constants::{CORES_COUNT, RECENT_HISTORY_SIZE};
 use crate::types::{EntropyBuffer, Hash, AvailabilityAssignments, AuthPool, BlockHistory, Block};
-use crate::blockchain::state::reporting_assurance::process_report_assurance;
+use crate::blockchain::state::reporting_assurance::process_guarantees;
 use crate::utils::codec::work_report::{ErrorCode as ReportErrorCode};
 
 pub mod accumulation;
@@ -75,7 +75,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), GlobalError> {
     let mut new_state = current_state.clone();
     
     // Process report and assurance
-    if let Err(Error) = process_report_assurance(
+    if let Err(Error) = process_guarantees(
         &mut new_state.availability,
         &block.extrinsic.guarantees,
         &block.header.slot,

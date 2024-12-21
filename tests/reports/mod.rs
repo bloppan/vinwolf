@@ -8,7 +8,7 @@ use vinwolf::blockchain::state::{get_global_state, set_reporting_assurance_state
 use vinwolf::blockchain::state::disputes::{set_disputes_state, get_disputes_state};
 use vinwolf::blockchain::state::validators::{set_validators_state, get_validators_state, ValidatorSet};
 use vinwolf::blockchain::state::entropy::{set_entropy_state, get_entropy_state};
-use vinwolf::blockchain::state::reporting_assurance::process_report_assurance;
+use vinwolf::blockchain::state::reporting_assurance::process_guarantees;
 use vinwolf::blockchain::state::recent_history::{set_history_state, get_history_state}; // TODO update this
 use vinwolf::blockchain::state::authorization::{set_authpool_state, get_authpool_state};
 use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
@@ -29,6 +29,8 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
 #[cfg(test)]
 mod tests {
     
+
+    use std::os::unix::process;
 
     use super::*;
 
@@ -68,7 +70,7 @@ mod tests {
         let current_state = get_global_state();
         let mut assurances_state = current_state.availability.clone();
 
-        let output_result = process_report_assurance(
+        let output_result = process_guarantees(
                                                                             &mut assurances_state, 
                                                                             &input.guarantees, 
                                                                             &input.slot);
