@@ -14,6 +14,7 @@ mod disputes;
 mod shuffle;
 mod reports;
 mod assurances;
+mod authorization;
 
 pub fn read_test_file(filename: &str) -> Vec<u8> {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(filename);

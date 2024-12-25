@@ -1,6 +1,6 @@
 // JAM Protocol Types
 use std::collections::VecDeque;
-use crate::constants::{VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES};
+use crate::constants::{VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, MAX_ITEMS_AUTHORIZATION_POOL};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
 // ----------------------------------------------------------------------------------------------------------
@@ -104,7 +104,7 @@ pub struct RefineContext {
 // ----------------------------------------------------------------------------------------------------------
 // Authorizations
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Authorizer {
     pub code_hash: OpaqueHash,
     pub params: Vec<u8>,
@@ -112,14 +112,24 @@ pub struct Authorizer {
 
 pub type AuthorizerHash = OpaqueHash;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AuthPool {
     pub auth_pool: Vec<OpaqueHash>,
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AuthPools {
     pub auth_pools: Box<[AuthPool; CORES_COUNT]>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AuthQueue {
+    pub auth_queue: Box<[AuthorizerHash; MAX_ITEMS_AUTHORIZATION_QUEUE]>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AuthQueues {
+    pub auth_queues: Box<[AuthQueue; CORES_COUNT]>,
 }
 
 // ----------------------------------------------------------------------------------------------------------

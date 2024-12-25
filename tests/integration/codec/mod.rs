@@ -16,7 +16,7 @@ use vinwolf::blockchain::block::extrinsic::disputes::{DisputesState, OutputDispu
 use vinwolf::blockchain::state::safrole::codec::{Input as InputSafrole, SafroleState, Output as OutputSafrole};
 use vinwolf::blockchain::state::recent_history::codec::Input as InputHistory;
 use crate::integration::assurances::schema::{InputAssurances, StateAssurances};
-
+use crate::integration::authorization::schema::{InputAuthorizations, StateAuthorizations};
 
 fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
     data1.iter()
@@ -55,6 +55,8 @@ pub enum TestBody {
     InputAssurances,
     StateAssurances,
     OutputAssurances,
+    InputAuthorizations,
+    StateAuthorizations,
 }
 
 struct TestContext<'a, 'b> {
@@ -183,6 +185,12 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
             }
             TestBody::OutputAssurances => {
                 context.process_test_part("OutputAssurances", OutputAssurances::decode, OutputAssurances::encode)?;
+            }
+            TestBody::InputAuthorizations => {
+                context.process_test_part("InputAuthorizations", InputAuthorizations::decode, InputAuthorizations::encode)?;
+            }
+            TestBody::StateAuthorizations => {
+                context.process_test_part("StateAuthorizations", StateAuthorizations::decode, StateAuthorizations::encode)?;
             }
         }
     }

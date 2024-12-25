@@ -1,7 +1,6 @@
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
-use crate::constants::{MAX_ITEMS_AUTHORIZATION_POOL, CORES_COUNT};
 use crate::types::{AuthPools, AuthPool};
 
 mod codec;
