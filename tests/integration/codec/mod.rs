@@ -2,7 +2,7 @@ use std::cmp::min;
 
 extern crate vinwolf;
 
-use crate::read_test_file;
+use crate::integration::read_test_file;
 
 use vinwolf::types::{
     RefineContext, WorkItem, WorkPackage, WorkResult, TicketsExtrinsic, DisputesExtrinsic, PreimagesExtrinsic, AssurancesExtrinsic, 
@@ -15,7 +15,7 @@ use vinwolf::blockchain::block::extrinsic::assurances::OutputAssurances;
 use vinwolf::blockchain::block::extrinsic::disputes::{DisputesState, OutputDisputes};
 use vinwolf::blockchain::state::safrole::codec::{Input as InputSafrole, SafroleState, Output as OutputSafrole};
 use vinwolf::blockchain::state::recent_history::codec::Input as InputHistory;
-use crate::assurances::schema::{InputAssurances, StateAssurances};
+use crate::integration::assurances::schema::{InputAssurances, StateAssurances};
 
 
 fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {

@@ -1,6 +1,6 @@
 use once_cell::sync::Lazy;
-use crate::read_test_file;
-use crate::codec::{TestBody, encode_decode_test};
+use crate::integration::read_test_file;
+use crate::integration::codec::{TestBody, encode_decode_test};
 
 use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
 use vinwolf::types::DisputesRecords;

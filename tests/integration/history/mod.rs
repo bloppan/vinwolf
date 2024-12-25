@@ -1,5 +1,5 @@
-use crate::{read_test_file};
-use crate::codec::{TestBody, encode_decode_test};
+use crate::integration::read_test_file;
+use crate::integration::codec::{TestBody, encode_decode_test};
 
 use vinwolf::utils::codec::{Decode, BytesReader};
 use vinwolf::types::BlockHistory;

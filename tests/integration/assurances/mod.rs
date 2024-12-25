@@ -1,6 +1,6 @@
 use once_cell::sync::Lazy;
-use crate::read_test_file;
-use crate::codec::{TestBody, encode_decode_test};
+use crate::integration::read_test_file;
+use crate::integration::codec::{TestBody, encode_decode_test};
 
 pub mod schema;
 use schema::{InputAssurances, StateAssurances};
@@ -92,7 +92,7 @@ mod tests {
             "some_assurances-1.bin",
             // Progress with an empty assurances extrinsic.
             // Stale work report assignment is removed (but not returned in the output).
-            //"no_assurances_with_stale_report-1.bin",
+            //"no_assurances_with_stale_report-1.bin", // TODO Este creo que lo van a quitar porque han quitado lo de los timeouts
             // One assurance has a bad signature.
             "assurances_with_bad_signature-1.bin",
             // One assurance has a bad validator index.
