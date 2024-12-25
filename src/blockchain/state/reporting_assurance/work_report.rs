@@ -1,24 +1,23 @@
 use sp_core::blake2_256;
 
 use crate::types::{
-    Entropy, Ed25519Public, TimeSlot, CoreIndex, Gas, ValidatorsData, AvailabilityAssignment, WorkReport, ValidatorSignature
+    AvailabilityAssignment, CoreIndex, Ed25519Public, Entropy, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, WorkResult
 };
 use crate::constants::{
-    EPOCH_LENGTH, ROTATION_PERIOD, WORK_REPORT_GAS_LIMIT, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR
+    EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR
 };
+use crate::blockchain::state::ProcessError;
 use crate::blockchain::state::entropy::get_entropy_state;
 use crate::blockchain::state::disputes::get_disputes_state;
 use crate::blockchain::state::validators::{get_validators_state, ValidatorSet};
 use crate::blockchain::state::authorization::get_authpool_state;
 use crate::blockchain::state::recent_history::get_history_state;
-use crate::blockchain::state::services::get_services_state;
 use crate::blockchain::state::reporting_assurance::{get_reporting_assurance_staging_state, add_assignment};
 use crate::utils::trie::mmr_super_peak;
 use crate::utils::shuffle::shuffle;
 use crate::utils::codec::Encode;
 use crate::utils::common::{VerifySignature, set_offenders_null};
-use crate::utils::codec::work_report::{ReportedPackage, OutputData, ErrorCode};
-
+use crate::utils::codec::work_report::{ReportedPackage, OutputData, ReportErrorCode};
 
 impl WorkReport {
 
@@ -27,27 +26,41 @@ impl WorkReport {
         post_tau: &TimeSlot, 
         guarantee_slot: TimeSlot, 
         validators_signatures: &[ValidatorSignature]) 
-    -> Result<OutputData, ErrorCode> {
+    -> Result<OutputData, ProcessError> {
 
-        if !self.validate_authorization()? {
-            return Err(ErrorCode::NoAuthorization);
+        let authorization = get_authpool_state();
+        // A report is valid only if the authorizer hash is present in the authorizer pool of the core on which the
+        // work is reported
+        if !authorization.auth_pools[self.core_index as usize].auth_pool.contains(&self.authorizer_hash) {
+            return Err(ProcessError::ReportError(ReportErrorCode::CoreUnauthorized));
         }
 
-        if !self.is_recent()? {
-            return Err(ErrorCode::AnchorNotRecent);
-        }
-
-        if let Err(error) = self.results_meets_requirements() {
+        // We require that the anchor block be within the last RECENT_HISTORY_SIZE blocks and that its details be correct 
+        // by ensuring that it appears within our most recent blocks
+        if let Err(error) = self.is_recent() {
             return Err(error);
+        }
+
+        let mut work_report_size = 0;
+        // We require that the work-report's results are valid
+        match WorkResult::process(&self.results) {
+            Ok(results_size) => { work_report_size += results_size },
+            Err(e) => { return Err(e) },
+        }
+        // In order to ensure fair use of a block’s extrinsic space, work-reports are limited in the maximum total size of 
+        // the successful output blobs together with the authorizer output blob, effectively limiting their overall size
+        if work_report_size + self.auth_output.len() > MAX_OUTPUT_BLOB_SIZE {
+            return Err(ProcessError::ReportError(ReportErrorCode::WorkReportTooBig));
         }
 
         // We require that each lookup-anchor block be within the last MAX_AGE_LOOKUP_ANCHOR timeslots
         if *post_tau > self.context.lookup_anchor_slot + MAX_AGE_LOOKUP_ANCHOR {
-            return Err(ErrorCode::BadLookupAnchorSlot);
+            return Err(ProcessError::ReportError(ReportErrorCode::BadLookupAnchorSlot));
         }
 
         // TODO 11.36 
-          
+        // TODO 11.37
+
         let OutputData {
             reported: new_reported,
             reporters: new_reporters,
@@ -56,69 +69,25 @@ impl WorkReport {
         return Ok(OutputData{reported: new_reported, reporters: new_reporters});
     }
 
-    fn results_meets_requirements(&self) -> Result<bool, ErrorCode> {
-        let list = get_services_state();
-        let mut total_accumulation_gas: Gas = 0;
-        
-        let service_map: std::collections::HashMap<_, _> = list.services.iter().map(|s| (s.id, s)).collect();
-
-        for result in &self.results {
-            if let Some(service) = service_map.get(&result.service) {
-                // We require that all work results within the extrinsic predicted the correct code hash for their 
-                // corresponding service
-                if result.code_hash != service.info.code_hash {
-                    return Err(ErrorCode::BadCodeHash);
-                }
-                // We require that the gas allotted for accumulation of each work item in each work-report respects 
-                // its service's minimum gas requirements
-                if result.gas < service.info.min_item_gas {
-                    return Err(ErrorCode::ServiceItemGasTooLow);
-                }
-                total_accumulation_gas += result.gas;
-            } else {
-                return Err(ErrorCode::BadServiceId);
-            }
-        }
-
-        // We also require that all work-reports total allotted accumulation gas is no greater than the WORK_REPORT_GAS_LIMIT
-        if total_accumulation_gas > WORK_REPORT_GAS_LIMIT {
-            return Err(ErrorCode::WorkReportGasTooHigh);
-        }
-
-        return Ok(true);
-    }
-
-    fn validate_authorization(&self) -> Result<bool, ErrorCode> {
-
-        let authorization = get_authpool_state();
-        // A report is valid only if the authorizer hash is present in the authorizer pool of the core on which the
-        // work is reported
-        if authorization.auth_pools[self.core_index as usize].auth_pool.contains(&self.authorizer_hash) {
-            return Ok(true);
-        }
-        
-        return Err(ErrorCode::CoreUnauthorized);
-    }
-
-    fn is_recent(&self) -> Result<bool, ErrorCode> {
+    fn is_recent(&self) -> Result<bool, ProcessError> {
         
         let block_history = get_history_state();
 
         for block in &block_history.beta {
             if block.header_hash == self.context.anchor {
                 if block.state_root != self.context.state_root {
-                    return Err(ErrorCode::BadStateRoot);
+                    return Err(ProcessError::ReportError(ReportErrorCode::BadStateRoot));
                 }
 
                 if mmr_super_peak(&block.mmr) != self.context.beefy_root {
-                    return Err(ErrorCode::BadBeefyMmrRoot);
+                    return Err(ProcessError::ReportError(ReportErrorCode::BadBeefyMmrRoot));
                 }
 
                 return Ok(true);
             }
         }
 
-        Err(ErrorCode::AnchorNotRecent)
+        Err(ProcessError::ReportError(ReportErrorCode::AnchorNotRecent))
     }
 
     fn try_place(
@@ -126,7 +95,7 @@ impl WorkReport {
         post_tau: &TimeSlot, 
         guarantee_slot: TimeSlot, 
         credentials: &[ValidatorSignature]) 
-    -> Result<OutputData, ErrorCode> {
+    -> Result<OutputData, ProcessError> {
 
         let mut reported: Vec<ReportedPackage> = Vec::new();
         let mut reporters: Vec<Ed25519Public> = Vec::new();
@@ -137,7 +106,7 @@ impl WorkReport {
 
             let chain_entropy = get_entropy_state();
             let mut current_validators = get_validators_state(ValidatorSet::Current);
-            let mut prev_validators = get_validators_state(ValidatorSet::Previous);
+            let prev_validators = get_validators_state(ValidatorSet::Previous);
 
             // Each core has three validators uniquely assigned to guarantee work-reports for it. This is ensured with 
             // VALIDATORS_COUNT and CORES_COUNT, since V/C = 3. The core index is assigned to each of the validators, 
@@ -170,26 +139,26 @@ impl WorkReport {
 
             for credential in credentials {
                 if credential.validator_index as usize >= VALIDATORS_COUNT {
-                    return Err(ErrorCode::BadValidatorIndex);
+                    return Err(ProcessError::ReportError(ReportErrorCode::BadValidatorIndex));
                 }
                 let validator = &validators_data.validators[credential.validator_index as usize];
                 if !credential.signature.verify_signature(&message, &validator.ed25519) {
-                    return Err(ErrorCode::BadSignature);
+                    return Err(ProcessError::ReportError(ReportErrorCode::BadSignature));
                 }
                 if ROTATION_PERIOD * ((*post_tau / ROTATION_PERIOD) - 1) > guarantee_slot {
-                    return Err(ErrorCode::ReportEpochBeforeLast);
+                    return Err(ProcessError::ReportError(ReportErrorCode::ReportEpochBeforeLast));
                 }
                 if guarantee_slot > *post_tau {
-                    return Err(ErrorCode::FutureReportSlot);
+                    return Err(ProcessError::ReportError(ReportErrorCode::FutureReportSlot));
                 }
                 // The signing validators must be assigned to the core in question in either this block if the timeslot for the
                 // guarantee is in the same rotation as this block's timeslot, or in the most recent previous set of assigmments.
                 if let Some(&core_index) = guarantors_hashmap.get(&validator.ed25519) {
                     if core_index != self.core_index {
-                        return Err(ErrorCode::WrongAssignment);
+                        return Err(ProcessError::ReportError(ReportErrorCode::WrongAssignment));
                     }
                 } else {
-                    return Err(ErrorCode::GuarantorNotFound);
+                    return Err(ProcessError::ReportError(ReportErrorCode::GuarantorNotFound));
                 }
                 // We note that the Ed25519 key of each validator whose signature is in a credential is placed in the reporters set.
                 // This is utilized by the validator activity statistics book-keeping system.
@@ -214,7 +183,7 @@ impl WorkReport {
             return Ok(OutputData{reported: reported, reporters: reporters});
         } 
         
-        return Err(ErrorCode::CoreEngaged);
+        return Err(ProcessError::ReportError(ReportErrorCode::CoreEngaged));
     }
 }
 

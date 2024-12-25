@@ -2,10 +2,11 @@ use crate::constants::{CORES_COUNT, MAX_DEPENDENCY_ITEMS};
 use crate::types::{
     TimeSlot, ValidatorIndex, Ed25519Signature, CoreIndex, WorkReport, Hash, GuaranteesExtrinsic, ReportGuarantee, ValidatorSignature
 };
+use crate::blockchain::state::ProcessError;
 use crate::blockchain::state::recent_history::get_history_state;
 use crate::blockchain::state::reporting_assurance::get_reporting_assurance_staging_state;
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
-use crate::utils::codec::work_report::{ErrorCode, OutputData};
+use crate::utils::codec::work_report::{ReportErrorCode, OutputData};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
 use crate::utils::common::is_sorted_and_unique;
 
@@ -17,29 +18,29 @@ impl GuaranteesExtrinsic {
     // A work-package, which comprises several work items, is transformed by validators acting as guarantors 
     // into its corresponding workreport, which similarly comprises several work outputs and then presented 
     // on-chain within the guarantees extrinsic.
-    pub fn process(&self, post_tau: &TimeSlot) -> Result<OutputData, ErrorCode> {
+    pub fn process(&self, post_tau: &TimeSlot) -> Result<OutputData, ProcessError> {
 
         // At most one guarantee for each core
         if self.report_guarantee.len() > CORES_COUNT {
-            return Err(ErrorCode::TooManyGuarantees);
+            return Err(ProcessError::ReportError(ReportErrorCode::TooManyGuarantees));
         }
 
         // There must be no duplicate work-package hashes (i.e. two work-reports of the same package).
         let mut packages_hashes = self.report_guarantee.iter().map(|i| i.report.package_spec.hash).collect::<Vec<_>>();
         packages_hashes.sort(); 
         if !is_sorted_and_unique(&packages_hashes) {
-            return Err(ErrorCode::DuplicatePackage);
+            return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
         }
         
         // Therefore, we require the cardinality of all work-packages to be the length of the work-report sequence
         if packages_hashes.len() != self.report_guarantee.len() {
-            return Err(ErrorCode::LengthNotEqual);
+            return Err(ProcessError::ReportError(ReportErrorCode::LengthNotEqual));
         }
 
         // We limit the sum of the number of items in the segment-root lookup dictionary and the number of prerequisites to MAX_DEPENDENCY_ITEMS
         for guarantee in &self.report_guarantee {
             if guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.segment_root_lookup.len() > MAX_DEPENDENCY_ITEMS {
-                return Err(ErrorCode::TooManyDependencies);
+                return Err(ProcessError::ReportError(ReportErrorCode::TooManyDependencies));
             }
         }
 
@@ -65,34 +66,34 @@ impl GuaranteesExtrinsic {
             // The core index of each guarantee must be unique and guarantees must be in ascending order of this
             core_index.push(guarantee.report.core_index);
             if !is_sorted_and_unique(&core_index) {
-                return Err(ErrorCode::OutOfOrderGuarantee);
+                return Err(ProcessError::ReportError(ReportErrorCode::OutOfOrderGuarantee));
             }
 
             if guarantee.report.core_index > CORES_COUNT as CoreIndex {
-                return Err(ErrorCode::BadCoreIndex);
+                return Err(ProcessError::ReportError(ReportErrorCode::BadCoreIndex));
             }
 
             // The credential is a sequence of two or three tuples of a unique validator index and a signature
             if guarantee.signatures.len() < 2 || guarantee.signatures.len() > 3 {
-                return Err(ErrorCode::InsufficientGuarantees);
+                return Err(ProcessError::ReportError(ReportErrorCode::InsufficientGuarantees));
             }
 
             // Credentials must be ordered by their validator index
             let validator_indexes: Vec<ValidatorIndex> = guarantee.signatures.iter().map(|i| i.validator_index).collect();
             if !is_sorted_and_unique(&validator_indexes) {
-                return Err(ErrorCode::NotSortedOrUniqueGuarantors);
+                return Err(ProcessError::ReportError(ReportErrorCode::NotSortedOrUniqueGuarantors));
             }
 
             // We require that the work-package of the report not be the work-package of some other report made in the past.
             if recent_history_map.contains_key(&guarantee.report.package_spec.hash) {
-                return Err(ErrorCode::DuplicatePackage);
+                return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
             }
             // We ensure that the work-package not appear anywhere within our pipeline.
             let assignments = get_reporting_assurance_staging_state();
             for i in 0..CORES_COUNT {
                 if let Some(assignment) = &assignments.assignments[i] {
                     if assignment.report.package_spec.hash == guarantee.report.package_spec.hash {
-                        return Err(ErrorCode::DuplicatePackage);
+                        return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
                     }
                 }
             }
@@ -100,7 +101,7 @@ impl GuaranteesExtrinsic {
             // We require that the prerequisite work-packages, if present, be either in the extrinsic or in our recent history 
             for prerequisite in &guarantee.report.context.prerequisites {
                 if !packages_map.contains_key(prerequisite) && !recent_history_map.contains_key(prerequisite) {
-                    return Err(ErrorCode::DependencyMissing);
+                    return Err(ProcessError::ReportError(ReportErrorCode::DependencyMissing));
                 }
             }
             // We require that any work-packages mentioned in the segment-root lookup, if present, be either in the extrinsic
@@ -112,7 +113,7 @@ impl GuaranteesExtrinsic {
                 // recent work-package history and the present block
                 match segment_root {
                     Some(&value) if value == segment.segment_tree_root => continue,
-                    _ => return Err(ErrorCode::SegmentRootLookupInvalid),
+                    _ => return Err(ProcessError::ReportError(ReportErrorCode::SegmentRootLookupInvalid)),
                 }
             }
 

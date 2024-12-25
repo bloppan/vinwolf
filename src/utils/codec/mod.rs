@@ -534,8 +534,8 @@ impl<'a> BytesReader<'a> {
     }
 }
 
-// Definición de `ReadError`
-#[derive(Debug)]
+
+#[derive(Debug, PartialEq)]
 pub enum ReadError {
     NotEnoughData,
     InvalidData,

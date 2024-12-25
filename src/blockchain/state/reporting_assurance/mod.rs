@@ -20,7 +20,9 @@ use crate::types::{
     Hash, AssurancesExtrinsic, AvailabilityAssignment, AvailabilityAssignments, GuaranteesExtrinsic, TimeSlot, CoreIndex
 };
 use crate::blockchain::block::extrinsic::assurances::{OutputDataAssurances, ErrorCode as AssurancesErrorCode};
-use crate::utils::codec::work_report::{OutputData, ErrorCode as WorkReportErrorCode};
+use crate::utils::codec::work_report::{OutputData, ReportErrorCode};
+
+use super::ProcessError;
 
 pub mod refine_context;
 pub mod work_report;
@@ -57,7 +59,7 @@ pub fn process_guarantees(
     assurances_state: &mut AvailabilityAssignments, 
     guarantees: &GuaranteesExtrinsic, 
     post_tau: &TimeSlot) 
--> Result<OutputData, WorkReportErrorCode> {
+-> Result<OutputData, ProcessError> {
 
     //let stg_assurances_state = assurances_state.clone();
     set_reporting_assurance_staging_state(&assurances_state.clone());

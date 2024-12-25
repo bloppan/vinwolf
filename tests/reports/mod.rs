@@ -4,6 +4,7 @@ use crate::codec::{TestBody, encode_decode_test};
 
 use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
 use vinwolf::types::DisputesRecords;
+use vinwolf::blockchain::state::ProcessError;
 use vinwolf::blockchain::state::{get_global_state, set_reporting_assurance_state, get_reporting_assurance_state};
 use vinwolf::blockchain::state::disputes::{set_disputes_state, get_disputes_state};
 use vinwolf::blockchain::state::validators::{set_validators_state, get_validators_state, ValidatorSet};
@@ -14,7 +15,7 @@ use vinwolf::blockchain::state::authorization::{set_authpool_state, get_authpool
 use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
 use vinwolf::blockchain::state::time::set_time_state;
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::utils::codec::work_report::{InputWorkReport, WorkReportState, OutputWorkReport, OutputData, ErrorCode};
+use vinwolf::utils::codec::work_report::{InputWorkReport, WorkReportState, OutputWorkReport, OutputData, ReportErrorCode};
 
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
     if VALIDATORS_COUNT == 6 && CORES_COUNT == 2 && ROTATION_PERIOD == 4 && EPOCH_LENGTH == 12 {
@@ -29,8 +30,18 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
 #[cfg(test)]
 mod tests {
     
+    trait FromProcessError {
+        fn from_process_error(error: ProcessError) -> Self;
+    }
 
-    use std::os::unix::process;
+    impl FromProcessError for OutputWorkReport {
+        fn from_process_error(error: ProcessError) -> Self {
+            match error {
+                ProcessError::ReportError(code) => OutputWorkReport::Err(code),
+                _ => panic!("Unexpected error type in conversion"),
+            }
+        }
+    }
 
     use super::*;
 
@@ -44,6 +55,8 @@ mod tests {
                                         TestBody::WorkReportState];
         
         let _ = encode_decode_test(&test_content, &test_body);
+
+        //return;
 
         let mut reader = BytesReader::new(&test_content);
         let input = InputWorkReport::decode(&mut reader).expect("Error decoding post InputWorkReport");
@@ -103,8 +116,8 @@ mod tests {
             Ok(OutputData { reported, reporters }) => {
                 assert_eq!(expected_output, OutputWorkReport::Ok(OutputData {reported, reporters}));
             }
-            Err(error_code) => {
-                assert_eq!(expected_output, OutputWorkReport::Err(error_code));
+            Err(error) => {
+                assert_eq!(expected_output, OutputWorkReport::from_process_error(error));
             }
         }
     }
@@ -192,6 +205,10 @@ mod tests {
             "segment_root_lookup_invalid-2.bin",
             // Unexpected guarantor for work report core.
             "wrong_assignment-1.bin",
+            // Work report output is very big, still less than the limit.
+            "big_work_report_output-1.bin",
+            // Work report output is size is over the limit.
+            "too_big_work_report_output-1.bin",
         ];
         for file in test_files {
             println!("Running test: {}", file);

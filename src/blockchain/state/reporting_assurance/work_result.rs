@@ -1,6 +1,62 @@
+use crate::constants::WORK_REPORT_GAS_LIMIT;
 use crate::types::{ServiceId, OpaqueHash, Gas, WorkResult, WorkExecResult};
+use crate::blockchain::state::ProcessError;
+use crate::blockchain::state::services::get_services_state;
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
+use crate::utils::codec::work_report::ReportErrorCode;
+
+impl WorkResult {
+
+    pub fn process(results: &[WorkResult]) -> Result<usize, ProcessError> {
+
+        if results.len() < 1 {
+            return Err(ProcessError::ReportError(ReportErrorCode::NoResults));
+        }
+
+        if results.len() > 4 {
+            return Err(ProcessError::ReportError(ReportErrorCode::TooManyResults));
+        }
+
+        let list = get_services_state();
+        let mut total_accumulation_gas: Gas = 0;
+        
+        let service_map: std::collections::HashMap<_, _> = list.services.iter().map(|s| (s.id, s)).collect();
+        let mut results_size = 0;
+
+        for result in results.iter() {
+            if let Some(service) = service_map.get(&result.service) {
+                // We require that all work results within the extrinsic predicted the correct code hash for their 
+                // corresponding service
+                if result.code_hash != service.info.code_hash {
+                    return Err(ProcessError::ReportError(ReportErrorCode::BadCodeHash));
+                }
+                // We require that the gas allotted for accumulation of each work item in each work-report respects 
+                // its service's minimum gas requirements
+                if result.gas < service.info.min_item_gas {
+                    return Err(ProcessError::ReportError(ReportErrorCode::ServiceItemGasTooLow));
+                }
+                total_accumulation_gas += result.gas;
+               
+                let mut result = BytesReader::new(&result.result);
+                let exec_result = result.read_byte().map_err(ProcessError::ReadError)?;
+                if exec_result == 0 {
+                    results_size += decode_unsigned(&mut result).map_err(ProcessError::ReadError)?;
+                }
+            } else {
+                return Err(ProcessError::ReportError(ReportErrorCode::BadServiceId));
+            }
+        }
+
+        // We also require that all work-reports total allotted accumulation gas is no greater than the WORK_REPORT_GAS_LIMIT
+        if total_accumulation_gas > WORK_REPORT_GAS_LIMIT {
+            return Err(ProcessError::ReportError(ReportErrorCode::WorkReportGasTooHigh));
+        }
+
+        return Ok(results_size);
+    }
+}
+
 
 impl Encode for WorkResult {
 

@@ -5,7 +5,8 @@ use std::collections::VecDeque;
 use crate::constants::{CORES_COUNT, RECENT_HISTORY_SIZE};
 use crate::types::{EntropyBuffer, Hash, AvailabilityAssignments, AuthPool, BlockHistory, Block};
 use crate::blockchain::state::reporting_assurance::process_guarantees;
-use crate::utils::codec::work_report::{ErrorCode as ReportErrorCode};
+use crate::utils::codec::ReadError;
+use crate::utils::codec::work_report::ReportErrorCode;
 
 pub mod accumulation;
 pub mod authorization;
@@ -65,23 +66,27 @@ pub fn get_reporting_assurance_state() -> AvailabilityAssignments {
     state.availability.clone()
 }
 
-enum GlobalError {
+#[derive(Debug, PartialEq)]
+pub enum ProcessError {
+    ReadError(ReadError),
     ReportError(ReportErrorCode),
 }
 
-pub fn state_transition_function(block: &Block) -> Result<(), GlobalError> {
+
+pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
     let current_state = get_global_state(); 
     let mut new_state = current_state.clone();
     
     // Process report and assurance
-    if let Err(Error) = process_guarantees(
+    let _ = process_guarantees(
         &mut new_state.availability,
         &block.extrinsic.guarantees,
         &block.header.slot,
-    ) {
-        return Err(GlobalError::ReportError(Error));
-    }
+    )?; 
+    /*{
+        return Err(ProcessError::ReportError(ReportErrorCode(error)));
+    }*/
     
     set_global_state(&new_state);
     Ok(())
