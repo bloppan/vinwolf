@@ -1,9 +1,9 @@
 use crate::types::{
     ServiceId, Gas, CoreIndex, OpaqueHash, TimeSlot, Ed25519Public, WorkPackageHash, ValidatorsData, ServiceInfo, 
-    AvailabilityAssignments, RefineContext, AuthPool, AuthPools, WorkResult, SegmentRootLookupItem, SegmentRootLookup, 
+    AvailabilityAssignments, RefineContext, AuthPools, WorkResult, SegmentRootLookupItem, SegmentRootLookup, 
     WorkReport, WorkPackageSpec, BlockHistory, GuaranteesExtrinsic
 };
-use crate::constants::CORES_COUNT;
+
 use crate::utils::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
 

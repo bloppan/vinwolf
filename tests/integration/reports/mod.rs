@@ -16,7 +16,7 @@ use vinwolf::blockchain::state::recent_history::{set_history_state, get_history_
 use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
 use vinwolf::blockchain::state::time::set_time_state;
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::utils::codec::work_report::{InputWorkReport, WorkReportState, OutputWorkReport, OutputData, ReportErrorCode};
+use vinwolf::utils::codec::work_report::{InputWorkReport, WorkReportState, OutputWorkReport, OutputData};
 
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
     if VALIDATORS_COUNT == 6 && CORES_COUNT == 2 && ROTATION_PERIOD == 4 && EPOCH_LENGTH == 12 {

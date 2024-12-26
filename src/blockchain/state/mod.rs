@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 use std::mem::size_of;
 use std::array::from_fn;
 
-use crate::constants::{CORES_COUNT, MAX_ITEMS_AUTHORIZATION_POOL, RECENT_HISTORY_SIZE};
+use crate::constants::{MAX_ITEMS_AUTHORIZATION_POOL, RECENT_HISTORY_SIZE};
 use crate::types::{
     AuthorizerHash, AuthPool, AuthPools, AuthQueue, AuthQueues, AvailabilityAssignments, Block, BlockHistory, EntropyBuffer, Hash
 };
@@ -22,7 +22,7 @@ pub mod reporting_assurance;
 pub mod safrole;
 pub mod services;
 pub mod time;
-pub mod validator_statistics;
+pub mod statistics;
 pub mod validators;
 
 

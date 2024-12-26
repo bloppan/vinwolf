@@ -19,8 +19,8 @@ use std::sync::Mutex;
 use crate::types::{
     Hash, AssurancesExtrinsic, AvailabilityAssignment, AvailabilityAssignments, GuaranteesExtrinsic, TimeSlot, CoreIndex
 };
-use crate::blockchain::block::extrinsic::assurances::{OutputDataAssurances, AssurancesErrorCode};
-use crate::utils::codec::work_report::{OutputData, ReportErrorCode};
+use crate::blockchain::block::extrinsic::assurances::OutputDataAssurances;
+use crate::utils::codec::work_report::OutputData;
 
 use super::ProcessError;
 

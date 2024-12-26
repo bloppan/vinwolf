@@ -1,5 +1,5 @@
-use vinwolf::types::{TimeSlot, AuthPools, AuthQueues, CoreIndex, OpaqueHash, CodeAuthorizer, CodeAuthorizers};
-use vinwolf::utils::codec::{encode_unsigned, decode_unsigned, BytesReader, Decode, Encode, ReadError};
+use vinwolf::types::{TimeSlot, AuthPools, AuthQueues, CodeAuthorizers};
+use vinwolf::utils::codec::{BytesReader, Decode, Encode, ReadError};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputAuthorizations {

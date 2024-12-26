@@ -6,11 +6,8 @@ pub mod schema;
 use schema::{InputAuthorizations, StateAuthorizations};
 
 use vinwolf::constants::CORES_COUNT;
-use vinwolf::blockchain::block::extrinsic::assurances::{OutputDataAssurances, OutputAssurances};
 use vinwolf::blockchain::state::{get_global_state, set_authpools, set_authqueues, time::set_time_state};
 use vinwolf::blockchain::state::authorization::process_authorizations;
-use vinwolf::blockchain::state::validators::{set_validators_state, get_validators_state, ValidatorSet};
-use vinwolf::blockchain::state::reporting_assurance::process_assurances;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {

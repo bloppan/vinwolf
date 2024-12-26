@@ -1,6 +1,6 @@
 // JAM Protocol Types
 use std::collections::VecDeque;
-use crate::constants::{VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, MAX_ITEMS_AUTHORIZATION_POOL};
+use crate::constants::{VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
 // ----------------------------------------------------------------------------------------------------------
@@ -299,10 +299,24 @@ pub struct BlockHistory {
 // ----------------------------------------------------------------------------------------------------------
 // Statistics
 // ----------------------------------------------------------------------------------------------------------
-
-
-
-
+#[derive(Clone, Debug, PartialEq)]
+pub struct ActivityRecord {
+    pub blocks: u32,
+    pub tickets: u32,
+    pub preimages: u32,
+    pub preimages_size: u32,
+    pub guarantees: u32,
+    pub assurances: u32,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct ActivityRecords {
+    pub records: Box<[ActivityRecord; VALIDATORS_COUNT]>,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct Statistics {
+    pub current: ActivityRecords,
+    pub last: ActivityRecords,
+}
 // ----------------------------------------------------------------------------------------------------------
 // Tickets
 // ----------------------------------------------------------------------------------------------------------
@@ -380,13 +394,13 @@ pub struct DisputesExtrinsic {
 // ----------------------------------------------------------------------------------------------------------
 // Preimages
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Preimage {
     pub requester: ServiceId,
     pub blob: Vec<u8>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct PreimagesExtrinsic {
     pub preimages: Vec<Preimage>,
 }
@@ -428,7 +442,7 @@ pub struct GuaranteesExtrinsic {
 // ----------------------------------------------------------------------------------------------------------
 // Header
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct EpochMark {
     pub entropy: OpaqueHash,
     pub tickets_entropy: OpaqueHash,
@@ -442,7 +456,7 @@ pub struct TicketsMark {
 
 pub type OffendersMark = Vec<Ed25519Public>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Header {
     pub parent: OpaqueHash,
     pub parent_state_root: OpaqueHash,
@@ -458,7 +472,7 @@ pub struct Header {
 // ----------------------------------------------------------------------------------------------------------
 // Block
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Extrinsic {
     pub tickets: TicketsExtrinsic,
     pub disputes: DisputesExtrinsic,
@@ -467,7 +481,7 @@ pub struct Extrinsic {
     pub guarantees: GuaranteesExtrinsic,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Block {
     pub header: Header,
     pub extrinsic: Extrinsic,
