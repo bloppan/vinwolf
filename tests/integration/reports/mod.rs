@@ -5,13 +5,14 @@ use crate::integration::codec::{TestBody, encode_decode_test};
 use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
 use vinwolf::types::DisputesRecords;
 use vinwolf::blockchain::state::ProcessError;
-use vinwolf::blockchain::state::{get_global_state, set_reporting_assurance_state, get_reporting_assurance_state};
+use vinwolf::blockchain::state::{
+    get_global_state, set_reporting_assurance, get_reporting_assurance, set_authpools, get_authpools, 
+};
 use vinwolf::blockchain::state::disputes::{set_disputes_state, get_disputes_state};
 use vinwolf::blockchain::state::validators::{set_validators_state, get_validators_state, ValidatorSet};
 use vinwolf::blockchain::state::entropy::{set_entropy_state, get_entropy_state};
 use vinwolf::blockchain::state::reporting_assurance::process_guarantees;
 use vinwolf::blockchain::state::recent_history::{set_history_state, get_history_state}; // TODO update this
-use vinwolf::blockchain::state::authorization::{set_authpool_state, get_authpool_state};
 use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
 use vinwolf::blockchain::state::time::set_time_state;
 use vinwolf::utils::codec::{Decode, BytesReader};
@@ -68,12 +69,12 @@ mod tests {
         };
         set_disputes_state(&disputes_state);
         set_time_state(&input.slot);
-        set_reporting_assurance_state(&pre_state.avail_assignments);
+        set_reporting_assurance(&pre_state.avail_assignments);
         set_validators_state(&pre_state.curr_validators, ValidatorSet::Current);
         set_validators_state(&pre_state.prev_validators, ValidatorSet::Previous);
         set_entropy_state(&pre_state.entropy);
         set_history_state(&pre_state.recent_blocks);
-        set_authpool_state(&pre_state.auth_pools);
+        set_authpools(&pre_state.auth_pools);
         set_services_state(&pre_state.services);
 
         let current_state = get_global_state();
@@ -85,18 +86,18 @@ mod tests {
                                                                             &input.slot);
         
         match output_result {
-            Ok(_) => { set_reporting_assurance_state(&assurances_state);},
+            Ok(_) => { set_reporting_assurance(&assurances_state);},
             Err(_) => { },
         }
 
         //println!("output_result = {:0x?}", output_result);
-        let result_avail_assignments = get_reporting_assurance_state();
+        let result_avail_assignments = get_reporting_assurance();
         let result_curr_validators = get_validators_state(ValidatorSet::Current);
         let result_prev_validators = get_validators_state(ValidatorSet::Previous);
         let result_entropy = get_entropy_state();
         let result_disputes = get_disputes_state();
         let result_history = get_history_state();
-        let result_authpool = get_authpool_state();
+        let result_authpool = get_authpools();
         let result_services = get_services_state();
 
         assert_eq!(expected_state.avail_assignments, result_avail_assignments);

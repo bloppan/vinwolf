@@ -114,7 +114,7 @@ pub type AuthorizerHash = OpaqueHash;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AuthPool {
-    pub auth_pool: Vec<OpaqueHash>,
+    pub auth_pool: VecDeque<OpaqueHash>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -130,6 +130,17 @@ pub struct AuthQueue {
 #[derive(Debug, Clone, PartialEq)]
 pub struct AuthQueues {
     pub auth_queues: Box<[AuthQueue; CORES_COUNT]>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CodeAuthorizers {
+    pub authorizers: Vec<CodeAuthorizer>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CodeAuthorizer {
+    pub core: CoreIndex,
+    pub auth_hash: OpaqueHash,
 }
 
 // ----------------------------------------------------------------------------------------------------------

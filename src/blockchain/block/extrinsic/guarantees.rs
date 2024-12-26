@@ -4,7 +4,7 @@ use crate::types::{
 };
 use crate::blockchain::state::ProcessError;
 use crate::blockchain::state::recent_history::get_history_state;
-use crate::blockchain::state::reporting_assurance::get_reporting_assurance_staging_state;
+use crate::blockchain::state::reporting_assurance::get_staging_reporting_assurance;
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 use crate::utils::codec::work_report::{ReportErrorCode, OutputData};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
@@ -89,7 +89,7 @@ impl GuaranteesExtrinsic {
                 return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
             }
             // We ensure that the work-package not appear anywhere within our pipeline.
-            let assignments = get_reporting_assurance_staging_state();
+            let assignments = get_staging_reporting_assurance();
             for i in 0..CORES_COUNT {
                 if let Some(assignment) = &assignments.assignments[i] {
                     if assignment.report.package_spec.hash == guarantee.report.package_spec.hash {

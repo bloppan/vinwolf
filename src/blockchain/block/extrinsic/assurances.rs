@@ -6,7 +6,7 @@ use crate::types::{
 };
 use crate::constants::{AVAIL_BITFIELD_BYTES, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY};
 use crate::blockchain::state::validators::{get_validators_state, ValidatorSet};
-use crate::blockchain::state::{get_reporting_assurance_state, ProcessError};
+use crate::blockchain::state::{get_reporting_assurance, ProcessError};
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
 use crate::utils::common::{is_sorted_and_unique, VerifySignature};
@@ -49,7 +49,7 @@ impl AssurancesExtrinsic {
         }
 
         let current_validators = get_validators_state(ValidatorSet::Current);
-        let list = get_reporting_assurance_state();
+        let list = get_reporting_assurance();
         let mut core_marks = [0_usize; CORES_COUNT as usize];
         for assurance in &self.assurances {
             // The assurances must all be anchored on the parent

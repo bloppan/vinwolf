@@ -7,7 +7,8 @@ use schema::{InputAuthorizations, StateAuthorizations};
 
 use vinwolf::constants::CORES_COUNT;
 use vinwolf::blockchain::block::extrinsic::assurances::{OutputDataAssurances, OutputAssurances};
-use vinwolf::blockchain::state::{get_global_state, set_reporting_assurance_state, get_reporting_assurance_state};
+use vinwolf::blockchain::state::{get_global_state, set_authpools, set_authqueues, time::set_time_state};
+use vinwolf::blockchain::state::authorization::process_authorizations;
 use vinwolf::blockchain::state::validators::{set_validators_state, get_validators_state, ValidatorSet};
 use vinwolf::blockchain::state::reporting_assurance::process_assurances;
 use vinwolf::utils::codec::{Decode, BytesReader};
@@ -38,45 +39,21 @@ mod tests {
         
         let _ = encode_decode_test(&test_content, &test_body);
 
-        /*let mut reader = BytesReader::new(&test_content);
-        let input = InputAssurances::decode(&mut reader).expect("Error decoding post InputWorkReport");
-        let pre_state = StateAssurances::decode(&mut reader).expect("Error decoding post WorkReport PreState");
-        let expected_output = OutputAssurances::decode(&mut reader).expect("Error decoding post OutputWorkReport");
-        let expected_state = StateAssurances::decode(&mut reader).expect("Error decoding post WorkReport PostState");
+        let mut reader = BytesReader::new(&test_content);
+        let input = InputAuthorizations::decode(&mut reader).expect("Error decoding post InputAuthorizations");
+        let pre_state = StateAuthorizations::decode(&mut reader).expect("Error decoding post Authorizations PreState");
+        let expected_state = StateAuthorizations::decode(&mut reader).expect("Error decoding post Authorizations PostState");
+
+        set_authpools(&pre_state.auth_pools);
+        set_authqueues(&pre_state.auth_queues);
+        set_time_state(&input.slot);
+        let code_authorizers = input.auths.clone();
+
+        let mut auth_pool_state = get_global_state().auth_pools.clone();
+
+        process_authorizations(&mut auth_pool_state, &input.slot, &code_authorizers);
         
-        set_reporting_assurance_state(&pre_state.avail_assignments);
-        set_validators_state(&pre_state.curr_validators, ValidatorSet::Current);
-  
-
-        let current_state = get_global_state();
-        let mut assurances_state = current_state.availability.clone();
-
-        let output_result = process_assurances(
-                                                                            &mut assurances_state, 
-                                                                            &input.assurances, 
-                                                                            &input.slot,
-                                                                            &input.parent);
-        
-        match output_result {
-            Ok(_) => { set_reporting_assurance_state(&assurances_state);},
-            Err(_) => { },
-        }
-
-        //println!("output_result = {:0x?}", output_result);
-        let result_avail_assignments = get_reporting_assurance_state();
-        let result_curr_validators = get_validators_state(ValidatorSet::Current);
-
-        assert_eq!(expected_state.avail_assignments, result_avail_assignments);
-        assert_eq!(expected_state.curr_validators, result_curr_validators);
-        
-        match output_result {
-            Ok(OutputDataAssurances { reported}) => {
-                assert_eq!(expected_output, OutputAssurances::Ok(OutputDataAssurances {reported}));
-            }
-            Err(error_code) => {
-                assert_eq!(expected_output, OutputAssurances::Err(error_code));
-            }
-        }*/
+        assert_eq!(expected_state.auth_pools, auth_pool_state);
     }
 
     #[test]

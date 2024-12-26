@@ -10,9 +10,9 @@ use crate::blockchain::state::ProcessError;
 use crate::blockchain::state::entropy::get_entropy_state;
 use crate::blockchain::state::disputes::get_disputes_state;
 use crate::blockchain::state::validators::{get_validators_state, ValidatorSet};
-use crate::blockchain::state::authorization::get_authpool_state;
+use crate::blockchain::state::get_authpools;
 use crate::blockchain::state::recent_history::get_history_state;
-use crate::blockchain::state::reporting_assurance::{get_reporting_assurance_staging_state, add_assignment};
+use crate::blockchain::state::reporting_assurance::{get_staging_reporting_assurance, add_assignment};
 use crate::utils::trie::mmr_super_peak;
 use crate::utils::shuffle::shuffle;
 use crate::utils::codec::Encode;
@@ -28,10 +28,10 @@ impl WorkReport {
         validators_signatures: &[ValidatorSignature]) 
     -> Result<OutputData, ProcessError> {
 
-        let authorization = get_authpool_state();
+        let authorizations = get_authpools();
         // A report is valid only if the authorizer hash is present in the authorizer pool of the core on which the
         // work is reported
-        if !authorization.auth_pools[self.core_index as usize].auth_pool.contains(&self.authorizer_hash) {
+        if !authorizations.auth_pools[self.core_index as usize].auth_pool.contains(&self.authorizer_hash) {
             return Err(ProcessError::ReportError(ReportErrorCode::CoreUnauthorized));
         }
 
@@ -100,7 +100,7 @@ impl WorkReport {
         let mut reported: Vec<ReportedPackage> = Vec::new();
         let mut reporters: Vec<Ed25519Public> = Vec::new();
 
-        let availability = get_reporting_assurance_staging_state();
+        let availability = get_staging_reporting_assurance();
         // No reports may be placed on cores with a report pending availability on it 
         if availability.assignments[self.core_index as usize].is_none() {
 

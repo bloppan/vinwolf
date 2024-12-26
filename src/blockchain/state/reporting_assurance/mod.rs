@@ -36,12 +36,12 @@ pub mod work_result;
 // with the time at which each was reported. As mentioned earlier, only one report may be assigned to a core at any given time.
 static REPORT_AVAILABILITY_STATE: Lazy<Mutex<AvailabilityAssignments>> = Lazy::new(|| Mutex::new(AvailabilityAssignments{assignments: Box::new(std::array::from_fn(|_| None))}));
 
-pub fn set_reporting_assurance_staging_state(new_state: &AvailabilityAssignments) {
+pub fn set_staging_reporting_assurance(new_state: &AvailabilityAssignments) {
     let mut state = REPORT_AVAILABILITY_STATE.lock().unwrap();
     *state = new_state.clone();
 }
 
-pub fn get_reporting_assurance_staging_state() -> AvailabilityAssignments {
+pub fn get_staging_reporting_assurance() -> AvailabilityAssignments {
     let state = REPORT_AVAILABILITY_STATE.lock().unwrap(); 
     return state.clone();
 }
@@ -56,25 +56,6 @@ pub fn remove_assignment(core_index: &CoreIndex) {
     state.assignments[*core_index as usize] = None;
 }
 
-pub fn process_guarantees(
-    assurances_state: &mut AvailabilityAssignments, 
-    guarantees: &GuaranteesExtrinsic, 
-    post_tau: &TimeSlot) 
--> Result<OutputData, ProcessError> {
-
-    //let stg_assurances_state = assurances_state.clone();
-    set_reporting_assurance_staging_state(&assurances_state.clone());
-    //println!("assurances pre: {:0x?}", assurances_state);
-    let output_data = guarantees.process(post_tau)?;
-    //println!("output_data = {:0x?}", output_data);
-    *assurances_state = get_reporting_assurance_staging_state();
-    //println!("asssurances post: {:0x?}", assurances_state);
-    Ok(OutputData {
-        reported: output_data.reported,
-        reporters: output_data.reporters,
-    })
-}
-
 pub fn process_assurances(
     assurances_state: &mut AvailabilityAssignments, 
     assurances: &AssurancesExtrinsic, 
@@ -82,14 +63,32 @@ pub fn process_assurances(
     parent: &Hash) 
 -> Result<OutputDataAssurances, ProcessError> {
 
-    //let stg_assurances_state = assurances_state.clone();
-    set_reporting_assurance_staging_state(&assurances_state.clone());
-    //println!("assurances pre: {:0x?}", assurances_state);
+    set_staging_reporting_assurance(&assurances_state.clone());
+
     let output_data = assurances.process(post_tau, parent)?;
-    //println!("output_data = {:0x?}", output_data);
-    *assurances_state = get_reporting_assurance_staging_state();
-    //println!("asssurances post: {:0x?}", assurances_state);
+
+    *assurances_state = get_staging_reporting_assurance();
+
     Ok(OutputDataAssurances {
         reported: output_data.reported,
     })
 }
+
+pub fn process_guarantees(
+    assurances_state: &mut AvailabilityAssignments, 
+    guarantees: &GuaranteesExtrinsic, 
+    post_tau: &TimeSlot) 
+-> Result<OutputData, ProcessError> {
+
+    set_staging_reporting_assurance(&assurances_state.clone());
+
+    let output_data = guarantees.process(post_tau)?;
+
+    *assurances_state = get_staging_reporting_assurance();
+
+    Ok(OutputData {
+        reported: output_data.reported,
+        reporters: output_data.reporters,
+    })
+}
+

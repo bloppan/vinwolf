@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 use std::mem::size_of;
 use std::array::from_fn;
 
-use crate::constants::{CORES_COUNT, RECENT_HISTORY_SIZE};
+use crate::constants::{CORES_COUNT, MAX_ITEMS_AUTHORIZATION_POOL, RECENT_HISTORY_SIZE};
 use crate::types::{
     AuthorizerHash, AuthPool, AuthPools, AuthQueue, AuthQueues, AvailabilityAssignments, Block, BlockHistory, EntropyBuffer, Hash
 };
@@ -47,7 +47,7 @@ static GLOBAL_STATE: Lazy<Mutex<GlobalState>> = Lazy::new(|| {
         recent_history: BlockHistory {
             beta: VecDeque::with_capacity(RECENT_HISTORY_SIZE) 
         },
-        auth_pools: AuthPools { auth_pools: Box::new(from_fn(|_| AuthPool { auth_pool: Vec::new() })) },
+        auth_pools: AuthPools { auth_pools: Box::new(from_fn(|_| AuthPool { auth_pool: VecDeque::with_capacity(MAX_ITEMS_AUTHORIZATION_POOL) })) },
         auth_queues: AuthQueues{ auth_queues: Box::new(from_fn(|_| AuthQueue { auth_queue: Box::new(from_fn(|_| [0; size_of::<AuthorizerHash>()])) }))},
     })
 });
@@ -62,12 +62,31 @@ pub fn set_global_state(new_state: &GlobalState) {
     *state = new_state.clone();
 }
 
-pub fn set_reporting_assurance_state(new_availability: &AvailabilityAssignments) {
+// Authorization Pools
+pub fn set_authpools(new_authpool: &AuthPools) {
+    let mut state = GLOBAL_STATE.lock().unwrap();
+    state.auth_pools = new_authpool.clone();
+}
+pub fn get_authpools() -> AuthPools {
+    let state = GLOBAL_STATE.lock().unwrap();
+    state.auth_pools.clone()
+}
+// Authorizations Queues
+pub fn set_authqueues(new_authqueue: &AuthQueues) {
+    let mut state = GLOBAL_STATE.lock().unwrap();
+    state.auth_queues = new_authqueue.clone();
+}
+pub fn get_authqueues() -> AuthQueues {
+    let state = GLOBAL_STATE.lock().unwrap();
+    state.auth_queues.clone()
+}
+// Reporting and assurance
+pub fn set_reporting_assurance(new_availability: &AvailabilityAssignments) {
     let mut state = GLOBAL_STATE.lock().unwrap();
     state.availability = new_availability.clone();
 }
 
-pub fn get_reporting_assurance_state() -> AvailabilityAssignments {
+pub fn get_reporting_assurance() -> AvailabilityAssignments {
     let state = GLOBAL_STATE.lock().unwrap();
     state.availability.clone()
 }
