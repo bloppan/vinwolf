@@ -24,6 +24,7 @@ use crate::utils::codec::work_report::{OutputData, ReportErrorCode};
 
 use super::ProcessError;
 
+pub mod availability;
 pub mod refine_context;
 pub mod work_report;
 pub mod work_item;
