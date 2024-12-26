@@ -1,6 +1,6 @@
 use frame_support::Deserialize;
 
-use super::codec;
+use crate::utils::codec;
 
 
 /*const NO_ARG: usize = 0;                     // Without arguments
