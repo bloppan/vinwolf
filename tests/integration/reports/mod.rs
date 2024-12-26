@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use crate::integration::read_test_file;
+use crate::integration::{read_test_file, FromProcessError};
 use crate::integration::codec::{TestBody, encode_decode_test};
 
 use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
@@ -30,10 +30,6 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
 #[cfg(test)]
 mod tests {
     
-    trait FromProcessError {
-        fn from_process_error(error: ProcessError) -> Self;
-    }
-
     impl FromProcessError for OutputWorkReport {
         fn from_process_error(error: ProcessError) -> Self {
             match error {

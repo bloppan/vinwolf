@@ -6,7 +6,7 @@ use crate::types::{
 };
 use crate::constants::{AVAIL_BITFIELD_BYTES, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY};
 use crate::blockchain::state::validators::{get_validators_state, ValidatorSet};
-use crate::blockchain::state::get_reporting_assurance_state;
+use crate::blockchain::state::{get_reporting_assurance_state, ProcessError};
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
 use crate::utils::common::{is_sorted_and_unique, VerifySignature};
@@ -19,7 +19,7 @@ use crate::utils::common::{is_sorted_and_unique, VerifySignature};
 
 impl AssurancesExtrinsic {
     
-    pub fn process(&self, post_tau: &TimeSlot, parent: &Hash) -> Result<OutputDataAssurances, ErrorCode> {
+    pub fn process(&self, post_tau: &TimeSlot, parent: &Hash) -> Result<OutputDataAssurances, ProcessError> {
 
         // TODO no se si poner esto
         /*if self.assurances.is_empty() {
@@ -28,7 +28,7 @@ impl AssurancesExtrinsic {
 
         // The assurances extrinsic is a sequence of assurance values, at most one per validator
         if self.assurances.len() > VALIDATORS_COUNT {
-            return Err(ErrorCode::TooManyAssurances);
+            return Err(ProcessError::AssurancesError(AssurancesErrorCode::TooManyAssurances));
         }
 
         // The assurances must all ordered by validator index
@@ -39,13 +39,13 @@ impl AssurancesExtrinsic {
         // The index can not be greater or equal than the total number of validators
         for index in &validator_indexes {
             if *index as usize >= VALIDATORS_COUNT {
-                return Err(ErrorCode::BadValidatorIndex);
+                return Err(ProcessError::AssurancesError(AssurancesErrorCode::BadValidatorIndex));
             }
         }                       
 
         // The assurances must all be ordered by validator index
         if !is_sorted_and_unique(&validator_indexes) {
-            return Err(ErrorCode::NotSortedOrUniqueAssurers);
+            return Err(ProcessError::AssurancesError(AssurancesErrorCode::NotSortedOrUniqueAssurers));
         }
 
         let current_validators = get_validators_state(ValidatorSet::Current);
@@ -54,7 +54,7 @@ impl AssurancesExtrinsic {
         for assurance in &self.assurances {
             // The assurances must all be anchored on the parent
             if assurance.anchor != *parent {
-                return Err(ErrorCode::BadAttestationParent);
+                return Err(ProcessError::AssurancesError(AssurancesErrorCode::BadAttestationParent));
             }
             // The signature must be one whose public key is that of the validator assuring and whose message is the
             // serialization of the parent hash and the aforementioned bitstring.
@@ -65,10 +65,10 @@ impl AssurancesExtrinsic {
             message.extend_from_slice(&blake2_256(&serialization));
             let validator = &current_validators.validators[assurance.validator_index as usize]; 
             if !assurance.signature.verify_signature(&message, &validator.ed25519) {
-                return Err(ErrorCode::BadSignature);
+                return Err(ProcessError::AssurancesError(AssurancesErrorCode::BadSignature));
             }
             if assurance.bitfield.len() != AVAIL_BITFIELD_BYTES {
-                return Err(ErrorCode::WrongBitfieldLength);
+                return Err(ProcessError::AssurancesError(AssurancesErrorCode::WrongBitfieldLength));
             }
             
             for core in 0..CORES_COUNT {
@@ -76,7 +76,7 @@ impl AssurancesExtrinsic {
                 if bitfield {
                     // A bit may only be set if the corresponding core has a report pending availability on it
                     if list.assignments[core as usize].is_none() {
-                        return Err(ErrorCode::CoreNotEngaged);
+                        return Err(ProcessError::AssurancesError(AssurancesErrorCode::CoreNotEngaged));
                     }
                     core_marks[core as usize] += 1;
                 }
@@ -193,7 +193,7 @@ impl Decode for OutputDataAssurances {
     }
 }
 #[derive(Debug, Clone, PartialEq, Copy)]
-pub enum ErrorCode {
+pub enum AssurancesErrorCode {
     BadAttestationParent = 0,
     BadValidatorIndex = 1,
     CoreNotEngaged = 2,
@@ -206,7 +206,7 @@ pub enum ErrorCode {
 #[derive(Debug, Clone, PartialEq)]
 pub enum OutputAssurances {
     Ok(OutputDataAssurances),
-    Err(ErrorCode)
+    Err(AssurancesErrorCode)
 }
 
 impl Encode for OutputAssurances {
@@ -238,13 +238,13 @@ impl Decode for OutputAssurances {
             1 => {
                 let code = reader.read_byte()?;
                 let error_code = match code {
-                    0 => ErrorCode::BadAttestationParent,
-                    1 => ErrorCode::BadValidatorIndex,
-                    2 => ErrorCode::CoreNotEngaged,
-                    3 => ErrorCode::BadSignature,
-                    4 => ErrorCode::NotSortedOrUniqueAssurers,
-                    5 => ErrorCode::TooManyAssurances,
-                    6 => ErrorCode::WrongBitfieldLength,
+                    0 => AssurancesErrorCode::BadAttestationParent,
+                    1 => AssurancesErrorCode::BadValidatorIndex,
+                    2 => AssurancesErrorCode::CoreNotEngaged,
+                    3 => AssurancesErrorCode::BadSignature,
+                    4 => AssurancesErrorCode::NotSortedOrUniqueAssurers,
+                    5 => AssurancesErrorCode::TooManyAssurances,
+                    6 => AssurancesErrorCode::WrongBitfieldLength,
                     _ => return Err(ReadError::InvalidData),
                 };
                 Ok(OutputAssurances::Err(error_code))

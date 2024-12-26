@@ -4,6 +4,8 @@ use std::path::PathBuf;
 
 extern crate vinwolf;
 
+use vinwolf::blockchain::state::ProcessError;
+
 mod safrole;
 mod pvm;
 mod codec;
@@ -25,4 +27,8 @@ pub fn read_test_file(filename: &str) -> Vec<u8> {
     let mut test_content = Vec::new();
     let _ = file.read_to_end(&mut test_content);
     test_content
+}
+
+trait FromProcessError {
+    fn from_process_error(error: ProcessError) -> Self;
 }

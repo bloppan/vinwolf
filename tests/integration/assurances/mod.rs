@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use crate::integration::read_test_file;
+use crate::integration::{read_test_file, FromProcessError};
 use crate::integration::codec::{TestBody, encode_decode_test};
 
 pub mod schema;
@@ -7,7 +7,7 @@ use schema::{InputAssurances, StateAssurances};
 
 use vinwolf::constants::{CORES_COUNT, VALIDATORS_COUNT};
 use vinwolf::blockchain::block::extrinsic::assurances::{OutputDataAssurances, OutputAssurances};
-use vinwolf::blockchain::state::{get_global_state, set_reporting_assurance_state, get_reporting_assurance_state};
+use vinwolf::blockchain::state::{ProcessError, get_global_state, set_reporting_assurance_state, get_reporting_assurance_state};
 use vinwolf::blockchain::state::validators::{set_validators_state, get_validators_state, ValidatorSet};
 use vinwolf::blockchain::state::reporting_assurance::process_assurances;
 use vinwolf::utils::codec::{Decode, BytesReader};
@@ -22,12 +22,20 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
     }
 });
 
-
 #[cfg(test)]
 mod tests {
 
     use super::*;
 
+    impl FromProcessError for OutputAssurances {
+        fn from_process_error(error: ProcessError) -> Self {
+            match error {
+                ProcessError::AssurancesError(code) => OutputAssurances::Err(code),
+                _ => panic!("Unexpected error type in conversion"),
+            }
+        }
+    }
+    
     fn run_test(filename: &str) {
 
         let test_content = read_test_file(&format!("tests/jamtestvectors/assurances/{}/{}", *TEST_TYPE, filename));
@@ -75,7 +83,7 @@ mod tests {
                 assert_eq!(expected_output, OutputAssurances::Ok(OutputDataAssurances {reported}));
             }
             Err(error_code) => {
-                assert_eq!(expected_output, OutputAssurances::Err(error_code));
+                assert_eq!(expected_output, OutputAssurances::from_process_error(error_code));
             }
         }
     }

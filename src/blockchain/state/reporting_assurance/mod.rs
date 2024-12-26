@@ -19,7 +19,7 @@ use std::sync::Mutex;
 use crate::types::{
     Hash, AssurancesExtrinsic, AvailabilityAssignment, AvailabilityAssignments, GuaranteesExtrinsic, TimeSlot, CoreIndex
 };
-use crate::blockchain::block::extrinsic::assurances::{OutputDataAssurances, ErrorCode as AssurancesErrorCode};
+use crate::blockchain::block::extrinsic::assurances::{OutputDataAssurances, AssurancesErrorCode};
 use crate::utils::codec::work_report::{OutputData, ReportErrorCode};
 
 use super::ProcessError;
@@ -36,9 +36,9 @@ pub mod work_result;
 // with the time at which each was reported. As mentioned earlier, only one report may be assigned to a core at any given time.
 static REPORT_AVAILABILITY_STATE: Lazy<Mutex<AvailabilityAssignments>> = Lazy::new(|| Mutex::new(AvailabilityAssignments{assignments: Box::new(std::array::from_fn(|_| None))}));
 
-pub fn set_reporting_assurance_staging_state(post_state: &AvailabilityAssignments) {
+pub fn set_reporting_assurance_staging_state(new_state: &AvailabilityAssignments) {
     let mut state = REPORT_AVAILABILITY_STATE.lock().unwrap();
-    *state = post_state.clone();
+    *state = new_state.clone();
 }
 
 pub fn get_reporting_assurance_staging_state() -> AvailabilityAssignments {
@@ -80,7 +80,7 @@ pub fn process_assurances(
     assurances: &AssurancesExtrinsic, 
     post_tau: &TimeSlot,
     parent: &Hash) 
--> Result<OutputDataAssurances, AssurancesErrorCode> {
+-> Result<OutputDataAssurances, ProcessError> {
 
     //let stg_assurances_state = assurances_state.clone();
     set_reporting_assurance_staging_state(&assurances_state.clone());
