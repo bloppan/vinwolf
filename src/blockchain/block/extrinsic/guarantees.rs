@@ -55,7 +55,7 @@ impl GuaranteesExtrinsic {
                                                                             (g.report.package_spec.hash, g.report.package_spec.exports_root))
                                                                     .collect();
         
-        let recent_history_map: std::collections::HashMap<_, _> = recent_history.beta
+        let recent_history_map: std::collections::HashMap<_, _> = recent_history.blocks
             .iter()
             .flat_map(|block| block.reported.reported_work_packages.iter())
             .map(|report| (report.hash, report.exports_root))

@@ -6,8 +6,7 @@ use crate::types::{
 use crate::constants::{
     EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR
 };
-use crate::blockchain::state::{ProcessError, ValidatorSet};
-use crate::blockchain::state::entropy::get_entropy_state;
+use crate::blockchain::state::{ProcessError, ValidatorSet, get_entropy};
 use crate::blockchain::state::disputes::get_disputes_state;
 use crate::blockchain::state::validators::get_validators_state;
 use crate::blockchain::state::get_authpools;
@@ -73,7 +72,7 @@ impl WorkReport {
         
         let block_history = get_history_state();
 
-        for block in &block_history.beta {
+        for block in &block_history.blocks {
             if block.header_hash == self.context.anchor {
                 if block.state_root != self.context.state_root {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadStateRoot));
@@ -104,7 +103,7 @@ impl WorkReport {
         // No reports may be placed on cores with a report pending availability on it 
         if availability.assignments[self.core_index as usize].is_none() {
 
-            let chain_entropy = get_entropy_state();
+            let chain_entropy = get_entropy();
             let mut current_validators = get_validators_state(ValidatorSet::Current);
             let prev_validators = get_validators_state(ValidatorSet::Previous);
 
@@ -116,14 +115,14 @@ impl WorkReport {
             // for the epochal entropy rather than η1 to avoid the possibility of fork-magnification where uncertainty 
             // about chain state at the end of an epoch could give rise to two established forks before it naturally resolves.
             let (validators_data, guarantors_assignments) = if *post_tau / ROTATION_PERIOD == guarantee_slot / ROTATION_PERIOD {
-                let assignments = guarantor_assignments(&permute(&chain_entropy[2], *post_tau), &mut current_validators);
+                let assignments = guarantor_assignments(&permute(&chain_entropy.0[2], *post_tau), &mut current_validators);
                 (current_validators, assignments)
             } else {
                 // We also define the previous 'guarantors_assigments' as it would have been under the previous rotation
                 let epoch_diff = (*post_tau - ROTATION_PERIOD) / EPOCH_LENGTH as u32 == *post_tau / EPOCH_LENGTH as u32;
                 let entropy_index = if epoch_diff { 2 } else { 3 };
                 let mut validators = if epoch_diff { current_validators } else { prev_validators };
-                let assignments = guarantor_assignments(&permute(&chain_entropy[entropy_index], *post_tau - ROTATION_PERIOD), &mut validators);
+                let assignments = guarantor_assignments(&permute(&chain_entropy.0[entropy_index], *post_tau - ROTATION_PERIOD), &mut validators);
                 (validators, assignments)
             };
 

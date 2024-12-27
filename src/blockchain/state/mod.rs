@@ -1,19 +1,14 @@
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
-use std::collections::VecDeque;
-use std::mem::size_of;
-use std::array::from_fn;
-
-use crate::constants::{ENTROPY_POOL_SIZE, MAX_ITEMS_AUTHORIZATION_POOL, RECENT_HISTORY_SIZE};
 use crate::types::{
-    AuthPool, AuthPools, AuthQueue, AuthQueues, AuthorizerHash, AvailabilityAssignments, Block, BlockHistory, EntropyBuffer, Hash, 
-    Statistics, TimeSlot, ValidatorsData
+    AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, EntropyPool, Statistics, TimeSlot, ValidatorsData
 };
-use crate::blockchain::state::validators::ValidatorSet;
-use crate::blockchain::state::reporting_assurance::{process_assurances, process_guarantees};
 use crate::blockchain::block::extrinsic::assurances::AssurancesErrorCode;
 use crate::utils::codec::ReadError;
 use crate::utils::codec::work_report::ReportErrorCode;
+use validators::ValidatorSet;
+use reporting_assurance::{process_assurances, process_guarantees};
+use statistics::process_statistics;
 
 pub mod accumulation;
 pub mod authorization;
@@ -27,12 +22,11 @@ pub mod time;
 pub mod statistics;
 pub mod validators;
 
-
 #[derive(Clone)]
 pub struct GlobalState {
     pub time: TimeSlot,
     pub availability: AvailabilityAssignments,
-    pub entropy: EntropyBuffer,
+    pub entropy: EntropyPool,
     pub recent_history: BlockHistory,
     pub auth_pools: AuthPools,
     pub auth_queues: AuthQueues,
@@ -43,23 +37,25 @@ pub struct GlobalState {
 }
 
 static GLOBAL_STATE: Lazy<Mutex<GlobalState>> = Lazy::new(|| {
-    Mutex::new(GlobalState {
-        time: TimeSlot::default(),
-        availability: AvailabilityAssignments {
-            assignments: Box::new(from_fn(|_| None)),
-        },
-        entropy: Box::new([[0u8; size_of::<Hash>()]; ENTROPY_POOL_SIZE]),
-        recent_history: BlockHistory {
-            beta: VecDeque::with_capacity(RECENT_HISTORY_SIZE) 
-        },
-        auth_pools: AuthPools { auth_pools: Box::new(from_fn(|_| AuthPool { auth_pool: VecDeque::with_capacity(MAX_ITEMS_AUTHORIZATION_POOL) })) },
-        auth_queues: AuthQueues{ auth_queues: Box::new(from_fn(|_| AuthQueue { auth_queue: Box::new(from_fn(|_| [0; size_of::<AuthorizerHash>()])) }))},
-        statistics: Statistics::default(),
-        prev_validators: ValidatorsData::default(),
-        curr_validators: ValidatorsData::default(),
-        next_validators: ValidatorsData::default(),
-    })
+    Mutex::new(GlobalState::default())
 });
+
+impl Default for GlobalState {
+    fn default() -> Self {
+        GlobalState {
+            time: TimeSlot::default(),
+            availability: AvailabilityAssignments::default(),
+            entropy: EntropyPool::default(),
+            recent_history: BlockHistory::default(),
+            auth_pools: AuthPools::default(),
+            auth_queues: AuthQueues::default(),
+            statistics: Statistics::default(),
+            prev_validators: ValidatorsData::default(),
+            curr_validators: ValidatorsData::default(),
+            next_validators: ValidatorsData::default(),
+        }
+    }
+}
 
 #[derive(Debug, PartialEq)]
 pub enum ProcessError {
@@ -77,9 +73,11 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     let _ = process_assurances(&mut new_state.availability, &block.extrinsic.assurances, &block.header.slot, &block.header.parent)?;
     let _ = process_guarantees(&mut new_state.availability, &block.extrinsic.guarantees,&block.header.slot)?; 
     
-    
+    //process_authorizations(&mut new_state.auth_pools, &block.header.slot, code_authorizers);
+    process_statistics(&mut new_state.statistics, &block.header.slot, &block.header.author_index, &block.extrinsic);
     
     set_global_state(&new_state);
+    
     Ok(())
 }
 
@@ -99,6 +97,15 @@ pub fn set_time(new_time: &TimeSlot) {
 pub fn get_time() -> TimeSlot {
     let state = GLOBAL_STATE.lock().unwrap();
     state.time.clone()
+}
+// Entropy
+pub fn set_entropy(new_entropy: &EntropyPool) {
+    let mut state = GLOBAL_STATE.lock().unwrap();
+    state.entropy = new_entropy.clone();
+}
+pub fn get_entropy() -> EntropyPool {
+    let state = GLOBAL_STATE.lock().unwrap();
+    state.entropy.clone()
 }
 // Authorization Pools
 pub fn set_authpools(new_authpool: &AuthPools) {
@@ -137,12 +144,6 @@ pub fn get_statistics() -> Statistics {
     state.statistics.clone()
 }
 // Validators
-/*pubenum ValidatorSet {
-    Previous,
-    Current,
-    Next,
-}*/
-
 pub fn set_validators(new_validators: &ValidatorsData, validator_set: ValidatorSet) {
 
     let mut state = GLOBAL_STATE.lock().unwrap();

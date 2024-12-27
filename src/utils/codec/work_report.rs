@@ -1,7 +1,7 @@
 use crate::types::{
     ServiceId, Gas, CoreIndex, OpaqueHash, TimeSlot, Ed25519Public, WorkPackageHash, ValidatorsData, ServiceInfo, 
     AvailabilityAssignments, RefineContext, AuthPools, WorkResult, SegmentRootLookupItem, SegmentRootLookup, 
-    WorkReport, WorkPackageSpec, BlockHistory, GuaranteesExtrinsic
+    WorkReport, WorkPackageSpec, BlockHistory, GuaranteesExtrinsic, EntropyPool
 };
 
 use crate::utils::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
@@ -194,7 +194,7 @@ pub struct WorkReportState {
     pub avail_assignments: AvailabilityAssignments,
     pub curr_validators: ValidatorsData,
     pub prev_validators: ValidatorsData,
-    pub entropy: Box<[OpaqueHash; 4]>,
+    pub entropy: EntropyPool,
     pub offenders: Offenders,
     pub recent_blocks: BlockHistory,
     pub auth_pools: AuthPools,
@@ -232,7 +232,7 @@ impl Decode for WorkReportState {
             avail_assignments: AvailabilityAssignments::decode(blob)?,
             curr_validators: ValidatorsData::decode(blob)?,
             prev_validators: ValidatorsData::decode(blob)?,
-            entropy: Box::new(<[OpaqueHash; 4]>::decode(blob)?),
+            entropy: EntropyPool::decode(blob)?,
             offenders: Offenders::decode(blob)?,
             recent_blocks: BlockHistory::decode(blob)?,
             auth_pools: AuthPools::decode(blob)?,

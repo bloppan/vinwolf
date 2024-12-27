@@ -12,7 +12,7 @@ use vinwolf::blockchain::state::statistics::process_statistics;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
-    if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && CORES_COUNT == 2{
+    if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && CORES_COUNT == 2 {
         "tiny"
     } else if VALIDATORS_COUNT == 1023 && EPOCH_LENGTH == 600 && CORES_COUNT == 341 {
         "full"

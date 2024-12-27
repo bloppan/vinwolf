@@ -1,5 +1,6 @@
 // JAM Protocol Types
 use std::collections::VecDeque;
+use serde::Deserialize;
 use crate::constants::{ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
@@ -34,8 +35,10 @@ pub type ErasureRoot = OpaqueHash;
 
 pub type Gas = u64;
 
-pub type Entropy = OpaqueHash;
-pub type EntropyBuffer = Box<[Entropy; ENTROPY_POOL_SIZE]>;
+#[derive(Debug, Clone, PartialEq)]
+pub struct Entropy(pub OpaqueHash);
+#[derive(Debug, Clone, PartialEq)]
+pub struct EntropyPool(pub Box<[Entropy; ENTROPY_POOL_SIZE]>);
 
 /// This is a combination of a set of cryptographic public keys and metadata which is an opaque octet sequence, 
 /// but utilized to specify practical identifiers for the validator, not least a hardware address. The set of 
@@ -294,7 +297,7 @@ pub struct BlockInfo {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockHistory {
-    pub beta: VecDeque<BlockInfo>,
+    pub blocks: VecDeque<BlockInfo>,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Statistics

@@ -102,3 +102,12 @@ impl Decode for AvailabilityAssignments {
         Ok(assignments)
     }
 }
+
+impl Default for AvailabilityAssignments {
+
+    fn default() -> Self {
+        AvailabilityAssignments {
+            assignments: Box::new(std::array::from_fn(|_| None)),
+        }
+    }
+}

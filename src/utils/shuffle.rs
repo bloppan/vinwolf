@@ -1,8 +1,8 @@
 use sp_core::blake2_256;
 use std::convert::TryInto;
 
-use crate::types::Hash;
-use crate::utils::codec::EncodeSize;
+use crate::types::Entropy;
+use crate::utils::codec::{Encode, EncodeSize};
 
 // The Fisher-Yates shuffle function is defined formally as:
 fn fisher_yattes_shuffle<T: Clone>(s: &[T], r: &[u32]) -> Vec<T> {
@@ -28,13 +28,13 @@ fn fisher_yattes_shuffle<T: Clone>(s: &[T], r: &[u32]) -> Vec<T> {
 
 // Since it is often useful to shuffle a sequence based on some random seed in the form of a hash, we provide a secondary
 // form of the shuffle function F which accepts a 32-byte hash instead of the numeric sequence
-pub fn shuffle<T: Clone>(s: &[T], hash: &Hash) -> Vec<T> {
+pub fn shuffle<T: Clone>(s: &[T], hash: &Entropy) -> Vec<T> {
 
     fisher_yattes_shuffle(s, &sequencer(&hash, s.len()))    
 }
 
 // We define the numeric-sequence-from-hash function, thus:
-fn sequencer(entropy: &Hash, len: usize) -> Vec<u32> {
+fn sequencer(entropy: &Entropy, len: usize) -> Vec<u32> {
 
     let mut sequence: Vec<u32> = Vec::new();
 
@@ -42,8 +42,9 @@ fn sequencer(entropy: &Hash, len: usize) -> Vec<u32> {
 
         let encoded_4 = (i / 8).encode_size(4);
 
-        let mut payload = Vec::from(entropy);
-        payload.extend_from_slice(&encoded_4);
+        let mut payload = Vec::new();
+        entropy.encode_to(&mut payload);
+        encoded_4.encode_to(&mut payload);
 
         let hash = blake2_256(&payload);
 
