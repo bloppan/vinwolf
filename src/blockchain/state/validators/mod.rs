@@ -11,7 +11,7 @@ static NEXT_VALIDATORS_STATE: Lazy<Mutex<ValidatorsData>> = Lazy::new(|| Mutex::
 impl Default for ValidatorsData {
     fn default() -> Self {
         ValidatorsData {
-            validators: Box::new(from_fn(|_| ValidatorData {
+            0: Box::new(from_fn(|_| ValidatorData {
                 bandersnatch: [0u8; std::mem::size_of::<BandersnatchPublic>()],
                 ed25519: [0u8; std::mem::size_of::<Ed25519Public>()],
                 bls: [0u8; std::mem::size_of::<BlsPublic>()],

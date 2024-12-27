@@ -7,10 +7,8 @@ use crate::types::{
 use crate::constants::{
     EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR
 };
-use crate::blockchain::state::{ProcessError, ValidatorSet, get_entropy};
+use crate::blockchain::state::{ProcessError, ValidatorSet, get_entropy, get_validators, get_authpools};
 use crate::blockchain::state::disputes::get_disputes_state;
-use crate::blockchain::state::validators::get_validators_state;
-use crate::blockchain::state::get_authpools;
 use crate::blockchain::state::recent_history::get_history_state;
 use crate::blockchain::state::reporting_assurance::add_assignment;
 use crate::utils::trie::mmr_super_peak;
@@ -103,11 +101,11 @@ impl WorkReport {
         let mut reporters: Vec<Ed25519Public> = Vec::new();
 
         // No reports may be placed on cores with a report pending availability on it 
-        if assurances_state.assignments[self.core_index as usize].is_none() {
+        if assurances_state.0[self.core_index as usize].is_none() {
 
             let chain_entropy = get_entropy();
-            let mut current_validators = get_validators_state(ValidatorSet::Current);
-            let prev_validators = get_validators_state(ValidatorSet::Previous);
+            let mut current_validators = get_validators(ValidatorSet::Current);
+            let prev_validators = get_validators(ValidatorSet::Previous);
 
             // Each core has three validators uniquely assigned to guarantee work-reports for it. This is ensured with 
             // VALIDATORS_COUNT and CORES_COUNT, since V/C = 3. The core index is assigned to each of the validators, 
@@ -142,7 +140,7 @@ impl WorkReport {
                 if credential.validator_index as usize >= VALIDATORS_COUNT {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadValidatorIndex));
                 }
-                let validator = &validators_data.validators[credential.validator_index as usize];
+                let validator = &validators_data.0[credential.validator_index as usize];
                 if !credential.signature.verify_signature(&message, &validator.ed25519) {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadSignature));
                 }
@@ -222,7 +220,7 @@ fn guarantor_assignments(
     set_offenders_null(validators_set, &get_disputes_state().offenders);
 
     for i in 0..VALIDATORS_COUNT {
-        guarantor_assignments[i] = (core_assignments[i], validators_set.validators[i].ed25519.clone());
+        guarantor_assignments[i] = (core_assignments[i], validators_set.0[i].ed25519.clone());
     }
 
     return guarantor_assignments;

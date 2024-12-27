@@ -19,7 +19,6 @@
     For each epoch we track a performance record for each validator.
 */
 
-
 use std::default::Default;
 
 use crate::types::{Statistics, ValidatorIndex, TimeSlot, Extrinsic, ActivityRecord, ActivityRecords};
@@ -40,33 +39,33 @@ pub fn process_statistics(
     if post_tau / EPOCH_LENGTH as u32 != tau / EPOCH_LENGTH as u32 {
         // We are in a new epoch
         // Update the last record with the current one
-        statistics.last = statistics.current.clone();
+        statistics.prev = statistics.curr.clone();
 
         // Reset the current record
-        statistics.current = ActivityRecords::default();
+        statistics.curr = ActivityRecords::default();
     }
     // The number of blocks produced by the validator
-    statistics.current.records[*author_index as usize].blocks += 1;
+    statistics.curr.records[*author_index as usize].blocks += 1;
     // The number of tickets introduced by the validator
-    statistics.current.records[*author_index as usize].tickets += extrinsic.tickets.len() as u32;
+    statistics.curr.records[*author_index as usize].tickets += extrinsic.tickets.len() as u32;
     
     for preimage in extrinsic.preimages.preimages.iter() {
         // The number of preimages introduced by the validator
-        statistics.current.records[*author_index as usize].preimages += 1;
+        statistics.curr.records[*author_index as usize].preimages += 1;
         // The total number of octets across all preimages introduced by the validator
-        statistics.current.records[*author_index as usize].preimages_size += preimage.blob.len() as u32;
+        statistics.curr.records[*author_index as usize].preimages_size += preimage.blob.len() as u32;
     }
 
     // The number of reports guaranteed by the 
     for guarantee in extrinsic.guarantees.report_guarantee.iter() {
         for signature in guarantee.signatures.iter() {
-            statistics.current.records[signature.validator_index as usize].guarantees += 1;
+            statistics.curr.records[signature.validator_index as usize].guarantees += 1;
         }
     }
 
     // The number of availability assurances made by the validator
     for assurance in extrinsic.assurances.assurances.iter() {
-        statistics.current.records[assurance.validator_index as usize].assurances += 1;
+        statistics.curr.records[assurance.validator_index as usize].assurances += 1;
     }
 }
 
@@ -94,8 +93,8 @@ impl Default for ActivityRecords {
 impl Default for Statistics {
     fn default() -> Self {
         Self {
-            current: ActivityRecords::default(),
-            last: ActivityRecords::default(),
+            curr: ActivityRecords::default(),
+            prev: ActivityRecords::default(),
         }
     }
 }

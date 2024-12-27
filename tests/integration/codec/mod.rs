@@ -9,15 +9,14 @@ use vinwolf::types::{
     GuaranteesExtrinsic, Header, Block, BlockHistory, WorkReport};
 use vinwolf::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
-use vinwolf::utils::codec::work_report::{InputWorkReport, WorkReportState, OutputWorkReport};
-
 use vinwolf::blockchain::block::extrinsic::assurances::OutputAssurances;
 use vinwolf::blockchain::block::extrinsic::disputes::{DisputesState, OutputDisputes};
 use vinwolf::blockchain::state::safrole::codec::{Input as InputSafrole, SafroleState, Output as OutputSafrole};
 use vinwolf::blockchain::state::recent_history::codec::Input as InputHistory;
-use crate::integration::assurances::schema::{InputAssurances, StateAssurances};
-use crate::integration::authorization::schema::{InputAuthorizations, StateAuthorizations};
-use crate::integration::statistics::schema::{InputStatistics, StateStatistics};
+use crate::integration::assurances::codec::{InputAssurances, StateAssurances};
+use crate::integration::authorization::codec::{InputAuthorizations, StateAuthorizations};
+use crate::integration::statistics::codec::{InputStatistics, StateStatistics};
+use crate::integration::reports::codec::{InputWorkReport, WorkReportState, OutputWorkReport};
 
 fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
     data1.iter()

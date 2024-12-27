@@ -18,7 +18,11 @@ impl GuaranteesExtrinsic {
     // A work-package, which comprises several work items, is transformed by validators acting as guarantors 
     // into its corresponding workreport, which similarly comprises several work outputs and then presented 
     // on-chain within the guarantees extrinsic.
-    pub fn process(&self, assurances_state: &mut AvailabilityAssignments, post_tau: &TimeSlot) -> Result<OutputData, ProcessError> {
+    pub fn process(
+        &self, 
+        assurances_state: &mut AvailabilityAssignments, 
+        post_tau: &TimeSlot) 
+    -> Result<OutputData, ProcessError> {
 
         // At most one guarantee for each core
         if self.report_guarantee.len() > CORES_COUNT {
@@ -41,7 +45,7 @@ impl GuaranteesExtrinsic {
 
         // We limit the sum of the number of items in the segment-root lookup dictionary and the number of prerequisites to MAX_DEPENDENCY_ITEMS
         for guarantee in &self.report_guarantee {
-            if guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.segment_root_lookup.len() > MAX_DEPENDENCY_ITEMS {
+            if guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.0.len() > MAX_DEPENDENCY_ITEMS {
                 return Err(ProcessError::ReportError(ReportErrorCode::TooManyDependencies));
             }
         }
@@ -59,7 +63,7 @@ impl GuaranteesExtrinsic {
         
         let recent_history_map: std::collections::HashMap<_, _> = recent_history.blocks
             .iter()
-            .flat_map(|block| block.reported.reported_work_packages.iter())
+            .flat_map(|blocks| blocks.reported.0.iter())
             .map(|report| (report.hash, report.exports_root))
             .collect();
 
@@ -93,7 +97,7 @@ impl GuaranteesExtrinsic {
             // We ensure that the work-package not appear anywhere within our pipeline.
             //let assignments = get_staging_reporting_assurance();
             for i in 0..CORES_COUNT {
-                if let Some(assignment) = &assurances_state.assignments[i] {
+                if let Some(assignment) = &assurances_state.0[i] {
                     if assignment.report.package_spec.hash == guarantee.report.package_spec.hash {
                         return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
                     }
@@ -108,7 +112,7 @@ impl GuaranteesExtrinsic {
             }
             // We require that any work-packages mentioned in the segment-root lookup, if present, be either in the extrinsic
             // or in our recent history
-            for segment in &guarantee.report.segment_root_lookup.segment_root_lookup {
+            for segment in &guarantee.report.segment_root_lookup.0 {
                 let segment_root = packages_map.get(&segment.work_package_hash)
                     .or_else(|| recent_history_map.get(&segment.work_package_hash));
                 // We require that any segment roots mentioned in the segment-root lookup be verified as correct based on our

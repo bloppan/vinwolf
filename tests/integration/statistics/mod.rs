@@ -2,8 +2,8 @@ use once_cell::sync::Lazy;
 use crate::integration::read_test_file;
 use crate::integration::codec::{TestBody, encode_decode_test};
 
-pub mod schema;
-use schema::{InputStatistics, StateStatistics};
+pub mod codec;
+use codec::{InputStatistics, StateStatistics};
 
 use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, VALIDATORS_COUNT};
 use vinwolf::blockchain::state::{set_statistics, set_time, set_validators, get_global_state};

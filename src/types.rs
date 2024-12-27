@@ -1,6 +1,5 @@
 // JAM Protocol Types
 use std::collections::VecDeque;
-use serde::Deserialize;
 use crate::constants::{ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
@@ -40,6 +39,8 @@ pub struct Entropy(pub OpaqueHash);
 #[derive(Debug, Clone, PartialEq)]
 pub struct EntropyPool(pub Box<[Entropy; ENTROPY_POOL_SIZE]>);
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Offenders(pub Vec<Ed25519Public>);
 /// This is a combination of a set of cryptographic public keys and metadata which is an opaque octet sequence, 
 /// but utilized to specify practical identifiers for the validator, not least a hardware address. The set of 
 /// validator keys itself is equivalent to the set of 336-octet sequences. However, for clarity, we divide the
@@ -55,9 +56,7 @@ pub struct ValidatorData {
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub struct ValidatorsData {
-    pub validators: Box<[ValidatorData; VALIDATORS_COUNT]>,
-}
+pub struct ValidatorsData(pub Box<[ValidatorData; VALIDATORS_COUNT]>);
 // ----------------------------------------------------------------------------------------------------------
 // Service
 // ----------------------------------------------------------------------------------------------------------
@@ -72,6 +71,15 @@ pub struct ServiceInfo {
     pub bytes: u64,
     pub items: u32,
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ServiceItem {
+    pub id: ServiceId,
+    pub info: ServiceInfo,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Services(pub Vec<ServiceItem>);
 // ----------------------------------------------------------------------------------------------------------
 // Availability Assignments
 // ----------------------------------------------------------------------------------------------------------
@@ -84,9 +92,7 @@ pub struct AvailabilityAssignment {
 pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AvailabilityAssignments {
-    pub assignments: Box<[AvailabilityAssignmentsItem; CORES_COUNT]>,
-}
+pub struct AvailabilityAssignments(pub Box<[AvailabilityAssignmentsItem; CORES_COUNT]>);
 // ----------------------------------------------------------------------------------------------------------
 // Refine Context
 // ----------------------------------------------------------------------------------------------------------
@@ -263,16 +269,14 @@ pub struct SegmentRootLookupItem {
     pub segment_tree_root: OpaqueHash,
 }
 #[derive(Debug, Clone, PartialEq)]
-pub struct SegmentRootLookup {
-    pub segment_root_lookup: Vec<SegmentRootLookupItem>,
-}
+pub struct SegmentRootLookup(pub Vec<SegmentRootLookupItem>);
 // ----------------------------------------------------------------------------------------------------------
 // Block History
 // ----------------------------------------------------------------------------------------------------------
 pub type MmrPeak = Option<Hash>;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Mmr {
+pub struct Mmr{
     pub peaks: Vec<MmrPeak>,
 }
 
@@ -283,9 +287,7 @@ pub struct ReportedWorkPackage {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ReportedWorkPackages {
-    pub reported_work_packages: Vec<ReportedWorkPackage>,
-}
+pub struct ReportedWorkPackages(pub Vec<ReportedWorkPackage>);
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockInfo {
@@ -317,8 +319,8 @@ pub struct ActivityRecords {
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct Statistics {
-    pub current: ActivityRecords,
-    pub last: ActivityRecords,
+    pub curr: ActivityRecords,
+    pub prev: ActivityRecords,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Tickets

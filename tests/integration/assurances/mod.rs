@@ -2,8 +2,8 @@ use once_cell::sync::Lazy;
 use crate::integration::{read_test_file, FromProcessError};
 use crate::integration::codec::{TestBody, encode_decode_test};
 
-pub mod schema;
-use schema::{InputAssurances, StateAssurances};
+pub mod codec;
+use codec::{InputAssurances, StateAssurances};
 
 use vinwolf::constants::{CORES_COUNT, VALIDATORS_COUNT};
 use vinwolf::blockchain::block::extrinsic::assurances::{OutputDataAssurances, OutputAssurances};

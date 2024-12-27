@@ -1,11 +1,8 @@
 use std::default::Default;
 use core::array::from_fn;
 
-use crate::constants::ENTROPY_POOL_SIZE;
 use crate::types::{OpaqueHash, Entropy, EntropyPool};
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
-
-//static ENTROPY_STATE: Lazy<Mutex<EntropyPool>> = Lazy::new(|| Mutex::new(EntropyPool::default()));
 
 impl Default for EntropyPool {
     fn default() -> Self {
@@ -66,13 +63,4 @@ impl Decode for EntropyPool {
     }
 }
 
-/*pub fn set_entropy_state(post_state: &EntropyPool) {
-    let mut state = ENTROPY_STATE.lock().unwrap();
-    *state = post_state.clone();
-}
-
-pub fn get_entropy_state() -> EntropyPool {
-    let state = ENTROPY_STATE.lock().unwrap(); 
-    return state.clone();
-}*/
 

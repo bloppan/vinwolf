@@ -128,11 +128,11 @@ impl Encode for ReportedWorkPackages {
 
     fn encode(&self) -> Vec<u8> {
 
-        let len = self.reported_work_packages.len();
+        let len = self.0.len();
         let mut reported_work_packages = Vec::with_capacity(std::mem::size_of::<ReportedWorkPackage>() * len);
         encode_unsigned(len).encode_to(&mut reported_work_packages); 
         
-        for item in &self.reported_work_packages {
+        for item in &self.0 {
             item.encode_to(&mut reported_work_packages);
         }
 
@@ -154,7 +154,7 @@ impl Decode for ReportedWorkPackages {
         }
 
         Ok(ReportedWorkPackages {
-            reported_work_packages,
+            0: reported_work_packages,
         })
     }
 }

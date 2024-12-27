@@ -84,8 +84,8 @@ impl Encode for Statistics {
         
         let mut blob = Vec::with_capacity(std::mem::size_of::<Statistics>());
 
-        self.current.encode_to(&mut blob);
-        self.last.encode_to(&mut blob);
+        self.curr.encode_to(&mut blob);
+        self.prev.encode_to(&mut blob);
 
         return blob;
     }
@@ -100,8 +100,8 @@ impl Decode for Statistics {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
         Ok(Statistics {
-            current: ActivityRecords::decode(blob)?,
-            last: ActivityRecords::decode(blob)?,
+            curr: ActivityRecords::decode(blob)?,
+            prev: ActivityRecords::decode(blob)?,
         })
     }
 }

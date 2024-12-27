@@ -280,7 +280,7 @@ impl Encode for ValidatorsData {
 
         let mut validators_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Self>());
 
-        for validator in self.validators.iter() {
+        for validator in self.0.iter() {
             validator.encode_to(&mut validators_blob);
         }
 
@@ -296,8 +296,8 @@ impl Decode for ValidatorsData {
 
     fn decode(validators_blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        let mut list: ValidatorsData = ValidatorsData {
-            validators: Box::new(from_fn(|_| ValidatorData {
+        let mut validators: ValidatorsData = ValidatorsData {
+            0: Box::new(from_fn(|_| ValidatorData {
                 bandersnatch: [0u8; std::mem::size_of::<BandersnatchPublic>()],
                 ed25519: [0u8; std::mem::size_of::<Ed25519Public>()],
                 bls: [0u8; std::mem::size_of::<BlsPublic>()],
@@ -306,10 +306,10 @@ impl Decode for ValidatorsData {
         };
 
         for i in 0..VALIDATORS_COUNT {
-            list.validators[i] = ValidatorData::decode(validators_blob)?;
+            validators.0[i] = ValidatorData::decode(validators_blob)?;
         }
 
-        Ok(list)
+        Ok(validators)
     }
 }
 

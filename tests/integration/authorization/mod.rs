@@ -2,8 +2,8 @@ use once_cell::sync::Lazy;
 use crate::integration::read_test_file;
 use crate::integration::codec::{TestBody, encode_decode_test};
 
-pub mod schema;
-use schema::{InputAuthorizations, StateAuthorizations};
+pub mod codec;
+use codec::{InputAuthorizations, StateAuthorizations};
 
 use vinwolf::constants::CORES_COUNT;
 use vinwolf::blockchain::state::{get_global_state, set_authpools, set_authqueues, set_time};
