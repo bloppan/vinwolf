@@ -56,7 +56,6 @@ mod tests {
         set_reporting_assurance(&pre_state.avail_assignments);
         set_validators_state(&pre_state.curr_validators, ValidatorSet::Current);
   
-
         let current_state = get_global_state();
         let mut assurances_state = current_state.availability.clone();
 
@@ -71,7 +70,6 @@ mod tests {
             Err(_) => { },
         }
 
-        //println!("output_result = {:0x?}", output_result);
         let result_avail_assignments = get_reporting_assurance();
         let result_curr_validators = get_validators_state(ValidatorSet::Current);
 

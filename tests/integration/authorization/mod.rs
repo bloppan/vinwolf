@@ -6,7 +6,7 @@ pub mod codec;
 use codec::{InputAuthorizations, StateAuthorizations};
 
 use vinwolf::constants::CORES_COUNT;
-use vinwolf::blockchain::state::{get_global_state, set_authpools, set_authqueues, set_time};
+use vinwolf::blockchain::state::{get_global_state, set_authpools, set_authqueues, get_authqueues};
 use vinwolf::blockchain::state::authorization::process_authorizations;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
@@ -43,14 +43,17 @@ mod tests {
 
         set_authpools(&pre_state.auth_pools);
         set_authqueues(&pre_state.auth_queues);
-        set_time(&input.slot);
+        
         let code_authorizers = input.auths.clone();
 
         let mut auth_pool_state = get_global_state().auth_pools.clone();
-
         process_authorizations(&mut auth_pool_state, &input.slot, &code_authorizers);
         
+        let result_auth_queues = get_authqueues();
+
         assert_eq!(expected_state.auth_pools, auth_pool_state);
+        assert_eq!(expected_state.auth_queues, result_auth_queues);
+
     }
 
     #[test]

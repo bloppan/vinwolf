@@ -70,7 +70,6 @@ mod tests {
             offenders: pre_state.offenders.0.clone(),
         };
         set_disputes_state(&disputes_state);
-        set_time(&input.slot);
         set_reporting_assurance(&pre_state.avail_assignments);
         set_validators(&pre_state.curr_validators, ValidatorSet::Current);
         set_validators(&pre_state.prev_validators, ValidatorSet::Previous);
@@ -92,21 +91,20 @@ mod tests {
             Err(_) => { },
         }
 
-        //println!("output_result = {:0x?}", output_result);
+        let result_disputes = get_disputes_state();
         let result_avail_assignments = get_reporting_assurance();
         let result_curr_validators = get_validators(ValidatorSet::Current);
         let result_prev_validators = get_validators(ValidatorSet::Previous);
         let result_entropy = get_entropy();
-        let result_disputes = get_disputes_state();
         let result_history = get_history_state();
         let result_authpool = get_authpools();
         let result_services = get_services_state();
 
+        assert_eq!(expected_state.offenders.0, result_disputes.offenders);
         assert_eq!(expected_state.avail_assignments, result_avail_assignments);
         assert_eq!(expected_state.curr_validators, result_curr_validators);
         assert_eq!(expected_state.prev_validators, result_prev_validators);
         assert_eq!(expected_state.entropy, result_entropy);
-        assert_eq!(expected_state.offenders.0, result_disputes.offenders);
         assert_eq!(expected_state.recent_blocks, result_history);
         assert_eq!(expected_state.auth_pools, result_authpool);
         assert_eq!(expected_state.services, result_services);

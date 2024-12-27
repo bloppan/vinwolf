@@ -6,7 +6,7 @@ pub mod codec;
 use codec::{InputStatistics, StateStatistics};
 
 use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, VALIDATORS_COUNT};
-use vinwolf::blockchain::state::{set_statistics, set_time, set_validators, get_global_state};
+use vinwolf::blockchain::state::{set_statistics, set_time, set_validators, get_validators, get_global_state};
 use vinwolf::blockchain::state::validators::ValidatorSet;
 use vinwolf::blockchain::state::statistics::process_statistics;
 use vinwolf::utils::codec::{Decode, BytesReader};
@@ -23,6 +23,8 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
 
 #[cfg(test)]
 mod tests {
+
+    use vinwolf::blockchain::state::get_time;
 
     use super::*;
 
@@ -48,7 +50,12 @@ mod tests {
         let mut result_statistics = get_global_state().statistics.clone();
         process_statistics(&mut result_statistics, &input.slot, &input.author_index, &input.extrinsic);
 
+        let result_time = get_time();
+        let result_validators = get_validators(ValidatorSet::Next);
+
         assert_eq!(expected_state.stats, result_statistics);
+        assert_eq!(expected_state.tau, result_time);
+        assert_eq!(expected_state.next_validators, result_validators);
     }
 
     #[test]
