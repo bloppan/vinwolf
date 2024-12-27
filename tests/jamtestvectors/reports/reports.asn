@@ -3,7 +3,7 @@
 ReportsModule DEFINITIONS ::= BEGIN
 
 IMPORTS
-    cores-count, OpaqueHash, TimeSlot, EntropyBuffer,
+    cores-count, OpaqueHash, TimeSlot, EntropyPool,
     ServiceId, ServiceInfo, ValidatorsData, BlocksHistory, AvailabilityAssignments,
     GuaranteesExtrinsic, Ed25519Public, WorkPackageHash
         FROM JamTypes;
@@ -33,7 +33,7 @@ State ::= SEQUENCE {
     prev-validators ValidatorsData,
 
     -- [η'] Posterior entropy buffer.
-    entropy EntropyBuffer,
+    entropy EntropyPool,
 
     -- [ψ'_o] Posterior offenders.
     offenders SEQUENCE OF Ed25519Public,

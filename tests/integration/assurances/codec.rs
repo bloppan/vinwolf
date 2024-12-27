@@ -1,5 +1,5 @@
-use vinwolf::types::{TimeSlot, ValidatorsData, HeaderHash, WorkReport, AvailabilityAssignments, AssurancesExtrinsic};
-use vinwolf::utils::codec::{encode_unsigned, decode_unsigned, BytesReader, Decode, Encode, EncodeLen, ReadError};
+use vinwolf::types::{TimeSlot, ValidatorsData, HeaderHash, AvailabilityAssignments, AssurancesExtrinsic};
+use vinwolf::utils::codec::{BytesReader, Decode, Encode, ReadError};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputAssurances {

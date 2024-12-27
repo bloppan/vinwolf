@@ -1,18 +1,16 @@
 use sp_core::blake2_256;
 
 use crate::types::{
-    AvailabilityAssignment, CoreIndex, Ed25519Public, Entropy, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, WorkResult
+    AvailabilityAssignment, CoreIndex, Ed25519Public, Entropy, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, 
+    WorkResult, AvailabilityAssignments
 };
 use crate::constants::{
     EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR
 };
-use crate::blockchain::state::ProcessError;
-use crate::blockchain::state::entropy::get_entropy_state;
+use crate::blockchain::state::{ProcessError, ValidatorSet, get_entropy, get_validators, get_authpools};
 use crate::blockchain::state::disputes::get_disputes_state;
-use crate::blockchain::state::validators::{get_validators_state, ValidatorSet};
-use crate::blockchain::state::get_authpools;
 use crate::blockchain::state::recent_history::get_history_state;
-use crate::blockchain::state::reporting_assurance::{get_staging_reporting_assurance, add_assignment};
+use crate::blockchain::state::reporting_assurance::add_assignment;
 use crate::utils::trie::mmr_super_peak;
 use crate::utils::shuffle::shuffle;
 use crate::utils::codec::Encode;
@@ -22,7 +20,8 @@ use crate::utils::codec::work_report::{ReportedPackage, OutputData, ReportErrorC
 impl WorkReport {
 
     pub fn process(
-        &self, 
+        &self,
+        assurances_state: &mut AvailabilityAssignments,
         post_tau: &TimeSlot, 
         guarantee_slot: TimeSlot, 
         validators_signatures: &[ValidatorSignature]) 
@@ -64,7 +63,7 @@ impl WorkReport {
         let OutputData {
             reported: new_reported,
             reporters: new_reporters,
-        } = self.try_place(post_tau, guarantee_slot, validators_signatures)?;
+        } = self.try_place(assurances_state, post_tau, guarantee_slot, validators_signatures)?;
 
         return Ok(OutputData{reported: new_reported, reporters: new_reporters});
     }
@@ -73,7 +72,7 @@ impl WorkReport {
         
         let block_history = get_history_state();
 
-        for block in &block_history.beta {
+        for block in &block_history.blocks {
             if block.header_hash == self.context.anchor {
                 if block.state_root != self.context.state_root {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadStateRoot));
@@ -91,7 +90,8 @@ impl WorkReport {
     }
 
     fn try_place(
-        &self, 
+        &self,
+        assurances_state: &mut AvailabilityAssignments,
         post_tau: &TimeSlot, 
         guarantee_slot: TimeSlot, 
         credentials: &[ValidatorSignature]) 
@@ -100,13 +100,12 @@ impl WorkReport {
         let mut reported: Vec<ReportedPackage> = Vec::new();
         let mut reporters: Vec<Ed25519Public> = Vec::new();
 
-        let availability = get_staging_reporting_assurance();
         // No reports may be placed on cores with a report pending availability on it 
-        if availability.assignments[self.core_index as usize].is_none() {
+        if assurances_state.0[self.core_index as usize].is_none() {
 
-            let chain_entropy = get_entropy_state();
-            let mut current_validators = get_validators_state(ValidatorSet::Current);
-            let prev_validators = get_validators_state(ValidatorSet::Previous);
+            let chain_entropy = get_entropy();
+            let mut current_validators = get_validators(ValidatorSet::Current);
+            let prev_validators = get_validators(ValidatorSet::Previous);
 
             // Each core has three validators uniquely assigned to guarantee work-reports for it. This is ensured with 
             // VALIDATORS_COUNT and CORES_COUNT, since V/C = 3. The core index is assigned to each of the validators, 
@@ -116,14 +115,14 @@ impl WorkReport {
             // for the epochal entropy rather than η1 to avoid the possibility of fork-magnification where uncertainty 
             // about chain state at the end of an epoch could give rise to two established forks before it naturally resolves.
             let (validators_data, guarantors_assignments) = if *post_tau / ROTATION_PERIOD == guarantee_slot / ROTATION_PERIOD {
-                let assignments = guarantor_assignments(&permute(&chain_entropy[2], *post_tau), &mut current_validators);
+                let assignments = guarantor_assignments(&permute(&chain_entropy.0[2], *post_tau), &mut current_validators);
                 (current_validators, assignments)
             } else {
                 // We also define the previous 'guarantors_assigments' as it would have been under the previous rotation
                 let epoch_diff = (*post_tau - ROTATION_PERIOD) / EPOCH_LENGTH as u32 == *post_tau / EPOCH_LENGTH as u32;
                 let entropy_index = if epoch_diff { 2 } else { 3 };
                 let mut validators = if epoch_diff { current_validators } else { prev_validators };
-                let assignments = guarantor_assignments(&permute(&chain_entropy[entropy_index], *post_tau - ROTATION_PERIOD), &mut validators);
+                let assignments = guarantor_assignments(&permute(&chain_entropy.0[entropy_index], *post_tau - ROTATION_PERIOD), &mut validators);
                 (validators, assignments)
             };
 
@@ -141,7 +140,7 @@ impl WorkReport {
                 if credential.validator_index as usize >= VALIDATORS_COUNT {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadValidatorIndex));
                 }
-                let validator = &validators_data.validators[credential.validator_index as usize];
+                let validator = &validators_data.0[credential.validator_index as usize];
                 if !credential.signature.verify_signature(&message, &validator.ed25519) {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadSignature));
                 }
@@ -179,7 +178,7 @@ impl WorkReport {
             };
 
             // Update the reporting assurance state
-            add_assignment(&assignment);
+            add_assignment(&assignment, assurances_state);
             return Ok(OutputData{reported: reported, reporters: reporters});
         } 
         
@@ -221,7 +220,7 @@ fn guarantor_assignments(
     set_offenders_null(validators_set, &get_disputes_state().offenders);
 
     for i in 0..VALIDATORS_COUNT {
-        guarantor_assignments[i] = (core_assignments[i], validators_set.validators[i].ed25519.clone());
+        guarantor_assignments[i] = (core_assignments[i], validators_set.0[i].ed25519.clone());
     }
 
     return guarantor_assignments;

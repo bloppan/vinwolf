@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::path::PathBuf;
 
-use vinwolf::types::Hash;
+use vinwolf::types::Entropy;
 use vinwolf::utils::shuffle::shuffle;
 
 // Test case struct
@@ -9,17 +9,18 @@ use vinwolf::utils::shuffle::shuffle;
 struct TestCase<T> {
     input: usize,
     #[serde(with = "hex_array")]
-    entropy: Hash,
+    entropy: Entropy,
     output: Vec<T>,
 }
 
 // Entropy deserializer module
 mod hex_array {
     use serde::{self, Deserialize, Deserializer};
+    use vinwolf::types::Entropy;
     use hex;
     use std::fmt;
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<[u8; 32], D::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Entropy, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -30,7 +31,7 @@ mod hex_array {
         }
         let mut array = [0u8; 32];
         array.copy_from_slice(&bytes);
-        Ok(array)
+        Ok(Entropy(array))
     }
 
     struct HexLen;

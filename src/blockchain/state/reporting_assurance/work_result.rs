@@ -18,10 +18,10 @@ impl WorkResult {
             return Err(ProcessError::ReportError(ReportErrorCode::TooManyResults));
         }
 
-        let list = get_services_state();
+        let services = get_services_state();
         let mut total_accumulation_gas: Gas = 0;
         
-        let service_map: std::collections::HashMap<_, _> = list.services.iter().map(|s| (s.id, s)).collect();
+        let service_map: std::collections::HashMap<_, _> = services.0.iter().map(|s| (s.id, s)).collect();
         let mut results_size = 0;
 
         for result in results.iter() {

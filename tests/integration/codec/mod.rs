@@ -9,14 +9,14 @@ use vinwolf::types::{
     GuaranteesExtrinsic, Header, Block, BlockHistory, WorkReport};
 use vinwolf::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
-use vinwolf::utils::codec::work_report::{InputWorkReport, WorkReportState, OutputWorkReport};
-
 use vinwolf::blockchain::block::extrinsic::assurances::OutputAssurances;
 use vinwolf::blockchain::block::extrinsic::disputes::{DisputesState, OutputDisputes};
 use vinwolf::blockchain::state::safrole::codec::{Input as InputSafrole, SafroleState, Output as OutputSafrole};
 use vinwolf::blockchain::state::recent_history::codec::Input as InputHistory;
-use crate::integration::assurances::schema::{InputAssurances, StateAssurances};
-use crate::integration::authorization::schema::{InputAuthorizations, StateAuthorizations};
+use crate::integration::assurances::codec::{InputAssurances, StateAssurances};
+use crate::integration::authorization::codec::{InputAuthorizations, StateAuthorizations};
+use crate::integration::statistics::codec::{InputStatistics, StateStatistics};
+use crate::integration::reports::codec::{InputWorkReport, WorkReportState, OutputWorkReport};
 
 fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
     data1.iter()
@@ -57,6 +57,8 @@ pub enum TestBody {
     OutputAssurances,
     InputAuthorizations,
     StateAuthorizations,
+    InputStatistics,
+    StateStatistics,
 }
 
 struct TestContext<'a, 'b> {
@@ -96,6 +98,13 @@ impl<'a, 'b> TestContext<'a, 'b> {
         } 
 
         self.global_position = end_position;
+
+        /*println!("---------- {}: {:0x?}", part_name, part);
+        use std::io::{stdin, stdout, Write};
+        print!("Presiona Enter para continuar...");
+        stdout().flush().unwrap();
+        let mut _input = String::new();
+        stdin().read_line(&mut _input).unwrap();*/
 
         Ok(())
     }
@@ -192,12 +201,18 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
             TestBody::StateAuthorizations => {
                 context.process_test_part("StateAuthorizations", StateAuthorizations::decode, StateAuthorizations::encode)?;
             }
+            TestBody::InputStatistics => {
+                context.process_test_part("InputStatistics", InputStatistics::decode, InputStatistics::encode)?;
+            }
+            TestBody::StateStatistics => {
+                context.process_test_part("StateStatistics", StateStatistics::decode, StateStatistics::encode)?;
+            }
         }
     }
 
     if context.global_position != blob.len() {
         println!("Codec test was not readed properly! Readed {} bytes. The test file has {} bytes", context.global_position, blob.len());
-        assert_eq!(context.global_position, blob.len());
+        assert_eq!(blob.len(), context.global_position);
     }
 
     Ok(())

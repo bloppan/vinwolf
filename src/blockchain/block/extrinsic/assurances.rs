@@ -2,11 +2,11 @@ use sp_core::blake2_256;
 use crate::blockchain::state::reporting_assurance::{add_assignment, remove_assignment};
 use crate::types::{
     OpaqueHash, Ed25519Signature, ValidatorIndex, AssurancesExtrinsic, AvailAssurance, WorkReport, Hash, TimeSlot,
-    AvailabilityAssignment, CoreIndex
+    AvailabilityAssignment, CoreIndex, AvailabilityAssignments
 };
 use crate::constants::{AVAIL_BITFIELD_BYTES, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY};
 use crate::blockchain::state::validators::{get_validators_state, ValidatorSet};
-use crate::blockchain::state::{get_reporting_assurance, ProcessError};
+use crate::blockchain::state::ProcessError;
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
 use crate::utils::common::{is_sorted_and_unique, VerifySignature};
@@ -19,7 +19,12 @@ use crate::utils::common::{is_sorted_and_unique, VerifySignature};
 
 impl AssurancesExtrinsic {
     
-    pub fn process(&self, post_tau: &TimeSlot, parent: &Hash) -> Result<OutputDataAssurances, ProcessError> {
+    pub fn process(
+        &self, 
+        assurances_state: &mut AvailabilityAssignments, 
+        post_tau: &TimeSlot, 
+        parent: &Hash) 
+    -> Result<OutputDataAssurances, ProcessError> {
 
         // TODO no se si poner esto
         /*if self.assurances.is_empty() {
@@ -49,7 +54,7 @@ impl AssurancesExtrinsic {
         }
 
         let current_validators = get_validators_state(ValidatorSet::Current);
-        let list = get_reporting_assurance();
+        //let list = get_reporting_assurance();
         let mut core_marks = [0_usize; CORES_COUNT as usize];
         for assurance in &self.assurances {
             // The assurances must all be anchored on the parent
@@ -63,7 +68,7 @@ impl AssurancesExtrinsic {
             parent.encode_to(&mut serialization);
             assurance.bitfield.encode_to(&mut serialization);
             message.extend_from_slice(&blake2_256(&serialization));
-            let validator = &current_validators.validators[assurance.validator_index as usize]; 
+            let validator = &current_validators.0[assurance.validator_index as usize]; 
             if !assurance.signature.verify_signature(&message, &validator.ed25519) {
                 return Err(ProcessError::AssurancesError(AssurancesErrorCode::BadSignature));
             }
@@ -75,7 +80,7 @@ impl AssurancesExtrinsic {
                 let bitfield = assurance.bitfield[core / 8] & (1 << core % 8) != 0;
                 if bitfield {
                     // A bit may only be set if the corresponding core has a report pending availability on it
-                    if list.assignments[core as usize].is_none() {
+                    if assurances_state.0[core as usize].is_none() {
                         return Err(ProcessError::AssurancesError(AssurancesErrorCode::CoreNotEngaged));
                     }
                     core_marks[core as usize] += 1;
@@ -87,25 +92,28 @@ impl AssurancesExtrinsic {
         // who have marked its core as set within the block's assurance extrinsic. We define the sequence of newly
         // available work-reports in the next reported vector.
         let mut reported = Vec::new();
+        let mut to_remove = Vec::new();
         for core in 0..CORES_COUNT {
             if core_marks[core as usize] >= VALIDATORS_SUPER_MAJORITY {
-                if let Some(assignment) = &list.assignments[core as usize] {
-                    add_assignment(&AvailabilityAssignment {
-                        report: assignment.report.clone(),
-                        timeout: post_tau.clone(),
-                    });
+                if let Some(assignment) = &assurances_state.0[core as usize] {
                     reported.push(assignment.report.clone());
-                } 
-            } 
+                    to_remove.push(core as CoreIndex);
+                }
+            }
         }
 
         // The Availability Assignments are equivalents except for the removal of items which are now available
-        for core in 0..CORES_COUNT {
-            if let Some(assignment) = &list.assignments[core as usize] {
-                if reported.contains(&assignment.report) {
-                    remove_assignment(&(core as CoreIndex));
-                }
+        for core in &to_remove {
+            if let Some(assignment) = &assurances_state.0[*core as usize] {
+                add_assignment(&AvailabilityAssignment {
+                    report: assignment.report.clone(),
+                    timeout: post_tau.clone(),
+                }, assurances_state);
             }
+        }
+
+        for core in to_remove {
+            remove_assignment(&core, assurances_state);
         }
     
         Ok(OutputDataAssurances { reported } )

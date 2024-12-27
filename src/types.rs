@@ -1,6 +1,6 @@
 // JAM Protocol Types
 use std::collections::VecDeque;
-use crate::constants::{VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, MAX_ITEMS_AUTHORIZATION_POOL};
+use crate::constants::{ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
 // ----------------------------------------------------------------------------------------------------------
@@ -34,9 +34,13 @@ pub type ErasureRoot = OpaqueHash;
 
 pub type Gas = u64;
 
-pub type Entropy = OpaqueHash;
-pub type EntropyBuffer = Box<[Entropy; 4]>;
+#[derive(Debug, Clone, PartialEq)]
+pub struct Entropy(pub OpaqueHash);
+#[derive(Debug, Clone, PartialEq)]
+pub struct EntropyPool(pub Box<[Entropy; ENTROPY_POOL_SIZE]>);
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Offenders(pub Vec<Ed25519Public>);
 /// This is a combination of a set of cryptographic public keys and metadata which is an opaque octet sequence, 
 /// but utilized to specify practical identifiers for the validator, not least a hardware address. The set of 
 /// validator keys itself is equivalent to the set of 336-octet sequences. However, for clarity, we divide the
@@ -52,9 +56,7 @@ pub struct ValidatorData {
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub struct ValidatorsData {
-    pub validators: Box<[ValidatorData; VALIDATORS_COUNT]>,
-}
+pub struct ValidatorsData(pub Box<[ValidatorData; VALIDATORS_COUNT]>);
 // ----------------------------------------------------------------------------------------------------------
 // Service
 // ----------------------------------------------------------------------------------------------------------
@@ -69,6 +71,15 @@ pub struct ServiceInfo {
     pub bytes: u64,
     pub items: u32,
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ServiceItem {
+    pub id: ServiceId,
+    pub info: ServiceInfo,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Services(pub Vec<ServiceItem>);
 // ----------------------------------------------------------------------------------------------------------
 // Availability Assignments
 // ----------------------------------------------------------------------------------------------------------
@@ -81,9 +92,7 @@ pub struct AvailabilityAssignment {
 pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AvailabilityAssignments {
-    pub assignments: Box<[AvailabilityAssignmentsItem; CORES_COUNT]>,
-}
+pub struct AvailabilityAssignments(pub Box<[AvailabilityAssignmentsItem; CORES_COUNT]>);
 // ----------------------------------------------------------------------------------------------------------
 // Refine Context
 // ----------------------------------------------------------------------------------------------------------
@@ -260,16 +269,14 @@ pub struct SegmentRootLookupItem {
     pub segment_tree_root: OpaqueHash,
 }
 #[derive(Debug, Clone, PartialEq)]
-pub struct SegmentRootLookup {
-    pub segment_root_lookup: Vec<SegmentRootLookupItem>,
-}
+pub struct SegmentRootLookup(pub Vec<SegmentRootLookupItem>);
 // ----------------------------------------------------------------------------------------------------------
 // Block History
 // ----------------------------------------------------------------------------------------------------------
 pub type MmrPeak = Option<Hash>;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Mmr {
+pub struct Mmr{
     pub peaks: Vec<MmrPeak>,
 }
 
@@ -280,9 +287,7 @@ pub struct ReportedWorkPackage {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ReportedWorkPackages {
-    pub reported_work_packages: Vec<ReportedWorkPackage>,
-}
+pub struct ReportedWorkPackages(pub Vec<ReportedWorkPackage>);
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockInfo {
@@ -294,15 +299,29 @@ pub struct BlockInfo {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockHistory {
-    pub beta: VecDeque<BlockInfo>,
+    pub blocks: VecDeque<BlockInfo>,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Statistics
 // ----------------------------------------------------------------------------------------------------------
-
-
-
-
+#[derive(Clone, Debug, PartialEq, Copy)]
+pub struct ActivityRecord {
+    pub blocks: u32,
+    pub tickets: u32,
+    pub preimages: u32,
+    pub preimages_size: u32,
+    pub guarantees: u32,
+    pub assurances: u32,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct ActivityRecords {
+    pub records: Box<[ActivityRecord; VALIDATORS_COUNT]>,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct Statistics {
+    pub curr: ActivityRecords,
+    pub prev: ActivityRecords,
+}
 // ----------------------------------------------------------------------------------------------------------
 // Tickets
 // ----------------------------------------------------------------------------------------------------------
@@ -380,13 +399,13 @@ pub struct DisputesExtrinsic {
 // ----------------------------------------------------------------------------------------------------------
 // Preimages
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Preimage {
     pub requester: ServiceId,
     pub blob: Vec<u8>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct PreimagesExtrinsic {
     pub preimages: Vec<Preimage>,
 }
@@ -428,7 +447,7 @@ pub struct GuaranteesExtrinsic {
 // ----------------------------------------------------------------------------------------------------------
 // Header
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct EpochMark {
     pub entropy: OpaqueHash,
     pub tickets_entropy: OpaqueHash,
@@ -442,7 +461,7 @@ pub struct TicketsMark {
 
 pub type OffendersMark = Vec<Ed25519Public>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Header {
     pub parent: OpaqueHash,
     pub parent_state_root: OpaqueHash,
@@ -458,7 +477,7 @@ pub struct Header {
 // ----------------------------------------------------------------------------------------------------------
 // Block
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Extrinsic {
     pub tickets: TicketsExtrinsic,
     pub disputes: DisputesExtrinsic,
@@ -467,7 +486,7 @@ pub struct Extrinsic {
     pub guarantees: GuaranteesExtrinsic,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Block {
     pub header: Header,
     pub extrinsic: Extrinsic,

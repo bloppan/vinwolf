@@ -7,16 +7,20 @@ use vinwolf::types::DisputesRecords;
 use vinwolf::blockchain::state::ProcessError;
 use vinwolf::blockchain::state::{
     get_global_state, set_reporting_assurance, get_reporting_assurance, set_authpools, get_authpools, 
+    set_entropy, get_entropy, set_validators, get_validators
 };
 use vinwolf::blockchain::state::disputes::{set_disputes_state, get_disputes_state};
-use vinwolf::blockchain::state::validators::{set_validators_state, get_validators_state, ValidatorSet};
-use vinwolf::blockchain::state::entropy::{set_entropy_state, get_entropy_state};
+use vinwolf::blockchain::state::validators::ValidatorSet;
 use vinwolf::blockchain::state::reporting_assurance::process_guarantees;
 use vinwolf::blockchain::state::recent_history::{set_history_state, get_history_state}; // TODO update this
 use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
-use vinwolf::blockchain::state::time::set_time_state;
+use vinwolf::blockchain::state::set_time;
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::utils::codec::work_report::{InputWorkReport, WorkReportState, OutputWorkReport, OutputData, ReportErrorCode};
+use vinwolf::utils::codec::work_report::OutputData;
+
+use codec::{InputWorkReport, WorkReportState, OutputWorkReport};
+
+pub mod codec;
 
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
     if VALIDATORS_COUNT == 6 && CORES_COUNT == 2 && ROTATION_PERIOD == 4 && EPOCH_LENGTH == 12 {
@@ -53,8 +57,6 @@ mod tests {
         
         let _ = encode_decode_test(&test_content, &test_body);
 
-        //return;
-
         let mut reader = BytesReader::new(&test_content);
         let input = InputWorkReport::decode(&mut reader).expect("Error decoding post InputWorkReport");
         let pre_state = WorkReportState::decode(&mut reader).expect("Error decoding post WorkReport PreState");
@@ -65,14 +67,13 @@ mod tests {
             good: vec![],
             bad: vec![],
             wonky: vec![],
-            offenders: pre_state.offenders.offenders.clone(),
+            offenders: pre_state.offenders.0.clone(),
         };
         set_disputes_state(&disputes_state);
-        set_time_state(&input.slot);
         set_reporting_assurance(&pre_state.avail_assignments);
-        set_validators_state(&pre_state.curr_validators, ValidatorSet::Current);
-        set_validators_state(&pre_state.prev_validators, ValidatorSet::Previous);
-        set_entropy_state(&pre_state.entropy);
+        set_validators(&pre_state.curr_validators, ValidatorSet::Current);
+        set_validators(&pre_state.prev_validators, ValidatorSet::Previous);
+        set_entropy(&pre_state.entropy);
         set_history_state(&pre_state.recent_blocks);
         set_authpools(&pre_state.auth_pools);
         set_services_state(&pre_state.services);
@@ -90,21 +91,20 @@ mod tests {
             Err(_) => { },
         }
 
-        //println!("output_result = {:0x?}", output_result);
-        let result_avail_assignments = get_reporting_assurance();
-        let result_curr_validators = get_validators_state(ValidatorSet::Current);
-        let result_prev_validators = get_validators_state(ValidatorSet::Previous);
-        let result_entropy = get_entropy_state();
         let result_disputes = get_disputes_state();
+        let result_avail_assignments = get_reporting_assurance();
+        let result_curr_validators = get_validators(ValidatorSet::Current);
+        let result_prev_validators = get_validators(ValidatorSet::Previous);
+        let result_entropy = get_entropy();
         let result_history = get_history_state();
         let result_authpool = get_authpools();
         let result_services = get_services_state();
 
+        assert_eq!(expected_state.offenders.0, result_disputes.offenders);
         assert_eq!(expected_state.avail_assignments, result_avail_assignments);
         assert_eq!(expected_state.curr_validators, result_curr_validators);
         assert_eq!(expected_state.prev_validators, result_prev_validators);
         assert_eq!(expected_state.entropy, result_entropy);
-        assert_eq!(expected_state.offenders.offenders, result_disputes.offenders);
         assert_eq!(expected_state.recent_blocks, result_history);
         assert_eq!(expected_state.auth_pools, result_authpool);
         assert_eq!(expected_state.services, result_services);

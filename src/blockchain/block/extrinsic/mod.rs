@@ -15,36 +15,34 @@ pub mod guarantees;
 //     storing locally.
 //     Reports of newly completed workloads whose accuracy is guaranteed by specific validators.
 
-impl Extrinsic {
-    pub fn decode(extrinsic_blob: &mut BytesReader) -> Result<Self, ReadError> {
-        let tickets = TicketsExtrinsic::decode(extrinsic_blob)?;
-        let disputes = DisputesExtrinsic::decode(extrinsic_blob)?;
-        let preimages = PreimagesExtrinsic::decode(extrinsic_blob)?;
-        let assurances = AssurancesExtrinsic::decode(extrinsic_blob)?;
-        let guarantees = GuaranteesExtrinsic::decode(extrinsic_blob)?;
-
-        Ok(Extrinsic {
-            tickets,
-            disputes,
-            preimages,
-            assurances,
-            guarantees,
-        })
-    }
-
-    pub fn encode(&self) -> Vec<u8> {
+impl Encode for Extrinsic {
+    fn encode(&self) -> Vec<u8> {
         let mut extrinsic_blob: Vec<u8> = Vec::new();
 
         self.tickets.encode_to(&mut extrinsic_blob);
-        self.disputes.encode_to(&mut extrinsic_blob);
         self.preimages.encode_to(&mut extrinsic_blob);
-        self.assurances.encode_to(&mut extrinsic_blob);
         self.guarantees.encode_to(&mut extrinsic_blob);
+        self.assurances.encode_to(&mut extrinsic_blob);
+        self.disputes.encode_to(&mut extrinsic_blob);      
 
         return extrinsic_blob;
     }
 
-    pub fn encode_to(&self, into: &mut Vec<u8>) {
+    fn encode_to(&self, into: &mut Vec<u8>) {
         into.extend_from_slice(&self.encode()); 
     }
 }
+
+impl Decode for Extrinsic {
+    fn decode(extrinsic_blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        Ok(Extrinsic {
+            tickets: TicketsExtrinsic::decode(extrinsic_blob)?,
+            preimages: PreimagesExtrinsic::decode(extrinsic_blob)?,
+            guarantees: GuaranteesExtrinsic::decode(extrinsic_blob)?,
+            assurances: AssurancesExtrinsic::decode(extrinsic_blob)?,
+            disputes: DisputesExtrinsic::decode(extrinsic_blob)?,
+        })
+    }
+}
+

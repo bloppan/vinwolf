@@ -1,5 +1,8 @@
 use crate::types::Gas;
 
+// The size of the on-chain entropy pool
+pub const ENTROPY_POOL_SIZE: usize = 4;
+
 // Total number of validators
 //pub const VALIDATORS_COUNT: usize = 1023;
 pub const VALIDATORS_COUNT: usize = 6;

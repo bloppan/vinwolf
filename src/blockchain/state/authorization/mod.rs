@@ -24,8 +24,6 @@
     work-package is legitimately able to utilize that resource. It is this subsystem we will now define.
 */
 
-use once_cell::sync::Lazy;
-use std::sync::Mutex;
 use std::array::from_fn;
 use std::mem::size_of;
 use std::collections::VecDeque;
@@ -36,39 +34,16 @@ use crate::blockchain::state::get_authqueues;
 
 mod codec;
 
-// We define the set of authorizers allowable for a particular core as the authorizer pool
-static AUTH_POOL_STATE: Lazy<Mutex<AuthPools>> = Lazy::new(|| Mutex::new(AuthPools{auth_pools: Box::new(from_fn(|_| AuthPool { auth_pool: VecDeque::with_capacity(MAX_ITEMS_AUTHORIZATION_POOL) }))}));
-// To maintain this value, a futher portion of state is tracked for each core: The core's authorizer queue,
-// from which we draw values, to fill the pool.
-// Note: The portion of state AUTH_QUEUE_STATE may be altered only through an exogenous call made from the accumulate logic
-// of an appropriately privileged service.
-static AUTH_QUEUE_STATE: Lazy<Mutex<AuthQueues>> = Lazy::new(|| Mutex::new(AuthQueues{auth_queues: Box::new(from_fn(|_| AuthQueue { auth_queue: Box::new(from_fn(|_| [0; size_of::<AuthorizerHash>()])) }))}));
-
-
-pub fn set_staging_authpool(new_state: &AuthPools) {
-    let mut state = AUTH_POOL_STATE.lock().unwrap();
-    *state = new_state.clone();
-}
-
-pub fn get_staging_authpool() -> AuthPools {
-    let state = AUTH_POOL_STATE.lock().unwrap(); 
-    return state.clone();
-}
-
-pub fn set_staging_authqueue(new_state: &AuthQueues) {
-    let mut state = AUTH_QUEUE_STATE.lock().unwrap();
-    *state = new_state.clone();
-}
-
-pub fn get_staging_authqueue() -> AuthQueues {
-    let state = AUTH_QUEUE_STATE.lock().unwrap(); 
-    return state.clone();
-}
-
 pub fn process_authorizations(
     auth_pool_state: &mut AuthPools, 
     slot: &TimeSlot, 
     code_authorizers: &CodeAuthorizers) {
+    // We define the set of authorizers allowable for a particular core as the authorizer pool
+
+    // To maintain this value, a futher portion of state is tracked for each core: The core's authorizer queue,
+    // from which we draw values, to fill the pool.
+    // Note: The portion of state AUTH_QUEUE_STATE may be altered only through an exogenous call made from the accumulate logic
+    // of an appropriately privileged service.
 
     // We utilize the CodeAuthorizers (from guarantees extrinsic) to remove the oldest authorizer which has 
     // been used to justify a guaranteed work-package in the current block.
@@ -88,6 +63,38 @@ pub fn process_authorizations(
         auth_pool_state.auth_pools[core].auth_pool.push_back(new_auth);
         while auth_pool_state.auth_pools[core].auth_pool.len() > MAX_ITEMS_AUTHORIZATION_POOL {
             auth_pool_state.auth_pools[core].auth_pool.pop_front();
+        }
+    }
+}
+
+impl Default for AuthPool {
+    fn default() -> Self {
+        AuthPool {
+            auth_pool: VecDeque::with_capacity(MAX_ITEMS_AUTHORIZATION_POOL),
+        }
+    }
+}
+
+impl Default for AuthPools {
+    fn default() -> Self {
+        AuthPools {
+            auth_pools: Box::new(from_fn(|_| AuthPool::default())),
+        }
+    }
+}
+
+impl Default for AuthQueue {
+    fn default() -> Self {
+        AuthQueue {
+            auth_queue: Box::new(from_fn(|_| [0; size_of::<AuthorizerHash>()])),
+        }
+    }
+}
+
+impl Default for AuthQueues {
+    fn default() -> Self {
+        AuthQueues {
+            auth_queues: Box::new(from_fn(|_| AuthQueue::default())),
         }
     }
 }

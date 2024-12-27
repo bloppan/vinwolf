@@ -3,7 +3,7 @@
 SafroleModule DEFINITIONS ::= BEGIN
 
 IMPORTS
-    TimeSlot, ValidatorsData, Entropy, EntropyBuffer,
+    TimeSlot, ValidatorsData, Entropy, EntropyPool,
     TicketBody, TicketsAccumulator, TicketsOrKeys, TicketsExtrinsic,
     EpochMark, TicketsMark, Ed25519Public
         FROM JamTypes;
@@ -13,7 +13,7 @@ State ::= SEQUENCE {
     -- Most recent block's timeslot.
     tau TimeSlot,
     -- Entropy accumulator and epochal randomness.
-    eta EntropyBuffer,
+    eta EntropyPool,
     -- Validator keys and metadata which were active in the prior epoch.
     lambda ValidatorsData,
     -- Validator keys and metadata currently active.

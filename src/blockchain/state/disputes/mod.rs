@@ -38,8 +38,8 @@ use sp_core::{ed25519, Pair};
 
 use crate::types::{Hash, ValidatorIndex, Verdict, DisputesRecords, DisputesExtrinsic};
 use crate::constants::{EPOCH_LENGTH, ONE_THIRD_VALIDATORS, VALIDATORS_SUPER_MAJORITY};
-use crate::utils::codec::Encode;
 use crate::blockchain::block::extrinsic::disputes::{DisputesState, OutputDisputes, OutputData, ErrorCode};
+use crate::utils::codec::Encode;
 
 static DISPUTES_STATE: Lazy<Mutex<DisputesRecords>> = Lazy::new(|| Mutex::new(DisputesRecords{good: vec![], bad: vec![], wonky: vec![], offenders: vec![]}));
 
@@ -340,8 +340,8 @@ pub fn update_disputes_state(disputes_extrinsic: &DisputesExtrinsic) -> OutputDi
         disputes_state.psi.offenders.extend_from_slice(&offenders);
         
         // We clear any work-reports which we judged as uncertain or invalid from their core:
-        if !disputes_state.rho.assignments.is_empty() {
-            for assignment in disputes_state.rho.assignments.iter_mut() {
+        if !disputes_state.rho.0.is_empty() {
+            for assignment in disputes_state.rho.0.iter_mut() {
                 if let Some(availability_assignment) = assignment {
                     // Calculate target hash
                     let target_hash = blake2_256(&availability_assignment.report.encode());

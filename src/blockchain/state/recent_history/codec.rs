@@ -128,11 +128,11 @@ impl Encode for ReportedWorkPackages {
 
     fn encode(&self) -> Vec<u8> {
 
-        let len = self.reported_work_packages.len();
+        let len = self.0.len();
         let mut reported_work_packages = Vec::with_capacity(std::mem::size_of::<ReportedWorkPackage>() * len);
         encode_unsigned(len).encode_to(&mut reported_work_packages); 
         
-        for item in &self.reported_work_packages {
+        for item in &self.0 {
             item.encode_to(&mut reported_work_packages);
         }
 
@@ -154,7 +154,7 @@ impl Decode for ReportedWorkPackages {
         }
 
         Ok(ReportedWorkPackages {
-            reported_work_packages,
+            0: reported_work_packages,
         })
     }
 }
@@ -195,11 +195,11 @@ impl Encode for BlockHistory {
 
     fn encode(&self) -> Vec<u8> {
 
-        let len = self.beta.len();
+        let len = self.blocks.len();
         let mut state = Vec::with_capacity(std::mem::size_of::<Self>() * len);
         encode_unsigned(len).encode_to(&mut state);
 
-        for item in &self.beta {
+        for item in &self.blocks {
             item.encode_to(&mut state);
         }
 
@@ -216,13 +216,13 @@ impl Decode for BlockHistory {
     fn decode(state: &mut BytesReader) -> Result<Self, ReadError> {
 
         Ok(BlockHistory {
-            beta: {
+            blocks: {
                 let len = decode_unsigned(state)?;
-                let mut beta_vec = VecDeque::with_capacity(std::mem::size_of::<Self>() * len);
+                let mut blocks_vec = VecDeque::with_capacity(std::mem::size_of::<Self>() * len);
                 for _ in 0..len {
-                    beta_vec.push_back(BlockInfo::decode(state)?);
+                    blocks_vec.push_back(BlockInfo::decode(state)?);
                 }
-                beta_vec
+                blocks_vec
             }
         })
     }
