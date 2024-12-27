@@ -13,9 +13,6 @@
 // arising from processing the availability assurances followed by the work-report guarantees. This synchroneity can be 
 // seen formally through the requirement of an intermediate state ρ‡.
 
-use once_cell::sync::Lazy;
-use std::sync::Mutex;
-
 use crate::types::{
     Hash, AssurancesExtrinsic, AvailabilityAssignment, AvailabilityAssignments, GuaranteesExtrinsic, TimeSlot, CoreIndex
 };
@@ -34,25 +31,12 @@ pub mod work_result;
 // The state of the reporting and availability portion of the protocol is largely contained within ρ, which tracks the 
 // work-reports which have been reported but are not yet known to be available to a super-majority of validators, together 
 // with the time at which each was reported. As mentioned earlier, only one report may be assigned to a core at any given time.
-static REPORT_AVAILABILITY_STATE: Lazy<Mutex<AvailabilityAssignments>> = Lazy::new(|| Mutex::new(AvailabilityAssignments{assignments: Box::new(std::array::from_fn(|_| None))}));
 
-pub fn set_staging_reporting_assurance(new_state: &AvailabilityAssignments) {
-    let mut state = REPORT_AVAILABILITY_STATE.lock().unwrap();
-    *state = new_state.clone();
-}
-
-pub fn get_staging_reporting_assurance() -> AvailabilityAssignments {
-    let state = REPORT_AVAILABILITY_STATE.lock().unwrap(); 
-    return state.clone();
-}
-
-pub fn add_assignment(assignment: &AvailabilityAssignment) {
-    let mut state = REPORT_AVAILABILITY_STATE.lock().unwrap();
+pub fn add_assignment(assignment: &AvailabilityAssignment, state: &mut AvailabilityAssignments) {
     state.assignments[assignment.report.core_index as usize] = Some(assignment.clone());
 }
 
-pub fn remove_assignment(core_index: &CoreIndex) {
-    let mut state = REPORT_AVAILABILITY_STATE.lock().unwrap();
+pub fn remove_assignment(core_index: &CoreIndex, state: &mut AvailabilityAssignments) {
     state.assignments[*core_index as usize] = None;
 }
 
@@ -63,11 +47,7 @@ pub fn process_assurances(
     parent: &Hash) 
 -> Result<OutputDataAssurances, ProcessError> {
 
-    set_staging_reporting_assurance(&assurances_state.clone());
-
-    let output_data = assurances.process(post_tau, parent)?;
-
-    *assurances_state = get_staging_reporting_assurance();
+    let output_data = assurances.process(assurances_state, post_tau, parent)?;
 
     Ok(OutputDataAssurances {
         reported: output_data.reported,
@@ -80,11 +60,7 @@ pub fn process_guarantees(
     post_tau: &TimeSlot) 
 -> Result<OutputData, ProcessError> {
 
-    set_staging_reporting_assurance(&assurances_state.clone());
-
-    let output_data = guarantees.process(post_tau)?;
-
-    *assurances_state = get_staging_reporting_assurance();
+    let output_data = guarantees.process(assurances_state, post_tau)?;
 
     Ok(OutputData {
         reported: output_data.reported,

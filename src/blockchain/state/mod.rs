@@ -66,8 +66,7 @@ pub enum ProcessError {
 
 pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
-    let current_state = get_global_state(); 
-    let mut new_state = current_state.clone();
+    let mut new_state = get_global_state().clone();
     
     // Process report and assurance
     let _ = process_assurances(&mut new_state.availability, &block.extrinsic.assurances, &block.header.slot, &block.header.parent)?;

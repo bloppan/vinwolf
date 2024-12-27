@@ -1,7 +1,8 @@
 use sp_core::blake2_256;
 
 use crate::types::{
-    AvailabilityAssignment, CoreIndex, Ed25519Public, Entropy, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, WorkResult
+    AvailabilityAssignment, CoreIndex, Ed25519Public, Entropy, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, 
+    WorkResult, AvailabilityAssignments
 };
 use crate::constants::{
     EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR
@@ -11,7 +12,7 @@ use crate::blockchain::state::disputes::get_disputes_state;
 use crate::blockchain::state::validators::get_validators_state;
 use crate::blockchain::state::get_authpools;
 use crate::blockchain::state::recent_history::get_history_state;
-use crate::blockchain::state::reporting_assurance::{get_staging_reporting_assurance, add_assignment};
+use crate::blockchain::state::reporting_assurance::add_assignment;
 use crate::utils::trie::mmr_super_peak;
 use crate::utils::shuffle::shuffle;
 use crate::utils::codec::Encode;
@@ -21,7 +22,8 @@ use crate::utils::codec::work_report::{ReportedPackage, OutputData, ReportErrorC
 impl WorkReport {
 
     pub fn process(
-        &self, 
+        &self,
+        assurances_state: &mut AvailabilityAssignments,
         post_tau: &TimeSlot, 
         guarantee_slot: TimeSlot, 
         validators_signatures: &[ValidatorSignature]) 
@@ -63,7 +65,7 @@ impl WorkReport {
         let OutputData {
             reported: new_reported,
             reporters: new_reporters,
-        } = self.try_place(post_tau, guarantee_slot, validators_signatures)?;
+        } = self.try_place(assurances_state, post_tau, guarantee_slot, validators_signatures)?;
 
         return Ok(OutputData{reported: new_reported, reporters: new_reporters});
     }
@@ -90,7 +92,8 @@ impl WorkReport {
     }
 
     fn try_place(
-        &self, 
+        &self,
+        assurances_state: &mut AvailabilityAssignments,
         post_tau: &TimeSlot, 
         guarantee_slot: TimeSlot, 
         credentials: &[ValidatorSignature]) 
@@ -99,9 +102,8 @@ impl WorkReport {
         let mut reported: Vec<ReportedPackage> = Vec::new();
         let mut reporters: Vec<Ed25519Public> = Vec::new();
 
-        let availability = get_staging_reporting_assurance();
         // No reports may be placed on cores with a report pending availability on it 
-        if availability.assignments[self.core_index as usize].is_none() {
+        if assurances_state.assignments[self.core_index as usize].is_none() {
 
             let chain_entropy = get_entropy();
             let mut current_validators = get_validators_state(ValidatorSet::Current);
@@ -178,7 +180,7 @@ impl WorkReport {
             };
 
             // Update the reporting assurance state
-            add_assignment(&assignment);
+            add_assignment(&assignment, assurances_state);
             return Ok(OutputData{reported: reported, reporters: reporters});
         } 
         
