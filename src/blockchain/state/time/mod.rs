@@ -10,7 +10,7 @@ pub struct Tau {
     pub tau: TimeSlot,
 }
 
-pub fn set_time_state(post_state: &TimeSlot) {
+pub fn set_time(post_state: &TimeSlot) {
     let mut state = TIME_STATE.lock().unwrap();
     *state = Tau { tau: *post_state };
 }

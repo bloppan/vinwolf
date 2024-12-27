@@ -14,7 +14,7 @@ use vinwolf::blockchain::state::entropy::{set_entropy_state, get_entropy_state};
 use vinwolf::blockchain::state::reporting_assurance::process_guarantees;
 use vinwolf::blockchain::state::recent_history::{set_history_state, get_history_state}; // TODO update this
 use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
-use vinwolf::blockchain::state::time::set_time_state;
+use vinwolf::blockchain::state::time::set_time;
 use vinwolf::utils::codec::{Decode, BytesReader};
 use vinwolf::utils::codec::work_report::{InputWorkReport, WorkReportState, OutputWorkReport, OutputData};
 
@@ -68,7 +68,7 @@ mod tests {
             offenders: pre_state.offenders.offenders.clone(),
         };
         set_disputes_state(&disputes_state);
-        set_time_state(&input.slot);
+        set_time(&input.slot);
         set_reporting_assurance(&pre_state.avail_assignments);
         set_validators_state(&pre_state.curr_validators, ValidatorSet::Current);
         set_validators_state(&pre_state.prev_validators, ValidatorSet::Previous);

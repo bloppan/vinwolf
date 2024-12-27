@@ -4,28 +4,24 @@ use std::array::from_fn;
 
 use crate::types::{ValidatorsData, ValidatorData, BandersnatchPublic, Ed25519Public, BlsPublic, Metadata};
 
-static PREV_VALIDATORS_STATE: Lazy<Mutex<ValidatorsData>> = Lazy::new(|| Mutex::new(ValidatorsData{validators: Box::new(from_fn(|_| ValidatorData {
-    bandersnatch: [0u8; std::mem::size_of::<BandersnatchPublic>()],
-    ed25519: [0u8; std::mem::size_of::<Ed25519Public>()],
-    bls: [0u8; std::mem::size_of::<BlsPublic>()],
-    metadata: [0u8; std::mem::size_of::<Metadata>()],
-    }))}));
+static PREV_VALIDATORS_STATE: Lazy<Mutex<ValidatorsData>> = Lazy::new(|| Mutex::new(ValidatorsData::default()));
+static CURR_VALIDATORS_STATE: Lazy<Mutex<ValidatorsData>> = Lazy::new(|| Mutex::new(ValidatorsData::default()));
+static NEXT_VALIDATORS_STATE: Lazy<Mutex<ValidatorsData>> = Lazy::new(|| Mutex::new(ValidatorsData::default()));
 
-static CURR_VALIDATORS_STATE: Lazy<Mutex<ValidatorsData>> = Lazy::new(|| Mutex::new(ValidatorsData{validators: Box::new(from_fn(|_| ValidatorData {
-    bandersnatch: [0u8; std::mem::size_of::<BandersnatchPublic>()],
-    ed25519: [0u8; std::mem::size_of::<Ed25519Public>()],
-    bls: [0u8; std::mem::size_of::<BlsPublic>()],
-    metadata: [0u8; std::mem::size_of::<Metadata>()],
-    }))}));
+impl Default for ValidatorsData {
+    fn default() -> Self {
+        ValidatorsData {
+            validators: Box::new(from_fn(|_| ValidatorData {
+                bandersnatch: [0u8; std::mem::size_of::<BandersnatchPublic>()],
+                ed25519: [0u8; std::mem::size_of::<Ed25519Public>()],
+                bls: [0u8; std::mem::size_of::<BlsPublic>()],
+                metadata: [0u8; std::mem::size_of::<Metadata>()],
+            }))
+        }
+    }
+}
 
-static NEXT_VALIDATORS_STATE: Lazy<Mutex<ValidatorsData>> = Lazy::new(|| Mutex::new(ValidatorsData{validators: Box::new(from_fn(|_| ValidatorData {
-    bandersnatch: [0u8; std::mem::size_of::<BandersnatchPublic>()],
-    ed25519: [0u8; std::mem::size_of::<Ed25519Public>()],
-    bls: [0u8; std::mem::size_of::<BlsPublic>()],
-    metadata: [0u8; std::mem::size_of::<Metadata>()],
-    }))}));
-
-
+#[derive(Clone, Debug, PartialEq)]
 pub enum ValidatorSet {
     Previous,
     Current,

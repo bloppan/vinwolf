@@ -39,18 +39,18 @@ impl Decode for InputStatistics {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct StateStatistics {
-    pub pi: Statistics,
+    pub stats: Statistics,
     pub tau: TimeSlot,
-    pub kappa_prime: ValidatorsData
+    pub next_validators: ValidatorsData
 }
 
 impl Encode for StateStatistics {
     fn encode(&self) -> Vec<u8> {
         let mut blob = Vec::with_capacity(std::mem::size_of::<StateStatistics>());
 
-        self.pi.encode_to(&mut blob);
+        self.stats.encode_to(&mut blob);
         self.tau.encode_to(&mut blob);
-        self.kappa_prime.encode_to(&mut blob);
+        self.next_validators.encode_to(&mut blob);
 
         return blob;
     }
@@ -61,14 +61,11 @@ impl Encode for StateStatistics {
 
 impl Decode for StateStatistics {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
-        let pi = Statistics::decode(blob)?;
-        let tau = TimeSlot::decode(blob)?;
-        let kappa_prime = ValidatorsData::decode(blob)?;
 
         Ok(StateStatistics {
-            pi,
-            tau,
-            kappa_prime
+            stats: Statistics::decode(blob)?,
+            tau: TimeSlot::decode(blob)?,
+            next_validators: ValidatorsData::decode(blob)?
         })
     }
 }

@@ -6,10 +6,10 @@ use crate::types::{
 use crate::constants::{
     EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR
 };
-use crate::blockchain::state::ProcessError;
+use crate::blockchain::state::{ProcessError, ValidatorSet};
 use crate::blockchain::state::entropy::get_entropy_state;
 use crate::blockchain::state::disputes::get_disputes_state;
-use crate::blockchain::state::validators::{get_validators_state, ValidatorSet};
+use crate::blockchain::state::validators::get_validators_state;
 use crate::blockchain::state::get_authpools;
 use crate::blockchain::state::recent_history::get_history_state;
 use crate::blockchain::state::reporting_assurance::{get_staging_reporting_assurance, add_assignment};

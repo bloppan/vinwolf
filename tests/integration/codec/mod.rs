@@ -100,7 +100,12 @@ impl<'a, 'b> TestContext<'a, 'b> {
 
         self.global_position = end_position;
 
-        //println!("{}: {:0x?}", part_name, part);
+        /*println!("---------- {}: {:0x?}", part_name, part);
+        use std::io::{stdin, stdout, Write};
+        print!("Presiona Enter para continuar...");
+        stdout().flush().unwrap();
+        let mut _input = String::new();
+        stdin().read_line(&mut _input).unwrap();*/
 
         Ok(())
     }
@@ -208,7 +213,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
 
     if context.global_position != blob.len() {
         println!("Codec test was not readed properly! Readed {} bytes. The test file has {} bytes", context.global_position, blob.len());
-        assert_eq!(context.global_position, blob.len());
+        assert_eq!(blob.len(), context.global_position);
     }
 
     Ok(())

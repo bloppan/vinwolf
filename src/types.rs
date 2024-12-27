@@ -1,6 +1,6 @@
 // JAM Protocol Types
 use std::collections::VecDeque;
-use crate::constants::{VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE};
+use crate::constants::{ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
 // ----------------------------------------------------------------------------------------------------------
@@ -35,7 +35,7 @@ pub type ErasureRoot = OpaqueHash;
 pub type Gas = u64;
 
 pub type Entropy = OpaqueHash;
-pub type EntropyBuffer = Box<[Entropy; 4]>;
+pub type EntropyBuffer = Box<[Entropy; ENTROPY_POOL_SIZE]>;
 
 /// This is a combination of a set of cryptographic public keys and metadata which is an opaque octet sequence, 
 /// but utilized to specify practical identifiers for the validator, not least a hardware address. The set of 
@@ -299,7 +299,7 @@ pub struct BlockHistory {
 // ----------------------------------------------------------------------------------------------------------
 // Statistics
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Copy)]
 pub struct ActivityRecord {
     pub blocks: u32,
     pub tickets: u32,
