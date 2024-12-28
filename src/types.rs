@@ -463,8 +463,8 @@ pub type OffendersMark = Vec<Ed25519Public>;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Header {
-    pub parent: OpaqueHash,
-    pub parent_state_root: OpaqueHash,
+    pub parent: HeaderHash,
+    pub parent_state_root: StateRoot,
     pub extrinsic_hash: OpaqueHash,
     pub slot: TimeSlot,
     pub epoch_mark: Option<EpochMark>,

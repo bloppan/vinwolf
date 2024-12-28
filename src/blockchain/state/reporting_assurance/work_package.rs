@@ -1,5 +1,8 @@
-use crate::types::{ServiceId, OpaqueHash, RefineContext, WorkPackage, Authorizer, WorkItem};
-use crate::utils::codec::{Encode, EncodeSize, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
+use crate::types::{
+    ServiceId, OpaqueHash, RefineContext, WorkPackage, Authorizer, WorkItem, ReportedWorkPackage, ReportedWorkPackages,
+    Hash, 
+};
+use crate::utils::codec::{Encode, EncodeSize, EncodeLen, Decode, DecodeLen, BytesReader, ReadError, encode_unsigned, decode_unsigned};
 
 impl Encode for WorkPackage {
 
@@ -36,6 +39,69 @@ impl Decode for WorkPackage {
             },
             context : RefineContext::decode(work_pkg_blob)?,
             items : WorkItem::decode_len(work_pkg_blob)?,
+        })
+    }
+}
+
+impl Encode for ReportedWorkPackage {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
+        
+        self.hash.encode_to(&mut blob);
+        self.exports_root.encode_to(&mut blob);
+        
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for ReportedWorkPackage {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        Ok(ReportedWorkPackage{
+            hash: Hash::decode(blob)?,
+            exports_root: Hash::decode(blob)?,
+        })
+    }
+}
+
+impl Encode for ReportedWorkPackages {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let len = self.0.len();
+        let mut reported_work_packages = Vec::with_capacity(std::mem::size_of::<ReportedWorkPackage>() * len);
+        encode_unsigned(len).encode_to(&mut reported_work_packages); 
+        
+        for item in &self.0 {
+            item.encode_to(&mut reported_work_packages);
+        }
+
+        return reported_work_packages;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for ReportedWorkPackages {
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+        let len = decode_unsigned(blob)?;
+        let mut reported_work_packages = Vec::with_capacity(len);
+
+        for _ in 0..len {
+            reported_work_packages.push(ReportedWorkPackage::decode(blob)?);
+        }
+
+        Ok(ReportedWorkPackages {
+            0: reported_work_packages,
         })
     }
 }

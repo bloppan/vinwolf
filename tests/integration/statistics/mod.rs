@@ -43,9 +43,9 @@ mod tests {
         let pre_state = StateStatistics::decode(&mut reader).expect("Error decoding post Statitstics PreState");
         let expected_state = StateStatistics::decode(&mut reader).expect("Error decoding post Statitstics PostState");
 
-        set_statistics(&pre_state.stats);
-        set_time(&pre_state.tau);
-        set_validators(&pre_state.next_validators, ValidatorSet::Next);
+        set_statistics(pre_state.stats);
+        set_time(pre_state.tau);
+        set_validators(pre_state.next_validators, ValidatorSet::Next);
 
         let mut result_statistics = get_global_state().statistics.clone();
         process_statistics(&mut result_statistics, &input.slot, &input.author_index, &input.extrinsic);

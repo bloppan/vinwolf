@@ -7,14 +7,12 @@ use vinwolf::types::DisputesRecords;
 use vinwolf::blockchain::state::ProcessError;
 use vinwolf::blockchain::state::{
     get_global_state, set_reporting_assurance, get_reporting_assurance, set_authpools, get_authpools, 
-    set_entropy, get_entropy, set_validators, get_validators
+    set_entropy, get_entropy, set_validators, get_validators, set_recent_history, get_recent_history
 };
 use vinwolf::blockchain::state::disputes::{set_disputes_state, get_disputes_state};
 use vinwolf::blockchain::state::validators::ValidatorSet;
 use vinwolf::blockchain::state::reporting_assurance::process_guarantees;
-use vinwolf::blockchain::state::recent_history::{set_history_state, get_history_state}; // TODO update this
 use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
-use vinwolf::blockchain::state::set_time;
 use vinwolf::utils::codec::{Decode, BytesReader};
 use vinwolf::utils::codec::work_report::OutputData;
 
@@ -70,12 +68,12 @@ mod tests {
             offenders: pre_state.offenders.0.clone(),
         };
         set_disputes_state(&disputes_state);
-        set_reporting_assurance(&pre_state.avail_assignments);
-        set_validators(&pre_state.curr_validators, ValidatorSet::Current);
-        set_validators(&pre_state.prev_validators, ValidatorSet::Previous);
-        set_entropy(&pre_state.entropy);
-        set_history_state(&pre_state.recent_blocks);
-        set_authpools(&pre_state.auth_pools);
+        set_reporting_assurance(pre_state.avail_assignments);
+        set_validators(pre_state.curr_validators, ValidatorSet::Current);
+        set_validators(pre_state.prev_validators, ValidatorSet::Previous);
+        set_entropy(pre_state.entropy);
+        set_recent_history(pre_state.recent_blocks);
+        set_authpools(pre_state.auth_pools);
         set_services_state(&pre_state.services);
 
         let current_state = get_global_state();
@@ -87,7 +85,7 @@ mod tests {
                                                                             &input.slot);
         
         match output_result {
-            Ok(_) => { set_reporting_assurance(&assurances_state);},
+            Ok(_) => { set_reporting_assurance(assurances_state);},
             Err(_) => { },
         }
 
@@ -96,7 +94,7 @@ mod tests {
         let result_curr_validators = get_validators(ValidatorSet::Current);
         let result_prev_validators = get_validators(ValidatorSet::Previous);
         let result_entropy = get_entropy();
-        let result_history = get_history_state();
+        let result_history = get_recent_history();
         let result_authpool = get_authpools();
         let result_services = get_services_state();
 

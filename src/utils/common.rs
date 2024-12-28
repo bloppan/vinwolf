@@ -7,7 +7,7 @@ use crate::types::{BandersnatchPublic, BlsPublic, Ed25519Public, Ed25519Signatur
 pub fn is_sorted_and_unique<T: PartialOrd + Hash + Eq>(vec: &[T]) -> bool {
     let mut seen = HashSet::new();
 
-    vec.windows(2).all(|window| window[0] < window[1]) && vec.iter().all(|x| seen.insert(x.clone()))
+    vec.windows(2).all(|window| window[0] < window[1]) && vec.iter().all(|x| seen.insert(x))
 }
 
 pub trait VerifySignature {

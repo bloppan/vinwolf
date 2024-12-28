@@ -3,10 +3,13 @@ use crate::integration::codec::{TestBody, encode_decode_test};
 
 use vinwolf::utils::codec::{Decode, BytesReader};
 use vinwolf::types::BlockHistory;
-use vinwolf::blockchain::state::recent_history::codec::Input as InputHistory;
-use vinwolf::blockchain::state::recent_history::{update_recent_history, set_history_state, get_history_state};
+use vinwolf::blockchain::state::{set_recent_history, get_recent_history};
+use vinwolf::blockchain::state::recent_history::process_recent_history;
+use codec::InputHistory;
 
-fn run_recent_history_test(filename: &str) {
+pub mod codec;
+
+fn run_test(filename: &str) {
   
     let test_content = read_test_file(&format!("tests/jamtestvectors/history/data/{}", filename));
     let test_body: Vec<TestBody> = vec![TestBody::InputHistory, TestBody::BlockHistory, TestBody::BlockHistory];
@@ -18,18 +21,20 @@ fn run_recent_history_test(filename: &str) {
     let expected_pre_state = BlockHistory::decode(&mut reader).expect("Error decoding pre BlockHistory");
     let expected_post_state = BlockHistory::decode(&mut reader).expect("Error decoding post BlockHistory");
     
-    set_history_state(&expected_pre_state);
-    let pre_state_result = get_history_state();
-    assert_eq!(expected_pre_state, pre_state_result);
+    set_recent_history(expected_pre_state.clone());
 
-    update_recent_history(
+    let mut recent_history_state = get_recent_history();
+    assert_eq!(expected_pre_state, recent_history_state);
+
+    process_recent_history(
+                    &mut recent_history_state,
                     input.header_hash, 
                     input.parent_state_root, 
                     input.accumulate_root, 
                     input.work_packages);
 
-    let result_post_state = get_history_state();
-    assert_eq!(expected_post_state, result_post_state);
+    assert_eq!(expected_post_state, recent_history_state);
+
 }
 
 #[cfg(test)]
@@ -37,22 +42,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn progress_blocks_history_1() {
-        run_recent_history_test("progress_blocks_history-1.bin");
-    }
+    fn run_recent_history_tests() {
+        
+        println!("Recent history tests");
 
-    #[test]
-    fn progress_blocks_history_2() {
-        run_recent_history_test("progress_blocks_history-2.bin");
-    }
-
-    #[test]
-    fn progress_blocks_history_3() {
-        run_recent_history_test("progress_blocks_history-3.bin");
-    }
-
-    #[test]
-    fn progress_blocks_history_4() {
-        run_recent_history_test("progress_blocks_history-4.bin");
+        let test_files = vec![
+            // Empty history queue.
+            "progress_blocks_history-1.bin",
+            // Not empty nor full history queue.
+            "progress_blocks_history-2.bin",
+            // Fill the history queue.
+            "progress_blocks_history-3.bin",
+            // Shift the history queue.
+            "progress_blocks_history-4.bin",
+        ];
+        for file in test_files {
+            println!("Running test: {}", file);
+            run_test(file);
+        }
     }
 }   

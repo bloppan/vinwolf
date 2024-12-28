@@ -3,8 +3,7 @@ use crate::types::{
     TimeSlot, ValidatorIndex, Ed25519Signature, CoreIndex, WorkReport, Hash, GuaranteesExtrinsic, ReportGuarantee, ValidatorSignature,
     AvailabilityAssignments
 };
-use crate::blockchain::state::ProcessError;
-use crate::blockchain::state::recent_history::get_history_state;
+use crate::blockchain::state::{ProcessError, get_recent_history};
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 use crate::utils::codec::work_report::{ReportErrorCode, OutputData};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
@@ -53,7 +52,7 @@ impl GuaranteesExtrinsic {
         let mut reported = Vec::new();
         let mut reporters = Vec::new();
         let mut core_index: Vec<CoreIndex> = Vec::new();
-        let recent_history = get_history_state();
+        let recent_history = get_recent_history();
 
         let packages_map: std::collections::HashMap<Hash, Hash> = self.report_guarantee
                                                                     .iter()

@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::types::{Hash, MmrPeak, Mmr, ReportedWorkPackage, ReportedWorkPackages, BlockInfo, BlockHistory};
+use crate::types::{Hash, MmrPeak, Mmr, ReportedWorkPackages, BlockInfo, BlockHistory};
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
 
@@ -96,69 +96,6 @@ impl Decode for Mmr {
     }
 }
 
-impl Encode for ReportedWorkPackage {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
-        
-        self.hash.encode_to(&mut blob);
-        self.exports_root.encode_to(&mut blob);
-        
-        return blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-impl Decode for ReportedWorkPackage {
-
-    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
-
-        Ok(ReportedWorkPackage{
-            hash: Hash::decode(blob)?,
-            exports_root: Hash::decode(blob)?,
-        })
-    }
-}
-
-impl Encode for ReportedWorkPackages {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let len = self.0.len();
-        let mut reported_work_packages = Vec::with_capacity(std::mem::size_of::<ReportedWorkPackage>() * len);
-        encode_unsigned(len).encode_to(&mut reported_work_packages); 
-        
-        for item in &self.0 {
-            item.encode_to(&mut reported_work_packages);
-        }
-
-        return reported_work_packages;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-impl Decode for ReportedWorkPackages {
-    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
-        let len = decode_unsigned(blob)?;
-        let mut reported_work_packages = Vec::with_capacity(len);
-
-        for _ in 0..len {
-            reported_work_packages.push(ReportedWorkPackage::decode(blob)?);
-        }
-
-        Ok(ReportedWorkPackages {
-            0: reported_work_packages,
-        })
-    }
-}
-
 impl Encode for BlockInfo {
 
     fn encode(&self) -> Vec<u8> {
@@ -218,52 +155,12 @@ impl Decode for BlockHistory {
         Ok(BlockHistory {
             blocks: {
                 let len = decode_unsigned(state)?;
-                let mut blocks_vec = VecDeque::with_capacity(std::mem::size_of::<Self>() * len);
+                let mut blocks_vec = VecDeque::with_capacity(len);
                 for _ in 0..len {
                     blocks_vec.push_back(BlockInfo::decode(state)?);
                 }
                 blocks_vec
             }
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct Input {
-    pub header_hash: Hash,
-    pub parent_state_root: Hash,
-    pub accumulate_root: Hash,
-    pub work_packages: ReportedWorkPackages,
-}
-
-impl Encode for Input {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut input_blob = Vec::with_capacity(std::mem::size_of::<Self>());
-
-        self.header_hash.encode_to(&mut input_blob);
-        self.parent_state_root.encode_to(&mut input_blob);
-        self.accumulate_root.encode_to(&mut input_blob);
-        self.work_packages.encode_to(&mut input_blob);
-
-        return input_blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-impl Decode for Input {
-
-    fn decode(input_blob: &mut BytesReader) -> Result<Self, ReadError> {
-
-        Ok(Input {
-            header_hash: Hash::decode(input_blob)?,
-            parent_state_root: Hash::decode(input_blob)?,
-            accumulate_root: Hash::decode(input_blob)?,
-            work_packages: ReportedWorkPackages::decode(input_blob)?,
         })
     }
 }

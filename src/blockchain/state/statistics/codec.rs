@@ -1,4 +1,3 @@
-use crate::constants::VALIDATORS_COUNT;
 use crate::types::{Statistics, ActivityRecord, ActivityRecords};
 use crate:: utils::codec::{BytesReader, Decode, Encode, ReadError};
 

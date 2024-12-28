@@ -53,7 +53,7 @@ mod tests {
         let expected_output = OutputAssurances::decode(&mut reader).expect("Error decoding post OutputAssurances");
         let expected_state = StateAssurances::decode(&mut reader).expect("Error decoding post Assurances PostState");
         
-        set_reporting_assurance(&pre_state.avail_assignments);
+        set_reporting_assurance(pre_state.avail_assignments);
         set_validators_state(&pre_state.curr_validators, ValidatorSet::Current);
   
         let current_state = get_global_state();
@@ -66,7 +66,7 @@ mod tests {
                                                                             &input.parent);
         
         match output_result {
-            Ok(_) => { set_reporting_assurance(&assurances_state);},
+            Ok(_) => { set_reporting_assurance(assurances_state);},
             Err(_) => { },
         }
 

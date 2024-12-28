@@ -12,9 +12,9 @@ use vinwolf::utils::codec::{Encode, Decode, BytesReader, ReadError};
 use vinwolf::blockchain::block::extrinsic::assurances::OutputAssurances;
 use vinwolf::blockchain::block::extrinsic::disputes::{DisputesState, OutputDisputes};
 use vinwolf::blockchain::state::safrole::codec::{Input as InputSafrole, SafroleState, Output as OutputSafrole};
-use vinwolf::blockchain::state::recent_history::codec::Input as InputHistory;
 use crate::integration::assurances::codec::{InputAssurances, StateAssurances};
 use crate::integration::authorization::codec::{InputAuthorizations, StateAuthorizations};
+use crate::integration::history::codec::InputHistory;
 use crate::integration::statistics::codec::{InputStatistics, StateStatistics};
 use crate::integration::reports::codec::{InputWorkReport, WorkReportState, OutputWorkReport};
 
