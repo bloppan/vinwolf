@@ -3,9 +3,11 @@ use ark_ec_vrfs::{prelude::ark_serialize, suites::bandersnatch::edwards::RingCon
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
 
+use crate::blockchain::state::ProcessError;
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH};
-use crate::blockchain::state::safrole::{SafroleState, TicketBody, OutputMarks, ErrorType};
-use crate::utils::codec::jam::safrole::{InputSafrole, OutputSafrole};
+use crate::utils::codec::Encode;
+use crate::types::{TicketsExtrinsic, EntropyPool, OutputSafrole, OutputDataSafrole, SafroleErrorCode};
+use crate::blockchain::state::safrole::{Safrole, TicketBody};
 
 use std::collections::HashSet;
 
@@ -254,16 +256,21 @@ fn bad_order_tickets(ids: &Vec<OpaqueHash>) -> bool {
     false // Order correct
 }
 
-pub fn verify_tickets(input: &InputSafrole, state: &mut SafroleState) -> OutputSafrole {
+pub fn verify_tickets(
+    safrole_state: &mut Safrole,
+    entropy_state: &mut EntropyPool,
+    tickets_extrinsic: &TicketsExtrinsic,
+) -> Result<OutputDataSafrole, ProcessError> {
+
     // Check if attempt is correct (0 or 1)
-    for i in 0..input.extrinsic.len() {
-        if input.extrinsic.tickets[i].attempt > 1 {
-            return OutputSafrole::err(ErrorType::bad_ticket_attempt);
+    for i in 0..tickets_extrinsic.tickets.len() {
+        if tickets_extrinsic.tickets[i].attempt > 1 {
+            return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketAttempt));
         }
     }
 
     // Create a bandersnatch ring keys
-    let ring_keys: Vec<_> = state.gamma_k
+    let ring_keys: Vec<_> = safrole_state.pending_validators.0
                                         .iter()
                                         .map(|validator| validator.bandersnatch.clone())
                                         .collect();
@@ -279,15 +286,16 @@ pub fn verify_tickets(input: &InputSafrole, state: &mut SafroleState) -> OutputS
                                         .collect();
     
     let verifier = Verifier::new(ring_set);
-    let mut new_gamma_a = state.gamma_a.clone();
+    let mut new_gamma_a = safrole_state.ticket_accumulator.clone();
     let mut new_ids: Vec<OpaqueHash> = vec![];
     // Verify each ticket
-    for i in 0..input.extrinsic.len() {
+    for i in 0..tickets_extrinsic.tickets.len() {
         let mut vrf_input_data = Vec::from(b"jam_ticket_seal");
-        vrf_input_data.extend_from_slice(&state.eta[2]);
-        vrf_input_data.push(input.extrinsic.tickets[i].attempt.try_into().unwrap());
+        entropy_state.0[2].encode_to(&mut vrf_input_data);
+        //vrf_input_data.extend_from_slice(entropy_state.0[2]);
+        vrf_input_data.push(tickets_extrinsic.tickets[i].attempt.try_into().unwrap());
         let aux_data = vec![];
-        let signature_hex = input.extrinsic.tickets[i].signature;
+        let signature_hex = tickets_extrinsic.tickets[i].signature;
         // Verify ticket validity
         let res = verifier.ring_vrf_verify(&vrf_input_data, &aux_data, &signature_hex);
         match res {
@@ -295,24 +303,23 @@ pub fn verify_tickets(input: &InputSafrole, state: &mut SafroleState) -> OutputS
                 new_ids.push(result);
                 new_gamma_a.push(TicketBody {
                     id: result,
-                    attempt: input.extrinsic.tickets[i].attempt,
+                    attempt: tickets_extrinsic.tickets[i].attempt,
                 });
             },
             Err(_) => {
                 println!("VRF verification failed");
-                return OutputSafrole::err(ErrorType::bad_ticket_proof);
+                return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketProof));
             }
         }
-        
     }
     // Check if there are duplicate tickets
     let ids: Vec<OpaqueHash> = new_gamma_a.iter().map(|ticket| ticket.id.clone()).collect();
     if has_duplicates(&ids) {
-        return OutputSafrole::err(ErrorType::duplicate_ticket);
+        return Err(ProcessError::SafroleError(SafroleErrorCode::DuplicateTicket));
     }
     // Check tickets order
     if bad_order_tickets(&new_ids) {
-        return OutputSafrole::err(ErrorType::bad_ticket_order);
+        return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketOrder));
     }
     // Sort tickets
     new_gamma_a.sort();
@@ -321,9 +328,9 @@ pub fn verify_tickets(input: &InputSafrole, state: &mut SafroleState) -> OutputS
         new_gamma_a.drain(EPOCH_LENGTH..new_gamma_a.len());
     }
     // Save new ticket set in state
-    state.gamma_a = new_gamma_a.clone();
+    safrole_state.ticket_accumulator = new_gamma_a.clone();
     // Return ok
-    OutputSafrole::ok(OutputMarks {
+    Ok(OutputDataSafrole {
         epoch_mark: None,
         tickets_mark: None,
     })

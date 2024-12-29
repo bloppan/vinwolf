@@ -9,3 +9,13 @@
 // We define the extrinsic as a sequence of proofs of valid tickets, each of which is a tuple of an entry index 
 // (a natural number less than N) and a proof of ticket validity.
 
+use crate::types::{OpaqueHash, TicketBody};
+
+impl Default for TicketBody {
+    fn default() -> Self {
+        TicketBody {
+            id: [0u8; std::mem::size_of::<OpaqueHash>()],
+            attempt: 0,
+        }
+    }
+}

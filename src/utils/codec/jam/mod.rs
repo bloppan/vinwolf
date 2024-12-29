@@ -3,9 +3,10 @@ pub mod availability;
 pub mod entropy;
 pub mod disputes;
 pub mod recent_history;
-pub mod safrole;
+pub mod validators;
 pub mod services;
 pub mod statistics;
+pub mod safrole;
 
 pub mod header;
 pub mod assurances;

@@ -29,57 +29,85 @@
 /// output is a ticket and validators' tickets with the best score define the new sealing keys allowing the chosen validators 
 /// to exercise their privilege and create a new block at the appropriate time.
 
-use crate::types::{
-    BandersnatchPublic, Ed25519Public, BlsPublic, Metadata, OpaqueHash, ValidatorData, TicketBody, TicketsOrKeys, EpochMark};
-use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
-use crate::utils::codec::Encode;
-use crate::utils::codec::jam::safrole::{InputSafrole, OutputSafrole, SafroleState, ErrorType, OutputMarks};
-
 use sp_core::blake2_256;
+
+use crate::types::{
+    BandersnatchPublic, BandersnatchRingCommitment, BlsPublic, Ed25519Public, EntropyPool, EpochMark, Metadata, OpaqueHash, 
+    OutputDataSafrole, OutputSafrole, Safrole, SafroleErrorCode, TicketBody, TicketsExtrinsic, TicketsOrKeys, TimeSlot, 
+    ValidatorData, ValidatorsData, Entropy
+};
+use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
+use crate::blockchain::state::ProcessError;
+use crate::blockchain::state::entropy::rotate_entropy_pool;
+use crate::utils::common::set_offenders_null;
+use crate::utils::codec::Encode;
 
 mod bandersnatch;
 
-// Update Safrole state
-pub fn update_state(input: InputSafrole, state: &mut SafroleState) -> OutputSafrole {
+impl Default for Safrole {
+    fn default() -> Self {
+        Safrole {
+            pending_validators: ValidatorsData::default(),
+            ticket_accumulator: vec![TicketBody::default()],
+            seal: TicketsOrKeys::None,
+            epoch_root: [0u8; std::mem::size_of::<BandersnatchRingCommitment>()],
+        }
+    }
+}
+
+// Process Safrole state
+pub fn process_safrole(
+    safrole_state: &mut Safrole,
+    entropy_state: &mut EntropyPool,
+    curr_validators: &mut ValidatorsData,
+    prev_validators: &mut ValidatorsData,
+    tau: &mut TimeSlot,
+    slot: &TimeSlot,
+    entropy: &Entropy,
+    tickets_extrinsic: &TicketsExtrinsic,
+    post_offenders: &Vec<Ed25519Public>,
+) -> Result<OutputDataSafrole, ProcessError> {
+
     // tau defines de most recent block
     // Timeslot must be strictly monotonic
-    if input.slot <= state.tau {
-        return OutputSafrole::err(ErrorType::bad_slot);
+
+    if *slot <= *tau {
+        return Err(ProcessError::SafroleError(SafroleErrorCode::BadSlot));
     }
 
-    if input.extrinsic.len() > 0 {
-        if input.slot >= TICKET_SUBMISSION_ENDS as u32 {
-            return OutputSafrole::err(ErrorType::unexpected_ticket);
+    if tickets_extrinsic.len() > 0 {
+        if *slot >= TICKET_SUBMISSION_ENDS as TimeSlot {
+            return Err(ProcessError::SafroleError(SafroleErrorCode::UnexpectedTicket));
         }
 
-        let validity = bandersnatch::verify_tickets(&input, state);
+        let validity = bandersnatch::verify_tickets(safrole_state, entropy_state, tickets_extrinsic);
         
-        if let OutputSafrole::err(error_type) = validity {
-            return OutputSafrole::err(error_type);
+        if let Err(error_type) = validity {
+            return Err(error_type);
         }
     }
     // Calculate time parameters
-    let e: u32 = state.tau / EPOCH_LENGTH as u32;
-    let m: u32 = state.tau % EPOCH_LENGTH as u32;
-    let post_e: u32 = input.slot / EPOCH_LENGTH as u32;
-    let post_m: u32 = input.slot % EPOCH_LENGTH as u32;
+    let epoch = *tau / EPOCH_LENGTH as TimeSlot;
+    let m = *tau % EPOCH_LENGTH as TimeSlot;
+    let post_epoch= *slot / EPOCH_LENGTH as TimeSlot;
+    let post_m = *slot % EPOCH_LENGTH as TimeSlot;
     
     // Output marks
     let mut epoch_mark: Option<EpochMark> = None;
     let mut tickets_mark: Option<Vec<TicketBody>> = None;
 
     // Check if we are in a new epoch (e' > e)
-    if post_e > e {
+    if post_epoch > epoch {
         // On an epoch transition, we therefore rotate the accumulator value into the history eta1, eta2 eta3
-        rotate_entropy_pool(state); 
+        rotate_entropy_pool(entropy_state); 
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
-        key_rotation(&input, state);
+        key_rotation(safrole_state, curr_validators, prev_validators, post_offenders);
         // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
         // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
         epoch_mark = Some(EpochMark {
-            entropy: state.eta[1].clone(),
-            tickets_entropy: state.eta[2].clone(),
-            validators: state.gamma_k
+            entropy: entropy_state.0[1].clone(),
+            tickets_entropy: entropy_state.0[2].clone(),
+            validators: safrole_state.pending_validators.0
                 .iter()
                 .map(|validator| validator.bandersnatch.clone())
                 .collect::<Vec<BandersnatchPublic>>()  
@@ -88,75 +116,51 @@ pub fn update_state(input: InputSafrole, state: &mut SafroleState) -> OutputSafr
         });
         // gamma_s is the current epoch's slot-sealer series, which is either a full complement of EPOCH_LENGTH tickets
         // or, in case of fallback, a series of EPOCH_LENGTH bandersnatch keys
-        if post_e == e + 1 && m >= TICKET_SUBMISSION_ENDS as u32 && state.gamma_a.len() == EPOCH_LENGTH {
+        if post_epoch == epoch + 1 && m >= TICKET_SUBMISSION_ENDS as u32 && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
             // If the block is the first after the end of the submission period for tickets and if the ticket accumulator 
             // is saturated, then the final sequence of ticket identifiers
-            state.gamma_s = TicketsOrKeys::Tickets(outside_in_sequencer(&state.gamma_a));
-        } else if post_e == e {
+            safrole_state.seal = TicketsOrKeys::Tickets(outside_in_sequencer(&safrole_state.ticket_accumulator));
+        } else if post_epoch == epoch {
             // gamma_s' = gamma_s
         } else {
             // Otherwise, it takes the value of the fallback key sequence
-            let bandersnatch_keys: Vec<_> = state.kappa
+            let bandersnatch_keys: Vec<_> = curr_validators.0
                 .iter()
                 .map(|validator| validator.bandersnatch.clone())
                 .collect();
-            state.gamma_s = TicketsOrKeys::Keys(fallback(&state.eta[2], &bandersnatch_keys));
+            safrole_state.seal = TicketsOrKeys::Keys(fallback(&entropy_state.0[2], &bandersnatch_keys));
         } 
-        state.gamma_a = vec![];
-    } else if post_e == e && m < TICKET_SUBMISSION_ENDS as u32 && TICKET_SUBMISSION_ENDS  as u32 <= post_m && state.gamma_a.len() == EPOCH_LENGTH {
+        safrole_state.ticket_accumulator = vec![];
+    } else if post_epoch == epoch && m < TICKET_SUBMISSION_ENDS as u32 && TICKET_SUBMISSION_ENDS  as u32 <= post_m && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
         // gamma_a is the ticket accumulator, a series of highestscoring ticket identifiers to be used for the next epoch.
-        tickets_mark = Some(outside_in_sequencer(&state.gamma_a));
+        tickets_mark = Some(outside_in_sequencer(&safrole_state.ticket_accumulator));
     }
     // tau defines the most recent block's index
-    state.tau = input.slot;
+    *tau = *slot;
 
     // Update recent entropy eta0
-    update_recent_entropy(&input, state);
-    return OutputSafrole::ok(OutputMarks {epoch_mark, tickets_mark});
+    update_recent_entropy(entropy_state, entropy.clone());
+    
+    return Ok(OutputDataSafrole {epoch_mark, tickets_mark});
 }
 
-fn update_recent_entropy(input: &InputSafrole, state: &mut SafroleState) {
+fn update_recent_entropy(entropy_state: &mut EntropyPool, new_entropy: Entropy) {
     // eta0 defines the state of the randomness accumulator to which the provably random output of the vrf, the signature over 
     // some unbiasable input, is combined each block. eta1 and eta2 meanwhile retain the state of this accumulator at the end 
     // of the two most recently ended epochs in order.
-    state.eta[0] = blake2_256(&[state.eta[0], input.entropy].concat());
+    entropy_state.0[0] = Entropy(blake2_256(&[entropy_state.0[0].0, new_entropy.0].concat()));
 }
 
-fn rotate_entropy_pool(state: &mut SafroleState) {
-    // In addition to the entropy accumulator eta0, we retain three additional historical values of the accumulator at the point of 
-    // each of the three most recently ended epochs, eta1, eta2 and eta3. The second-oldest of these eta2 is utilized to help ensure 
-    // future entropy is unbiased and seed the fallback seal-key generation function with randomness. The oldest is used to regenerate 
-    // this randomness when verifying the seal gamma_s.
-    state.eta[3] = state.eta[2].clone();
-    state.eta[2] = state.eta[1].clone();
-    state.eta[1] = state.eta[0].clone();
-}
-
-fn set_offenders_null(input: &InputSafrole, state: &SafroleState) -> Vec<ValidatorData> {
-    // We return the same iota keyset if there aren't offenders
-    if input.post_offenders.is_empty() {
-        return state.iota.clone();
-    }
-    let mut iota = state.iota.clone();
-    // For each offender set ValidatorData to zero
-    for offender in &input.post_offenders {
-        for key in &mut *iota {
-            if *offender == key.ed25519 {
-                key.bandersnatch = [0u8; std::mem::size_of::<BandersnatchPublic>()];
-                key.ed25519 = [0u8; std::mem::size_of::<Ed25519Public>()];
-                key.bls = [0u8; std::mem::size_of::<BlsPublic>()];
-                key.metadata = [0u8; std::mem::size_of::<Metadata>()];
-            }
-        }
-    }
-    return iota;
-}
-
-fn key_rotation(input: &InputSafrole, state: &mut SafroleState) { 
+fn key_rotation(
+    safrole_state: &mut Safrole, 
+    curr_validators: &mut ValidatorsData, 
+    prev_validators: &mut ValidatorsData,
+    post_offenders: &Vec<Ed25519Public>
+) { 
     // In addition to the active set of validator keys "kappa" and staging set "iota", internal to the Safrole state 
     // we retain a pending set "gamma_k".
-    state.lambda = state.kappa.clone();
-    state.kappa = state.gamma_k.clone();
+    *prev_validators = curr_validators.clone();
+    *curr_validators = safrole_state.pending_validators.clone();    
     // In addition to the active set of validator keys "kappa" and staging set "iota", internal to the Safrole state 
     // we retain a pending set "gamma_k". The active set is the set of keys identifying the nodes which are 
     // currently privileged to author blocks and carry out the validation processes, whereas the pending set 
@@ -166,14 +170,15 @@ fn key_rotation(input: &InputSafrole, state: &mut SafroleState) {
     //
     // The posterior queued validator key set "gamma_k" is defined such that incoming keys belonging to the offenders 
     // are replaced with a null key containing only zeroes.
-    state.gamma_k = set_offenders_null(&input, &state);
-    let bandersnatch_keys = state.gamma_k
-                                    .iter()
-                                    .map(|validator| validator.bandersnatch.clone())
-                                    .collect();
+    set_offenders_null(&mut safrole_state.pending_validators, &post_offenders);
+
+    let bandersnatch_keys = safrole_state.pending_validators.0
+                                                                            .iter()
+                                                                            .map(|validator| validator.bandersnatch.clone())
+                                                                            .collect();
     // With a new epoch under regular conditions, validator keys get rotated and the epoch's Bandersnatch key root is
     // updated into "gamma_z"
-    state.gamma_z = bandersnatch::create_root_epoch(&bandersnatch_keys);
+    safrole_state.epoch_root = bandersnatch::create_root_epoch(&bandersnatch_keys);
 }
 
 fn outside_in_sequencer(tickets: &Vec<TicketBody>) -> Vec<TicketBody> {
@@ -192,13 +197,13 @@ fn outside_in_sequencer(tickets: &Vec<TicketBody>) -> Vec<TicketBody> {
     new_ticket_accumulator
 }
 
-fn fallback(entropy: &OpaqueHash, keys: &Vec<BandersnatchPublic>) -> Vec<BandersnatchPublic> {
+fn fallback(entropy: &Entropy, keys: &Vec<BandersnatchPublic>) -> Vec<BandersnatchPublic> {
     // This is the fallback key sequence function which selects an epoch's worth of validator Bandersnatch keys from the 
     // validator key set using the entropy collected on-chain
     let mut new_keys: Vec<BandersnatchPublic> = Vec::with_capacity(std::mem::size_of::<BandersnatchPublic>() * EPOCH_LENGTH);
     for i in 0u32..EPOCH_LENGTH as u32 { 
         let index_le = i.encode();
-        let hash = blake2_256(&[&entropy[..], &index_le].concat());
+        let hash = blake2_256(&[&entropy.0[..], &index_le].concat());
         let hash_4 = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
         let id = (hash_4 % VALIDATORS_COUNT as u32) as usize;
         new_keys.push(keys[id].clone());

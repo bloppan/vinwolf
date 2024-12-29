@@ -344,11 +344,43 @@ pub struct TicketBody {
 pub enum TicketsOrKeys {
     Keys(Vec<BandersnatchPublic>),
     Tickets(Vec<TicketBody>),
+    None,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TicketsExtrinsic { 
     pub tickets: Vec<TicketEnvelope>,
+}
+// ----------------------------------------------------------------------------------------------------------
+// Safrole
+// ----------------------------------------------------------------------------------------------------------
+#[derive(Debug, Clone, PartialEq)]
+pub struct Safrole {
+    pub pending_validators: ValidatorsData,
+    pub ticket_accumulator: Vec<TicketBody>,
+    pub seal: TicketsOrKeys,
+    pub epoch_root: BandersnatchRingCommitment,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OutputSafrole {
+    Ok(OutputDataSafrole),
+    Err(SafroleErrorCode),
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct OutputDataSafrole {
+    pub epoch_mark: Option<EpochMark>,
+    pub tickets_mark: Option<Vec<TicketBody>>,
+}
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SafroleErrorCode {
+    BadSlot = 0,           // Timeslot value must be strictly monotonic.
+    UnexpectedTicket = 1,  // Received a ticket while in epoch's tail.
+    BadTicketOrder = 2,   // Tickets must be sorted.
+    BadTicketProof = 3,   // Invalid ticket ring proof.
+    BadTicketAttempt = 4, // Invalid ticket attempt value.
+    Reserved = 5,           // Reserved.
+    DuplicateTicket = 6,   // Found a ticket duplicate.
 }
 // ----------------------------------------------------------------------------------------------------------
 // Disputes
@@ -493,8 +525,8 @@ pub struct GuaranteesExtrinsic {
 // ----------------------------------------------------------------------------------------------------------
 #[derive(Debug, PartialEq, Clone)]
 pub struct EpochMark {
-    pub entropy: OpaqueHash,
-    pub tickets_entropy: OpaqueHash,
+    pub entropy: Entropy,
+    pub tickets_entropy: Entropy,
     pub validators: Vec<BandersnatchPublic>,
 }
 

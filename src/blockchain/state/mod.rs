@@ -1,8 +1,7 @@
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use crate::types::{
-    AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, EntropyPool, Statistics, TimeSlot, ValidatorsData,
-    DisputesRecords, AssurancesErrorCode, DisputesErrorCode
+    AssurancesErrorCode, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesErrorCode, DisputesRecords, EntropyPool, Safrole, SafroleErrorCode, Statistics, TimeSlot, ValidatorsData
 };
 use validators::ValidatorSet;
 use reporting_assurance::{process_assurances, process_guarantees};
@@ -40,6 +39,7 @@ pub struct GlobalState {
     pub curr_validators: ValidatorsData,
     pub next_validators: ValidatorsData,
     pub disputes: DisputesRecords,
+    pub safrole: Safrole,
 }
 
 impl Default for GlobalState {
@@ -56,6 +56,7 @@ impl Default for GlobalState {
             curr_validators: ValidatorsData::default(),
             next_validators: ValidatorsData::default(),
             disputes: DisputesRecords::default(),
+            safrole: Safrole::default(),
         }
     }
 }
@@ -63,6 +64,7 @@ impl Default for GlobalState {
 #[derive(Debug, PartialEq)]
 pub enum ProcessError {
     ReadError(ReadError),
+    SafroleError(SafroleErrorCode),
     DisputesError(DisputesErrorCode),
     ReportError(ReportErrorCode),
     AssurancesError(AssurancesErrorCode),
@@ -185,6 +187,15 @@ pub fn set_recent_history(new_recent_history: BlockHistory) {
 pub fn get_recent_history() -> BlockHistory {
     let state = GLOBAL_STATE.lock().unwrap();
     state.recent_history.clone()
+}
+// Safrole
+pub fn set_safrole(new_safrole: Safrole) {
+    let mut state = GLOBAL_STATE.lock().unwrap();
+    state.safrole = new_safrole;
+}
+pub fn get_safrole() -> Safrole {
+    let state = GLOBAL_STATE.lock().unwrap();
+    state.safrole.clone()
 }
 // Validators
 pub fn set_validators(new_validators: ValidatorsData, validator_set: ValidatorSet) {

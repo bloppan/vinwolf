@@ -1,0 +1,92 @@
+use crate::types::{BandersnatchPublic, Ed25519Public, BlsPublic, Metadata, ValidatorData, ValidatorsData};
+use crate::constants::VALIDATORS_COUNT;
+use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
+
+impl Encode for ValidatorData {
+    
+    fn encode(&self) -> Vec<u8> {
+
+        let mut validator_data: Vec<u8> = Vec::with_capacity(std::mem::size_of::<ValidatorData>());
+        
+        self.bandersnatch.encode_to(&mut validator_data);
+        self.ed25519.encode_to(&mut validator_data);
+        self.bls.encode_to(&mut validator_data);
+        self.metadata.encode_to(&mut validator_data);
+
+        return validator_data;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for ValidatorData {
+
+    fn decode(data_blob: &mut BytesReader) -> Result<Self, ReadError> {
+    
+        Ok(ValidatorData {
+            bandersnatch: BandersnatchPublic::decode(data_blob)?,
+            ed25519: Ed25519Public::decode(data_blob)?,
+            bls: BlsPublic::decode(data_blob)?,
+            metadata: Metadata::decode(data_blob)?,
+        })
+    }
+}
+
+impl Encode for ValidatorsData {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut validators_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Self>());
+
+        for validator in self.0.iter() {
+            validator.encode_to(&mut validators_blob);
+        }
+
+        return validators_blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for ValidatorsData {
+
+    fn decode(validators_blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let mut validators: ValidatorsData = ValidatorsData::default();
+
+        for i in 0..VALIDATORS_COUNT {
+            validators.0[i] = ValidatorData::decode(validators_blob)?;
+        }
+
+        Ok(validators)
+    }
+}
+
+impl ValidatorData {
+
+    pub fn encode_all(all_validators: &Vec<ValidatorData>) -> Vec<u8> {
+        
+        let mut data_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<ValidatorData>() * VALIDATORS_COUNT);
+
+        for validator in all_validators {
+            validator.encode_to(&mut data_blob);
+        }
+
+        return data_blob;
+    }
+
+    pub fn decode_all(data_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
+        
+        let mut all_validators: Vec<ValidatorData> = Vec::with_capacity(std::mem::size_of::<ValidatorData>() * VALIDATORS_COUNT);
+        
+        for _ in 0..VALIDATORS_COUNT {
+            all_validators.push(ValidatorData::decode(data_blob)?);
+        }
+
+        Ok(all_validators)
+    }
+}

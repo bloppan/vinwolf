@@ -1,6 +1,6 @@
 use crate::types::{
     OpaqueHash, TimeSlot, Ed25519Public, ValidatorIndex, BandersnatchVrfSignature, BandersnatchPublic,
-    TicketBody, TicketsMark, EpochMark, Header
+    TicketBody, TicketsMark, EpochMark, Header, Entropy
 };
 use crate::constants::{EPOCH_LENGTH, VALIDATORS_COUNT};
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
@@ -126,8 +126,8 @@ impl Decode for EpochMark {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {      
 
         Ok(EpochMark {
-            entropy: OpaqueHash::decode(blob)?,
-            tickets_entropy: OpaqueHash::decode(blob)?,
+            entropy: Entropy::decode(blob)?,
+            tickets_entropy: Entropy::decode(blob)?,
             validators: {
                 let mut validators_vec: Vec<BandersnatchPublic> = Vec::with_capacity(VALIDATORS_COUNT);
                 for _ in 0..VALIDATORS_COUNT {

@@ -1,4 +1,7 @@
-use crate::types::{TicketAttempt, BandersnatchRingVrfSignature, TicketEnvelope, TicketsExtrinsic};
+use crate::types::{
+    TicketAttempt, BandersnatchRingVrfSignature, TicketEnvelope, TicketsExtrinsic, TicketsOrKeys, BandersnatchPublic, TicketBody
+};
+use crate::constants::EPOCH_LENGTH;
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
@@ -65,5 +68,62 @@ impl TicketsExtrinsic {
 
     pub fn len(&self) -> usize {
         self.tickets.len()  
+    }
+}
+
+impl Decode for TicketsOrKeys {
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+        
+        let marker = blob.read_byte()?;  
+
+        match marker {
+            1 => {
+                let mut keys: Vec<BandersnatchPublic> = Vec::with_capacity(std::mem::size_of::<BandersnatchPublic>() * EPOCH_LENGTH);
+                for _ in 0..EPOCH_LENGTH {
+                    keys.push(BandersnatchPublic::decode(blob)?);
+                }
+                Ok(TicketsOrKeys::Keys(keys))
+            }
+            0 => {
+                let mut tickets: Vec<TicketBody> = Vec::with_capacity(std::mem::size_of::<TicketBody>() * EPOCH_LENGTH);
+                for _ in 0..EPOCH_LENGTH {
+                    tickets.push(TicketBody::decode(blob)?);
+                }
+                Ok(TicketsOrKeys::Tickets(tickets)) 
+            }
+            _ => {
+                Err(ReadError::InvalidData)
+            }
+        }
+    }
+}
+
+impl Encode for TicketsOrKeys {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut encoded = Vec::new();
+
+        match self {
+            TicketsOrKeys::Keys(keys_array) => {
+                encoded.push(1); // Keys marker
+                for key in keys_array.iter() {
+                    key.encode_to(&mut encoded);
+                }
+            }
+            TicketsOrKeys::Tickets(tickets_vec) => {
+                encoded.push(0); // Tickets marker
+                for ticket in tickets_vec {
+                    ticket.encode_to(&mut encoded);
+                }
+            }
+            _ => {},
+        }
+
+        return encoded;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
     }
 }

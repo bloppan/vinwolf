@@ -6,11 +6,11 @@ use crate::integration::read_test_file;
 
 use vinwolf::types::{
     RefineContext, WorkItem, WorkPackage, WorkResult, TicketsExtrinsic, DisputesExtrinsic, PreimagesExtrinsic, AssurancesExtrinsic, 
-    GuaranteesExtrinsic, Header, Block, BlockHistory, WorkReport, OutputAssurances
+    GuaranteesExtrinsic, Header, Block, BlockHistory, WorkReport, OutputAssurances, OutputSafrole
 };
 use vinwolf::utils::codec::{Encode, Decode, BytesReader, ReadError};
-use vinwolf::utils::codec::jam::safrole::{InputSafrole, SafroleState, OutputSafrole};
 
+use crate::integration::safrole::codec::{InputSafrole, SafroleState};
 use crate::integration::disputes::codec::{DisputesState, OutputDisputes};
 use crate::integration::assurances::codec::{InputAssurances, StateAssurances};
 use crate::integration::authorization::codec::{InputAuthorizations, StateAuthorizations};
@@ -166,7 +166,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
                 context.process_test_part("InputSafrole", InputSafrole::decode, InputSafrole::encode)?;
             }
             TestBody::SafroleState => {
-                context.process_test_part("SafroleState", SafroleState::decode, SafroleState::encode)?;
+                context.process_test_part("Safrole", SafroleState::decode, SafroleState::encode)?;
             }
             TestBody::OutputSafrole => {
                 context.process_test_part("OutputSafrole", OutputSafrole::decode, OutputSafrole::encode)?;
