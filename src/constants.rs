@@ -4,20 +4,20 @@ use crate::types::Gas;
 pub const ENTROPY_POOL_SIZE: usize = 4;
 
 // Total number of validators
-//pub const VALIDATORS_COUNT: usize = 1023;
-pub const VALIDATORS_COUNT: usize = 6;
+pub const VALIDATORS_COUNT: usize = 1023;
+//pub const VALIDATORS_COUNT: usize = 6;
 
 // The length of an epoch timeslots.
-//pub const EPOCH_LENGTH: usize = 600;
-pub const EPOCH_LENGTH: usize = 12;
-
-// The rotation period of validator-core assignments, in timeslots.
-pub const ROTATION_PERIOD: u32 = 4;
-//pub const ROTATION_PERIOD: u32 = 10;
+pub const EPOCH_LENGTH: usize = 600;
+//pub const EPOCH_LENGTH: usize = 12;
 
 // Total number of cores
-//pub const CORES_COUNT: usize = 341;
-pub const CORES_COUNT: usize = 2;
+pub const CORES_COUNT: usize = 341;
+//pub const CORES_COUNT: usize = 2;
+
+// The rotation period of validator-core assignments, in timeslots.
+//pub const ROTATION_PERIOD: u32 = 4;
+pub const ROTATION_PERIOD: u32 = 10;
 
 // The number of slots into an epoch at which ticket-submission ends
 pub const TICKET_SUBMISSION_ENDS: usize = 10;

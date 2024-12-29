@@ -15,7 +15,7 @@ use crate::utils::trie::mmr_super_peak;
 use crate::utils::shuffle::shuffle;
 use crate::utils::codec::Encode;
 use crate::utils::common::{VerifySignature, set_offenders_null};
-use crate::utils::codec::work_report::{ReportedPackage, OutputData, ReportErrorCode};
+use crate::utils::codec::work_report::{ReportedPackage, OutputDataReports, ReportErrorCode};
 
 impl WorkReport {
 
@@ -25,7 +25,7 @@ impl WorkReport {
         post_tau: &TimeSlot, 
         guarantee_slot: TimeSlot, 
         validators_signatures: &[ValidatorSignature]) 
-    -> Result<OutputData, ProcessError> {
+    -> Result<OutputDataReports, ProcessError> {
 
         let authorizations = get_authpools();
         // A report is valid only if the authorizer hash is present in the authorizer pool of the core on which the
@@ -60,12 +60,12 @@ impl WorkReport {
         // TODO 11.36 
         // TODO 11.37
 
-        let OutputData {
+        let OutputDataReports {
             reported: new_reported,
             reporters: new_reporters,
         } = self.try_place(assurances_state, post_tau, guarantee_slot, validators_signatures)?;
 
-        return Ok(OutputData{reported: new_reported, reporters: new_reporters});
+        return Ok(OutputDataReports{reported: new_reported, reporters: new_reporters});
     }
 
     fn is_recent(&self) -> Result<bool, ProcessError> {
@@ -95,7 +95,7 @@ impl WorkReport {
         post_tau: &TimeSlot, 
         guarantee_slot: TimeSlot, 
         credentials: &[ValidatorSignature]) 
-    -> Result<OutputData, ProcessError> {
+    -> Result<OutputDataReports, ProcessError> {
 
         let mut reported: Vec<ReportedPackage> = Vec::new();
         let mut reporters: Vec<Ed25519Public> = Vec::new();
@@ -179,7 +179,7 @@ impl WorkReport {
 
             // Update the reporting assurance state
             add_assignment(&assignment, assurances_state);
-            return Ok(OutputData{reported: reported, reporters: reporters});
+            return Ok(OutputDataReports{reported: reported, reporters: reporters});
         } 
         
         return Err(ProcessError::ReportError(ReportErrorCode::CoreEngaged));

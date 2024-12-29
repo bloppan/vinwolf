@@ -14,7 +14,7 @@ use vinwolf::blockchain::state::validators::ValidatorSet;
 use vinwolf::blockchain::state::reporting_assurance::process_guarantees;
 use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::utils::codec::work_report::OutputData;
+use vinwolf::utils::codec::work_report::OutputDataReports;
 
 use codec::{InputWorkReport, WorkReportState, OutputWorkReport};
 
@@ -108,8 +108,8 @@ mod tests {
         assert_eq!(expected_state.services, result_services);
 
         match output_result {
-            Ok(OutputData { reported, reporters }) => {
-                assert_eq!(expected_output, OutputWorkReport::Ok(OutputData {reported, reporters}));
+            Ok(OutputDataReports { reported, reporters }) => {
+                assert_eq!(expected_output, OutputWorkReport::Ok(OutputDataReports {reported, reporters}));
             }
             Err(error) => {
                 assert_eq!(expected_output, OutputWorkReport::from_process_error(error));

@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 pub mod work_report;
+pub mod statistics;
 
 pub fn encode_unsigned(x: usize) -> Vec<u8> {
 

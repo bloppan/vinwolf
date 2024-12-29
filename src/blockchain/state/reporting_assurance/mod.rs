@@ -17,7 +17,7 @@ use crate::types::{
     Hash, AssurancesExtrinsic, AvailabilityAssignment, AvailabilityAssignments, GuaranteesExtrinsic, TimeSlot, CoreIndex
 };
 use crate::blockchain::block::extrinsic::assurances::OutputDataAssurances;
-use crate::utils::codec::work_report::OutputData;
+use crate::utils::codec::work_report::OutputDataReports;
 
 use super::ProcessError;
 
@@ -58,11 +58,11 @@ pub fn process_guarantees(
     assurances_state: &mut AvailabilityAssignments, 
     guarantees: &GuaranteesExtrinsic, 
     post_tau: &TimeSlot) 
--> Result<OutputData, ProcessError> {
+-> Result<OutputDataReports, ProcessError> {
 
     let output_data = guarantees.process(assurances_state, post_tau)?;
 
-    Ok(OutputData {
+    Ok(OutputDataReports {
         reported: output_data.reported,
         reporters: output_data.reporters,
     })

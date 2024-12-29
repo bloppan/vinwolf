@@ -25,8 +25,6 @@ use crate::types::{Statistics, ValidatorIndex, TimeSlot, Extrinsic, ActivityReco
 use crate::constants::{EPOCH_LENGTH, VALIDATORS_COUNT};
 use super::get_time;
 
-mod codec;
-
 pub fn process_statistics(
     statistics: &mut Statistics,
     post_tau: &TimeSlot,

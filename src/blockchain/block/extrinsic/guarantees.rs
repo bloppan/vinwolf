@@ -5,7 +5,7 @@ use crate::types::{
 };
 use crate::blockchain::state::{ProcessError, get_recent_history};
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
-use crate::utils::codec::work_report::{ReportErrorCode, OutputData};
+use crate::utils::codec::work_report::{ReportErrorCode, OutputDataReports};
 use crate::utils::codec::{encode_unsigned, decode_unsigned};
 use crate::utils::common::is_sorted_and_unique;
 
@@ -21,7 +21,7 @@ impl GuaranteesExtrinsic {
         &self, 
         assurances_state: &mut AvailabilityAssignments, 
         post_tau: &TimeSlot) 
-    -> Result<OutputData, ProcessError> {
+    -> Result<OutputDataReports, ProcessError> {
 
         // At most one guarantee for each core
         if self.report_guarantee.len() > CORES_COUNT {
@@ -123,7 +123,7 @@ impl GuaranteesExtrinsic {
             }
 
             // Process the work report
-            let OutputData {
+            let OutputDataReports {
                 reported: new_reported,
                 reporters: new_reporters,
             } = guarantee.report.process(assurances_state, post_tau, guarantee.slot, &guarantee.signatures)?;
@@ -135,7 +135,7 @@ impl GuaranteesExtrinsic {
         reported.sort_by(|a, b| a.work_package_hash.cmp(&b.work_package_hash));
         reporters.sort();
     
-        Ok(OutputData { reported, reporters })
+        Ok(OutputDataReports { reported, reporters })
     }
     
 }

@@ -1,3 +1,5 @@
+use serde_json::de::Read;
+
 use crate::constants::WORK_REPORT_GAS_LIMIT;
 use crate::types::{ServiceId, OpaqueHash, Gas, WorkResult, WorkExecResult};
 use crate::blockchain::state::ProcessError;
@@ -37,11 +39,9 @@ impl WorkResult {
                     return Err(ProcessError::ReportError(ReportErrorCode::ServiceItemGasTooLow));
                 }
                 total_accumulation_gas += result.gas;
-               
-                let mut result = BytesReader::new(&result.result);
-                let exec_result = result.read_byte().map_err(ProcessError::ReadError)?;
-                if exec_result == 0 {
-                    results_size += decode_unsigned(&mut result).map_err(ProcessError::ReadError)?;
+
+                if result.result[0] == 0 {
+                    results_size += result.result.len() - 1;
                 }
             } else {
                 return Err(ProcessError::ReportError(ReportErrorCode::BadServiceId));
@@ -69,16 +69,13 @@ impl Encode for WorkResult {
         self.payload_hash.encode_to(&mut work_res_blob);
         self.gas.encode_size(8).encode_to(&mut work_res_blob);
 
-        let mut result = BytesReader::new(&self.result);
-        let exec_result = decode_unsigned(&mut result).expect("Error decoding exec_result in WorkResult");
-        encode_unsigned(exec_result).encode_to(&mut work_res_blob);
+        self.result[0].encode_to(&mut work_res_blob);
 
-        if exec_result == 0 {
-            let len = decode_unsigned(&mut result).expect("Error decoding len in WorkResult");
-            encode_unsigned(len).encode_to(&mut work_res_blob);
-            let start_ok_data = result.get_position();
-            self.result[start_ok_data..].encode_to(&mut work_res_blob);
-        }
+        if self.result[0] == 0 {
+            let result_len = encode_unsigned(self.result.len() - 1);
+            result_len.encode_to(&mut work_res_blob);
+            self.result[1..].encode_to(&mut work_res_blob);
+        } 
         
         return work_res_blob;
     }
@@ -105,7 +102,6 @@ impl Decode for WorkResult {
                 match exec_result {
                     0 => {
                         let len = decode_unsigned(work_result_blob)?;
-                        encode_unsigned(len).encode_to(&mut result);
                         result.extend_from_slice(&work_result_blob.read_bytes(len)?);
                         WorkExecResult::Ok
                     },
@@ -141,14 +137,14 @@ impl WorkResult {
 
     pub fn encode_len(results: &[WorkResult]) -> Vec<u8> {
         
-        let mut encoded: Vec<u8> = Vec::new();
-        encode_unsigned(results.len()).encode_to(&mut encoded);
+        let mut blob: Vec<u8> = Vec::with_capacity(results.len() * std::mem::size_of::<WorkResult>());
+        encode_unsigned(results.len()).encode_to(&mut blob);
 
         for result in results {
-            result.encode_to(&mut encoded);
+            result.encode_to(&mut blob);
         }
 
-        return encoded;
+        return blob;
     }
 }
 
