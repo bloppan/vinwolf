@@ -1,12 +1,20 @@
 use once_cell::sync::Lazy;
-use crate::integration::read_test_file;
+use crate::integration::{read_test_file, FromProcessError};
 use crate::integration::codec::{TestBody, encode_decode_test};
 
+use vinwolf::blockchain::state::{
+    ProcessError, get_disputes, get_global_state, get_reporting_assurance, get_time, get_validators, set_disputes, 
+    set_reporting_assurance, set_time, set_validators,
+};
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, CORES_COUNT};
 use vinwolf::types::DisputesExtrinsic;
-use vinwolf::blockchain::block::extrinsic::disputes::{DisputesState, OutputDisputes};
-use vinwolf::blockchain::state::disputes::{set_old_disputes_state, get_old_disputes_state, update_disputes_state};
+use vinwolf::blockchain::block::extrinsic::disputes::OutputDataDisputes;
+use vinwolf::blockchain::state::validators::ValidatorSet;
+use vinwolf::blockchain::state::disputes::process_disputes;
 use vinwolf::utils::codec::{Decode, BytesReader};
+
+pub mod codec;
+use codec::{DisputesState, OutputDisputes};
 
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
     if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && CORES_COUNT == 2 {
@@ -18,54 +26,80 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
     }
 });
 
-fn run_test(filename: &str) {
-
-    let test_content = read_test_file(&format!("tests/jamtestvectors/disputes/{}/{}", *TEST_TYPE, filename));
-    let test_body: Vec<TestBody> = vec![
-                                        TestBody::DisputesExtrinsic,
-                                        TestBody::DisputesState,
-                                        TestBody::OutputDisputes,
-                                        TestBody::DisputesState];
-        
-        let _ = encode_decode_test(&test_content, &test_body);
-
-        let mut reader = BytesReader::new(&test_content);
-        let disputes_extrinsic = DisputesExtrinsic::decode(&mut reader).expect("Error decoding post DisputesExtrinsic");
-        let disputes_state = DisputesState::decode(&mut reader).expect("Error decoding post DisputesState");
-        let expected_output = OutputDisputes::decode(&mut reader).expect("Error decoding post OutputDisputes");
-        let expected_state = DisputesState::decode(&mut reader).expect("Error decoding post DisputesState");
-        
-        set_old_disputes_state(&disputes_state);
-
-        if let Some(current_state) = get_old_disputes_state() {
-            assert_eq!(disputes_state, current_state);
-        } else {
-            panic!("Disputes State was not set before comparison");
-        }
-
-        let output_result = update_disputes_state(&disputes_extrinsic);
-
-
-        if let Some(state_result) = get_old_disputes_state() {
-            /*assert_eq!(expected_state, state_result);
-            assert_eq!(expected_output, output_result);*/
-
-            assert_eq!(expected_state.psi, state_result.psi);
-            assert_eq!(expected_state.rho, state_result.rho);
-            assert_eq!(expected_state.tau, state_result.tau);
-            assert_eq!(expected_state.kappa, state_result.kappa);
-            assert_eq!(expected_state.lambda, state_result.lambda);
-            assert_eq!(expected_output, output_result);
-        } else {
-            panic!("Disputes State was not set before comparison");
-        }
-
-}
-
 #[cfg(test)]
 mod test {
 
     use super::*;
+
+    impl FromProcessError for OutputDisputes {
+        fn from_process_error(error: ProcessError) -> Self {
+            match error {
+                ProcessError::DisputesError(code) => OutputDisputes::Err(code),
+                _ => panic!("Unexpected error type in conversion"),
+            }
+        }
+    }
+    
+    fn run_test(filename: &str) {
+    
+        let test_content = read_test_file(&format!("tests/jamtestvectors/disputes/{}/{}", *TEST_TYPE, filename));
+        let test_body: Vec<TestBody> = vec![
+                                            TestBody::DisputesExtrinsic,
+                                            TestBody::DisputesState,
+                                            TestBody::OutputDisputes,
+                                            TestBody::DisputesState];
+            
+            let _ = encode_decode_test(&test_content, &test_body);
+    
+            let mut reader = BytesReader::new(&test_content);
+            let disputes_extrinsic = DisputesExtrinsic::decode(&mut reader).expect("Error decoding post DisputesExtrinsic");
+            let pre_state = DisputesState::decode(&mut reader).expect("Error decoding post DisputesState");
+            let expected_output = OutputDisputes::decode(&mut reader).expect("Error decoding post OutputDisputes");
+            let expected_state = DisputesState::decode(&mut reader).expect("Error decoding post DisputesState");
+            
+            set_disputes(pre_state.psi);
+            set_reporting_assurance(pre_state.rho);
+            set_time(pre_state.tau);
+            set_validators(pre_state.kappa, ValidatorSet::Current);
+            set_validators(pre_state.lambda, ValidatorSet::Previous);
+    
+            let mut state = get_global_state();
+    
+            let output_result = process_disputes(
+                                                                    &mut state.disputes,
+                                                                    &mut state.availability,
+                                                                    &disputes_extrinsic);
+
+            match output_result {
+                Ok(_) => { 
+                    set_disputes(state.disputes.clone());
+                    set_reporting_assurance(state.availability.clone());
+                },
+                Err(_) => { },
+            }
+
+            let result_disputes = get_disputes();
+            let result_availability = get_reporting_assurance();
+            let result_time = get_time();
+            let result_curr_validators = get_validators(ValidatorSet::Current);
+            let result_prev_validators = get_validators(ValidatorSet::Previous);
+
+            assert_eq!(expected_state.psi, result_disputes);
+            assert_eq!(expected_state.rho, result_availability);
+            assert_eq!(expected_state.tau, result_time);
+            assert_eq!(expected_state.kappa, result_curr_validators);
+            assert_eq!(expected_state.lambda, result_prev_validators);
+
+            match output_result {
+                Ok(OutputDataDisputes { offenders_mark }) => {
+                    assert_eq!(expected_output, OutputDisputes::Ok(OutputDataDisputes { offenders_mark }));
+                }
+                Err(error) => {
+                    assert_eq!(expected_output, OutputDisputes::from_process_error(error));
+                }
+            }
+    
+    }
 
     #[test]
     fn run_disputes_tests() {

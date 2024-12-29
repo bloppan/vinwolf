@@ -296,14 +296,7 @@ impl Decode for ValidatorsData {
 
     fn decode(validators_blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        let mut validators: ValidatorsData = ValidatorsData {
-            0: Box::new(from_fn(|_| ValidatorData {
-                bandersnatch: [0u8; std::mem::size_of::<BandersnatchPublic>()],
-                ed25519: [0u8; std::mem::size_of::<Ed25519Public>()],
-                bls: [0u8; std::mem::size_of::<BlsPublic>()],
-                metadata: [0u8; std::mem::size_of::<Metadata>()],
-            })),
-        };
+        let mut validators: ValidatorsData = ValidatorsData::default();
 
         for i in 0..VALIDATORS_COUNT {
             validators.0[i] = ValidatorData::decode(validators_blob)?;

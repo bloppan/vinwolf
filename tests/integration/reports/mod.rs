@@ -7,9 +7,9 @@ use vinwolf::types::DisputesRecords;
 use vinwolf::blockchain::state::ProcessError;
 use vinwolf::blockchain::state::{
     get_global_state, set_reporting_assurance, get_reporting_assurance, set_authpools, get_authpools, 
-    set_entropy, get_entropy, set_validators, get_validators, set_recent_history, get_recent_history
+    set_entropy, get_entropy, set_validators, get_validators, set_recent_history, get_recent_history,
+    set_disputes, get_disputes
 };
-use vinwolf::blockchain::state::disputes::{set_disputes_state, get_disputes_state};
 use vinwolf::blockchain::state::validators::ValidatorSet;
 use vinwolf::blockchain::state::reporting_assurance::process_guarantees;
 use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
@@ -67,7 +67,7 @@ mod tests {
             wonky: vec![],
             offenders: pre_state.offenders.0.clone(),
         };
-        set_disputes_state(&disputes_state);
+        set_disputes(disputes_state);
         set_reporting_assurance(pre_state.avail_assignments);
         set_validators(pre_state.curr_validators, ValidatorSet::Current);
         set_validators(pre_state.prev_validators, ValidatorSet::Previous);
@@ -89,7 +89,7 @@ mod tests {
             Err(_) => { },
         }
 
-        let result_disputes = get_disputes_state();
+        let result_disputes = get_disputes();
         let result_avail_assignments = get_reporting_assurance();
         let result_curr_validators = get_validators(ValidatorSet::Current);
         let result_prev_validators = get_validators(ValidatorSet::Previous);

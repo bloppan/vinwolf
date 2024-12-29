@@ -1,15 +1,17 @@
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use crate::types::{
-    AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, EntropyPool, Statistics, TimeSlot, ValidatorsData
+    AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, EntropyPool, Statistics, TimeSlot, ValidatorsData,
+    DisputesRecords
 };
 use crate::blockchain::block::extrinsic::assurances::AssurancesErrorCode;
-use crate::utils::codec::ReadError;
-use crate::utils::codec::work_report::ReportErrorCode;
+use crate::blockchain::block::extrinsic::disputes::DisputesErrorCode;
 use validators::ValidatorSet;
 use reporting_assurance::{process_assurances, process_guarantees};
 use statistics::process_statistics;
 use recent_history::process_recent_history;
+use crate::utils::codec::ReadError;
+use crate::utils::codec::work_report::ReportErrorCode;
 
 pub mod accumulation;
 pub mod authorization;
@@ -23,6 +25,10 @@ pub mod time;
 pub mod statistics;
 pub mod validators;
 
+static GLOBAL_STATE: Lazy<Mutex<GlobalState>> = Lazy::new(|| {
+    Mutex::new(GlobalState::default())
+});
+
 #[derive(Clone)]
 pub struct GlobalState {
     pub time: TimeSlot,
@@ -35,11 +41,8 @@ pub struct GlobalState {
     pub prev_validators: ValidatorsData,
     pub curr_validators: ValidatorsData,
     pub next_validators: ValidatorsData,
+    pub disputes: DisputesRecords,
 }
-
-static GLOBAL_STATE: Lazy<Mutex<GlobalState>> = Lazy::new(|| {
-    Mutex::new(GlobalState::default())
-});
 
 impl Default for GlobalState {
     fn default() -> Self {
@@ -54,6 +57,7 @@ impl Default for GlobalState {
             prev_validators: ValidatorsData::default(),
             curr_validators: ValidatorsData::default(),
             next_validators: ValidatorsData::default(),
+            disputes: DisputesRecords::default(),
         }
     }
 }
@@ -61,6 +65,7 @@ impl Default for GlobalState {
 #[derive(Debug, PartialEq)]
 pub enum ProcessError {
     ReadError(ReadError),
+    DisputesError(DisputesErrorCode),
     ReportError(ReportErrorCode),
     AssurancesError(AssurancesErrorCode),
 }
@@ -146,6 +151,15 @@ pub fn set_authqueues(new_authqueue: AuthQueues) {
 pub fn get_authqueues() -> AuthQueues {
     let state = GLOBAL_STATE.lock().unwrap();
     state.auth_queues.clone()
+}
+// Disputes
+pub fn set_disputes(new_disputes: DisputesRecords) {
+    let mut state = GLOBAL_STATE.lock().unwrap();
+    state.disputes = new_disputes;
+}
+pub fn get_disputes() -> DisputesRecords {
+    let state = GLOBAL_STATE.lock().unwrap();
+    state.disputes.clone()
 }
 // Reporting and assurance
 pub fn set_reporting_assurance(new_availability: AvailabilityAssignments) {
