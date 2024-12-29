@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use crate::types::{Hash, MmrPeak, Mmr, ReportedWorkPackages, BlockInfo, BlockHistory};
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
-use crate::utils::codec::{encode_unsigned, decode_unsigned};
+use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
 impl Encode for &[MmrPeak] {
 

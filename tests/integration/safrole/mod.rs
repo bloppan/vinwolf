@@ -3,9 +3,11 @@ use crate::integration::read_test_file;
 use crate::integration::codec::{TestBody, encode_decode_test};
 
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
-use vinwolf::blockchain::state::safrole::codec::{SafroleState, Output as OutputSafrole, Input as InputSafrole};
+use vinwolf::utils::codec::jam::safrole::{SafroleState, OutputSafrole, InputSafrole};
 use vinwolf::blockchain::state::safrole::update_state;
 use vinwolf::utils::codec::{Decode, BytesReader};
+
+// pub mod codec;
 
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
     if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && TICKET_SUBMISSION_ENDS == 10 {

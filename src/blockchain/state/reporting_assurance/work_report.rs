@@ -15,7 +15,7 @@ use crate::utils::trie::mmr_super_peak;
 use crate::utils::shuffle::shuffle;
 use crate::utils::codec::Encode;
 use crate::utils::common::{VerifySignature, set_offenders_null};
-use crate::utils::codec::work_report::{ReportedPackage, OutputDataReports, ReportErrorCode};
+use crate::utils::codec::jam::work_report::{ReportedPackage, OutputDataReports, ReportErrorCode};
 
 impl WorkReport {
 

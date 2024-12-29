@@ -1,8 +1,5 @@
-use vinwolf::types::{
-    Ed25519Public, DisputesRecords, OffendersMark, AvailabilityAssignments, TimeSlot, ValidatorsData
-};
-use vinwolf::blockchain::block::extrinsic::disputes::{DisputesErrorCode, OutputDataDisputes};
-use vinwolf::utils::codec::{Encode, Decode, BytesReader, ReadError, encode_unsigned, decode_unsigned};
+use vinwolf::types::{DisputesRecords, AvailabilityAssignments, TimeSlot, ValidatorsData, DisputesErrorCode, OutputDataDisputes};
+use vinwolf::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DisputesState {

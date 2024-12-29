@@ -354,6 +354,32 @@ pub struct TicketsExtrinsic {
 // Disputes
 // ----------------------------------------------------------------------------------------------------------
 #[derive(Debug, Clone, PartialEq)]
+pub struct OutputDataDisputes {
+    pub offenders_mark: OffendersMark,
+}
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DisputesErrorCode {
+    AlreadyJudged = 0,
+    BadVoteSplit = 1,
+    VerdictsNotSortedUnique = 2,
+    JudgementsNotSortedUnique = 3,
+    CulpritsNotSortedUnique = 4,
+    FaultsNotSortedUnique = 5,
+    NotEnoughCulprits = 6,
+    NotEnoughFaults = 7,
+    CulpritsVerdictNotBad = 8,
+    FaultVerdictWrong = 9,
+    OffenderAlreadyReported = 10,
+    BadJudgementAge = 11,
+    BadValidatorIndex = 12,
+    BadSignature = 13,
+    DisputeStateNotInitialized = 14,
+    NoVerdictsFound = 15,
+    AgesNotEqual = 16,
+    CulpritKeyNotFound = 17,
+    FaultKeyNotFound = 18,
+}
+#[derive(Debug, Clone, PartialEq)]
 pub struct Judgement {
     pub vote: bool,
     pub index: ValidatorIndex,
@@ -416,13 +442,31 @@ pub struct PreimagesExtrinsic {
 pub struct AssurancesExtrinsic {
     pub assurances: Vec<AvailAssurance>, 
 }
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct AvailAssurance {
     pub anchor: OpaqueHash,
     pub bitfield: [u8; AVAIL_BITFIELD_BYTES],
     pub validator_index: ValidatorIndex,
     pub signature: Ed25519Signature,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct OutputDataAssurances {
+    pub reported: Vec<WorkReport>
+}
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub enum AssurancesErrorCode {
+    BadAttestationParent = 0,
+    BadValidatorIndex = 1,
+    CoreNotEngaged = 2,
+    BadSignature = 3,
+    NotSortedOrUniqueAssurers = 4,
+    TooManyAssurances = 5,
+    WrongBitfieldLength = 6,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum OutputAssurances {
+    Ok(OutputDataAssurances),
+    Err(AssurancesErrorCode)
 }
 // ----------------------------------------------------------------------------------------------------------
 // Guarantees

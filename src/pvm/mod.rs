@@ -1,6 +1,6 @@
 use frame_support::Deserialize;
 
-use crate::utils::codec;
+use crate::utils::codec::generic::{seq_to_number, decode_to_bits};
 
 
 /*const NO_ARG: usize = 0;                     // Without arguments
@@ -84,7 +84,7 @@ fn add_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // Two regs one imm -> 
 }
 
 fn extend_sign(v: &Vec<u8>, n: u32) -> u32 {
-    let x = codec::seq_to_number(v);
+    let x = seq_to_number(v);
     if n == 0 { return x; }
     let sign_bit = (x / (1u32 << (8 * n - 1))) as u64;
     return x + ((sign_bit * ((1u64 << 32) - (1u64 << (8 * n)))) as u32);
@@ -210,7 +210,7 @@ pub fn invoke_pvm(
             .into_iter()
             .chain(std::iter::repeat(0).take(25)) // Sequence of zeroes suffixed to ensure that no out-of-bounds access is possible
             .collect(),
-        k: codec::decode_to_bits(&p[3 + program_size as usize..p.len()].to_vec())
+        k: decode_to_bits(&p[3 + program_size as usize..p.len()].to_vec())
             .into_iter()
             .chain(std::iter::repeat(true).take(25)) // Sequence of trues 
             .collect(), // Bitmask boolean vector

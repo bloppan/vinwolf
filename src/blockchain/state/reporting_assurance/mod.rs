@@ -14,18 +14,13 @@
 // seen formally through the requirement of an intermediate state ρ‡.
 
 use crate::types::{
-    Hash, AssurancesExtrinsic, AvailabilityAssignment, AvailabilityAssignments, GuaranteesExtrinsic, TimeSlot, CoreIndex
+    Hash, AssurancesExtrinsic, AvailabilityAssignment, AvailabilityAssignments, GuaranteesExtrinsic, TimeSlot, CoreIndex,
+    OutputDataAssurances
 };
-use crate::blockchain::block::extrinsic::assurances::OutputDataAssurances;
-use crate::utils::codec::work_report::OutputDataReports;
-
+use crate::utils::codec::jam::work_report::OutputDataReports;
 use super::ProcessError;
 
-pub mod availability;
-pub mod refine_context;
 pub mod work_report;
-pub mod work_item;
-pub mod work_package;
 pub mod work_result;
 
 // The state of the reporting and availability portion of the protocol is largely contained within ρ, which tracks the 
@@ -67,4 +62,3 @@ pub fn process_guarantees(
         reporters: output_data.reporters,
     })
 }
-

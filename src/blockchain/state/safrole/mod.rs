@@ -33,30 +33,29 @@ use crate::types::{
     BandersnatchPublic, Ed25519Public, BlsPublic, Metadata, OpaqueHash, ValidatorData, TicketBody, TicketsOrKeys, EpochMark};
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 use crate::utils::codec::Encode;
-use crate::blockchain::state::safrole::codec::{Input, Output, SafroleState, ErrorType, OutputMarks};
+use crate::utils::codec::jam::safrole::{InputSafrole, OutputSafrole, SafroleState, ErrorType, OutputMarks};
 
 use sp_core::blake2_256;
 
-pub mod codec;
 mod bandersnatch;
 
 // Update Safrole state
-pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
+pub fn update_state(input: InputSafrole, state: &mut SafroleState) -> OutputSafrole {
     // tau defines de most recent block
     // Timeslot must be strictly monotonic
     if input.slot <= state.tau {
-        return Output::err(ErrorType::bad_slot);
+        return OutputSafrole::err(ErrorType::bad_slot);
     }
 
     if input.extrinsic.len() > 0 {
         if input.slot >= TICKET_SUBMISSION_ENDS as u32 {
-            return Output::err(ErrorType::unexpected_ticket);
+            return OutputSafrole::err(ErrorType::unexpected_ticket);
         }
 
         let validity = bandersnatch::verify_tickets(&input, state);
         
-        if let Output::err(error_type) = validity {
-            return Output::err(error_type);
+        if let OutputSafrole::err(error_type) = validity {
+            return OutputSafrole::err(error_type);
         }
     }
     // Calculate time parameters
@@ -113,10 +112,10 @@ pub fn update_state(input: Input, state: &mut SafroleState) -> Output {
 
     // Update recent entropy eta0
     update_recent_entropy(&input, state);
-    return Output::ok(OutputMarks {epoch_mark, tickets_mark});
+    return OutputSafrole::ok(OutputMarks {epoch_mark, tickets_mark});
 }
 
-fn update_recent_entropy(input: &Input, state: &mut SafroleState) {
+fn update_recent_entropy(input: &InputSafrole, state: &mut SafroleState) {
     // eta0 defines the state of the randomness accumulator to which the provably random output of the vrf, the signature over 
     // some unbiasable input, is combined each block. eta1 and eta2 meanwhile retain the state of this accumulator at the end 
     // of the two most recently ended epochs in order.
@@ -133,7 +132,7 @@ fn rotate_entropy_pool(state: &mut SafroleState) {
     state.eta[1] = state.eta[0].clone();
 }
 
-fn set_offenders_null(input: &Input, state: &SafroleState) -> Vec<ValidatorData> {
+fn set_offenders_null(input: &InputSafrole, state: &SafroleState) -> Vec<ValidatorData> {
     // We return the same iota keyset if there aren't offenders
     if input.post_offenders.is_empty() {
         return state.iota.clone();
@@ -153,7 +152,7 @@ fn set_offenders_null(input: &Input, state: &SafroleState) -> Vec<ValidatorData>
     return iota;
 }
 
-fn key_rotation(input: &Input, state: &mut SafroleState) { 
+fn key_rotation(input: &InputSafrole, state: &mut SafroleState) { 
     // In addition to the active set of validator keys "kappa" and staging set "iota", internal to the Safrole state 
     // we retain a pending set "gamma_k".
     state.lambda = state.kappa.clone();

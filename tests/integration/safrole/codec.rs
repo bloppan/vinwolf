@@ -4,21 +4,21 @@ use crate::types::{
     ValidatorData, ValidatorsData, TicketsExtrinsic, TicketBody, TicketsOrKeys, EpochMark};
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH};
 use crate::utils::codec::{Encode, Decode, DecodeLen, BytesReader, ReadError};
-use crate::utils::codec::encode_unsigned;
+use crate::utils::codec::generic::encode_unsigned;
 
 #[derive(Debug)]
-pub struct Input {
+pub struct InputSafrole {
     pub slot: TimeSlot,
     pub entropy: OpaqueHash,
     pub extrinsic: TicketsExtrinsic,
     pub post_offenders: Vec<Ed25519Public>,
 }
 
-impl Encode for Input {
+impl Encode for InputSafrole {
 
     fn encode(&self) -> Vec<u8> {
 
-        let mut input_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Input>());
+        let mut input_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<InputSafrole>());
         self.slot.encode_to(&mut input_blob);
         self.entropy.encode_to(&mut input_blob);
         self.extrinsic.encode_to(&mut input_blob);
@@ -33,11 +33,11 @@ impl Encode for Input {
     }
 }
 
-impl Decode for Input {
+impl Decode for InputSafrole {
 
     fn decode(input_blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        Ok(Input {
+        Ok(InputSafrole {
             slot: TimeSlot::decode(input_blob)?,
             entropy: OpaqueHash::decode(input_blob)?,
             extrinsic: TicketsExtrinsic::decode(input_blob)?,
@@ -113,7 +113,7 @@ impl Decode for SafroleState {
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq)]
-pub enum Output {
+pub enum OutputSafrole {
     ok(OutputMarks),
     err(ErrorType),
 }
@@ -130,18 +130,18 @@ pub enum ErrorType {
     duplicate_ticket = 6,   // Found a ticket duplicate.
 }
 
-impl Encode for Output {
+impl Encode for OutputSafrole {
 
     fn encode(&self) -> Vec<u8> {
 
         let mut output_blob = Vec::new();
 
         match self {
-            Output::ok(output_marks) => {
+            OutputSafrole::ok(output_marks) => {
                 output_blob.push(0); // OK = 0
                 output_marks.encode_to(&mut output_blob);
             }
-            Output::err(error_type) => {
+            OutputSafrole::err(error_type) => {
                 output_blob.push(1); // ERROR = 1
                 output_blob.push(*error_type as u8);
             }
@@ -155,12 +155,12 @@ impl Encode for Output {
     }
 }
 
-impl Decode for Output {
+impl Decode for OutputSafrole {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
         
         if blob.read_byte()? == 0 { // OK = 0
-            Ok(Output::ok(OutputMarks::decode(blob)?))           
+            Ok(OutputSafrole::ok(OutputMarks::decode(blob)?))           
         } else {
             let error_type = blob.read_byte()?;
             let error = match error_type {
@@ -173,7 +173,7 @@ impl Decode for Output {
                 6 => ErrorType::duplicate_ticket,
                 _ => return Err(ReadError::InvalidData),
             };
-            Ok(Output::err(error))
+            Ok(OutputSafrole::err(error))
         }
     }
 }
@@ -238,151 +238,5 @@ impl Decode for OutputMarks {
             epoch_mark,
             tickets_mark,
         })
-    }
-}
-
-
-impl Encode for ValidatorData {
-    
-    fn encode(&self) -> Vec<u8> {
-
-        let mut validator_data: Vec<u8> = Vec::with_capacity(std::mem::size_of::<ValidatorData>());
-        
-        self.bandersnatch.encode_to(&mut validator_data);
-        self.ed25519.encode_to(&mut validator_data);
-        self.bls.encode_to(&mut validator_data);
-        self.metadata.encode_to(&mut validator_data);
-
-        return validator_data;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-impl Decode for ValidatorData {
-
-    fn decode(data_blob: &mut BytesReader) -> Result<Self, ReadError> {
-    
-        Ok(ValidatorData {
-            bandersnatch: BandersnatchPublic::decode(data_blob)?,
-            ed25519: Ed25519Public::decode(data_blob)?,
-            bls: BlsPublic::decode(data_blob)?,
-            metadata: Metadata::decode(data_blob)?,
-        })
-    }
-}
-
-impl Encode for ValidatorsData {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut validators_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Self>());
-
-        for validator in self.0.iter() {
-            validator.encode_to(&mut validators_blob);
-        }
-
-        return validators_blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-impl Decode for ValidatorsData {
-
-    fn decode(validators_blob: &mut BytesReader) -> Result<Self, ReadError> {
-
-        let mut validators: ValidatorsData = ValidatorsData::default();
-
-        for i in 0..VALIDATORS_COUNT {
-            validators.0[i] = ValidatorData::decode(validators_blob)?;
-        }
-
-        Ok(validators)
-    }
-}
-
-impl ValidatorData {
-
-    pub fn encode_all(all_validators: &Vec<ValidatorData>) -> Vec<u8> {
-        
-        let mut data_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<ValidatorData>() * VALIDATORS_COUNT);
-
-        for validator in all_validators {
-            validator.encode_to(&mut data_blob);
-        }
-
-        return data_blob;
-    }
-
-    pub fn decode_all(data_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
-        
-        let mut all_validators: Vec<ValidatorData> = Vec::with_capacity(std::mem::size_of::<ValidatorData>() * VALIDATORS_COUNT);
-        
-        for _ in 0..VALIDATORS_COUNT {
-            all_validators.push(ValidatorData::decode(data_blob)?);
-        }
-
-        Ok(all_validators)
-    }
-}
-
-impl Decode for TicketsOrKeys {
-    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
-        
-        let marker = blob.read_byte()?;  
-
-        match marker {
-            1 => {
-                let mut keys: Vec<BandersnatchPublic> = Vec::with_capacity(std::mem::size_of::<BandersnatchPublic>() * EPOCH_LENGTH);
-                for _ in 0..EPOCH_LENGTH {
-                    keys.push(BandersnatchPublic::decode(blob)?);
-                }
-                Ok(TicketsOrKeys::Keys(keys))
-            }
-            0 => {
-                let mut tickets: Vec<TicketBody> = Vec::with_capacity(std::mem::size_of::<TicketBody>() * EPOCH_LENGTH);
-                for _ in 0..EPOCH_LENGTH {
-                    tickets.push(TicketBody::decode(blob)?);
-                }
-                Ok(TicketsOrKeys::Tickets(tickets)) 
-            }
-            _ => {
-                Err(ReadError::InvalidData)
-            }
-        }
-    }
-}
-
-impl Encode for TicketsOrKeys {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut encoded = Vec::new();
-
-        match self {
-            TicketsOrKeys::Keys(keys_array) => {
-                encoded.push(1); // Keys marker
-                for key in keys_array.iter() {
-                    key.encode_to(&mut encoded);
-                }
-            }
-            TicketsOrKeys::Tickets(tickets_vec) => {
-                encoded.push(0); // Tickets marker
-                for ticket in tickets_vec {
-                    ticket.encode_to(&mut encoded);
-                }
-            }
-        }
-
-        return encoded;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
     }
 }

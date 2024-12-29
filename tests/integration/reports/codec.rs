@@ -4,7 +4,7 @@ use vinwolf::types::{
     TimeSlot, GuaranteesExtrinsic, AvailabilityAssignments, EntropyPool, BlockHistory, AuthPools, ValidatorsData,
     Services, Offenders
 };
-use vinwolf::utils::codec::work_report::{OutputDataReports, ReportErrorCode};
+use vinwolf::utils::codec::jam::work_report::{OutputDataReports, ReportErrorCode};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputWorkReport {

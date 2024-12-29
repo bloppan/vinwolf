@@ -14,7 +14,7 @@ use vinwolf::blockchain::state::validators::ValidatorSet;
 use vinwolf::blockchain::state::reporting_assurance::process_guarantees;
 use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::utils::codec::work_report::OutputDataReports;
+use vinwolf::utils::codec::jam::work_report::OutputDataReports;
 
 use codec::{InputWorkReport, WorkReportState, OutputWorkReport};
 

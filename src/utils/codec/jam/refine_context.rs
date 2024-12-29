@@ -1,6 +1,6 @@
 use crate::types::{OpaqueHash, TimeSlot, RefineContext};
 use crate::utils::codec::{BytesReader, Encode, EncodeSize, Decode, ReadError};
-use crate::utils::codec::{encode_unsigned, decode_unsigned};
+use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
 impl Encode for RefineContext {
 

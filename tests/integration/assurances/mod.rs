@@ -6,7 +6,7 @@ pub mod codec;
 use codec::{InputAssurances, StateAssurances};
 
 use vinwolf::constants::{CORES_COUNT, VALIDATORS_COUNT};
-use vinwolf::blockchain::block::extrinsic::assurances::{OutputDataAssurances, OutputAssurances};
+use vinwolf::types::{OutputDataAssurances, OutputAssurances};
 use vinwolf::blockchain::state::{ProcessError, get_global_state, set_reporting_assurance, get_reporting_assurance};
 use vinwolf::blockchain::state::validators::{set_validators_state, get_validators_state, ValidatorSet};
 use vinwolf::blockchain::state::reporting_assurance::process_assurances;

@@ -3,7 +3,7 @@ use crate::types::{
     SegmentRootLookup, WorkReport, WorkPackageSpec, Offenders
 };
 use crate::utils::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
-use crate::utils::codec::{encode_unsigned, decode_unsigned};
+use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
 impl Encode for WorkReport {
 
@@ -20,7 +20,7 @@ impl Encode for WorkReport {
         self.authorizer_hash.encode_to(&mut work_report_blob);
         self.auth_output.as_slice().encode_len().encode_to(&mut work_report_blob);
         self.segment_root_lookup.encode_to(&mut work_report_blob);
-        WorkResult::encode_len(&self.results).encode_to(&mut work_report_blob);
+        self.results.encode_to(&mut work_report_blob);
 
         return work_report_blob;
     }
@@ -47,7 +47,7 @@ impl Decode for WorkReport {
             authorizer_hash: OpaqueHash::decode(work_report)?,
             auth_output: Vec::<u8>::decode_len(work_report)?,
             segment_root_lookup: SegmentRootLookup::decode(work_report)?,
-            results: WorkResult::decode_len(work_report)?,
+            results: Vec::<WorkResult>::decode(work_report)?,
         })
     }
 }

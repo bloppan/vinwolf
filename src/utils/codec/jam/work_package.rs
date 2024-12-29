@@ -2,7 +2,8 @@ use crate::types::{
     ServiceId, OpaqueHash, RefineContext, WorkPackage, Authorizer, WorkItem, ReportedWorkPackage, ReportedWorkPackages,
     Hash, 
 };
-use crate::utils::codec::{Encode, EncodeSize, EncodeLen, Decode, DecodeLen, BytesReader, ReadError, encode_unsigned, decode_unsigned};
+use crate::utils::codec::{Encode, EncodeSize, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
+use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
 impl Encode for WorkPackage {
 

@@ -1,6 +1,6 @@
 use crate::types::{ServiceId, OpaqueHash, Gas, WorkItem, ImportSpec, ExtrinsicSpec};
 use crate::utils::codec::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
-use crate::utils::codec::{encode_unsigned, decode_unsigned};
+use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
 impl Encode for WorkItem {
     

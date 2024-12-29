@@ -31,11 +31,8 @@
 // disputes cannot be raised in the future of the chain.
 
 
-use crate::types::{DisputesRecords, DisputesExtrinsic, AvailabilityAssignments};
+use crate::types::{DisputesRecords, DisputesExtrinsic, AvailabilityAssignments, OutputDataDisputes};
 use crate::blockchain::state::ProcessError;
-use crate::blockchain::block::extrinsic::disputes::OutputDataDisputes;
-
-pub mod codec;
 
 pub fn process_disputes(
     disputes_state: &mut DisputesRecords, 

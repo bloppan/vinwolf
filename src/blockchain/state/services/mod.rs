@@ -2,8 +2,6 @@ use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
 use crate::types::Services;
-//use crate::utils::codec::work_report::Services;
-mod codec;
 
 static SERVICES_STATE: Lazy<Mutex<Services>> = Lazy::new(|| Mutex::new(Services{0: Vec::new()}));
 

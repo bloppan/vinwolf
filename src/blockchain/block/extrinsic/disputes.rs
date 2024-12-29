@@ -1,7 +1,7 @@
 use sp_core::blake2_256;
 
 use crate::types::{
-    AvailabilityAssignments, DisputesExtrinsic, DisputesRecords, Hash, OffendersMark, Verdict
+    AvailabilityAssignments, DisputesExtrinsic, DisputesRecords, Hash, DisputesErrorCode, OutputDataDisputes, Verdict
 };
 use crate::constants::{EPOCH_LENGTH, ONE_THIRD_VALIDATORS, VALIDATORS_SUPER_MAJORITY};
 use crate::blockchain::state::{get_time, get_validators};
@@ -11,7 +11,7 @@ use crate::utils::common::{VerifySignature, is_sorted_and_unique, has_duplicates
 use crate::utils::codec::Encode;
 
 impl DisputesExtrinsic {
-
+    // TODO - Implement process for verdicts, culprits and faults
     pub fn process(
         &self, 
         disputes_state: &mut DisputesRecords,
@@ -246,33 +246,6 @@ impl DisputesExtrinsic {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct OutputDataDisputes {
-    pub offenders_mark: OffendersMark,
-}
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum DisputesErrorCode {
-    AlreadyJudged = 0,
-    BadVoteSplit = 1,
-    VerdictsNotSortedUnique = 2,
-    JudgementsNotSortedUnique = 3,
-    CulpritsNotSortedUnique = 4,
-    FaultsNotSortedUnique = 5,
-    NotEnoughCulprits = 6,
-    NotEnoughFaults = 7,
-    CulpritsVerdictNotBad = 8,
-    FaultVerdictWrong = 9,
-    OffenderAlreadyReported = 10,
-    BadJudgementAge = 11,
-    BadValidatorIndex = 12,
-    BadSignature = 13,
-    DisputeStateNotInitialized = 14,
-    NoVerdictsFound = 15,
-    AgesNotEqual = 16,
-    CulpritKeyNotFound = 17,
-    FaultKeyNotFound = 18,
-}
-
 // The disputes extrinsic may contain one or more verdicts v as a compilation of judgments coming from exactly 
 // two-thirds plus one of either the active validator set or the previous epoch’s validator set, i.e. the Ed25519 
 // keys of κ or λ. Additionally, it may contain proofs of the misbehavior of one or more validators, either by 
@@ -309,9 +282,7 @@ fn vote_count(verdicts: &[Verdict]) -> Vec<(Hash, usize)> {
 #[cfg(test)]
 mod test {
 
-    use super::*;
     use sp_core::{ed25519, Pair};
-    use std::collections::HashSet;
     use crate::types::ValidatorIndex;
     
     fn bad_hash_order<const N: usize>(data: &Vec<[u8; N]>) -> bool {

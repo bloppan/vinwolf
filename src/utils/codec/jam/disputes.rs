@@ -1,11 +1,10 @@
 use crate::types::{
-    TimeSlot, OpaqueHash, ValidatorIndex, Ed25519Signature, Ed25519Public, WorkReportHash, OffendersMark, 
-    ValidatorData, AvailabilityAssignments, DisputesRecords, DisputesExtrinsic, Verdict, Judgement, Culprit, Fault
+    OpaqueHash, ValidatorIndex, Ed25519Signature, Ed25519Public, WorkReportHash, OffendersMark, 
+    OutputDataDisputes, DisputesRecords, DisputesExtrinsic, Verdict, Judgement, Culprit, Fault
 };
-use crate::constants::{EPOCH_LENGTH, ONE_THIRD_VALIDATORS, VALIDATORS_SUPER_MAJORITY};
-use crate::blockchain::block::extrinsic::disputes::OutputDataDisputes;
+use crate::constants::VALIDATORS_SUPER_MAJORITY;
 use crate::utils::codec::{Encode, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
-use crate::utils::codec::{encode_unsigned, decode_unsigned};
+use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
 impl Encode for DisputesRecords {
 

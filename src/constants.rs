@@ -20,7 +20,8 @@ pub const CORES_COUNT: usize = 341;
 pub const ROTATION_PERIOD: u32 = 10;
 
 // The number of slots into an epoch at which ticket-submission ends
-pub const TICKET_SUBMISSION_ENDS: usize = 10;
+pub const TICKET_SUBMISSION_ENDS: usize = 500;
+//pub const TICKET_SUBMISSION_ENDS: usize = 10;
 
 // Validator super majority
 pub const VALIDATORS_SUPER_MAJORITY: usize = (VALIDATORS_COUNT * 2) / 3 + 1;

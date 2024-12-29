@@ -2,16 +2,14 @@ use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use crate::types::{
     AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, EntropyPool, Statistics, TimeSlot, ValidatorsData,
-    DisputesRecords
+    DisputesRecords, AssurancesErrorCode, DisputesErrorCode
 };
-use crate::blockchain::block::extrinsic::assurances::AssurancesErrorCode;
-use crate::blockchain::block::extrinsic::disputes::DisputesErrorCode;
 use validators::ValidatorSet;
 use reporting_assurance::{process_assurances, process_guarantees};
 use statistics::process_statistics;
 use recent_history::process_recent_history;
 use crate::utils::codec::ReadError;
-use crate::utils::codec::work_report::ReportErrorCode;
+use crate::utils::codec::jam::work_report::ReportErrorCode;
 
 pub mod accumulation;
 pub mod authorization;

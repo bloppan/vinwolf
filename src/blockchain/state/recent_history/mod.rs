@@ -13,8 +13,6 @@ use crate::types::{Hash, BlockHistory, BlockInfo, ReportedWorkPackages, Mmr};
 use crate::constants::RECENT_HISTORY_SIZE;
 use crate::utils::trie::append;
 
-pub mod codec;
-
 pub fn process_recent_history(
     recent_history_state: &mut BlockHistory,
     header_hash: Hash, 

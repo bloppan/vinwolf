@@ -3,7 +3,8 @@ use crate::types::{
     AuthPool, AuthPools, AuthQueue, AuthQueues, AuthorizerHash, OpaqueHash, CodeAuthorizer, CodeAuthorizers, CoreIndex
 };
 use crate::constants::{CORES_COUNT, MAX_ITEMS_AUTHORIZATION_POOL, MAX_ITEMS_AUTHORIZATION_QUEUE};
-use crate::utils::codec::{Encode, Decode, BytesReader, ReadError, encode_unsigned, decode_unsigned};
+use crate::utils::codec::{BytesReader, Decode, Encode, ReadError};
+use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
 impl Encode for AuthPool {
 

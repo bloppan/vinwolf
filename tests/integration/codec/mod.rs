@@ -6,11 +6,11 @@ use crate::integration::read_test_file;
 
 use vinwolf::types::{
     RefineContext, WorkItem, WorkPackage, WorkResult, TicketsExtrinsic, DisputesExtrinsic, PreimagesExtrinsic, AssurancesExtrinsic, 
-    GuaranteesExtrinsic, Header, Block, BlockHistory, WorkReport};
+    GuaranteesExtrinsic, Header, Block, BlockHistory, WorkReport, OutputAssurances
+};
 use vinwolf::utils::codec::{Encode, Decode, BytesReader, ReadError};
+use vinwolf::utils::codec::jam::safrole::{InputSafrole, SafroleState, OutputSafrole};
 
-use vinwolf::blockchain::block::extrinsic::assurances::OutputAssurances;
-use vinwolf::blockchain::state::safrole::codec::{Input as InputSafrole, SafroleState, Output as OutputSafrole};
 use crate::integration::disputes::codec::{DisputesState, OutputDisputes};
 use crate::integration::assurances::codec::{InputAssurances, StateAssurances};
 use crate::integration::authorization::codec::{InputAuthorizations, StateAuthorizations};
