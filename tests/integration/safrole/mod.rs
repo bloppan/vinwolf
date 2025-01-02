@@ -40,7 +40,7 @@ mod tests {
         }
     }
 
-    fn run_safrole_test(filename: &str) {
+    fn run_test(filename: &str) {
 
         let test_content = read_test_file(&format!("tests/jamtestvectors/safrole/{}/{}", *TEST_TYPE, filename));
         let test_body: Vec<TestBody> = vec![
@@ -95,6 +95,13 @@ mod tests {
             Err(_) => { },
         }
 
+        let expected_safrole_state = Safrole {
+            pending_validators: expected_state.gamma_k,
+            ticket_accumulator: expected_state.gamma_a,
+            seal: expected_state.gamma_s,
+            epoch_root: expected_state.gamma_z,
+        };
+
         let result_time = get_time();
         let result_entropy = get_entropy();
         let result_curr_validators = get_validators(ValidatorSet::Current);
@@ -106,18 +113,9 @@ mod tests {
         assert!(expected_state.eta == result_entropy);
         assert!(expected_state.lambda == result_prev_validators);
         assert!(expected_state.kappa == result_curr_validators);
-        assert!(expected_state.iota == result_next_validators);
+        assert!(expected_state.iota == result_next_validators);       
+        assert!(expected_safrole_state == result_safrole);
         
-        let expected_safrole_state = Safrole {
-            pending_validators: expected_state.gamma_k,
-            ticket_accumulator: expected_state.gamma_a,
-            seal: expected_state.gamma_s,
-            epoch_root: expected_state.gamma_z,
-        };
-
-        /*assert!(expected_safrole_state == result_safrole);
-        println!("expected safrole: {:?}", expected_safrole_state);
-        println!("result safrole: {:?}", result_safrole);*/
 
         match output_result {
             Ok(OutputDataSafrole { epoch_mark, tickets_mark }) => {
@@ -130,108 +128,74 @@ mod tests {
     }
 
     #[test]
-    fn enact_epoch_change_with_no_tickets_1() {
-        run_safrole_test("enact-epoch-change-with-no-tickets-1.bin");
+    fn run_safrole_tests() {
+        
+        println!("Safrole tests in {} mode", *TEST_TYPE);
+        let test_files = vec![
+            // Progress by one slot.
+            // Randomness accumulator is updated.
+            "enact-epoch-change-with-no-tickets-1.bin", // OK
+            // Progress from slot X to slot X.
+            // Timeslot must be strictly monotonic.
+            "enact-epoch-change-with-no-tickets-2.bin", // FAIL 
+            // Progress from a slot at the begining of the epoch to a slot in the epoch's tail.
+            // Tickets mark is not generated (no enough tickets).
+            "enact-epoch-change-with-no-tickets-3.bin", // OK 
+            // Progress from epoch's tail to next epoch.
+            // Authorities and entropies are rotated. Epoch mark is generated.
+            "enact-epoch-change-with-no-tickets-4.bin", // FAIL
+            // Submit an extrinsic with a bad ticket attempt number.
+            "publish-tickets-no-mark-1.bin", // FAIL
+            // Submit good tickets extrinsic from some authorities.
+            "publish-tickets-no-mark-2.bin", // OK
+            // Submit one ticket already recorded in the state.
+            "publish-tickets-no-mark-3.bin", // FAIL
+            // Submit tickets in bad order.
+            "publish-tickets-no-mark-4.bin", // FAIL 
+            // Submit tickets with bad ring proof.
+            "publish-tickets-no-mark-5.bin", // FAIL 
+            // Submit some tickets.
+            "publish-tickets-no-mark-6.bin", // OK 
+            // Submit tickets when epoch's lottery is over.
+            "publish-tickets-no-mark-7.bin", // FAIL
+            // Progress into epoch tail, closing the epoch's lottery.
+            // No enough tickets, thus no tickets mark is generated.
+            "publish-tickets-no-mark-8.bin", // OK
+            // Progress into next epoch with no enough tickets.
+            // Accumulated tickets are discarded. Epoch mark generated. Fallback method enacted.
+            "publish-tickets-no-mark-9.bin", // OK
+            // Publish some tickets with an almost full tickets accumulator.
+            // Tickets accumulator is not full yet. No ticket is dropped from accumulator.
+            "publish-tickets-with-mark-1.bin", // OK
+            // Publish some tickets filling the accumulator.
+            // Two old tickets are removed from the accumulator.
+            "publish-tickets-with-mark-2.bin", // OK
+            // Publish some tickets with a full accumulator.
+            // Some old ticket are removed to make space for new ones.
+            "publish-tickets-with-mark-3.bin", // OK
+            // With a full accumulator, conclude the lottery.
+            // Tickets mark is generated.
+            "publish-tickets-with-mark-4.bin", // OK
+            // With a published tickets mark, progress into next epoch.
+            // Epoch mark is generated. Tickets are enacted.
+            "publish-tickets-with-mark-5.bin", // OK
+            // Progress to next epoch by skipping epochs tail with a full tickets accumulator.
+            // Tickets mark has no chance to be generated. Accumulated tickets discarded. Fallback method enacted.
+            "skip-epoch-tail-1.bin", // OK
+            // Progress skipping epochs with a full tickets accumulator.
+            // Tickets mark is not generated. Accumulated tickets discarded. Fallback method enacted.
+            "skip-epochs-1.bin", // OK
+            // On epoch change we recompute the ring commitment.
+            // One of the keys to be used is invalidated (zeroed out) because it belongs to the (posterior) offenders list.
+            // One of the keys is just invalid (i.e. it can't be decoded into a valid Bandersnatch point).
+            // Both the invalid keys are replaced with the padding point during ring commitment computation.
+            "enact-epoch-change-with-padding-1.bin", // OK
+            ];
+        
+        for file in test_files {
+            println!("Running test: {}", file);
+            run_test(file);
+        }
     }
-
-    #[test]
-    fn enact_epoch_change_with_no_tickets_2() {
-        run_safrole_test("enact-epoch-change-with-no-tickets-2.bin");
-    }
-
-    #[test]
-    fn enact_epoch_change_with_no_tickets_3() {
-        run_safrole_test("enact-epoch-change-with-no-tickets-3.bin");
-    }
-
-    #[test]
-    fn enact_epoch_change_with_no_tickets_4() {
-        run_safrole_test("enact-epoch-change-with-no-tickets-4.bin");
-    }
-
-    /*#[test]
-    fn publish_tickets_no_mark_1() {
-        run_safrole_test("publish-tickets-no-mark-1.bin");
-    }
-
-    #[test]
-    fn publish_tickets_no_mark_2() {
-        run_safrole_test("publish-tickets-no-mark-2.bin");
-    }
-
-    #[test]
-    fn publish_tickets_no_mark_3() {
-        run_safrole_test("publish-tickets-no-mark-3.bin");
-    }
-
-    #[test]
-    fn publish_tickets_no_mark_4() {
-        run_safrole_test("publish-tickets-no-mark-4.bin");
-    }
-
-    #[test]
-    fn publish_tickets_no_mark_5() {
-        run_safrole_test("publish-tickets-no-mark-5.bin");
-    }
-
-    #[test]
-    fn publish_tickets_no_mark_6() {
-        run_safrole_test("publish-tickets-no-mark-6.bin");
-    }
-
-    #[test]
-    fn publish_tickets_no_mark_7() {
-        run_safrole_test("publish-tickets-no-mark-7.bin");
-    }
-
-    #[test]
-    fn publish_tickets_no_mark_8() {
-        run_safrole_test("publish-tickets-no-mark-8.bin");
-    }
-
-    #[test]
-    fn publish_tickets_no_mark_9() {
-        run_safrole_test("publish-tickets-no-mark-9.bin");
-    }
-
-    #[test]
-    fn publish_tickets_with_mark_1() {
-        run_safrole_test("publish-tickets-with-mark-1.bin");
-    }
-
-    #[test]
-    fn publish_tickets_with_mark_2() {
-        run_safrole_test("publish-tickets-with-mark-2.bin");
-    }
-
-    #[test]
-    fn publish_tickets_with_mark_3() {
-        run_safrole_test("publish-tickets-with-mark-3.bin");
-    }
-
-    #[test]
-    fn publish_tickets_with_mark_4() {
-        run_safrole_test("publish-tickets-with-mark-4.bin");
-    }
-
-    #[test]
-    fn publish_tickets_with_mark_5() {
-        run_safrole_test("publish-tickets-with-mark-5.bin");
-    }
-
-    #[test]
-    fn skip_epoch_tail_1() {
-        run_safrole_test("skip-epoch-tail-1.bin");
-    }
-
-    #[test]
-    fn skip_epochs_1() {
-        run_safrole_test("skip-epochs-1.bin");
-    }
-
-    #[test]
-    fn enact_epoch_change_with_padding_1() {
-        run_safrole_test("enact-epoch-change-with-padding-1.bin");
-    }*/
-
+    
 }

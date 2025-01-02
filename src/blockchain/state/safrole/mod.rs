@@ -37,10 +37,11 @@ use crate::types::{
     ValidatorData, ValidatorsData, Entropy
 };
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
-use crate::blockchain::state::ProcessError;
+use crate::blockchain::state::{ProcessError, get_validators, ValidatorSet};
 use crate::blockchain::state::entropy::rotate_entropy_pool;
 use crate::utils::common::set_offenders_null;
 use crate::utils::codec::Encode;
+
 
 mod bandersnatch;
 
@@ -160,7 +161,8 @@ fn key_rotation(
     // In addition to the active set of validator keys "kappa" and staging set "iota", internal to the Safrole state 
     // we retain a pending set "gamma_k".
     *prev_validators = curr_validators.clone();
-    *curr_validators = safrole_state.pending_validators.clone();    
+    *curr_validators = safrole_state.pending_validators.clone(); 
+    safrole_state.pending_validators = get_validators(ValidatorSet::Next);   
     // In addition to the active set of validator keys "kappa" and staging set "iota", internal to the Safrole state 
     // we retain a pending set "gamma_k". The active set is the set of keys identifying the nodes which are 
     // currently privileged to author blocks and carry out the validation processes, whereas the pending set 
