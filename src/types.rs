@@ -1,6 +1,8 @@
 // JAM Protocol Types
 use std::collections::VecDeque;
-use crate::constants::{ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE};
+use crate::constants::{
+    ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH
+};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
 // ----------------------------------------------------------------------------------------------------------
@@ -54,7 +56,8 @@ pub struct ValidatorData {
     pub bls: BlsPublic,
     pub metadata: Metadata,
 }
-
+pub type BandersnatchKeys = Box<[BandersnatchPublic; VALIDATORS_COUNT]>;
+pub type BandersnatchEpoch = Box<[BandersnatchPublic; EPOCH_LENGTH]>;
 #[derive(Clone, PartialEq, Debug)]
 pub struct ValidatorsData(pub Box<[ValidatorData; VALIDATORS_COUNT]>);
 // ----------------------------------------------------------------------------------------------------------
@@ -342,8 +345,8 @@ pub struct TicketBody {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TicketsOrKeys {
-    Keys(Vec<BandersnatchPublic>),
-    Tickets(Vec<TicketBody>),
+    Keys(BandersnatchEpoch),
+    Tickets(TicketsMark),
     None,
 }
 
@@ -370,7 +373,7 @@ pub enum OutputSafrole {
 #[derive(Debug, Clone, PartialEq)]
 pub struct OutputDataSafrole {
     pub epoch_mark: Option<EpochMark>,
-    pub tickets_mark: Option<Vec<TicketBody>>,
+    pub tickets_mark: Option<TicketsMark>,
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SafroleErrorCode {
@@ -381,6 +384,7 @@ pub enum SafroleErrorCode {
     BadTicketAttempt = 4, // Invalid ticket attempt value.
     Reserved = 5,           // Reserved.
     DuplicateTicket = 6,   // Found a ticket duplicate.
+    TooManyTickets = 7,    // Too many tickets in extrinsic.
 }
 // ----------------------------------------------------------------------------------------------------------
 // Disputes
@@ -527,12 +531,12 @@ pub struct GuaranteesExtrinsic {
 pub struct EpochMark {
     pub entropy: Entropy,
     pub tickets_entropy: Entropy,
-    pub validators: Vec<BandersnatchPublic>,
+    pub validators: BandersnatchKeys,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TicketsMark {
-    pub tickets_mark: Vec<TicketBody>,
+    pub tickets_mark: Box<[TicketBody; EPOCH_LENGTH]>,
 }
 
 pub type OffendersMark = Vec<Ed25519Public>;

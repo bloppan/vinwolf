@@ -11,7 +11,6 @@ pub struct InputSafrole {
     pub slot: TimeSlot,
     pub entropy: Entropy,
     pub tickets_extrinsic: TicketsExtrinsic,
-    pub post_offenders: Vec<Ed25519Public>,
 }
 
 impl Encode for InputSafrole {
@@ -22,8 +21,6 @@ impl Encode for InputSafrole {
         self.slot.encode_to(&mut input_blob);
         self.entropy.encode_to(&mut input_blob);
         self.tickets_extrinsic.encode_to(&mut input_blob);
-        encode_unsigned(self.post_offenders.len()).encode_to(&mut input_blob);
-        self.post_offenders.encode_to(&mut input_blob);
 
         return input_blob;
     }
@@ -41,21 +38,10 @@ impl Decode for InputSafrole {
             slot: TimeSlot::decode(input_blob)?,
             entropy: Entropy::decode(input_blob)?,
             tickets_extrinsic: TicketsExtrinsic::decode(input_blob)?,
-            post_offenders: Vec::<Ed25519Public>::decode_len(input_blob)?,
         })
     }
 }
 
-/*
-    @gamma_k:   validators's pending set
-    @gamma_a:   ticket accumulator. A series of highestscoring ticket identifiers to be used for the next epoch
-    @gamma_s:   current epoch's slot-sealer series
-    @gamma_z:   epoch's root, a Bandersnatch ring root composed with the one Bandersnatch key of each of the next
-                epoch’s validators
-    @iota:      validator's staging set
-    @kappa:     validator's active set
-    @lambda:    validator's active set in the prior epoch
-*/
 #[derive(Debug, Clone, PartialEq)]
 pub struct SafroleState {
     pub tau: TimeSlot,
@@ -67,6 +53,7 @@ pub struct SafroleState {
     pub gamma_a: Vec<TicketBody>,
     pub gamma_s: TicketsOrKeys,
     pub gamma_z: BandersnatchRingCommitment,
+    pub post_offenders: Vec<Ed25519Public>,
 }
 
 impl Encode for SafroleState {
@@ -84,6 +71,8 @@ impl Encode for SafroleState {
         TicketBody::encode_len(&self.gamma_a).encode_to(&mut state_encoded);
         self.gamma_s.encode_to(&mut state_encoded);
         self.gamma_z.encode_to(&mut state_encoded);
+        encode_unsigned(self.post_offenders.len()).encode_to(&mut state_encoded);
+        self.post_offenders.encode_to(&mut state_encoded);
 
         return state_encoded;
     }
@@ -107,6 +96,7 @@ impl Decode for SafroleState {
             gamma_a: TicketBody::decode_len(state_blob)?,
             gamma_s: TicketsOrKeys::decode(state_blob)?,
             gamma_z: BandersnatchRingCommitment::decode(state_blob)?,  
+            post_offenders: Vec::<Ed25519Public>::decode_len(state_blob)?,
         })
     }
 }

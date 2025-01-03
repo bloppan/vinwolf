@@ -129,11 +129,11 @@ impl Decode for EpochMark {
             entropy: Entropy::decode(blob)?,
             tickets_entropy: Entropy::decode(blob)?,
             validators: {
-                let mut validators_vec: Vec<BandersnatchPublic> = Vec::with_capacity(VALIDATORS_COUNT);
-                for _ in 0..VALIDATORS_COUNT {
-                    validators_vec.push(BandersnatchPublic::decode(blob)?);
+                let mut validators = Box::new(std::array::from_fn(|_| BandersnatchPublic::default()));
+                for validator in validators.iter_mut() {
+                    *validator = BandersnatchPublic::decode(blob)?;
                 }
-                validators_vec
+                validators
             },
         })  
     }
@@ -147,11 +147,9 @@ impl Encode for TicketsMark {
 
     fn encode(&self) -> Vec<u8> {
 
-        let len = self.tickets_mark.len();
-        let mut tickets_mark_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<TicketBody>() * len);
-//        encode_unsigned(len).encode_to(&mut tickets_mark_blob);
+        let mut tickets_mark_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<TicketBody>() * EPOCH_LENGTH);
 
-        for ticket in &self.tickets_mark {
+        for ticket in self.tickets_mark.iter() {
             ticket.encode_to(&mut tickets_mark_blob);
         }
         
@@ -167,11 +165,10 @@ impl Decode for TicketsMark {
 
     fn decode(tickets_mark_blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        //let len = decode_unsigned(tickets_mark_blob)?;
-        let mut tickets = Vec::with_capacity(EPOCH_LENGTH);
+        let mut tickets = Box::new(std::array::from_fn(|_| TicketBody::default()));
 
-        for _ in 0..EPOCH_LENGTH {
-            tickets.push(TicketBody::decode(tickets_mark_blob)?);
+        for ticket in tickets.iter_mut() {
+            *ticket = TicketBody::decode(tickets_mark_blob)?;
         }
 
         Ok(TicketsMark {

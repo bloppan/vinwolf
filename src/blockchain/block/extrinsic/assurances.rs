@@ -5,8 +5,8 @@ use crate::types::{
     AvailabilityAssignment, CoreIndex, AvailabilityAssignments
 };
 use crate::constants::{AVAIL_BITFIELD_BYTES, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY};
-use crate::blockchain::state::validators::{get_validators_state, ValidatorSet};
-use crate::blockchain::state::ProcessError;
+use crate::blockchain::state::validators::ValidatorSet;
+use crate::blockchain::state::{ProcessError, get_validators};
 use crate::utils::codec::Encode;
 use crate::utils::common::{is_sorted_and_unique, VerifySignature};
 
@@ -52,7 +52,7 @@ impl AssurancesExtrinsic {
             return Err(ProcessError::AssurancesError(AssurancesErrorCode::NotSortedOrUniqueAssurers));
         }
 
-        let current_validators = get_validators_state(ValidatorSet::Current);
+        let current_validators = get_validators(ValidatorSet::Current);
         //let list = get_reporting_assurance();
         let mut core_marks = [0_usize; CORES_COUNT as usize];
         for assurance in &self.assurances {

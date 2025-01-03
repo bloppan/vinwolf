@@ -3,48 +3,48 @@
 SafroleModule DEFINITIONS ::= BEGIN
 
 IMPORTS
-    TimeSlot, ValidatorsData, Entropy, EntropyPool,
+    TimeSlot, ValidatorsData, Entropy, EntropyBuffer,
     TicketBody, TicketsAccumulator, TicketsOrKeys, TicketsExtrinsic,
-    EpochMark, TicketsMark, Ed25519Public
+    EpochMark, TicketsMark, Ed25519Public, BandersnatchRingCommitment
         FROM JamTypes;
 
 
 State ::= SEQUENCE {
-    -- Most recent block's timeslot.
+    -- [τ] Prior most recent block's timeslot. Mutated to τ'.
     tau TimeSlot,
-    -- Entropy accumulator and epochal randomness.
-    eta EntropyPool,
-    -- Validator keys and metadata which were active in the prior epoch.
+    -- [η] Prior entropy buffer. Mutated to η'.
+    eta EntropyBuffer,
+    -- [λ] Prior previous epoch validator keys and metadata. Mutated to λ'.
     lambda ValidatorsData,
-    -- Validator keys and metadata currently active.
+    -- [κ] Prior current epoch validator keys and metadata. Mutated to κ'.
     kappa ValidatorsData,
-    -- Validator keys for the following epoch.
+    -- [γ_k] Prior next epoch validator keys and metadata. Mutated to γ'_k.
     gamma-k ValidatorsData,
-    -- Validator keys and metadata to be drawn from next.
+    -- [ι] Prior scheduled validator keys and metadata. Mutated to ι'.
     iota ValidatorsData,
-    -- Sealing-key contest ticket accumulator.
+    -- [γ_a] Prior sealing-key contest ticket accumulator. Mutated to γ'_a.
     gamma-a TicketsAccumulator,
-    -- Sealing-key series of the current epoch.
+    -- [γ_s] Prior sealing-key series of the current epoch. Mutated to γ'_s.
     gamma-s TicketsOrKeys,
-    -- Bandersnatch ring commitment.
-    gamma-z OCTET STRING (SIZE(144))
-}
-
-Input ::= SEQUENCE {
-    -- Current time slot (as stored within the block header)
-    slot TimeSlot,
-    -- Per block entropy (originated from per block entropy source VRF output)
-    entropy Entropy,
-    -- Tickets extrinsic
-    extrinsic TicketsExtrinsic,
-    -- Offenders sequence
+    -- [γ_z] Prior Bandersnatch ring commitment. Mutated to γ'_z.
+    gamma-z BandersnatchRingCommitment,
+    -- [ψ'_o] Posterior offenders sequence.
     post-offenders SEQUENCE OF Ed25519Public
 }
 
+Input ::= SEQUENCE {
+    -- [H_t] Current time slot as found within the block header.
+    slot TimeSlot,
+    -- [Y(H_v)] Per block entropy generated using per block entropy source.
+    entropy Entropy,
+    -- [E_T] Tickets extrinsic.
+    extrinsic TicketsExtrinsic
+}
+
 OutputData ::= SEQUENCE {
-    -- New epoch signal.
+    -- [H_e] New epoch marker.
     epoch-mark [0] EpochMark OPTIONAL,
-    -- Tickets signal.
+    -- [H_w] Winning tickets marker.
     tickets-mark [1] TicketsMark OPTIONAL
 }
 

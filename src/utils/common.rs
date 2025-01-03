@@ -24,6 +24,21 @@ pub fn has_duplicates<T: Eq + std::hash::Hash + Clone>(items: &[T]) -> bool {
     false
 }
 
+pub fn bad_order<T: PartialOrd>(items: &[T]) -> bool {
+
+    if items.len() < 2 {
+        return false;
+    }
+
+    for i in 0..items.len() - 1 {
+        if items[i] > items[i + 1] {
+            return true; // Bad order 
+        }
+    }
+    
+    return false; // Order correct
+}
+
 pub trait VerifySignature {
     fn verify_signature(&self, message: &[u8], public_key: &Ed25519Public) -> bool;
 }

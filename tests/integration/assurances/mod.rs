@@ -7,8 +7,8 @@ use codec::{InputAssurances, StateAssurances};
 
 use vinwolf::constants::{CORES_COUNT, VALIDATORS_COUNT};
 use vinwolf::types::{OutputDataAssurances, OutputAssurances};
-use vinwolf::blockchain::state::{ProcessError, get_global_state, set_reporting_assurance, get_reporting_assurance};
-use vinwolf::blockchain::state::validators::{set_validators_state, get_validators_state, ValidatorSet};
+use vinwolf::blockchain::state::{ProcessError, get_global_state, set_reporting_assurance, get_reporting_assurance, set_validators, get_validators};
+use vinwolf::blockchain::state::validators::ValidatorSet;
 use vinwolf::blockchain::state::reporting_assurance::process_assurances;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
@@ -54,7 +54,7 @@ mod tests {
         let expected_state = StateAssurances::decode(&mut reader).expect("Error decoding post Assurances PostState");
         
         set_reporting_assurance(pre_state.avail_assignments);
-        set_validators_state(&pre_state.curr_validators, ValidatorSet::Current);
+        set_validators(pre_state.curr_validators, ValidatorSet::Current);
   
         let current_state = get_global_state();
         let mut assurances_state = current_state.availability.clone();
@@ -71,7 +71,7 @@ mod tests {
         }
 
         let result_avail_assignments = get_reporting_assurance();
-        let result_curr_validators = get_validators_state(ValidatorSet::Current);
+        let result_curr_validators = get_validators(ValidatorSet::Current);
 
         assert_eq!(expected_state.avail_assignments, result_avail_assignments);
         assert_eq!(expected_state.curr_validators, result_curr_validators);

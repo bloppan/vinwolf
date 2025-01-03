@@ -1,5 +1,5 @@
 use crate::types::{
-    TicketAttempt, BandersnatchRingVrfSignature, TicketEnvelope, TicketsExtrinsic, TicketsOrKeys, BandersnatchPublic, TicketBody
+    BandersnatchPublic, BandersnatchRingVrfSignature, TicketAttempt, TicketBody, TicketEnvelope, TicketsExtrinsic, TicketsMark, TicketsOrKeys
 };
 use crate::constants::EPOCH_LENGTH;
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
@@ -46,7 +46,6 @@ impl Encode for TicketsExtrinsic {
     fn encode_to(&self, into: &mut Vec<u8>) {
         into.extend_from_slice(&self.encode()); 
     }
-
 }
 
 impl TicketsExtrinsic {
@@ -78,17 +77,19 @@ impl Decode for TicketsOrKeys {
 
         match marker {
             1 => {
-                let mut keys: Vec<BandersnatchPublic> = Vec::with_capacity(std::mem::size_of::<BandersnatchPublic>() * EPOCH_LENGTH);
-                for _ in 0..EPOCH_LENGTH {
-                    keys.push(BandersnatchPublic::decode(blob)?);
+                let mut keys = Box::new(std::array::from_fn(|_| BandersnatchPublic::default()));
+                for key in keys.iter_mut() {
+                    *key = BandersnatchPublic::decode(blob)?;
                 }
+        
                 Ok(TicketsOrKeys::Keys(keys))
             }
-            0 => {
-                let mut tickets: Vec<TicketBody> = Vec::with_capacity(std::mem::size_of::<TicketBody>() * EPOCH_LENGTH);
-                for _ in 0..EPOCH_LENGTH {
-                    tickets.push(TicketBody::decode(blob)?);
+            0 => {        
+                let mut tickets = TicketsMark{ tickets_mark: Box::new(std::array::from_fn(|_| TicketBody::default())) };
+                for ticket in tickets.tickets_mark.iter_mut() {
+                    *ticket = TicketBody::decode(blob)?;
                 }
+                
                 Ok(TicketsOrKeys::Tickets(tickets)) 
             }
             _ => {
@@ -105,15 +106,15 @@ impl Encode for TicketsOrKeys {
         let mut encoded = Vec::new();
 
         match self {
-            TicketsOrKeys::Keys(keys_array) => {
+            TicketsOrKeys::Keys(keys) => {
                 encoded.push(1); // Keys marker
-                for key in keys_array.iter() {
+                for key in keys.iter() {
                     key.encode_to(&mut encoded);
                 }
             }
-            TicketsOrKeys::Tickets(tickets_vec) => {
+            TicketsOrKeys::Tickets(tickets) => {
                 encoded.push(0); // Tickets marker
-                for ticket in tickets_vec {
+                for ticket in tickets.tickets_mark.iter() {
                     ticket.encode_to(&mut encoded);
                 }
             }

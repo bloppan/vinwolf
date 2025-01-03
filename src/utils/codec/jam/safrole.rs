@@ -1,5 +1,4 @@
-use crate::types::{TicketBody, EpochMark, OutputSafrole, OutputDataSafrole, SafroleErrorCode};
-use crate::constants::EPOCH_LENGTH;
+use crate::types::{EpochMark, OutputDataSafrole, OutputSafrole, SafroleErrorCode, TicketsMark};
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
 impl Encode for OutputSafrole {
@@ -43,6 +42,7 @@ impl Decode for OutputSafrole {
                 4 => SafroleErrorCode::BadTicketAttempt,
                 5 => SafroleErrorCode::Reserved,
                 6 => SafroleErrorCode::DuplicateTicket,
+                7 => SafroleErrorCode::TooManyTickets,
                 _ => return Err(ReadError::InvalidData),
             };
             Ok(OutputSafrole::Err(error))
@@ -65,9 +65,7 @@ impl Encode for OutputDataSafrole {
         // Encode Tickets Marks
         if let Some(tickets_mark) = &self.tickets_mark {
             output_mark_blob.push(1); 
-            for ticket in tickets_mark {
-                output_mark_blob.extend(ticket.encode());
-            }
+            tickets_mark.encode_to(&mut output_mark_blob);
         } else {
             output_mark_blob.push(0); 
         }
@@ -91,11 +89,7 @@ impl Decode for OutputDataSafrole {
         };
         // Tickets Mark
         let tickets_mark = if blob.read_byte()? == 1 {
-            let mut tickets: Vec<TicketBody> = Vec::with_capacity(std::mem::size_of::<TicketBody>() * EPOCH_LENGTH);
-            for _ in 0..EPOCH_LENGTH {
-                tickets.push(TicketBody::decode(blob)?);
-            }
-            Some(tickets)
+            Some(TicketsMark::decode(blob)?)
         } else {
             None
         };
