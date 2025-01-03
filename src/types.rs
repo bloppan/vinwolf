@@ -37,9 +37,13 @@ pub type ErasureRoot = OpaqueHash;
 pub type Gas = u64;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Entropy(pub OpaqueHash);
+pub struct Entropy {
+    pub entropy: OpaqueHash,
+}
 #[derive(Debug, Clone, PartialEq)]
-pub struct EntropyPool(pub Box<[Entropy; ENTROPY_POOL_SIZE]>);
+pub struct EntropyPool {
+    pub buf: Box<[Entropy; ENTROPY_POOL_SIZE]>,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Offenders(pub Vec<Ed25519Public>);

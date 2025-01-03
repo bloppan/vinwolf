@@ -86,7 +86,7 @@ impl TicketsExtrinsic {
         // Verify each ticket
         for i in 0..self.tickets.len() {
             let mut vrf_input_data = Vec::from(b"jam_ticket_seal");
-            entropy_state.0[2].encode_to(&mut vrf_input_data);
+            entropy_state.buf[2].encode_to(&mut vrf_input_data);
             self.tickets[i].attempt.encode_to(&mut vrf_input_data);
             let aux_data = vec![];
             // Verify ticket validity
