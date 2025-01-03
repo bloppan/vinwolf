@@ -47,7 +47,7 @@ mod tests {
         set_time(pre_state.tau);
         set_validators(pre_state.next_validators, ValidatorSet::Next);
 
-        let mut result_statistics = get_global_state().statistics.clone();
+        let mut result_statistics = get_global_state().lock().unwrap().statistics.clone();
         process_statistics(&mut result_statistics, &input.slot, &input.author_index, &input.extrinsic);
 
         let result_time = get_time();

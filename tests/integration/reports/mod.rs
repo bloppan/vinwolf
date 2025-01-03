@@ -76,7 +76,7 @@ mod tests {
         set_authpools(pre_state.auth_pools);
         set_services_state(&pre_state.services);
 
-        let current_state = get_global_state();
+        let current_state = get_global_state().lock().unwrap().clone();
         let mut assurances_state = current_state.availability.clone();
 
         let output_result = process_guarantees(

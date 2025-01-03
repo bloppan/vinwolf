@@ -62,7 +62,7 @@ mod test {
             set_validators(pre_state.kappa, ValidatorSet::Current);
             set_validators(pre_state.lambda, ValidatorSet::Previous);
     
-            let mut state = get_global_state();
+            let mut state = get_global_state().lock().unwrap().clone();
     
             let output_result = process_disputes(
                                                                     &mut state.disputes,

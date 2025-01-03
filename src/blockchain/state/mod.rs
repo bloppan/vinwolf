@@ -72,7 +72,7 @@ pub enum ProcessError {
 
 pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
-    let mut new_state = get_global_state();
+    let mut new_state = get_global_state().lock().unwrap().clone();
     
     // Process report and assurance
     process_assurances(
@@ -108,13 +108,11 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     Ok(())
 }
 
-pub fn get_global_state() -> GlobalState {
-    let state = GLOBAL_STATE.lock().unwrap();
-    state.clone()
+pub fn get_global_state() -> &'static Mutex<GlobalState> {
+    &GLOBAL_STATE
 }
 pub fn set_global_state(new_state: GlobalState) {
-    let mut state = GLOBAL_STATE.lock().unwrap();
-    *state = new_state;
+    *GLOBAL_STATE.lock().unwrap() = new_state;
 }
 // Time
 pub fn set_time(new_time: TimeSlot) {

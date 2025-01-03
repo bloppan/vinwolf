@@ -46,7 +46,7 @@ mod tests {
         
         let code_authorizers = input.auths.clone();
 
-        let mut auth_pool_state = get_global_state().auth_pools.clone();
+        let mut auth_pool_state = get_global_state().lock().unwrap().auth_pools.clone();
         process_authorizations(&mut auth_pool_state, &input.slot, &code_authorizers);
         
         let result_auth_queues = get_authqueues();

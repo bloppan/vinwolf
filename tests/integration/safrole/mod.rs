@@ -80,7 +80,7 @@ mod tests {
         set_safrole(pre_state_safrole);
         set_disputes(disputes);
 
-        let mut state = get_global_state();
+        let mut state = get_global_state().lock().unwrap().clone();
 
         let output_result = process_safrole(&mut state.safrole
                                                                         , &mut state.entropy
