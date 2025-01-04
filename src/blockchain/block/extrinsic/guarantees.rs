@@ -1,12 +1,6 @@
 use crate::constants::{CORES_COUNT, MAX_DEPENDENCY_ITEMS};
-use crate::types::{
-    TimeSlot, ValidatorIndex, Ed25519Signature, CoreIndex, WorkReport, Hash, GuaranteesExtrinsic, ReportGuarantee, ValidatorSignature,
-    AvailabilityAssignments
-};
+use crate::types::{TimeSlot, ValidatorIndex, CoreIndex, Hash, GuaranteesExtrinsic, AvailabilityAssignments, ReportErrorCode, OutputDataReports};
 use crate::blockchain::state::{ProcessError, get_recent_history};
-use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
-use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
-use crate::utils::codec::jam::work_report::{ReportErrorCode, OutputDataReports};
 use crate::utils::common::is_sorted_and_unique;
 
 impl GuaranteesExtrinsic {

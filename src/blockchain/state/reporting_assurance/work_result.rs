@@ -1,8 +1,7 @@
 use crate::constants::WORK_REPORT_GAS_LIMIT;
-use crate::types::{Gas, WorkResult};
+use crate::types::{Gas, WorkResult, ReportErrorCode};
 use crate::blockchain::state::ProcessError;
 use crate::blockchain::state::services::get_services_state;
-use crate::utils::codec::jam::work_report::ReportErrorCode;
 
 impl WorkResult {
 

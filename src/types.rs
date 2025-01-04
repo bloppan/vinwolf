@@ -225,6 +225,51 @@ pub struct WorkReport {
     pub segment_root_lookup: SegmentRootLookup,
     pub results: Vec<WorkResult>,
 }
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub struct ReportedPackage {
+    pub work_package_hash: WorkPackageHash,
+    pub segment_tree_root: OpaqueHash,
+}
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub struct OutputDataReports {
+    pub reported: Vec<ReportedPackage>,
+    pub reporters: Vec<Ed25519Public>,
+}
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub enum ReportErrorCode {
+    BadCoreIndex = 0,
+    FutureReportSlot = 1,
+    ReportEpochBeforeLast = 2,
+    InsufficientGuarantees = 3,
+    OutOfOrderGuarantee = 4,
+    NotSortedOrUniqueGuarantors = 5,
+    WrongAssignment = 6,
+    CoreEngaged = 7,
+    AnchorNotRecent = 8,
+    BadServiceId = 9,
+    BadCodeHash = 10,
+    DependencyMissing = 11,
+    DuplicatePackage = 12,
+    BadStateRoot = 13,
+    BadBeefyMmrRoot = 14,
+    CoreUnauthorized = 15,
+    BadValidatorIndex = 16,
+    WorkReportGasTooHigh = 17,
+    ServiceItemGasTooLow = 18,
+    TooManyDependencies = 19,
+    SegmentRootLookupInvalid = 20,
+    BadSignature = 21,
+    WorkReportTooBig = 22,
+    TooManyGuarantees = 23,
+    NoAuthorization = 24,
+    BadNumberCredentials = 25,
+    TooOldGuarantee = 26,
+    GuarantorNotFound = 27,
+    LengthNotEqual = 28,
+    BadLookupAnchorSlot = 29,
+    NoResults = 30,
+    TooManyResults = 31,
+}
 // The Work Result is the data conduit by which services states may be altered through 
 // the computation done within a work-package. 
 
@@ -461,6 +506,14 @@ pub struct DisputesExtrinsic {
     pub verdicts: Vec<Verdict>,
     pub culprits: Vec<Culprit>,
     pub faults: Vec<Fault>,
+}
+// ----------------------------------------------------------------------------------------------------------
+// Accounts
+// ----------------------------------------------------------------------------------------------------------
+#[derive(Debug, Clone, PartialEq)]
+pub struct Account {
+    pub id: u32,
+    //pub info: AccountInf//o,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Preimages

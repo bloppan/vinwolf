@@ -38,7 +38,7 @@ use crate::blockchain::state::safrole::bandersnatch::{ring_context, Verifier};
 use sp_core::blake2_256;
 
 use crate::types::{
-    BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, Entropy, EntropyPool, EpochMark, OutputDataSafrole, Safrole, 
+    BandersnatchPublic, BandersnatchRingCommitment, Entropy, EntropyPool, EpochMark, OutputDataSafrole, Safrole, 
     SafroleErrorCode, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorsData, BandersnatchEpoch
 };
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};

@@ -1,7 +1,6 @@
 use crate::types::{
     BandersnatchPublic, BandersnatchRingVrfSignature, TicketAttempt, TicketBody, TicketEnvelope, TicketsExtrinsic, TicketsMark, TicketsOrKeys
 };
-use crate::constants::EPOCH_LENGTH;
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
@@ -16,29 +15,13 @@ use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 // We define the extrinsic as a sequence of proofs of valid tickets, each of which is a tuple of an entry index 
 // (a natural number less than N) and a proof of ticket validity.
 
-impl Decode for TicketsExtrinsic {
-    
-    fn decode(ticket_blob: &mut BytesReader) -> Result<Self, ReadError> {
-    
-        let num_tickets = decode_unsigned(ticket_blob)?;
-        let mut ticket_envelop = Vec::with_capacity(num_tickets);
-    
-        for _ in 0..num_tickets {
-            let attempt = TicketAttempt::decode(ticket_blob)?;
-            let signature = BandersnatchRingVrfSignature::decode(ticket_blob)?;
-            ticket_envelop.push(TicketEnvelope{ attempt, signature });
-        }      
-    
-        Ok(TicketsExtrinsic { tickets: ticket_envelop })
-    }
-}
-
 impl Encode for TicketsExtrinsic {
     
     fn encode(&self) -> Vec<u8> {
         
-        let mut ticket_blob: Vec<u8> = Vec::new();
-        self.encode_len().encode_to(&mut ticket_blob);
+        let mut ticket_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<TicketEnvelope>() * self.tickets.len());
+        
+        self.tickets.encode_to(&mut ticket_blob);
         
         return ticket_blob;
     }
@@ -48,16 +31,24 @@ impl Encode for TicketsExtrinsic {
     }
 }
 
-impl TicketsExtrinsic {
+impl Decode for TicketsExtrinsic {
+    
+    fn decode(ticket_blob: &mut BytesReader) -> Result<Self, ReadError> {
+        
+        Ok(TicketsExtrinsic { tickets: Vec::<TicketEnvelope>::decode(ticket_blob)? })
+    }
+}
 
-    fn encode_len(&self) -> Vec<u8> {
-
-        let num_tickets = self.tickets.len();
+impl Encode for Vec<TicketEnvelope> {
+    
+    fn encode(&self) -> Vec<u8> {
+        
+        let num_tickets = self.len();
         let mut ticket_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<TicketEnvelope>() * num_tickets);
         
         encode_unsigned(num_tickets).encode_to(&mut ticket_blob);
         
-        for ticket in &self.tickets {
+        for ticket in self.iter() {
             ticket.attempt.encode_to(&mut ticket_blob);
             ticket.signature.encode_to(&mut ticket_blob);
         }
@@ -65,8 +56,25 @@ impl TicketsExtrinsic {
         return ticket_blob;
     }
 
-    pub fn len(&self) -> usize {
-        self.tickets.len()  
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode()); 
+    }
+}
+
+impl Decode for Vec<TicketEnvelope> {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+        
+        let num_tickets = decode_unsigned(blob)?;
+        let mut ticket_envelop = Vec::with_capacity(num_tickets);
+    
+        for _ in 0..num_tickets {
+            let attempt = TicketAttempt::decode(blob)?;
+            let signature = BandersnatchRingVrfSignature::decode(blob)?;
+            ticket_envelop.push(TicketEnvelope{ attempt, signature });
+        }      
+    
+        Ok(ticket_envelop)
     }
 }
 
@@ -77,23 +85,25 @@ impl Decode for TicketsOrKeys {
 
         match marker {
             1 => {
-                let mut keys = Box::new(std::array::from_fn(|_| BandersnatchPublic::default()));
-                for key in keys.iter_mut() {
-                    *key = BandersnatchPublic::decode(blob)?;
-                }
-        
-                Ok(TicketsOrKeys::Keys(keys))
+                    let mut keys = Box::new(std::array::from_fn(|_| BandersnatchPublic::default()));
+
+                    for key in keys.iter_mut() {
+                        *key = BandersnatchPublic::decode(blob)?;
+                    }
+
+                    Ok(TicketsOrKeys::Keys(keys))
             }
             0 => {        
-                let mut tickets = TicketsMark{ tickets_mark: Box::new(std::array::from_fn(|_| TicketBody::default())) };
-                for ticket in tickets.tickets_mark.iter_mut() {
-                    *ticket = TicketBody::decode(blob)?;
-                }
-                
-                Ok(TicketsOrKeys::Tickets(tickets)) 
+                    let mut tickets = TicketsMark::default();
+
+                    for ticket in tickets.tickets_mark.iter_mut() {
+                        *ticket = TicketBody::decode(blob)?;
+                    }
+                    
+                    Ok(TicketsOrKeys::Tickets(tickets)) 
             }
             _ => {
-                Err(ReadError::InvalidData)
+                    Err(ReadError::InvalidData)
             }
         }
     }

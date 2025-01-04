@@ -1,5 +1,4 @@
 use crate::types::{BandersnatchPublic, Ed25519Public, BlsPublic, Metadata, ValidatorData, ValidatorsData};
-use crate::constants::VALIDATORS_COUNT;
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
 impl Encode for ValidatorData {
@@ -58,35 +57,10 @@ impl Decode for ValidatorsData {
 
         let mut validators: ValidatorsData = ValidatorsData::default();
 
-        for i in 0..VALIDATORS_COUNT {
-            validators.0[i] = ValidatorData::decode(validators_blob)?;
+        for validator in validators.0.iter_mut() {
+            *validator = ValidatorData::decode(validators_blob)?;
         }
 
         Ok(validators)
-    }
-}
-
-impl ValidatorData {
-
-    pub fn encode_all(all_validators: &Vec<ValidatorData>) -> Vec<u8> {
-        
-        let mut data_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<ValidatorData>() * VALIDATORS_COUNT);
-
-        for validator in all_validators {
-            validator.encode_to(&mut data_blob);
-        }
-
-        return data_blob;
-    }
-
-    pub fn decode_all(data_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
-        
-        let mut all_validators: Vec<ValidatorData> = Vec::with_capacity(std::mem::size_of::<ValidatorData>() * VALIDATORS_COUNT);
-        
-        for _ in 0..VALIDATORS_COUNT {
-            all_validators.push(ValidatorData::decode(data_blob)?);
-        }
-
-        Ok(all_validators)
     }
 }

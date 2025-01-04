@@ -1,6 +1,6 @@
 use crate::types::{
     CoreIndex, OpaqueHash, Ed25519Public, WorkPackageHash, RefineContext, WorkResult, SegmentRootLookupItem, 
-    SegmentRootLookup, WorkReport, WorkPackageSpec, Offenders
+    SegmentRootLookup, WorkReport, WorkPackageSpec, Offenders, ReportedPackage, OutputDataReports
 };
 use crate::utils::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
@@ -8,6 +8,7 @@ use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 impl Encode for WorkReport {
 
     fn encode(&self) -> Vec<u8> {
+
         let mut work_report_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkReport>());
         
         self.package_spec.hash.encode_to(&mut work_report_blob);
@@ -52,42 +53,6 @@ impl Decode for WorkReport {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub enum ReportErrorCode {
-    BadCoreIndex = 0,
-    FutureReportSlot = 1,
-    ReportEpochBeforeLast = 2,
-    InsufficientGuarantees = 3,
-    OutOfOrderGuarantee = 4,
-    NotSortedOrUniqueGuarantors = 5,
-    WrongAssignment = 6,
-    CoreEngaged = 7,
-    AnchorNotRecent = 8,
-    BadServiceId = 9,
-    BadCodeHash = 10,
-    DependencyMissing = 11,
-    DuplicatePackage = 12,
-    BadStateRoot = 13,
-    BadBeefyMmrRoot = 14,
-    CoreUnauthorized = 15,
-    BadValidatorIndex = 16,
-    WorkReportGasTooHigh = 17,
-    ServiceItemGasTooLow = 18,
-    TooManyDependencies = 19,
-    SegmentRootLookupInvalid = 20,
-    BadSignature = 21,
-    WorkReportTooBig = 22,
-    TooManyGuarantees = 23,
-    NoAuthorization = 24,
-    BadNumberCredentials = 25,
-    TooOldGuarantee = 26,
-    GuarantorNotFound = 27,
-    LengthNotEqual = 28,
-    BadLookupAnchorSlot = 29,
-    NoResults = 30,
-    TooManyResults = 31,
-}
-
 impl Encode for Offenders {
 
     fn encode(&self) -> Vec<u8> {
@@ -125,12 +90,6 @@ impl Decode for Offenders {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct ReportedPackage {
-    pub work_package_hash: WorkPackageHash,
-    pub segment_tree_root: OpaqueHash,
-}
-
 impl Encode for ReportedPackage {
 
     fn encode(&self) -> Vec<u8> {
@@ -157,12 +116,6 @@ impl Decode for ReportedPackage {
             segment_tree_root: OpaqueHash::decode(blob)?,
         })
     }
-}
-
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct OutputDataReports {
-    pub reported: Vec<ReportedPackage>,
-    pub reporters: Vec<Ed25519Public>,
 }
 
 impl Encode for OutputDataReports {
@@ -221,7 +174,8 @@ impl Encode for SegmentRootLookupItem {
 
     fn encode(&self) -> Vec<u8> {
         
-        let mut item = Vec::with_capacity(std::mem::size_of::<SegmentRootLookupItem>());
+        let mut item = Vec::with_capacity(std::mem::size_of::<Self>());
+
         self.work_package_hash.encode_to(&mut item);
         self.segment_tree_root.encode_to(&mut item);
         
@@ -252,26 +206,27 @@ impl Encode for SegmentRootLookup {
         let mut segment_root_lookup = Vec::with_capacity(len);
         encode_unsigned(len).encode_to(&mut segment_root_lookup);
 
-        for item in &self.0 {
+        for item in self.0.iter() {
             item.encode_to(&mut segment_root_lookup);
         }
 
         return segment_root_lookup;
     }
+
     fn encode_to(&self, into: &mut Vec<u8>) {
         into.extend_from_slice(&self.encode());
     }
 }
 
 impl Decode for SegmentRootLookup {
-    fn decode(segment: &mut BytesReader) -> Result<Self, ReadError> {
-        let len = decode_unsigned(segment)?;
-        let mut segment_root_lookup = SegmentRootLookup {
-            0: Vec::with_capacity(len),
-        };
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let len = decode_unsigned(blob)?;
+        let mut segment_root_lookup = SegmentRootLookup { 0: Vec::with_capacity(len) };
 
         for _ in 0..len {
-            segment_root_lookup.0.push(SegmentRootLookupItem::decode(segment)?);
+            segment_root_lookup.0.push(SegmentRootLookupItem::decode(blob)?);
         }
 
         Ok(segment_root_lookup)

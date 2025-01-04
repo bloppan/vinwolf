@@ -48,9 +48,9 @@ impl Encode for DisputesExtrinsic {
 
         let mut dispute_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<DisputesExtrinsic>());
         
-        Verdict::encode_len(&self.verdicts).encode_to(&mut dispute_blob);
-        Culprit::encode_len(&self.culprits).encode_to(&mut dispute_blob);
-        Fault::encode_len(&self.faults).encode_to(&mut dispute_blob);
+        Vec::<Verdict>::encode(&self.verdicts).encode_to(&mut dispute_blob);
+        Vec::<Culprit>::encode(&self.culprits).encode_to(&mut dispute_blob);
+        Vec::<Fault>::encode(&self.faults).encode_to(&mut dispute_blob);
         
         return dispute_blob;
     }
@@ -65,9 +65,9 @@ impl Decode for DisputesExtrinsic {
     fn decode(dispute_blob: &mut BytesReader) -> Result<Self, ReadError> {
 
         Ok(DisputesExtrinsic {
-            verdicts : Verdict::decode_len(dispute_blob)?,
-            culprits : Culprit::decode_len(dispute_blob)?,
-            faults : Fault::decode_len(dispute_blob)?,
+            verdicts : Vec::<Verdict>::decode(dispute_blob)?,
+            culprits : Vec::<Culprit>::decode(dispute_blob)?,
+            faults : Vec::<Fault>::decode(dispute_blob)?,
         })
     }
 }
@@ -113,25 +113,30 @@ impl Decode for OutputDataDisputes {
 // further affirming the guarantors’ assertion that the workreport is valid. In the event of a negative judgment, 
 // then all validators audit said work-report and we assume a verdict will be reached.
 
+impl Encode for Vec<Judgement> {
 
-impl Judgement {
+    fn encode(&self) -> Vec<u8> {
 
-    fn encode_len(judgments: &[Judgement]) -> Vec<u8> {
-        
         let mut judgement_blob: Vec<u8> = Vec::new();
         
-        for judgment in judgments.iter().take(VALIDATORS_SUPER_MAJORITY) {
+        for judgment in self.iter() {
             judgement_blob.push(judgment.vote as u8);
             judgment.index.encode_size(2).encode_to(&mut judgement_blob);
             judgment.signature.encode_to(&mut judgement_blob);
         }
         
-        
         return judgement_blob;
     }
 
-    fn decode_len(judgement_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
-        
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for Vec<Judgement> {
+
+    fn decode(judgement_blob: &mut BytesReader) -> Result<Self, ReadError> {
+
         let mut votes: Vec<Judgement> = Vec::with_capacity(VALIDATORS_SUPER_MAJORITY);
         
         for _ in 0..VALIDATORS_SUPER_MAJORITY {
@@ -150,9 +155,30 @@ impl Judgement {
 // the sum of positive judgments. We require this total to be either exactly two-thirds-plus-one, zero or one-third 
 // of the validator set indicating, respectively, that the report is good, that it’s bad, or that it’s wonky.
 
-impl Verdict {
+impl Encode for Vec<Verdict> {
 
-    fn decode_len(verdict_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
+    fn encode(&self) -> Vec<u8> {
+
+        let mut verdicts_blob: Vec<u8> = Vec::new();
+        encode_unsigned(self.len()).encode_to(&mut verdicts_blob);
+
+        for verdict in self.iter() {
+            verdict.target.encode_to(&mut verdicts_blob);
+            verdict.age.encode_size(4).encode_to(&mut verdicts_blob);
+            Vec::<Judgement>::encode(&verdict.votes).encode_to(&mut verdicts_blob);
+        }
+
+        return verdicts_blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for Vec<Verdict> {
+
+    fn decode(verdict_blob: &mut BytesReader) -> Result<Self, ReadError> {
 
         let num_verdicts = decode_unsigned(verdict_blob)?;
         let mut verdicts: Vec<Verdict> = Vec::with_capacity(num_verdicts);
@@ -160,25 +186,11 @@ impl Verdict {
         for _ in 0..num_verdicts {
             let target = OpaqueHash::decode(verdict_blob)?;
             let age = u32::decode(verdict_blob)?;
-            let votes = Judgement::decode_len(verdict_blob)?;
+            let votes = Vec::<Judgement>::decode(verdict_blob)?;
             verdicts.push(Verdict {target, age, votes});
         }
 
         Ok(verdicts)
-    }
-
-    fn encode_len(verdicts: &[Verdict]) -> Vec<u8> {
-
-        let mut verdicts_blob: Vec<u8> = Vec::new();
-        encode_unsigned(verdicts.len()).encode_to(&mut verdicts_blob);
-
-        for verdict in verdicts {
-            verdict.target.encode_to(&mut verdicts_blob);
-            verdict.age.encode_size(4).encode_to(&mut verdicts_blob);
-            Judgement::encode_len(&verdict.votes).encode_to(&mut verdicts_blob);
-        }
-
-        return verdicts_blob;
     }
 }
 
@@ -215,23 +227,30 @@ impl Decode for Culprit {
     }
 }
 
-impl Culprit {
+impl Encode for Vec<Culprit> {
 
-    fn encode_len(culprits: &[Culprit]) -> Vec<u8> {
+    fn encode(&self) -> Vec<u8> {
         
-        let mut culprits_blob: Vec<u8> = Vec::with_capacity(culprits.len() * std::mem::size_of::<Fault>());
-        encode_unsigned(culprits.len()).encode_to(&mut culprits_blob); 
-        
-        for culprit in culprits {
+        let mut culprits_blob: Vec<u8> = Vec::new();
+        encode_unsigned(self.len()).encode_to(&mut culprits_blob);
+
+        for culprit in self.iter() {
             culprit.encode_to(&mut culprits_blob);
         }
-        
+
         return culprits_blob;
     }
 
-    fn decode_len(culprits_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
 
-        let num_culprits = decode_unsigned(culprits_blob)?; 
+impl Decode for Vec<Culprit> {
+
+    fn decode(culprits_blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let num_culprits = decode_unsigned(culprits_blob)?;
         let mut culprits: Vec<Culprit> = Vec::with_capacity(num_culprits);
 
         for _ in 0..num_culprits {
@@ -278,22 +297,28 @@ impl Decode for Fault {
     }
 }
 
-impl Fault {
+impl Encode for Vec<Fault> {
 
-    fn encode_len(faults: &[Fault]) -> Vec<u8> {
+    fn encode(&self) -> Vec<u8> {
 
-        let faults_len = faults.len();
-        let mut faults_blob: Vec<u8> = Vec::with_capacity(faults_len * std::mem::size_of::<Fault>());
-        encode_unsigned(faults_len).encode_to(&mut faults_blob);
+        let mut faults_blob: Vec<u8> = Vec::new();
+        encode_unsigned(self.len()).encode_to(&mut faults_blob);
 
-        for fault in faults {
+        for fault in self.iter() {
             fault.encode_to(&mut faults_blob);
         }
 
         return faults_blob;
     }
 
-    fn decode_len(faults_blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for Vec<Fault> {
+
+    fn decode(faults_blob: &mut BytesReader) -> Result<Self, ReadError> {
 
         let num_faults = decode_unsigned(faults_blob)?;
         let mut faults: Vec<Fault> = Vec::with_capacity(num_faults);
@@ -304,5 +329,4 @@ impl Fault {
 
         Ok(faults)
     }
-   
 }

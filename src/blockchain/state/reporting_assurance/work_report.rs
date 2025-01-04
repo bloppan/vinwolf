@@ -2,20 +2,15 @@ use sp_core::blake2_256;
 
 use crate::types::{
     AvailabilityAssignment, CoreIndex, Ed25519Public, Entropy, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, 
-    WorkResult, AvailabilityAssignments
+    WorkResult, AvailabilityAssignments, ReportedPackage, OutputDataReports, ReportErrorCode
 };
-use crate::constants::{
-    EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR
-};
-use crate::blockchain::state::{
-    ProcessError, ValidatorSet, get_entropy, get_validators, get_authpools, get_recent_history, get_disputes
-};
+use crate::constants::{ EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR };
+use crate::blockchain::state::{ ProcessError, ValidatorSet, get_entropy, get_validators, get_authpools, get_recent_history, get_disputes };
 use crate::blockchain::state::reporting_assurance::add_assignment;
 use crate::utils::trie::mmr_super_peak;
 use crate::utils::shuffle::shuffle;
 use crate::utils::codec::Encode;
 use crate::utils::common::{VerifySignature, set_offenders_null};
-use crate::utils::codec::jam::work_report::{ReportedPackage, OutputDataReports, ReportErrorCode};
 
 impl WorkReport {
 

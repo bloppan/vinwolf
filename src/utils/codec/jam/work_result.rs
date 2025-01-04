@@ -6,22 +6,22 @@ impl Encode for WorkResult {
 
     fn encode(&self) -> Vec<u8> {
 
-        let mut work_res_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkResult>());
+        let mut blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkResult>());
 
-        self.service.encode_size(4).encode_to(&mut work_res_blob);
-        self.code_hash.encode_to(&mut work_res_blob);
-        self.payload_hash.encode_to(&mut work_res_blob);
-        self.gas.encode_size(8).encode_to(&mut work_res_blob);
+        self.service.encode_size(4).encode_to(&mut blob);
+        self.code_hash.encode_to(&mut blob);
+        self.payload_hash.encode_to(&mut blob);
+        self.gas.encode_size(8).encode_to(&mut blob);
 
-        self.result[0].encode_to(&mut work_res_blob);
+        self.result[0].encode_to(&mut blob);
 
         if self.result[0] == 0 {
             let result_len = encode_unsigned(self.result.len() - 1);
-            result_len.encode_to(&mut work_res_blob);
-            self.result[1..].encode_to(&mut work_res_blob);
+            result_len.encode_to(&mut blob);
+            self.result[1..].encode_to(&mut blob);
         } 
         
-        return work_res_blob;
+        return blob;
     }
 
     fn encode_to(&self, into: &mut Vec<u8>) {
@@ -31,22 +31,22 @@ impl Encode for WorkResult {
 
 impl Decode for WorkResult {
 
-    fn decode(work_result_blob: &mut BytesReader) -> Result<Self, ReadError> {
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
         Ok(WorkResult {
-            service: ServiceId::decode(work_result_blob)?,
-            code_hash: OpaqueHash::decode(work_result_blob)?,
-            payload_hash: OpaqueHash::decode(work_result_blob)?,
-            gas: Gas::decode(work_result_blob)?,
+            service: ServiceId::decode(blob)?,
+            code_hash: OpaqueHash::decode(blob)?,
+            payload_hash: OpaqueHash::decode(blob)?,
+            gas: Gas::decode(blob)?,
             result: {
                 let mut result: Vec<u8> = vec![];
-                let exec_result = work_result_blob.read_byte()?;
+                let exec_result = blob.read_byte()?;
                 exec_result.encode_to(&mut result);
                 
                 match exec_result {
                     0 => {
-                        let len = decode_unsigned(work_result_blob)?;
-                        result.extend_from_slice(&work_result_blob.read_bytes(len)?);
+                        let len = decode_unsigned(blob)?;
+                        result.extend_from_slice(&blob.read_bytes(len)?);
                         WorkExecResult::Ok
                     },
                     1 => WorkExecResult::OutOfGas,
@@ -68,7 +68,7 @@ impl Encode for Vec<WorkResult> {
 
     fn encode(&self) -> Vec<u8> {
         
-        let mut blob: Vec<u8> = Vec::with_capacity(self.len() * std::mem::size_of::<WorkResult>());
+        let mut blob: Vec<u8> = Vec::with_capacity(self.len() * std::mem::size_of::<Self>());
         encode_unsigned(self.len()).encode_to(&mut blob);
 
         for result in self.iter() {
@@ -84,14 +84,13 @@ impl Encode for Vec<WorkResult> {
 
 impl Decode for Vec<WorkResult> {
 
-    fn decode(work_result_blob: &mut BytesReader) -> Result<Self, ReadError> {
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        let num_results = decode_unsigned(work_result_blob)?;
+        let num_results = decode_unsigned(blob)?;
         let mut results: Vec<WorkResult> = Vec::with_capacity(num_results);
 
         for _ in 0..num_results {
-            let work_result = WorkResult::decode(work_result_blob)?;
-            results.push(work_result);
+            results.push(WorkResult::decode(blob)?);
         }
 
         Ok(results)

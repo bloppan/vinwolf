@@ -17,7 +17,7 @@ use crate::integration::safrole::codec::{InputSafrole, SafroleState};
 pub mod codec;
 
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
-    if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && TICKET_SUBMISSION_ENDS == 10 && TICKET_ENTRIES_PER_VALIDATOR == 3{
+    if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && TICKET_SUBMISSION_ENDS == 10 && TICKET_ENTRIES_PER_VALIDATOR == 3 {
         "tiny"
     } else if VALIDATORS_COUNT == 1023 && EPOCH_LENGTH == 600 && TICKET_SUBMISSION_ENDS == 500 && TICKET_ENTRIES_PER_VALIDATOR == 2 {
         "full"
@@ -28,8 +28,6 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
 
 #[cfg(test)]
 mod tests {
-
-    use vinwolf::blockchain::state::set_disputes;
 
     use super::*;
 

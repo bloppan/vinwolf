@@ -40,7 +40,7 @@ impl Encode for ActivityRecords {
     
     fn encode(&self) -> Vec<u8> {
 
-        let mut blob = Vec::with_capacity(std::mem::size_of::<ActivityRecords>());
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
 
         for record in self.records.iter() {
             record.encode_to(&mut blob);
@@ -58,16 +58,7 @@ impl Decode for ActivityRecords {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
         
-        let activity_record = ActivityRecord {
-            blocks: 0,
-            tickets: 0,
-            preimages: 0,
-            preimages_size: 0,
-            guarantees: 0,
-            assurances: 0,
-        };
-
-        let mut records: ActivityRecords = ActivityRecords { records: Box::new(core::array::from_fn(|_| activity_record.clone())) };
+        let mut records= ActivityRecords::default();
 
         for record in records.records.iter_mut() {
             *record = ActivityRecord::decode(blob)?;
@@ -81,7 +72,7 @@ impl Encode for Statistics {
     
     fn encode(&self) -> Vec<u8> {
         
-        let mut blob = Vec::with_capacity(std::mem::size_of::<Statistics>());
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
 
         self.curr.encode_to(&mut blob);
         self.prev.encode_to(&mut blob);

@@ -15,9 +15,8 @@
 
 use crate::types::{
     Hash, AssurancesExtrinsic, AvailabilityAssignment, AvailabilityAssignments, GuaranteesExtrinsic, TimeSlot, CoreIndex,
-    OutputDataAssurances
+    OutputDataAssurances, OutputDataReports
 };
-use crate::utils::codec::jam::work_report::OutputDataReports;
 use super::ProcessError;
 
 pub mod work_report;
@@ -61,4 +60,13 @@ pub fn process_guarantees(
         reported: output_data.reported,
         reporters: output_data.reporters,
     })
+}
+
+impl Default for AvailabilityAssignments {
+
+    fn default() -> Self {
+        AvailabilityAssignments {
+            0: Box::new(std::array::from_fn(|_| None)),
+        }
+    }
 }

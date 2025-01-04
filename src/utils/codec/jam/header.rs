@@ -205,12 +205,32 @@ impl Encode for TicketBody {
     }
 }
 
-impl TicketBody {
-   
-    pub fn decode_len(blob: &mut BytesReader) -> Result<Vec<Self>, ReadError> {
+impl Encode for Vec<TicketBody> {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let len = self.len();
+        let mut body_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Self>());
+        encode_unsigned(len).encode_to(&mut body_blob);
+
+        for ticket in self.iter() {
+            ticket.encode_to(&mut body_blob);
+        }
+
+        return body_blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for Vec<TicketBody> {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
         
         let len = decode_unsigned(blob)?;
-        let mut tickets_mark: Vec<TicketBody> = Vec::with_capacity(std::mem::size_of::<TicketBody>() * len);
+        let mut tickets_mark: Vec<TicketBody> = Vec::with_capacity(len);
 
         for _ in 0..len {
             tickets_mark.push(TicketBody::decode(blob)?);
@@ -218,17 +238,5 @@ impl TicketBody {
 
         return Ok(tickets_mark);
     }
-
-    pub fn encode_len(tickets_body: &Vec<TicketBody>) -> Vec<u8> {
-        
-        let len = tickets_body.len();
-        let mut body_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<TicketBody>() * len);
-        encode_unsigned(len).encode_to(&mut body_blob);
-
-        for ticket in tickets_body {
-            ticket.encode_to(&mut body_blob);
-        }
-
-        return body_blob;
-    }
 }
+

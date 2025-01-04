@@ -1,7 +1,4 @@
-use crate::types::{
-    ServiceId, OpaqueHash, RefineContext, WorkPackage, Authorizer, WorkItem, ReportedWorkPackage, ReportedWorkPackages,
-    Hash, 
-};
+use crate::types::{ServiceId, RefineContext, WorkPackage, Authorizer, WorkItem, ReportedWorkPackage, ReportedWorkPackages, Hash};
 use crate::utils::codec::{Encode, EncodeSize, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
@@ -13,10 +10,9 @@ impl Encode for WorkPackage {
 
         self.authorization.as_slice().encode_len().encode_to(&mut work_pkg_blob);
         self.auth_code_host.encode_size(4).encode_to(&mut work_pkg_blob);
-        self.authorizer.code_hash.encode_to(&mut work_pkg_blob);
-        self.authorizer.params.as_slice().encode_len().encode_to(&mut work_pkg_blob);
+        self.authorizer.encode_to(&mut work_pkg_blob);
         self.context.encode_to(&mut work_pkg_blob);
-        WorkItem::encode_len(&self.items).encode_to(&mut work_pkg_blob);
+        self.items.encode_to(&mut work_pkg_blob);
         
         return work_pkg_blob;
     }
@@ -33,13 +29,9 @@ impl Decode for WorkPackage {
         Ok(WorkPackage {
             authorization : Vec::<u8>::decode_len(work_pkg_blob)?,
             auth_code_host : ServiceId::decode(work_pkg_blob)?,
-            authorizer : {
-                let code_hash = OpaqueHash::decode(work_pkg_blob)?;
-                let params = Vec::<u8>::decode_len(work_pkg_blob)?;
-                Authorizer {code_hash, params}
-            },
+            authorizer: Authorizer::decode(work_pkg_blob)?, 
             context : RefineContext::decode(work_pkg_blob)?,
-            items : WorkItem::decode_len(work_pkg_blob)?,
+            items : Vec::<WorkItem>::decode(work_pkg_blob)?,
         })
     }
 }
@@ -80,7 +72,7 @@ impl Encode for ReportedWorkPackages {
         let mut reported_work_packages = Vec::with_capacity(std::mem::size_of::<ReportedWorkPackage>() * len);
         encode_unsigned(len).encode_to(&mut reported_work_packages); 
         
-        for item in &self.0 {
+        for item in self.0.iter() {
             item.encode_to(&mut reported_work_packages);
         }
 
@@ -93,7 +85,9 @@ impl Encode for ReportedWorkPackages {
 }
 
 impl Decode for ReportedWorkPackages {
+
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+        
         let len = decode_unsigned(blob)?;
         let mut reported_work_packages = Vec::with_capacity(len);
 

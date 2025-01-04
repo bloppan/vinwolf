@@ -10,7 +10,7 @@ impl Encode for AssurancesExtrinsic {
     
     fn encode(&self) -> Vec<u8> {
 
-        let mut assurances_blob: Vec<u8> = Vec::new();
+        let mut assurances_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<AssurancesExtrinsic>() * self.assurances.len());
         encode_unsigned(self.assurances.len()).encode_to(&mut assurances_blob);
 
         for assurance in &self.assurances {

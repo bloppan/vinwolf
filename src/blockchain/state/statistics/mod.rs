@@ -45,7 +45,7 @@ pub fn process_statistics(
     // The number of blocks produced by the validator
     statistics.curr.records[*author_index as usize].blocks += 1;
     // The number of tickets introduced by the validator
-    statistics.curr.records[*author_index as usize].tickets += extrinsic.tickets.len() as u32;
+    statistics.curr.records[*author_index as usize].tickets += extrinsic.tickets.tickets.len() as u32;
     
     for preimage in extrinsic.preimages.preimages.iter() {
         // The number of preimages introduced by the validator

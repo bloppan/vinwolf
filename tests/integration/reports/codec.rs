@@ -2,9 +2,8 @@
 use vinwolf::utils::codec::{BytesReader, Decode, Encode, ReadError};
 use vinwolf::types::{
     TimeSlot, GuaranteesExtrinsic, AvailabilityAssignments, EntropyPool, BlockHistory, AuthPools, ValidatorsData,
-    Services, Offenders
+    Services, Offenders, OutputDataReports, ReportErrorCode
 };
-use vinwolf::utils::codec::jam::work_report::{OutputDataReports, ReportErrorCode};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputWorkReport {

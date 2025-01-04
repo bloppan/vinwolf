@@ -3,7 +3,7 @@ use crate::integration::{read_test_file, FromProcessError};
 use crate::integration::codec::{TestBody, encode_decode_test};
 
 use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
-use vinwolf::types::DisputesRecords;
+use vinwolf::types::{DisputesRecords, OutputDataReports};
 use vinwolf::blockchain::state::ProcessError;
 use vinwolf::blockchain::state::{
     get_global_state, set_reporting_assurance, get_reporting_assurance, set_authpools, get_authpools, 
@@ -14,7 +14,6 @@ use vinwolf::blockchain::state::validators::ValidatorSet;
 use vinwolf::blockchain::state::reporting_assurance::process_guarantees;
 use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::utils::codec::jam::work_report::OutputDataReports;
 
 use codec::{InputWorkReport, WorkReportState, OutputWorkReport};
 

@@ -8,7 +8,7 @@ impl Encode for GuaranteesExtrinsic {
 
     fn encode(&self) -> Vec<u8> {
 
-        let mut guarantees_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<GuaranteesExtrinsic>());
+        let mut guarantees_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Self>() * self.report_guarantee.len());
         encode_unsigned(self.report_guarantee.len()).encode_to(&mut guarantees_blob);
 
         for guarantee in &self.report_guarantee {
