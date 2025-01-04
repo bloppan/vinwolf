@@ -7,7 +7,36 @@ use crate::types::{BandersnatchPublic, BlsPublic, Ed25519Public, Ed25519Signatur
 pub fn is_sorted_and_unique<T: PartialOrd + Hash + Eq>(vec: &[T]) -> bool {
     let mut seen = HashSet::new();
 
-    vec.windows(2).all(|window| window[0] < window[1]) && vec.iter().all(|x| seen.insert(x.clone()))
+    if vec.len() < 2 {
+        return true;
+    }
+    
+    vec.windows(2).all(|window| window[0] < window[1]) && vec.iter().all(|x| seen.insert(x))
+}
+
+pub fn has_duplicates<T: Eq + std::hash::Hash + Clone>(items: &[T]) -> bool {
+    let mut seen = HashSet::<T>::new();
+    for i in items {
+        if !seen.insert(i.clone()) {
+            return true;
+        }
+    }
+    false
+}
+
+pub fn bad_order<T: PartialOrd>(items: &[T]) -> bool {
+
+    if items.len() < 2 {
+        return false;
+    }
+
+    for i in 0..items.len() - 1 {
+        if items[i] > items[i + 1] {
+            return true; // Bad order 
+        }
+    }
+    
+    return false; // Order correct
 }
 
 pub trait VerifySignature {

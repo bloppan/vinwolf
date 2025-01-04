@@ -1,13 +1,6 @@
 use crate::constants::{CORES_COUNT, MAX_DEPENDENCY_ITEMS};
-use crate::types::{
-    TimeSlot, ValidatorIndex, Ed25519Signature, CoreIndex, WorkReport, Hash, GuaranteesExtrinsic, ReportGuarantee, ValidatorSignature,
-    AvailabilityAssignments
-};
-use crate::blockchain::state::ProcessError;
-use crate::blockchain::state::recent_history::get_history_state;
-use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
-use crate::utils::codec::work_report::{ReportErrorCode, OutputData};
-use crate::utils::codec::{encode_unsigned, decode_unsigned};
+use crate::types::{TimeSlot, ValidatorIndex, CoreIndex, Hash, GuaranteesExtrinsic, AvailabilityAssignments, ReportErrorCode, OutputDataReports};
+use crate::blockchain::state::{ProcessError, get_recent_history};
 use crate::utils::common::is_sorted_and_unique;
 
 impl GuaranteesExtrinsic {
@@ -22,7 +15,7 @@ impl GuaranteesExtrinsic {
         &self, 
         assurances_state: &mut AvailabilityAssignments, 
         post_tau: &TimeSlot) 
-    -> Result<OutputData, ProcessError> {
+    -> Result<OutputDataReports, ProcessError> {
 
         // At most one guarantee for each core
         if self.report_guarantee.len() > CORES_COUNT {
@@ -53,7 +46,7 @@ impl GuaranteesExtrinsic {
         let mut reported = Vec::new();
         let mut reporters = Vec::new();
         let mut core_index: Vec<CoreIndex> = Vec::new();
-        let recent_history = get_history_state();
+        let recent_history = get_recent_history();
 
         let packages_map: std::collections::HashMap<Hash, Hash> = self.report_guarantee
                                                                     .iter()
@@ -124,7 +117,7 @@ impl GuaranteesExtrinsic {
             }
 
             // Process the work report
-            let OutputData {
+            let OutputDataReports {
                 reported: new_reported,
                 reporters: new_reporters,
             } = guarantee.report.process(assurances_state, post_tau, guarantee.slot, &guarantee.signatures)?;
@@ -136,63 +129,8 @@ impl GuaranteesExtrinsic {
         reported.sort_by(|a, b| a.work_package_hash.cmp(&b.work_package_hash));
         reporters.sort();
     
-        Ok(OutputData { reported, reporters })
+        Ok(OutputDataReports { reported, reporters })
     }
     
-}
-
-
-impl Encode for GuaranteesExtrinsic {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut guarantees_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<GuaranteesExtrinsic>());
-        encode_unsigned(self.report_guarantee.len()).encode_to(&mut guarantees_blob);
-
-        for guarantee in &self.report_guarantee {
-
-            guarantee.report.encode_to(&mut guarantees_blob);
-            guarantee.slot.encode_size(4).encode_to(&mut guarantees_blob);
-            encode_unsigned(guarantee.signatures.len()).encode_to(&mut guarantees_blob);
-
-            for signature in &guarantee.signatures {
-                signature.validator_index.encode_to(&mut guarantees_blob);
-                signature.signature.encode_to(&mut guarantees_blob);
-            }
-        }
-
-        return guarantees_blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode()); 
-    }
-}
-
-impl Decode for GuaranteesExtrinsic {
-
-    fn decode(guarantees_blob: &mut BytesReader) -> Result<Self, ReadError> {
-        
-        let num_guarantees = decode_unsigned(guarantees_blob)?;
-        let mut report_guarantee: Vec<ReportGuarantee> = Vec::with_capacity(num_guarantees);
-
-        for _ in 0..num_guarantees {
-
-            let report = WorkReport::decode(guarantees_blob)?;
-            let slot = TimeSlot::decode(guarantees_blob)?;
-            let num_signatures = decode_unsigned(guarantees_blob)?;
-            let mut signatures: Vec<ValidatorSignature> = Vec::with_capacity(num_signatures);
-
-            for _ in 0..num_signatures {
-                let validator_index = ValidatorIndex::decode(guarantees_blob)?;
-                let signature = Ed25519Signature::decode(guarantees_blob)?;
-                signatures.push(ValidatorSignature{validator_index, signature});
-            }
-
-            report_guarantee.push(ReportGuarantee{report, slot, signatures});
-        }
-
-        Ok(GuaranteesExtrinsic{ report_guarantee })
-    }
 }
 

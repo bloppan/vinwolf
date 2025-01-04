@@ -1,66 +1,34 @@
 use std::default::Default;
 use core::array::from_fn;
+use sp_core::blake2_256;
 
 use crate::types::{OpaqueHash, Entropy, EntropyPool};
-use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
 impl Default for EntropyPool {
     fn default() -> Self {
-        EntropyPool(Box::new(from_fn(|_| Entropy::default())))
+        EntropyPool { buf: Box::new(from_fn(|_| Entropy::default())) }
     }
 }
 
 impl Default for Entropy {
     fn default() -> Self {
-        Entropy(OpaqueHash::default())
+        Entropy { entropy: OpaqueHash::default() }
     }
 }
 
-impl Encode for Entropy {
-    fn encode(&self) -> Vec<u8> {
-        self.0.encode()
-    }
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
+pub fn rotate_entropy_pool(entropy_pool: &mut EntropyPool) {
+    // In addition to the entropy accumulator eta0, we retain three additional historical values of the accumulator at the point of 
+    // each of the three most recently ended epochs, eta1, eta2 and eta3. The second-oldest of these eta2 is utilized to help ensure 
+    // future entropy is unbiased and seed the fallback seal-key generation function with randomness. The oldest is used to regenerate 
+    // this randomness when verifying the seal gamma_s.   
+    entropy_pool.buf[3] = entropy_pool.buf[2].clone();
+    entropy_pool.buf[2] = entropy_pool.buf[1].clone();
+    entropy_pool.buf[1] = entropy_pool.buf[0].clone();
 }
 
-impl Decode for Entropy {
-    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
-        Ok(Entropy(OpaqueHash::decode(reader)?))
-    }
+pub fn update_recent_entropy(entropy_pool: &mut EntropyPool, new: Entropy) {
+    // eta0 defines the state of the randomness accumulator to which the provably random output of the vrf, the signature over 
+    // some unbiasable input, is combined each block. eta1 and eta2 meanwhile retain the state of this accumulator at the end 
+    // of the two most recently ended epochs in order.
+    entropy_pool.buf[0] = Entropy { entropy: blake2_256(&[entropy_pool.buf[0].entropy, new.entropy].concat())};
 }
-
-impl Encode for EntropyPool {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut blob = Vec::with_capacity(size_of::<Self>());
-        
-        for entropy in self.0.iter() {
-            entropy.encode_to(&mut blob);
-        }
-
-        return blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-impl Decode for EntropyPool {
-
-    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
-        
-        let mut entropy_pool = EntropyPool::default();
-
-        for entropy in entropy_pool.0.iter_mut() {
-            *entropy = Entropy::decode(reader)?;
-        }
-
-        return Ok(entropy_pool);
-    }
-}
-
-

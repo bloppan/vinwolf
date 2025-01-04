@@ -1,16 +1,13 @@
 use std::collections::VecDeque;
-use crate::types::{
-    AuthPool, AuthPools, AuthQueue, AuthQueues, AuthorizerHash, OpaqueHash, CodeAuthorizer, CodeAuthorizers, CoreIndex
-};
-use crate::constants::{CORES_COUNT, MAX_ITEMS_AUTHORIZATION_POOL, MAX_ITEMS_AUTHORIZATION_QUEUE};
-use crate::utils::codec::{Encode, Decode, BytesReader, ReadError, encode_unsigned, decode_unsigned};
+use crate::types::{AuthPool, AuthPools, AuthQueue, AuthQueues, OpaqueHash, CodeAuthorizer, CodeAuthorizers, CoreIndex, Authorizer};
+use crate::utils::codec::{BytesReader, Decode, DecodeLen, Encode, ReadError};
+use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
 impl Encode for AuthPool {
 
     fn encode(&self) -> Vec<u8> {
         
         let mut blob = Vec::with_capacity(std::mem::size_of::<Self>() * self.auth_pool.len());
-        
         encode_unsigned(self.auth_pool.len()).encode_to(&mut blob);      
         
         for item in &self.auth_pool {
@@ -46,7 +43,7 @@ impl Encode for AuthPools {
 
     fn encode(&self) -> Vec<u8> {
         
-        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
+        let mut blob = Vec::with_capacity(std::mem::size_of::<AuthPool>() * self.auth_pools.len());
 
         for item in self.auth_pools.iter() {
             item.encode_to(&mut blob);
@@ -64,10 +61,10 @@ impl Decode for AuthPools {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        let mut pools: AuthPools = AuthPools { auth_pools: Box::new(std::array::from_fn(|_| AuthPool { auth_pool: VecDeque::with_capacity(MAX_ITEMS_AUTHORIZATION_POOL) })) };
+        let mut pools: AuthPools = AuthPools::default();
 
-        for i in 0..CORES_COUNT {
-            pools.auth_pools[i] = AuthPool::decode(blob)?;
+        for pool in pools.auth_pools.iter_mut() {
+            *pool = AuthPool::decode(blob)?;
         }
 
         Ok(AuthPools{
@@ -98,14 +95,14 @@ impl Decode for AuthQueue {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        let mut auth_queue: Box<[AuthorizerHash; MAX_ITEMS_AUTHORIZATION_QUEUE]> = Box::new(std::array::from_fn(|_| [0; std::mem::size_of::<AuthorizerHash>()]));
+        let mut queue = AuthQueue::default();
 
-        for i in 0..MAX_ITEMS_AUTHORIZATION_QUEUE {
-            auth_queue[i] = OpaqueHash::decode(blob)?;
+        for auth in queue.auth_queue.iter_mut() {
+            *auth = OpaqueHash::decode(blob)?;
         }
 
         Ok(AuthQueue{
-            auth_queue: auth_queue,
+            auth_queue: queue.auth_queue,
         })
     }
 }
@@ -114,7 +111,7 @@ impl Encode for AuthQueues {
 
     fn encode(&self) -> Vec<u8> {
         
-        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
+        let mut blob = Vec::with_capacity(std::mem::size_of::<AuthQueue>() * self.auth_queues.len());
 
         for item in self.auth_queues.iter() {
             item.encode_to(&mut blob);
@@ -132,10 +129,10 @@ impl Decode for AuthQueues {
     
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        let mut queues: AuthQueues = AuthQueues { auth_queues: Box::new(std::array::from_fn(|_| AuthQueue { auth_queue: Box::new(std::array::from_fn(|_| [0; std::mem::size_of::<AuthorizerHash>()])) })) };
+        let mut queues = AuthQueues::default();
 
-        for i in 0..CORES_COUNT {
-            queues.auth_queues[i] = AuthQueue::decode(blob)?;
+        for queue in queues.auth_queues.iter_mut() {
+            *queue = AuthQueue::decode(blob)?;
         }
 
         Ok(AuthQueues{
@@ -145,19 +142,26 @@ impl Decode for AuthQueues {
 }
 
 impl Encode for CodeAuthorizer {
+
     fn encode(&self) -> Vec<u8> {
-        let mut authorizer = Vec::with_capacity(std::mem::size_of::<CodeAuthorizer>());
+
+        let mut authorizer = Vec::with_capacity(std::mem::size_of::<Self>());
+
         self.core.encode_to(&mut authorizer);
         self.auth_hash.encode_to(&mut authorizer);
+
         return authorizer;
     }
+
     fn encode_to(&self, into: &mut Vec<u8>) {
         into.extend_from_slice(&self.encode());
     }
 }
 
 impl Decode for CodeAuthorizer {
+
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+
         Ok(CodeAuthorizer {
             core: CoreIndex::decode(reader)?,
             auth_hash: OpaqueHash::decode(reader)?,
@@ -166,28 +170,66 @@ impl Decode for CodeAuthorizer {
 }
 
 impl Encode for CodeAuthorizers {
+
     fn encode(&self) -> Vec<u8> {
-        let mut authorizers = Vec::with_capacity(std::mem::size_of::<CodeAuthorizers>());
+
+        let mut authorizers = Vec::with_capacity(std::mem::size_of::<CodeAuthorizers>() * self.authorizers.len());
         encode_unsigned(self.authorizers.len()).encode_to(&mut authorizers);
+
         for authorizer in &self.authorizers {
             authorizer.encode_to(&mut authorizers);
         }
+
         return authorizers;
     }
+
     fn encode_to(&self, into: &mut Vec<u8>) {
         into.extend_from_slice(&self.encode());
     }
 }
 
 impl Decode for CodeAuthorizers {
+
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
-        let mut authorizers = Vec::new();
+
         let len = decode_unsigned(blob)?;
+        let mut authorizers = Vec::with_capacity(len);
+
         for _ in 0..len {
             authorizers.push(CodeAuthorizer::decode(blob)?);
         }
+
         Ok(CodeAuthorizers {
             authorizers,
+        })
+    }
+}
+
+impl Encode for Authorizer {
+    
+    fn encode(&self) -> Vec<u8> {
+
+        let mut authorizer = Vec::with_capacity(std::mem::size_of::<Self>());
+
+        self.code_hash.encode_to(&mut authorizer);
+        encode_unsigned(self.params.len()).encode_to(&mut authorizer);
+        self.params.encode_to(&mut authorizer);
+
+        return authorizer;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for Authorizer {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        Ok(Authorizer {
+            code_hash: OpaqueHash::decode(blob)?,
+            params: Vec::<u8>::decode_len(blob)?,
         })
     }
 }

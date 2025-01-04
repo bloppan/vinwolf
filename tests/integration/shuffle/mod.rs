@@ -31,7 +31,7 @@ mod hex_array {
         }
         let mut array = [0u8; 32];
         array.copy_from_slice(&bytes);
-        Ok(Entropy(array))
+        Ok(Entropy{ entropy: array })
     }
 
     struct HexLen;

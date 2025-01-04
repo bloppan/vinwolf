@@ -41,12 +41,12 @@ mod tests {
         let pre_state = StateAuthorizations::decode(&mut reader).expect("Error decoding post Authorizations PreState");
         let expected_state = StateAuthorizations::decode(&mut reader).expect("Error decoding post Authorizations PostState");
 
-        set_authpools(&pre_state.auth_pools);
-        set_authqueues(&pre_state.auth_queues);
+        set_authpools(pre_state.auth_pools);
+        set_authqueues(pre_state.auth_queues);
         
         let code_authorizers = input.auths.clone();
 
-        let mut auth_pool_state = get_global_state().auth_pools.clone();
+        let mut auth_pool_state = get_global_state().lock().unwrap().auth_pools.clone();
         process_authorizations(&mut auth_pool_state, &input.slot, &code_authorizers);
         
         let result_auth_queues = get_authqueues();

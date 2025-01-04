@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-ark-ec-vrfs ={ git = "https://github.com/davxy/ark-ec-vrfs", rev = "ea35e224f79c6f920e3816ae2e3cfdb02e2e8448", features = ["bandersnatch", "ring", "parallel"] }
+ark-ec-vrfs ={ git = "https://github.com/davxy/ark-ec-vrfs", rev = "d90e180", features = ["bandersnatch", "ring", "parallel"] }
 hex = "0.4.3"
 frame-support = "37.0.0"
 sp-core = "34.0.0"

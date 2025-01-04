@@ -2,9 +2,8 @@
 use vinwolf::utils::codec::{BytesReader, Decode, Encode, ReadError};
 use vinwolf::types::{
     TimeSlot, GuaranteesExtrinsic, AvailabilityAssignments, EntropyPool, BlockHistory, AuthPools, ValidatorsData,
-    Services, Offenders
+    Services, Offenders, OutputDataReports, ReportErrorCode
 };
-use vinwolf::utils::codec::work_report::{OutputData, ReportErrorCode};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputWorkReport {
@@ -92,7 +91,7 @@ impl Decode for WorkReportState {
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum OutputWorkReport {
-    Ok(OutputData),
+    Ok(OutputDataReports),
     Err(ReportErrorCode),
 }
 
@@ -127,7 +126,7 @@ impl Decode for OutputWorkReport {
 
         let result = output_blob.read_byte()?;
         if result == 0 {
-            Ok(OutputWorkReport::Ok(OutputData::decode(output_blob)?))
+            Ok(OutputWorkReport::Ok(OutputDataReports::decode(output_blob)?))
         } else if result == 1 {
             let error_type = output_blob.read_byte()?;
             let error = match error_type {

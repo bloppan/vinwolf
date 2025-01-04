@@ -1,8 +1,8 @@
 use crate::types::{
     ServiceId, Gas, OpaqueHash, ServiceInfo, ServiceItem, Services
 };
-use crate::utils::codec::{Encode, Decode, BytesReader, ReadError, encode_unsigned, decode_unsigned};
-
+use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
+use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
 impl Encode for ServiceInfo {
 

@@ -35,7 +35,7 @@ impl Encode for AvailabilityAssignmentsItem {
 
     fn encode(&self) -> Vec<u8> {
 
-        let mut blob = Vec::with_capacity(std::mem::size_of::<AvailabilityAssignment>());
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
 
         match self {
             None => {
@@ -75,7 +75,7 @@ impl Encode for AvailabilityAssignments {
 
     fn encode(&self) -> Vec<u8> {
 
-        let mut blob = Vec::with_capacity(std::mem::size_of::<AvailabilityAssignmentsItem>() * CORES_COUNT);
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>() * CORES_COUNT);
 
         for assigment in self.0.iter() {
             assigment.encode_to(&mut blob);
@@ -103,11 +103,3 @@ impl Decode for AvailabilityAssignments {
     }
 }
 
-impl Default for AvailabilityAssignments {
-
-    fn default() -> Self {
-        AvailabilityAssignments {
-            0: Box::new(std::array::from_fn(|_| None)),
-        }
-    }
-}

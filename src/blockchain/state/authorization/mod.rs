@@ -32,8 +32,6 @@ use crate::constants::{CORES_COUNT, MAX_ITEMS_AUTHORIZATION_POOL, MAX_ITEMS_AUTH
 use crate::types::{AuthorizerHash, AuthPool, AuthPools, AuthQueue, AuthQueues, CodeAuthorizers, TimeSlot};
 use crate::blockchain::state::get_authqueues;
 
-mod codec;
-
 pub fn process_authorizations(
     auth_pool_state: &mut AuthPools, 
     slot: &TimeSlot, 

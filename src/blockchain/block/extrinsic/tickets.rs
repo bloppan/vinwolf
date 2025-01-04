@@ -1,7 +1,3 @@
-use crate::types::{TicketAttempt, BandersnatchRingVrfSignature, TicketEnvelope, TicketsExtrinsic};
-use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
-use crate::utils::codec::{encode_unsigned, decode_unsigned};
-
 // Tickets Extrinsic is a sequence of proofs of valid tickets; a ticket implies an entry in our epochal “contest” 
 // to determine which validators are privileged to author a block for each timeslot in the following epoch. 
 // Tickets specify an entry index together with a proof of ticket’s validity. The proof implies a ticket identifier, 
@@ -12,58 +8,118 @@ use crate::utils::codec::{encode_unsigned, decode_unsigned};
 // becomes fixed. 
 // We define the extrinsic as a sequence of proofs of valid tickets, each of which is a tuple of an entry index 
 // (a natural number less than N) and a proof of ticket validity.
+use ark_ec_vrfs::suites::bandersnatch::edwards as bandersnatch_ark_ec_vrfs;
+use ark_ec_vrfs::prelude::ark_serialize;
+use ark_serialize::CanonicalDeserialize;
+use bandersnatch_ark_ec_vrfs::Public;
 
-impl Decode for TicketsExtrinsic {
-    
-    fn decode(ticket_blob: &mut BytesReader) -> Result<Self, ReadError> {
-    
-        let num_tickets = decode_unsigned(ticket_blob)?;
-        let mut ticket_envelop = Vec::with_capacity(num_tickets);
-    
-        for _ in 0..num_tickets {
-            let attempt = TicketAttempt::decode(ticket_blob)?;
-            let signature = BandersnatchRingVrfSignature::decode(ticket_blob)?;
-            ticket_envelop.push(TicketEnvelope{ attempt, signature });
-        }      
-    
-        Ok(TicketsExtrinsic { tickets: ticket_envelop })
+use crate::constants::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR};
+use crate::types::{EntropyPool, OpaqueHash, Safrole, SafroleErrorCode, TicketBody, TicketsExtrinsic, TicketsMark, TimeSlot};
+use crate::blockchain::state::ProcessError;
+use crate::blockchain::state::safrole::bandersnatch::Verifier;
+use crate::utils::codec::Encode;
+use crate::utils::common::{has_duplicates, bad_order};
+
+impl Default for TicketBody {
+    fn default() -> Self {
+        TicketBody {
+            id: [0u8; std::mem::size_of::<OpaqueHash>()],
+            attempt: 0,
+        }
     }
 }
 
-impl Encode for TicketsExtrinsic {
-    
-    fn encode(&self) -> Vec<u8> {
-        
-        let mut ticket_blob: Vec<u8> = Vec::new();
-        self.encode_len().encode_to(&mut ticket_blob);
-        
-        return ticket_blob;
+impl Default for TicketsMark {
+    fn default() -> Self {
+        TicketsMark{ tickets_mark: Box::new(std::array::from_fn(|_| TicketBody::default()))}
     }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode()); 
-    }
-
 }
 
 impl TicketsExtrinsic {
 
-    fn encode_len(&self) -> Vec<u8> {
-
-        let num_tickets = self.tickets.len();
-        let mut ticket_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<TicketEnvelope>() * num_tickets);
+    pub fn process(
+        &self,
+        safrole_state: &mut Safrole,
+        entropy_state: &mut EntropyPool,
+        post_tau: &TimeSlot,
+    ) -> Result<(), ProcessError> {
         
-        encode_unsigned(num_tickets).encode_to(&mut ticket_blob);
-        
-        for ticket in &self.tickets {
-            ticket.attempt.encode_to(&mut ticket_blob);
-            ticket.signature.encode_to(&mut ticket_blob);
+        if self.tickets.is_empty() {
+            return Ok(());
         }
-        
-        return ticket_blob;
-    }
+        // Towards the end of the epoch, ticket submission ends implying successive blocks within the same epoch
+        // must have an empty tickets extrinsic
+        if *post_tau >= TICKET_SUBMISSION_ENDS as TimeSlot {
+            return Err(ProcessError::SafroleError(SafroleErrorCode::UnexpectedTicket));
+        }
 
-    pub fn len(&self) -> usize {
-        self.tickets.len()  
+        if self.tickets.len() > MAX_TICKETS_PER_EXTRINSIC {
+            return Err(ProcessError::SafroleError(SafroleErrorCode::TooManyTickets));
+        }
+
+        // We define the extrinsic as a sequence of proofs of valid tickets, each of which is a tuple of an entry index (a
+        // natural number less than TICKET_ENTRIES_PER_VALIDATOR) and a proof of ticket validity.
+        for i in 0..self.tickets.len() {
+            if self.tickets[i].attempt >= TICKET_ENTRIES_PER_VALIDATOR {
+                return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketAttempt));
+            }
+        }
+    
+        // Create a bandersnatch ring keys
+        let ring_keys: Vec<_> = safrole_state.pending_validators.0
+                                            .iter()
+                                            .map(|validator| validator.bandersnatch.clone())
+                                            .collect();
+    
+        // Create a bandersnatch ring set 
+        let ring_set: Vec<Public> = ring_keys
+                                            .iter()
+                                            .map(|key| {
+                                                let point = bandersnatch_ark_ec_vrfs::Public::deserialize_compressed(&key[..])
+                                                .expect("Deserialization failed");
+                                                point
+                                            })
+                                            .collect();
+        
+        let verifier = Verifier::new(ring_set);
+        let mut new_ticket_ids: Vec<OpaqueHash> = vec![];
+        // Verify each ticket
+        for i in 0..self.tickets.len() {
+            let mut vrf_input_data = Vec::from(b"jam_ticket_seal");
+            entropy_state.buf[2].encode_to(&mut vrf_input_data);
+            self.tickets[i].attempt.encode_to(&mut vrf_input_data);
+            let aux_data = vec![];
+            // Verify ticket validity
+            let res = verifier.ring_vrf_verify(&vrf_input_data, &aux_data, &self.tickets[i].signature);
+            match res {
+                Ok(result) => {
+                    new_ticket_ids.push(result);
+                    safrole_state.ticket_accumulator.push(TicketBody {
+                        id: result,
+                        attempt: self.tickets[i].attempt,
+                    });
+                },
+                Err(_) => { return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketProof)); }
+            }
+        }
+        // Check tickets order
+        if bad_order(&new_ticket_ids) {
+            return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketOrder));
+        }
+        // Check if there are duplicate tickets
+        let ids: Vec<OpaqueHash> = safrole_state.ticket_accumulator.iter().map(|ticket| ticket.id.clone()).collect();
+        if has_duplicates(&ids) {
+            return Err(ProcessError::SafroleError(SafroleErrorCode::DuplicateTicket));
+        }
+        // Sort tickets
+        safrole_state.ticket_accumulator.sort();
+
+        // Remove old tickets to make space for new ones
+        if safrole_state.ticket_accumulator.len() > EPOCH_LENGTH {
+            safrole_state.ticket_accumulator.drain(EPOCH_LENGTH..);
+        }
+
+        // Return ok
+        Ok(())
     }
 }

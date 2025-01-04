@@ -1,6 +1,8 @@
 // JAM Protocol Types
 use std::collections::VecDeque;
-use crate::constants::{ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE};
+use crate::constants::{
+    ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH
+};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
 // ----------------------------------------------------------------------------------------------------------
@@ -35,9 +37,13 @@ pub type ErasureRoot = OpaqueHash;
 pub type Gas = u64;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Entropy(pub OpaqueHash);
+pub struct Entropy {
+    pub entropy: OpaqueHash,
+}
 #[derive(Debug, Clone, PartialEq)]
-pub struct EntropyPool(pub Box<[Entropy; ENTROPY_POOL_SIZE]>);
+pub struct EntropyPool {
+    pub buf: Box<[Entropy; ENTROPY_POOL_SIZE]>,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Offenders(pub Vec<Ed25519Public>);
@@ -54,7 +60,8 @@ pub struct ValidatorData {
     pub bls: BlsPublic,
     pub metadata: Metadata,
 }
-
+pub type BandersnatchKeys = Box<[BandersnatchPublic; VALIDATORS_COUNT]>;
+pub type BandersnatchEpoch = Box<[BandersnatchPublic; EPOCH_LENGTH]>;
 #[derive(Clone, PartialEq, Debug)]
 pub struct ValidatorsData(pub Box<[ValidatorData; VALIDATORS_COUNT]>);
 // ----------------------------------------------------------------------------------------------------------
@@ -218,6 +225,51 @@ pub struct WorkReport {
     pub segment_root_lookup: SegmentRootLookup,
     pub results: Vec<WorkResult>,
 }
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub struct ReportedPackage {
+    pub work_package_hash: WorkPackageHash,
+    pub segment_tree_root: OpaqueHash,
+}
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub struct OutputDataReports {
+    pub reported: Vec<ReportedPackage>,
+    pub reporters: Vec<Ed25519Public>,
+}
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub enum ReportErrorCode {
+    BadCoreIndex = 0,
+    FutureReportSlot = 1,
+    ReportEpochBeforeLast = 2,
+    InsufficientGuarantees = 3,
+    OutOfOrderGuarantee = 4,
+    NotSortedOrUniqueGuarantors = 5,
+    WrongAssignment = 6,
+    CoreEngaged = 7,
+    AnchorNotRecent = 8,
+    BadServiceId = 9,
+    BadCodeHash = 10,
+    DependencyMissing = 11,
+    DuplicatePackage = 12,
+    BadStateRoot = 13,
+    BadBeefyMmrRoot = 14,
+    CoreUnauthorized = 15,
+    BadValidatorIndex = 16,
+    WorkReportGasTooHigh = 17,
+    ServiceItemGasTooLow = 18,
+    TooManyDependencies = 19,
+    SegmentRootLookupInvalid = 20,
+    BadSignature = 21,
+    WorkReportTooBig = 22,
+    TooManyGuarantees = 23,
+    NoAuthorization = 24,
+    BadNumberCredentials = 25,
+    TooOldGuarantee = 26,
+    GuarantorNotFound = 27,
+    LengthNotEqual = 28,
+    BadLookupAnchorSlot = 29,
+    NoResults = 30,
+    TooManyResults = 31,
+}
 // The Work Result is the data conduit by which services states may be altered through 
 // the computation done within a work-package. 
 
@@ -342,8 +394,9 @@ pub struct TicketBody {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TicketsOrKeys {
-    Keys(Vec<BandersnatchPublic>),
-    Tickets(Vec<TicketBody>),
+    Keys(BandersnatchEpoch),
+    Tickets(TicketsMark),
+    None,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -351,8 +404,66 @@ pub struct TicketsExtrinsic {
     pub tickets: Vec<TicketEnvelope>,
 }
 // ----------------------------------------------------------------------------------------------------------
+// Safrole
+// ----------------------------------------------------------------------------------------------------------
+#[derive(Debug, Clone, PartialEq)]
+pub struct Safrole {
+    pub pending_validators: ValidatorsData,
+    pub ticket_accumulator: Vec<TicketBody>,
+    pub seal: TicketsOrKeys,
+    pub epoch_root: BandersnatchRingCommitment,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OutputSafrole {
+    Ok(OutputDataSafrole),
+    Err(SafroleErrorCode),
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct OutputDataSafrole {
+    pub epoch_mark: Option<EpochMark>,
+    pub tickets_mark: Option<TicketsMark>,
+}
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SafroleErrorCode {
+    BadSlot = 0,           // Timeslot value must be strictly monotonic.
+    UnexpectedTicket = 1,  // Received a ticket while in epoch's tail.
+    BadTicketOrder = 2,   // Tickets must be sorted.
+    BadTicketProof = 3,   // Invalid ticket ring proof.
+    BadTicketAttempt = 4, // Invalid ticket attempt value.
+    Reserved = 5,           // Reserved.
+    DuplicateTicket = 6,   // Found a ticket duplicate.
+    TooManyTickets = 7,    // Too many tickets in extrinsic.
+}
+// ----------------------------------------------------------------------------------------------------------
 // Disputes
 // ----------------------------------------------------------------------------------------------------------
+#[derive(Debug, Clone, PartialEq)]
+pub struct OutputDataDisputes {
+    pub offenders_mark: OffendersMark,
+}
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DisputesErrorCode {
+    AlreadyJudged = 0,
+    BadVoteSplit = 1,
+    VerdictsNotSortedUnique = 2,
+    JudgementsNotSortedUnique = 3,
+    CulpritsNotSortedUnique = 4,
+    FaultsNotSortedUnique = 5,
+    NotEnoughCulprits = 6,
+    NotEnoughFaults = 7,
+    CulpritsVerdictNotBad = 8,
+    FaultVerdictWrong = 9,
+    OffenderAlreadyReported = 10,
+    BadJudgementAge = 11,
+    BadValidatorIndex = 12,
+    BadSignature = 13,
+    DisputeStateNotInitialized = 14,
+    NoVerdictsFound = 15,
+    AgesNotEqual = 16,
+    CulpritKeyNotFound = 17,
+    FaultKeyNotFound = 18,
+}
 #[derive(Debug, Clone, PartialEq)]
 pub struct Judgement {
     pub vote: bool,
@@ -397,6 +508,14 @@ pub struct DisputesExtrinsic {
     pub faults: Vec<Fault>,
 }
 // ----------------------------------------------------------------------------------------------------------
+// Accounts
+// ----------------------------------------------------------------------------------------------------------
+#[derive(Debug, Clone, PartialEq)]
+pub struct Account {
+    pub id: u32,
+    //pub info: AccountInf//o,
+}
+// ----------------------------------------------------------------------------------------------------------
 // Preimages
 // ----------------------------------------------------------------------------------------------------------
 #[derive(Debug, PartialEq, Clone)]
@@ -416,13 +535,31 @@ pub struct PreimagesExtrinsic {
 pub struct AssurancesExtrinsic {
     pub assurances: Vec<AvailAssurance>, 
 }
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct AvailAssurance {
     pub anchor: OpaqueHash,
     pub bitfield: [u8; AVAIL_BITFIELD_BYTES],
     pub validator_index: ValidatorIndex,
     pub signature: Ed25519Signature,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct OutputDataAssurances {
+    pub reported: Vec<WorkReport>
+}
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub enum AssurancesErrorCode {
+    BadAttestationParent = 0,
+    BadValidatorIndex = 1,
+    CoreNotEngaged = 2,
+    BadSignature = 3,
+    NotSortedOrUniqueAssurers = 4,
+    TooManyAssurances = 5,
+    WrongBitfieldLength = 6,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum OutputAssurances {
+    Ok(OutputDataAssurances),
+    Err(AssurancesErrorCode)
 }
 // ----------------------------------------------------------------------------------------------------------
 // Guarantees
@@ -449,22 +586,22 @@ pub struct GuaranteesExtrinsic {
 // ----------------------------------------------------------------------------------------------------------
 #[derive(Debug, PartialEq, Clone)]
 pub struct EpochMark {
-    pub entropy: OpaqueHash,
-    pub tickets_entropy: OpaqueHash,
-    pub validators: Vec<BandersnatchPublic>,
+    pub entropy: Entropy,
+    pub tickets_entropy: Entropy,
+    pub validators: BandersnatchKeys,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TicketsMark {
-    pub tickets_mark: Vec<TicketBody>,
+    pub tickets_mark: Box<[TicketBody; EPOCH_LENGTH]>,
 }
 
 pub type OffendersMark = Vec<Ed25519Public>;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Header {
-    pub parent: OpaqueHash,
-    pub parent_state_root: OpaqueHash,
+    pub parent: HeaderHash,
+    pub parent_state_root: StateRoot,
     pub extrinsic_hash: OpaqueHash,
     pub slot: TimeSlot,
     pub epoch_mark: Option<EpochMark>,

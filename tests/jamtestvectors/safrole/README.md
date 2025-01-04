@@ -2,14 +2,14 @@
 
 We offer two types of test vectors:
 
-- Tiny: These are designed for quick adjustments and prototyping, with reduced validators (6)
-  and a shorter epoch duration (12). They are provided in both JSON format for easy inspection
-  and modification, and in SCALE format, which is the production binary codec.
-
+- Tiny: These are designed for quick adjustments and prototyping, with reduced validators
+  count (6) and epoch duration (12). Tickets per validator max attempts is 3 in order to
+  be able to fill the full epoch when only the supermajority of validators is honest (5).
 - Full: These vectors use production validators count (1023) and epoch duration (600).
-  Similar to the tiny vectors, they are available in JSON and SCALE format.
+  Tickets per validator max attempts is aligned to the GP (2).
 
-Both JSON and SCALE formats conform to the specified ASN.1 schema provided [here](./safrole.asn).
+Both JSON and SCALE formats conform to the JAM ASN.1 [schema](../jam-types-asn/jam-types.asn)
+and this subsystem STF specific [schema](./safrole.asn).
 
 ## ⚠️ WARNING  ⚠️
 
@@ -20,7 +20,7 @@ regarding the verification of Bandersnatch tickets, please ensure that you
 are using the same `ark-ec-vrfs` revision employed for the production of these
 vectors.
 
-Used `ark-ec-vrfs` revision: [e491b41](https://github.com/davxy/ark-ec-vrfs/tree/e491b41b48d9132f59ff2a4d4f1c6c3e853deab7)
+Used `ark-ec-vrfs` revision: [d90e180](https://github.com/davxy/ark-ec-vrfs/tree/d90e1800d571f32163e6f7b5d956d065668c899f)
 
 ## zk-SNARK SRS
 
@@ -51,14 +51,20 @@ Here are some key differences:
 
 Most of these differences aim to provide a clear and concise protocol specification.
 
-## Error Output
+## STF Output
 
-On STF (State Transition Function) execution error, post-state must match pre-state.
+Technically, the STF execution process does not inherently produce auxiliary
+outputs beyond the success or failure result. In this context, we propose
+an extension to include additional information that may be beneficial for
+implementors or useful for executing other subsystems reliant on values
+generated post-STF execution.
 
-Possible error codes returned as output are not part of the specification,
-feel free to ignore actual numeric values.
+When the error or success values are not pertinent to your test vector
+processing procedures, you may disregard them as necessary.
 
-A map for errors codes semantics used by for the test vectors is given in the ASN.1 schema.
+A mapping of error code semantics is provided within the ASN.1 schema for this
+subsystem.
+
 
 ## Tiny Vectors
 
