@@ -1,7 +1,10 @@
+pub mod isa;
+
 use frame_support::Deserialize;
-
+use crate::constants::NUM_REG;
+use crate::types::{PageMap, ProgramSequence, Context, ExitReason};
 use crate::utils::codec::generic::{seq_to_number, decode_to_bits};
-
+use isa::two_reg::*;
 
 /*const NO_ARG: usize = 0;                     // Without arguments
 const ONE_IMM: usize = 1;                    // Arguments of one immediate
@@ -16,31 +19,26 @@ const ONE_OFFSET: usize = 3;                 // Arguments of one offset
 const TWO_REG_TWO_IMM: usize = 10;           // Arguments of two regs and two immediates
 const THREE_REG: usize = 11;                 // Arguments of three regs
 */
-/*#[derive(Deserialize, Debug, Clone, PartialEq)]
-pub struct MemoryChunk {
-    address: u32,
-    contents: Vec<u8>,
-}*/
 
-#[derive(Deserialize, Debug, Clone, PartialEq)]
-pub struct PVM {
-    pub pc: u32,
-    pub gas: i64,
-    pub ram: Vec<PageMap>,
-    pub reg: [u32; 13],
+impl Default for Context {
+    fn default() -> Self {
+        Context {
+            pc: 0,
+            gas: 0,
+            reg: [0; NUM_REG as usize],
+            ram: vec![],
+        }
+    }
 }
 
-struct ProgramSequence {
-    c: Vec<u8>,   // Instrucción c
-    k: Vec<bool>, // Bitmask k
-    _j: Vec<u8>,   // Dynamic jump table
-}
-
-#[derive(Deserialize, Debug, Clone, PartialEq)]
-pub struct PageMap {
-    address: u32,
-    length: u32,
-    is_writable: bool,
+impl Default for ProgramSequence {
+    fn default() -> Self {
+        ProgramSequence {
+            data: vec![],
+            bitmask: vec![],
+            jump_table: vec![],
+        }
+    }
 }
 
 fn trap() -> Result<(), String> {
@@ -51,37 +49,18 @@ fn panic() -> Result<(), String> {
     return Err("panic".to_string());
 }
 
-fn skip(i: u32, k: &Vec<bool>) -> u32 {
-    let mut j = i + 1;
+fn skip(i: &mut usize, k: &Vec<bool>) {
+    let mut j = *i + 1;
     //println!("k = {:?}", k);
-    while j < k.len() as u32 && k[j as usize] == false {
+    while j < k.len() && k[j] == false {
         j += 1;
     }
     //println!("j = {}", j-1);
-    std::cmp::min(24, j - 1)
+    *i = std::cmp::min(24, j - 1);
 }
 
-fn move_reg(pvm_ctx: &mut PVM, program: &ProgramSequence) // Two regs -> 52 00 -> r0 = r0
-    -> Result<(), String> {
-    let dest: u8 = program.c[pvm_ctx.pc as usize + 1] >> 4;
-    if dest > 13 { return Err("panic".to_string()) };
-    let a: u8 = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
-    pvm_ctx.reg[dest as usize] = pvm_ctx.reg[a as usize];
-    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
-    Ok(())
-}
 
-fn add_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // Two regs one imm -> 02 79 02 | r9 = r7 + 0x2
-    -> Result<(), String> {
-    let dest: u8 = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
-    if dest > 13 { return Err("panic".to_string()) };
-    let value = get_imm(program, pvm_ctx.pc, TWO_REG_ONE_IMM);
-    //println!("value = {value}");
-    let b: u8 = program.c[pvm_ctx.pc as usize + 1] >> 4;
-    pvm_ctx.reg[dest as usize] = pvm_ctx.reg[b as usize].wrapping_add(value);
-    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
-    Ok(())
-}
+/*
 
 fn extend_sign(v: &Vec<u8>, n: u32) -> u32 {
     let x = seq_to_number(v);
@@ -112,93 +91,39 @@ fn get_imm(program: &ProgramSequence, pc: u32, instr_type: usize) -> u32 {
     return extend_sign(&program.c[i as usize ..i as usize + l_x as usize].to_vec(), (4 - l_x as usize) as u32);
 }
 
-fn add(pvm_ctx: &mut PVM, program: &ProgramSequence) // Three regs -> 08 87 09 | r9 = r7 + r8
-    -> Result<(), String> {
-    let dest: u8 = program.c[pvm_ctx.pc as usize + 2] & 0x0F;
-    if dest > 13 { return Err("panic".to_string()) }; 
-    let a: u8 = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
-    let b: u8 = program.c[pvm_ctx.pc as usize + 1] >> 4;
-    pvm_ctx.reg[dest as usize] = pvm_ctx.reg[a as usize].wrapping_add(pvm_ctx.reg[b as usize]);
-    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
-    Ok(())
-}
+*/
 
-fn and(pvm_ctx: &mut PVM, program: &ProgramSequence) // Three regs -> 17 87 09 | r9 = r7 & r8
-    -> Result<(), String> {
-    let dest: u8 = program.c[pvm_ctx.pc as usize + 2] & 0x0F;
-    if dest > 13 { return Err("panic".to_string()) };
-    let a: u8 = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
-    let b: u8 = program.c[pvm_ctx.pc as usize + 1] >> 4;
-    pvm_ctx.reg[dest as usize] = pvm_ctx.reg[a as usize] & pvm_ctx.reg[b as usize];
-    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
-    Ok(())
-}
-
-fn and_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // Two regs one imm -> 12 79 03 | r9 = r7 & 0x3
-    -> Result<(), String> {
-    let dest: u8 = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
-    if dest > 13 { return Err("panic".to_string()) };
-    let b: u8 = program.c[pvm_ctx.pc as usize + 1] >> 4;
-    let value = get_imm(program, pvm_ctx.pc, TWO_REG_ONE_IMM);
-    pvm_ctx.reg[dest as usize] = pvm_ctx.reg[b as usize] & value;
-    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
-    Ok(())
-}
-
-fn load_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // One reg one imm -> 04 07 d2 04 | r7 = 0x4d2
-    -> Result<(), String> {
-    let dest = program.c[pvm_ctx.pc as usize + 1];
-    if dest > 13 { return Err("panic".to_string()) };
-    let value = get_imm(program, pvm_ctx.pc, ONE_REG_ONE_IMM);
-    pvm_ctx.reg[dest as usize] = value as u32;
-    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);   
-    Ok(())
-}
-
-fn branch_eq_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // One reg, one imm, one offset -> 07 27 d3 04 | jump if r7 = 0x4d3
-    -> Result<(), String> {
-    let target = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
-    if target > 13 { return Err("panic".to_string()) };
-    let value = get_imm(program, pvm_ctx.pc, ONE_REG_ONE_IMM_ONE_OFFSET);
-    //println!("value branch = {value}");
-    if pvm_ctx.reg[target as usize] == value as u32 {
-        pvm_ctx.pc = basic_block_seq(pvm_ctx.pc, &program.k);
-    } 
-    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
-    Ok(())
-}
-
-fn basic_block_seq(pc: u32, k: &Vec<bool>) -> u32 {
+/*fn basic_block_seq(pc: usize, k: &Vec<bool>) -> u32 {
     return 1 + skip(pc, k) as u32;
-}
+}*/
 
-fn single_step_pvm(pvm_ctx: &mut PVM, program: &ProgramSequence) 
-    -> Result<(), String> {
+fn single_step_pvm(pvm_ctx: &mut Context, program: &ProgramSequence) 
+    -> Result<(), ExitReason> {
 
     //println!("next instruction = {}", program.c[pvm_ctx.pc as usize]);
-    let result = match program.c[pvm_ctx.pc as usize] {  // Next instruction
-        82_u8   => { move_reg(pvm_ctx, program) }, 
-        8_u8    => { add(pvm_ctx, program) },
+    let result = match program.data[pvm_ctx.pc] {  // Next instruction
+        100_u8   => { move_reg(pvm_ctx, program)? }, 
+        /*8_u8    => { add(pvm_ctx, program) },
         2_u8    => { add_imm(pvm_ctx, program) },
         23_u8   => { and(pvm_ctx, program) },
         18_u8   => { and_imm(pvm_ctx, program) },
         4_u8    => { load_imm(pvm_ctx, program) },
         7_u8    => { branch_eq_imm(pvm_ctx, program) },
-        0_u8    => { trap() },    // Trap
-        _       => { panic() },   // Panic
+        0_u8    => { trap() },    // Trap*/
+        _       => { return Err(ExitReason::Panic) },   // Panic
     };
     pvm_ctx.gas -= 1;
     
-    return result;
+    return Ok(result);
 }
 
 pub fn invoke_pvm(
     p: Vec<u8>,     // Program blob
-    pc: u32,    // Program counter
+    pc: usize,    // Program counter
     gas: i64,   // Gas
-    reg: [u32; 13],     // Registers
+    reg: [u64; NUM_REG as usize],     // Registers
     ram: Vec<PageMap>,  // Ram memory 
-) ->  (String, u32, i64, [u32; 13], Vec<PageMap>) { // Exit, i, gas, reg, ram
+) ->  (ExitReason, usize, i64, [u64; NUM_REG as usize], Vec<PageMap>) { // Exit, i, gas, reg, ram
     
     let _j_size = p[0];          // Dynamic jump table size
     let j: Vec<u8> = vec![];    // Dynamic jump table
@@ -206,20 +131,20 @@ pub fn invoke_pvm(
     let program_size = p[2] as u32;
 
     let program = ProgramSequence {
-        c: p[3..3 + program_size as usize].to_vec() // Instruction vector
+        data: p[3..3 + program_size as usize].to_vec() // Instruction vector
             .into_iter()
             .chain(std::iter::repeat(0).take(25)) // Sequence of zeroes suffixed to ensure that no out-of-bounds access is possible
             .collect(),
-        k: decode_to_bits(&p[3 + program_size as usize..p.len()].to_vec())
+        bitmask: decode_to_bits(&p[3 + program_size as usize..p.len()].to_vec())
             .into_iter()
             .chain(std::iter::repeat(true).take(25)) // Sequence of trues 
             .collect(), // Bitmask boolean vector
-        _j: j, // Dynamic jump table
+        jump_table: j, // Dynamic jump table
     };
     /*println!("Program sequence = {:?}", program.c);
     println!("Bitmask sequence = {:?}", program.k);
     println!("Program len = {} Bitmask len = {}", program.c.len(), program.k.len());*/
-    let mut pvm_ctx = PVM { pc, gas, reg, ram }; // PVM context
+    let mut pvm_ctx = Context { pc, gas, reg, ram }; // PVM context
     let mut exit_reason;
     
     while gas > 0 {
@@ -230,5 +155,5 @@ pub fn invoke_pvm(
         }
         pvm_ctx.pc += 1; // Next instruction
     }
-    return (("out_of_gas".to_string()), pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram);
+    return (ExitReason::OutOfGas, pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram);
 }

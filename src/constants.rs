@@ -71,3 +71,6 @@ pub const TOTAL_GAS_ALLOCATED: Gas = 3_500_000_000;
 
 // The maximum age of a lookup anchor in timeslots.
 pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 14_400;
+
+// The number of the registers in the PVM
+pub const NUM_REG: u8 = 13;

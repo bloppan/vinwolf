@@ -1,7 +1,11 @@
 // JAM Protocol Types
 use std::collections::VecDeque;
+use serde::Deserialize;
+use bitvec::slice::BitSlice;
+
 use crate::constants::{
-    ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH
+    ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH,
+    NUM_REG
 };
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
@@ -627,4 +631,41 @@ pub struct Extrinsic {
 pub struct Block {
     pub header: Header,
     pub extrinsic: Extrinsic,
+}
+// ----------------------------------------------------------------------------------------------------------
+// Virtual Machine
+// ----------------------------------------------------------------------------------------------------------
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+pub struct Context {
+    pub pc: usize,
+    pub gas: i64,
+    pub ram: Vec<PageMap>,
+    pub reg: [u64; NUM_REG as usize],
+}
+
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+pub struct ProgramSequence {
+    pub data: Vec<u8>,          // Instrucción c
+    pub bitmask: Vec<bool>,     // Bitmask k
+    pub jump_table: Vec<u8>,    // Dynamic jump table
+}
+
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+pub struct PageMap {
+    address: u32,
+    length: u32,
+    is_writable: bool,
+}
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+pub struct MemoryChunk {
+    address: u32,
+    contents: Vec<u8>,
+}
+#[derive(Debug, PartialEq, Eq)]
+pub enum ExitReason {
+    Halt,        
+    Panic,              
+    OutOfGas,           
+    PageFault(u32),     
+    HostCall(u32),      
 }
