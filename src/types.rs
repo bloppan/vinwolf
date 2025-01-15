@@ -637,7 +637,7 @@ pub struct Block {
 // ----------------------------------------------------------------------------------------------------------
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct Context {
-    pub pc: usize,
+    pub pc: u64,
     pub gas: i64,
     pub ram: Vec<PageMap>,
     pub reg: [u64; NUM_REG as usize],
@@ -645,9 +645,9 @@ pub struct Context {
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct ProgramSequence {
-    pub data: Vec<u8>,          // Instrucción c
-    pub bitmask: Vec<bool>,     // Bitmask k
-    pub jump_table: Vec<u8>,    // Dynamic jump table
+    pub data: Vec<u8>,          // Instruction data (c)
+    pub bitmask: Vec<bool>,     // Bitmask (k)
+    pub jump_table: Vec<u8>,    // Dynamic jump table (j)
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
@@ -661,8 +661,9 @@ pub struct MemoryChunk {
     address: u32,
     contents: Vec<u8>,
 }
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Deserialize, Debug, PartialEq, Eq)]
 pub enum ExitReason {
+    trap,
     Halt,        
     Panic,              
     OutOfGas,           

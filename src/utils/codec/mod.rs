@@ -1,6 +1,10 @@
 pub mod generic;
 pub mod jam;
 
+pub trait FromLeBytes: Sized {
+    fn from_le_bytes(bytes: &[u8]) -> Self;
+}
+
 pub trait Encode {
     fn encode(&self) -> Vec<u8>;
     fn encode_to(&self, writer: &mut Vec<u8>);
@@ -16,6 +20,10 @@ pub trait EncodeLen {
 
 pub trait Decode: Sized {
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError>;
+}
+
+pub trait DecodeSize: Sized {
+    fn decode_size(reader: &mut BytesReader, l: usize) -> Result<usize, ReadError>;
 }
 
 pub trait DecodeLen: Sized {

@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
-use crate::utils::codec::{Encode, Decode, EncodeSize, EncodeLen, DecodeLen, ReadError, BytesReader};
+use crate::utils::codec::{Encode, Decode, EncodeSize, EncodeLen, DecodeLen, ReadError, BytesReader, FromLeBytes};
 
 mod encode;
 mod decode;
 
 pub use encode::{encode_unsigned, encode_integer, encode_from_bits};
-pub use decode::{decode_unsigned, decode_to_bits, decode_from_le};
+pub use decode::{decode_unsigned, decode_to_bits, decode_integer};
 
 pub fn seq_to_number(v: &Vec<u8>) -> u32 {
 
@@ -16,6 +16,56 @@ pub fn seq_to_number(v: &Vec<u8>) -> u32 {
         result |= (v[(size - i - 1) as usize] as u32) << (size - i - 1) * 8; 
     }
     result
+}
+
+use std::convert::TryInto;
+
+impl FromLeBytes for u8 {
+    fn from_le_bytes(bytes: &[u8]) -> Self {
+        bytes[0]
+    }
+}
+
+impl FromLeBytes for i8 {
+    fn from_le_bytes(bytes: &[u8]) -> Self {
+        bytes[0] as i8
+    }
+}
+
+impl FromLeBytes for u16 {
+    fn from_le_bytes(bytes: &[u8]) -> Self {
+        u16::from_le_bytes(bytes.try_into().unwrap())
+    }
+}
+
+impl FromLeBytes for i16 {
+    fn from_le_bytes(bytes: &[u8]) -> Self {
+        i16::from_le_bytes(bytes.try_into().unwrap())
+    }
+}
+
+impl FromLeBytes for u32 {
+    fn from_le_bytes(bytes: &[u8]) -> Self {
+        u32::from_le_bytes(bytes.try_into().unwrap())
+    }
+}
+
+impl FromLeBytes for i32 {
+    fn from_le_bytes(bytes: &[u8]) -> Self {
+        i32::from_le_bytes(bytes.try_into().unwrap())
+    }
+}
+
+impl FromLeBytes for u64 {
+    fn from_le_bytes(bytes: &[u8]) -> Self {
+        u64::from_le_bytes(bytes.try_into().unwrap())
+    }
+}
+
+impl FromLeBytes for i64 {
+    fn from_le_bytes(bytes: &[u8]) -> Self {
+        i64::from_le_bytes(bytes.try_into().unwrap())
+    }
 }
 
 

@@ -5,8 +5,9 @@ use std::path::PathBuf;
 
 extern crate vinwolf;
 
+use vinwolf::constants::NUM_REG;
 use vinwolf::pvm::invoke_pvm;
-use vinwolf::types::PageMap;
+use vinwolf::types::{PageMap, ExitReason};
 
 mod isa;
 
@@ -14,9 +15,9 @@ mod isa;
 struct Testcase {
     name: String,
     #[serde(rename = "initial-regs")]
-    initial_regs: [u32; 13],
+    initial_regs: [u64; NUM_REG as usize],
     #[serde(rename = "initial-pc")]
-    initial_pc: u32,
+    initial_pc: u64,
     #[serde(rename = "initial-page-map")]
     initial_page_map: Vec<PageMap>,
     #[serde(rename = "initial-memory")]
@@ -25,11 +26,11 @@ struct Testcase {
     initial_gas: i64,
     program: Vec<u8>,
     #[serde(rename = "expected-status")]
-    expected_status: String,
+    expected_status: ExitReason,
     #[serde(rename = "expected-regs")]
-    expected_regs: [u32; 13],
+    expected_regs: [u64; NUM_REG as usize],
     #[serde(rename = "expected-pc")]
-    expected_pc: u32,
+    expected_pc: u64,
     #[serde(rename = "expected-memory")]
     expected_memory: Vec<PageMap>,
     #[serde(rename = "expected-gas")]
@@ -47,7 +48,7 @@ mod tests {
         file.read_to_string(&mut contents).expect("Failed to read JSON file");
         let testcase: Testcase = serde_json::from_str(&contents).expect("Failed to deserialize JSON");
 
-        /*let (status, pc, gas, reg, ram) = invoke_pvm(
+        let (status, pc, gas, reg, ram) = invoke_pvm(
                                                     testcase.program.clone(),
                                                     testcase.initial_pc,
                                                     testcase.initial_gas,
@@ -68,23 +69,23 @@ mod tests {
             expected_memory: ram,
             expected_gas: gas,
         };
-        assert_eq!(testcase, result);*/
+        assert_eq!(testcase, result);
         assert!(true);
 
     }
 
-    //#[test]
+    #[test]
     fn test_pvm_programs() {
         
         let test_files = vec![
-            "tests/jamtestvectors/pvm/programs/gas_basic_consume_all.json",
-            "tests/jamtestvectors/pvm/programs/inst_add.json",
+            "tests/jamtestvectors/pvm/programs/inst_add_32.json",
+            /*"tests/jamtestvectors/pvm/programs/gas_basic_consume_all.json",
             "tests/jamtestvectors/pvm/programs/inst_add_imm.json",
             "tests/jamtestvectors/pvm/programs/inst_add_with_overflow.json",
             "tests/jamtestvectors/pvm/programs/inst_and.json",
             "tests/jamtestvectors/pvm/programs/inst_and_imm.json",
             "tests/jamtestvectors/pvm/programs/inst_branch_eq_imm_nok.json",
-            "tests/jamtestvectors/pvm/programs/inst_branch_eq_imm_ok.json"
+            "tests/jamtestvectors/pvm/programs/inst_branch_eq_imm_ok.json"*/
         ];
         for file in test_files {
             println!("Running test for file: {}", file);

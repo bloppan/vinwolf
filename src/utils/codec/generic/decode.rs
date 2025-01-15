@@ -1,6 +1,6 @@
 
 use std::collections::BTreeMap;
-use crate::utils::codec::{Encode, Decode, EncodeSize, EncodeLen, DecodeLen, ReadError, BytesReader};
+use crate::utils::codec::{Encode, Decode, EncodeSize, EncodeLen, DecodeLen, DecodeSize, ReadError, BytesReader};
 
 pub fn decode_to_bits(v: &[u8]) -> Vec<bool> {
 
@@ -15,7 +15,7 @@ pub fn decode_to_bits(v: &[u8]) -> Vec<bool> {
     return bools;
 }
 
-pub fn decode_from_le(data: &mut BytesReader, l: usize) -> Result<usize, ReadError> {
+pub fn decode_integer(data: &mut BytesReader, l: usize) -> Result<usize, ReadError> {
     let mut array = [0u8; std::mem::size_of::<usize>()];
     let len = std::cmp::min(l, std::mem::size_of::<usize>());
     let bytes = data.read_bytes(len)?;
@@ -32,7 +32,7 @@ pub fn decode_unsigned(data: &mut BytesReader) -> Result<usize, ReadError> {
         return Ok(first_byte as usize); 
     }
 
-    let result = decode_from_le(data, l)?;
+    let result = decode_integer(data, l)?;
 
     if l == 8 {
         return Ok(result);
@@ -166,5 +166,43 @@ where
         }
 
         Ok(result)
+    }
+}
+
+impl DecodeSize for Vec<u8> {
+    fn decode_size(reader: &mut BytesReader, l: usize) -> Result<usize, ReadError> {
+        let bytes = reader.read_bytes(l)?;
+        Ok(decode_integer(&mut BytesReader::new(bytes), l)?)
+    }
+}
+
+#[cfg(test)]
+mod test { 
+
+    use super::*;
+
+    #[test]
+    fn test_decode_size() {
+        let test_cases = vec![
+            (vec![0x01], 1, 1usize),
+            (vec![0xFF], 1, 0xFFusize),
+            (vec![0x40], 1, 0x40usize),
+            (vec![0x80], 1, 0x80usize),
+            (vec![0x01, 0x00], 2, 1usize),
+            (vec![0x80, 0xFF], 2, 0xFF80usize),
+            (vec![0xFF, 0xFF], 2, 0xFFFFusize),
+            (vec![0x00, 0x80], 2, 0x8000usize),
+            (vec![0x01, 0x00, 0x00], 3, 1usize),
+            (vec![0xFF, 0xFF, 0xFF], 3, 0xFFFFFFusize),
+            (vec![0x00, 0x00, 0x80], 3, 0x800000usize),
+            (vec![0xD4, 0xFE, 0xFF], 3, 0xFFFED4usize),
+            (vec![0x01, 0x00, 0x00, 0x00], 4, 1usize),
+            (vec![0xFF, 0xFF, 0xFF, 0xFF], 4, 0xFFFFFFFFusize),
+            (vec![0x00, 0x00, 0x00, 0x80], 4, 0x80000000usize),
+        ];
+        for (input, size, expected) in test_cases {
+            let result = Vec::<u8>::decode_size(&mut super::BytesReader::new(&input), size).unwrap();
+            assert_eq!(expected, result);
+        }
     }
 }
