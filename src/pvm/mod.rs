@@ -1,4 +1,5 @@
 pub mod isa;
+pub mod mm;
 
 use std::collections::HashMap;
 use std::u8;
@@ -27,42 +28,7 @@ impl Default for Context {
     }
 }
 
-impl Default for PageTable {
-    fn default() -> Self {
-        PageTable {
-            pages: HashMap::new(),
-        }
-    }
-}
 
-impl Default for Page {
-    fn default() -> Self {
-        Page {
-            flags: PageFlags::default(),
-            data: Box::new([0u8; PAGE_SIZE as usize]),
-        }
-    }
-}
-
-impl Default for PageFlags {
-    fn default() -> Self {
-        PageFlags {
-            is_writable: false,
-            referenced: false,
-            modified: false,
-        }
-    }
-}
-
-impl Default for PageMap {
-    fn default() -> Self {
-        PageMap {
-            address: 0,
-            length: 0,
-            is_writable: false,
-        }
-    }
-}
 
 impl Default for Program {
     fn default() -> Self {
@@ -83,8 +49,8 @@ fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
         30_u8   => { store_imm_u8(pvm_ctx, program) },
         31_u8   => { store_imm_u16(pvm_ctx, program) },
         32_u8   => { store_imm_u32(pvm_ctx, program) },
-        /*51_u8   => { load_imm(pvm_ctx, program) },
-        52_u8   => { load_u8(pvm_ctx, program) },*/
+        51_u8   => { load_imm(pvm_ctx, program) },
+        52_u8   => { load_u8(pvm_ctx, program) },
         /*53_u8   => { load_i8(pvm_ctx, program) },
         54_u8   => { load_u16(pvm_ctx, program) },
         55_u8   => { load_i16(pvm_ctx, program) },

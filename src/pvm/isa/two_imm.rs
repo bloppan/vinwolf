@@ -3,10 +3,8 @@
 */
 
 use std::cmp::{min, max};
-use crate::constants::{NUM_REG, PAGE_SIZE, RAM_SIZE};
-use crate::types::{Context, ExitReason, MemoryChunk, Program, RamAccess, RamAddress, RegSize};
-use crate::utils::codec::{EncodeSize, DecodeSize, BytesReader};
-use crate::pvm::isa::{skip, extend_sign, check_page_fault};
+use crate::types::{Context, ExitReason, Program, RamAddress, RegSize};
+use crate::pvm::isa::{skip, extend_sign};
 
 use super::_store;
 

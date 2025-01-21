@@ -19,41 +19,6 @@ pub mod two_reg_two_imm;
 pub mod two_reg;
 pub mod one_reg_one_ext_imm;
 
-impl Default for RamMemory {
-    fn default() -> Self {
-        let mut v: Vec<Option<Page>> = Vec::with_capacity(NUM_PAGES as usize);
-        for _ in 0..NUM_PAGES {
-            v.push(None);
-        }
-        RamMemory {
-            pages: v.into_boxed_slice(),
-        }
-    }
-}
-
-impl RamMemory {
-    pub fn insert(&mut self, address: RamAddress, value: u8) {
-        let page_target = address / PAGE_SIZE;
-        let offset = address % PAGE_SIZE;
-        println!("Inserting value {} at address {}", value, address);
-        if let Some(page) = self.pages[page_target as usize].as_mut() {
-            println!("Inserting value {} at address {}", value, address);
-            page.data[offset as usize] = value;
-        }
-    }
-}
-
-
-impl Default for MemoryChunk {
-    fn default() -> Self {
-        MemoryChunk {
-            address: 0,
-            contents: vec![],
-        }
-    }
-}
-
-
 fn skip(i: &u64, k: &[bool]) -> u64 {
     let mut j = i + 1;
     //println!("k = {:?}", k);
@@ -115,6 +80,8 @@ pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, 
         if let Some(page) = pvm_ctx.page_table.pages.get_mut(&page_address) {
             page.data[offset as usize] = *byte;
             page.flags.modified = true;
+        } else {
+            return ExitReason::PageFault(address.wrapping_add(i as RamAddress));
         }
     }
     pvm_ctx.pc = skip(&pvm_ctx.pc, &program.bitmask);

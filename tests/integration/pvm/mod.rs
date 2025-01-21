@@ -69,15 +69,14 @@ mod tests {
             });
         }
 
-        /*for chunk in &testcase.initial_memory {
+        for chunk in &testcase.initial_memory {
             let page_number = chunk.address / PAGE_SIZE;
             let offset = chunk.address % PAGE_SIZE;
-            if let Some(page_entry) = ram.pages[page_number as usize].as_mut() {
-                for (i, byte) in chunk.contents.iter().enumerate() {
-                    page_entry.data[offset as usize + i] = *byte;
-                }
+            let page = page_table.pages.get_mut(&page_number).unwrap();
+            for (i, byte) in chunk.contents.iter().enumerate() {
+                page.data[offset as usize + i] = *byte;
             }
-        }*/
+        }
 
         let mut pvm_ctx = Context {
             pc: testcase.initial_pc.clone(),
@@ -88,15 +87,18 @@ mod tests {
 
         let exit_reason = invoke_pvm(&mut pvm_ctx, &testcase.program);
 
-        let mut start_address = 0;
         let mut ram_result: Vec<MemoryChunk> = vec![];
 
-        for (i, page) in pvm_ctx.page_table.pages.iter().enumerate() {
+        for page in pvm_ctx.page_table.pages.iter() {
                 let mut content = vec![];
                 let mut offset: Option<RamAddress> = None;
-                if page.1.flags.modified {
+                if page.1.flags.modified || page.1.flags.referenced {
+                    println!("Page modified or referended: {}", page.0);
+                    println!("Data: {:?}", page.1.data[0..10].to_vec());
                     for (i, byte) in page.1.data.iter().enumerate() {
+                        //println!("Byte: {byte}, pos: {i}");
                         if *byte != 0 {
+                            println!("Byte: {byte}, pos: {i}");
                             if offset.is_none() {
                                 offset = Some(i as RamAddress);
                                 println!("Offset: {}", offset.unwrap());
@@ -105,10 +107,12 @@ mod tests {
                             content.push(*byte);
                         }
                     }
-                    ram_result.push(MemoryChunk {
-                        address: (page.0 * PAGE_SIZE).wrapping_add(offset.unwrap() as u32),
-                        contents: content,
-                    });
+                    if !offset.is_none() {
+                        ram_result.push(MemoryChunk {
+                            address: (page.0 * PAGE_SIZE).wrapping_add(offset.unwrap() as u32),
+                            contents: content,
+                        });
+                    }
                 }
         }
                
@@ -157,9 +161,8 @@ mod tests {
             "inst_store_imm_u8.json",
             "inst_store_imm_u16.json",
             "inst_store_imm_u32.json",
-            /*"inst_load_imm.json",*/
-            //"inst_load_u8.json",
-            
+            //"inst_load_imm.json",
+            "inst_load_u8.json",
             /*"inst_load_i8.json",
             "inst_load_u16.json",
             "inst_load_i16.json",
