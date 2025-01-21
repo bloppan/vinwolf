@@ -1,11 +1,11 @@
 // JAM Protocol Types
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use serde::Deserialize;
 use bitvec::slice::BitSlice;
 
 use crate::constants::{
     ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH,
-    NUM_REG
+    NUM_REG, PAGE_SIZE, NUM_PAGES
 };
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
@@ -39,6 +39,9 @@ pub type ExportsRoot = OpaqueHash;
 pub type ErasureRoot = OpaqueHash;
 
 pub type Gas = u64;
+pub type RamAddress = u32;
+pub type PageAddress = RamAddress;
+pub type RegSize = u64;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Entropy {
@@ -633,37 +636,68 @@ pub struct Block {
     pub extrinsic: Extrinsic,
 }
 // ----------------------------------------------------------------------------------------------------------
-// Virtual Machine
+// Polkadot Virtual Machine
 // ----------------------------------------------------------------------------------------------------------
 #[derive(Deserialize, Debug, Clone, PartialEq)]
-pub struct Context {
-    pub pc: u64,
-    pub gas: i64,
-    pub ram: Vec<PageMap>,
-    pub reg: [u64; NUM_REG as usize],
-}
-
-#[derive(Deserialize, Debug, Clone, PartialEq)]
-pub struct ProgramSequence {
-    pub data: Vec<u8>,          // Instruction data (c)
+pub struct Program {
+    pub code: Vec<u8>,          // Instruction data (c)
     pub bitmask: Vec<bool>,     // Bitmask (k)
     pub jump_table: Vec<u8>,    // Dynamic jump table (j)
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Context {
+    pub pc: RegSize,
+    pub gas: Gas,
+    pub page_table: PageTable,
+    pub reg: [RegSize; NUM_REG as usize],
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RamMemory {
+    pub pages: Box<[Option<Page>]>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PageTable {
+    pub pages: HashMap<PageAddress, Page>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Page {
+    pub flags: PageFlags,
+    pub data: Box<[u8; PAGE_SIZE as usize]>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PageFlags {
+    pub is_writable: bool,
+    pub referenced: bool,
+    pub modified: bool,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum RamAccess {
+    Read,
+    Write,
+    None,
+}
+
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct PageMap {
-    address: u32,
-    length: u32,
-    is_writable: bool,
+    pub address: u32,
+    pub length: u32,
+    #[serde(rename = "is-writable")]
+    pub is_writable: bool,
 }
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct MemoryChunk {
-    address: u32,
-    contents: Vec<u8>,
+    pub address: u32,
+    pub contents: Vec<u8>,
 }
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 pub enum ExitReason {
     trap,
+    Continue,
     Halt,        
     Panic,              
     OutOfGas,           

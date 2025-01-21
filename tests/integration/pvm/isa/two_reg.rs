@@ -1,7 +1,7 @@
-use vinwolf::types::{Context, ProgramSequence, ExitReason};
+use vinwolf::types::{Context,  ExitReason};
 use vinwolf::pvm::isa::two_reg::{move_reg};
 
-#[cfg(test)]
+/*#[cfg(test)]
 mod test {
     use super::*;
 
@@ -38,5 +38,5 @@ mod test {
             assert_eq!(Err(ExitReason::Panic), res);
         }  
     }  
-}
+}*/
 

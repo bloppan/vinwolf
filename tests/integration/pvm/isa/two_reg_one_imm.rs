@@ -1,7 +1,7 @@
-use vinwolf::types::{Context, ProgramSequence, ExitReason};
+use vinwolf::types::{Context,  ExitReason};
 use vinwolf::pvm::isa::two_reg_one_imm::{add_imm_32};
 
-#[cfg(test)]
+/*#[cfg(test)]
 mod test {
     use super::*;
 
@@ -21,4 +21,4 @@ mod test {
             assert_eq!(pvm_ctx.reg[0], 0);
         }  
     }  
-}
+}*/

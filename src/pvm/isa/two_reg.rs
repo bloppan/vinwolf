@@ -2,23 +2,23 @@
     Instructions with Arguments of Two Registers.
 */
 
+use std::cmp::{min, max};
 use crate::constants::NUM_REG;
-use crate::types::{Context, ProgramSequence, ExitReason};
-use crate::pvm::isa::skip;
+use crate::types::{Context, Program, ExitReason};
+use crate::utils::codec::{DecodeSize, BytesReader};
+use crate::pvm::isa::{skip, extend_sign};
 
+fn get_reg(pc: &u64, code: &[u8]) -> (u8, u8) {
+    let reg_a: u8 = min(12, code[*pc as usize + 1] >> 4);
+    let reg_d: u8 = min(12, code[*pc as usize + 1] % 16);
+    (reg_a, reg_d)
+}
 
-pub fn move_reg(pvm_ctx: &mut Context, program: &ProgramSequence) // Two regs -> 64 12 -> r1 = r2
-    -> Result<(), ExitReason> {
-    let dest: u8 = program.data[pvm_ctx.pc as usize + 1] >> 4;
-    if dest > NUM_REG { return Err(ExitReason::Panic) };
-    let a: u8 = program.data[pvm_ctx.pc as usize + 1] & 0x0F;
-    if a > NUM_REG { return Err(ExitReason::Panic) };
-    /*println!("dest = {dest}, a = {a}");
-    println!("pvm_ctx.pc = {}", pvm_ctx.pc);
-    println!("program.data[pvm_ctx.pc + 1] = {}", program.data[pvm_ctx.pc + 1]);*/
-    pvm_ctx.reg[dest as usize] = pvm_ctx.reg[a as usize];
+pub fn move_reg(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_d) = get_reg(&pvm_ctx.pc, &program.code);
+    pvm_ctx.reg[reg_d as usize] = pvm_ctx.reg[reg_a as usize];
     pvm_ctx.pc = skip(&pvm_ctx.pc, &program.bitmask);
-    Ok(())
+    ExitReason::Continue
 }
 
 

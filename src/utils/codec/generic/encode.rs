@@ -191,6 +191,11 @@ impl<const N: usize, const M: usize> Encode for Vec<[[u8; N]; M]> {
         }
     }
 }
+impl EncodeSize for u8 {
+    fn encode_size(&self, l: usize) -> Vec<u8> {
+        encode_integer(*self as usize, l)
+    }
+}
 
 impl EncodeSize for u16 {
     fn encode_size(&self, l: usize) -> Vec<u8> {

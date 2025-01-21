@@ -11,7 +11,6 @@ pub fn decode_to_bits(v: &[u8]) -> Vec<bool> {
             bools.push(bit == 1); // Convert bit (0 o 1) to boolean
         }
     }
-
     return bools;
 }
 

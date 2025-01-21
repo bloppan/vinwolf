@@ -1,4 +1,4 @@
-use crate::types::Gas;
+use crate::types::{Gas, RamAddress};
 
 // The size of the on-chain entropy pool
 pub const ENTROPY_POOL_SIZE: usize = 4;
@@ -74,3 +74,12 @@ pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 14_400;
 
 // The number of the registers in the PVM
 pub const NUM_REG: u8 = 13;
+
+// The size of ram page
+pub const PAGE_SIZE: RamAddress = 1 << 12;
+
+// The size of ram
+pub const RAM_SIZE: u64 = 1 << 32;
+
+// The number of pages in ram
+pub const NUM_PAGES: RamAddress = (RAM_SIZE / PAGE_SIZE as u64) as RamAddress;

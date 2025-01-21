@@ -1,0 +1,63 @@
+/*
+    Instructions with Arguments of One Register & Two Immediates.
+*/
+
+use std::cmp::{min, max};
+use crate::constants::{PAGE_SIZE, RAM_SIZE};
+use crate::types::{Context, ExitReason, Program, RamAccess, RamAddress, RegSize};
+use crate::utils::codec::EncodeSize;
+use crate::pvm::isa::{skip, extend_sign, check_page_fault, _store};
+
+fn get_reg(pc: &u64, program: &Program) -> u64 {
+    min(12, program.code[*pc as usize + 1] % 16) as u64
+}
+
+fn get_x_length(pc: &u64, program: &Program) -> u64 {
+    min(4, max(0, (program.code[*pc as usize + 1] >> 4) % 8) as u64)
+}
+
+fn get_y_length(pc: &u64, program: &Program) -> u64 {
+    min(4, max(0, skip(pc, &program.bitmask) - get_x_length(pc, program) - 1))
+}
+
+fn get_x_imm(pc: &u64, program: &Program) -> u64 {
+    let start = *pc as usize + 2;
+    let end = start + get_x_length(pc, program) as usize;
+    extend_sign(&program.code[start..end], get_x_length(pc, program) as usize)
+}
+
+fn get_y_imm(pc: &u64, program: &Program) -> u64 {
+    let start = *pc as usize + 2 + get_x_length(pc, program) as usize;
+    let end = start + get_y_length(pc, program) as usize;
+    extend_sign(&program.code[start..end], get_y_length(pc, program) as usize)
+}
+
+fn get_address_and_value<T>(pvm_ctx: &Context, program: &Program) -> (RamAddress, RegSize) {
+    let reg_a = get_reg(&pvm_ctx.pc, program);
+    let addr_reg_a = pvm_ctx.reg[reg_a as usize];
+    let vx = get_x_imm(&pvm_ctx.pc, program);
+    let value: u128 = ((get_y_imm(&pvm_ctx.pc, program) as u128) % (1 << (std::mem::size_of::<T>() * 8))) as u128;
+    let address = ((addr_reg_a + vx) % RAM_SIZE) as RamAddress;
+    (address, value as RegSize)
+}
+
+fn store_imm_ind<T>(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (address, value) = get_address_and_value::<T>(pvm_ctx, program);
+    _store::<T>(pvm_ctx, program, address, value)
+}
+
+pub fn store_imm_ind_u8(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    store_imm_ind::<u8>(pvm_ctx, program)
+}
+
+pub fn store_imm_ind_u16(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    store_imm_ind::<u16>(pvm_ctx, program)
+}
+
+pub fn store_imm_ind_u32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    store_imm_ind::<u32>(pvm_ctx, program)
+}
+
+pub fn store_imm_ind_u64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    store_imm_ind::<u64>(pvm_ctx, program)
+}
