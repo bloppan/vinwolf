@@ -17,7 +17,6 @@ fn get_reg(pc: &u64, code: &[u8]) -> (u8, u8) {
 pub fn move_reg(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let (reg_a, reg_d) = get_reg(&pvm_ctx.pc, &program.code);
     pvm_ctx.reg[reg_d as usize] = pvm_ctx.reg[reg_a as usize];
-    pvm_ctx.pc = skip(&pvm_ctx.pc, &program.bitmask);
     ExitReason::Continue
 }
 

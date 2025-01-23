@@ -3,113 +3,75 @@
 */
 
 use std::cmp::{min, max};
-use frame_support::sp_runtime::traits::CheckedConversion;
 
-use crate::constants::{NUM_REG, PAGE_SIZE};
-use crate::pvm;
-use crate::types::{Context, ExitReason, MemoryChunk, Program, RamAccess, RamAddress, RegSize};
-use crate::utils::codec::{FromLeBytes, EncodeSize, DecodeSize, BytesReader};
-use crate::pvm::isa::{skip, extend_sign, check_page_fault, _store};
+use crate::constants::PAGE_SIZE;
+use crate::types::{Context, ExitReason, Program, RamAccess, RamAddress, RegSize};
+use crate::utils::codec::generic::decode;
+use crate::pvm::isa::{skip, extend_sign, check_page_fault, _load, _store, djump};
 
 fn get_reg(pc: &RegSize, program: &Program) -> RegSize {
     min(12, program.code[*pc as usize + 1] % 16) as RegSize
 }
 
 fn get_x_length(pc: &RegSize, program: &Program) -> RegSize {
-    min(4, max(0, skip(pc, &program.bitmask) - 1))
+    min(4, max(0, skip(pc, &program.bitmask).saturating_sub(1)))
 }
 
 fn get_x_imm(pc: &RegSize, program: &Program) -> RegSize {
     let start = *pc as usize + 2;
     let end = start + get_x_length(pc, program) as usize;
-    extend_sign(&program.code[start..end], get_x_length(pc, program) as usize)
+    extend_sign(&program.code[start..end])
+}
+
+pub fn jump_ind(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let reg_a = get_reg(&pvm_ctx.pc, program);
+    let value_imm = get_x_imm(&pvm_ctx.pc, program);
+    let value_reg_a = pvm_ctx.reg[reg_a as usize];
+    let a = (value_reg_a.wrapping_add(value_imm) % (1 << 32)) as RegSize;
+    println!("jump_ind: a = {a}");
+    println!("jump_ind: pc = {}", pvm_ctx.pc);
+    djump(&a, &mut pvm_ctx.pc, program)
 }
 
 pub fn load_imm(pvm_ctx: &mut Context, program: &Program)-> ExitReason {
     let reg_a = get_reg(&pvm_ctx.pc, program);
     pvm_ctx.reg[reg_a as usize] = get_x_imm(&pvm_ctx.pc, program);
-    pvm_ctx.pc = skip(&pvm_ctx.pc, &program.bitmask);
     ExitReason::Continue
 }
 
-fn decode<T: FromLeBytes>(bytes: &[u8]) -> T {
-    let mut buffer = vec![0u8; std::mem::size_of::<T>()];
-    buffer.copy_from_slice(&bytes[..std::mem::size_of::<T>()]);
-    T::from_le_bytes(&buffer)
-}
-
-pub fn load<T: FromLeBytes + Into<RegSize>>(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    let reg_a = get_reg(&pvm_ctx.pc, program) as RegSize;
+pub fn load<T>(pvm_ctx: &mut Context, program: &Program, signed: bool) -> ExitReason {
+    let to_reg = get_reg(&pvm_ctx.pc, program) as RegSize;
     let address = get_x_imm(&pvm_ctx.pc, program) as RamAddress;
-    let page_target = address / PAGE_SIZE;
-    let offset = address % PAGE_SIZE;
-    if let Some(page) = pvm_ctx.page_table.pages.get_mut(&page_target) {
-        pvm_ctx.reg[reg_a as usize] = page.data[offset as usize] as RegSize;
-        page.flags.referenced = true;
-        pvm_ctx.pc = skip(&pvm_ctx.pc, &program.bitmask);
-        return ExitReason::Continue;
-    }
-    return ExitReason::PageFault(address as RamAddress);   
+    _load::<T>(pvm_ctx, address as RamAddress, to_reg, signed)
 }
 
 pub fn load_u8(pvm_ctx: &mut Context, program: &Program)-> ExitReason {
-    load::<u8>(pvm_ctx, program)
+    load::<u8>(pvm_ctx, program, false)
 }
 
 pub fn load_u16(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    load::<u16>(pvm_ctx, program)
-}
-
-/*pub fn load_i8(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    let reg_a = get_reg(&pvm_ctx.pc, program);
-    let vx = get_x_imm(&pvm_ctx.pc, program);
-    let address = vx % pvm_ctx.ram.page_map[0].address as u64;
-    pvm_ctx.reg[reg_a as usize] = extend_sign(&[pvm_ctx.ram.chunk[0].contents[address as usize]], 1);
-    pvm_ctx.pc = skip(&pvm_ctx.pc, &program.bitmask);
-    ExitReason::Continue
-}
-
-
-
-pub fn load_i16(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    let reg_a = get_reg(&pvm_ctx.pc, program);
-    let vx = get_x_imm(&pvm_ctx.pc, program);
-    let address = vx % pvm_ctx.ram.page_map[0].address as u64;
-    pvm_ctx.reg[reg_a as usize] = extend_sign(&pvm_ctx.ram.chunk[0].contents[address as usize..address as usize + 2], 2);
-    pvm_ctx.pc = skip(&pvm_ctx.pc, &program.bitmask);
-    ExitReason::Continue
+    load::<u16>(pvm_ctx, program, false)
 }
 
 pub fn load_u32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    let reg_a = get_reg(&pvm_ctx.pc, program);
-    let vx = get_x_imm(&pvm_ctx.pc, program);
-    let address = vx % pvm_ctx.ram.page_map[0].address as u64;
-    let mut buffer = [0; std::mem::size_of::<u32>()];
-    buffer.copy_from_slice(&pvm_ctx.ram.chunk[0].contents[address as usize..address as usize + 4]);
-    pvm_ctx.reg[reg_a as usize] = u32::from_le_bytes(buffer) as u64;
-    pvm_ctx.pc = skip(&pvm_ctx.pc, &program.bitmask);
-    ExitReason::Continue
-}
-
-pub fn load_i32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    let reg_a = get_reg(&pvm_ctx.pc, program);
-    let vx = get_x_imm(&pvm_ctx.pc, program);
-    let address = vx % pvm_ctx.ram.page_map[0].address as u64;
-    pvm_ctx.reg[reg_a as usize] = extend_sign(&pvm_ctx.ram.chunk[0].contents[address as usize..address as usize + 4], 4);
-    pvm_ctx.pc = skip(&pvm_ctx.pc, &program.bitmask);
-    ExitReason::Continue
+    load::<u32>(pvm_ctx, program, false)
 }
 
 pub fn load_u64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    let reg_a = get_reg(&pvm_ctx.pc, program);
-    let vx = get_x_imm(&pvm_ctx.pc, program);
-    let address = vx % pvm_ctx.ram.page_map[0].address as u64;
-    let mut buffer = [0; std::mem::size_of::<u64>()];
-    buffer.copy_from_slice(&pvm_ctx.ram.chunk[0].contents[address as usize..address as usize + 8]);
-    pvm_ctx.reg[reg_a as usize] = u64::from_le_bytes(buffer);
-    pvm_ctx.pc = skip(&pvm_ctx.pc, &program.bitmask);
-    ExitReason::Continue
-}*/
+    load::<u64>(pvm_ctx, program, false)
+}
+
+pub fn load_i8(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    load::<i8>(pvm_ctx, program, true)
+}
+
+pub fn load_i16(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    load::<i16>(pvm_ctx, program, true)
+}
+
+pub fn load_i32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    load::<i32>(pvm_ctx, program, true)
+}
 
 pub fn store<T>(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let reg_a = get_reg(&pvm_ctx.pc, program);

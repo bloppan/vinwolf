@@ -23,13 +23,13 @@ fn get_y_length(pc: &RegSize, program: &Program) -> RegSize {
 fn get_x_imm(pc: &RegSize, program: &Program) -> RegSize {
     let start = *pc as usize + 2;
     let end = start + get_x_length(pc, program) as usize;
-    extend_sign(&program.code[start..end], get_x_length(pc, program) as usize)
+    extend_sign(&program.code[start..end])
 }
 
 fn get_y_imm(pc: &RegSize, program: &Program) -> RegSize {
     let start = *pc as usize + 2 + get_x_length(pc, program) as usize;
     let end = start + get_y_length(pc, program) as usize;
-    extend_sign(&program.code[start..end], get_y_length(pc, program) as usize)
+    extend_sign(&program.code[start..end])
 }
 
 fn get_address(pvm_ctx: &Context, program: &Program) -> RamAddress {

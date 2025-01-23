@@ -42,6 +42,7 @@ pub type Gas = u64;
 pub type RamAddress = u32;
 pub type PageAddress = RamAddress;
 pub type RegSize = u64;
+pub type RegSigned = i64;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Entropy {

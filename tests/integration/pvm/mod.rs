@@ -41,10 +41,6 @@ struct Testcase {
 
 #[cfg(test)]
 mod tests {
-    
-    use std::ops::Add;
-
-    use vinwolf::types::RamMemory;
 
     use super::*;
     fn run_pvm_test(filename: &str) {
@@ -93,15 +89,15 @@ mod tests {
                 let mut content = vec![];
                 let mut offset: Option<RamAddress> = None;
                 if page.1.flags.modified || page.1.flags.referenced {
-                    println!("Page modified or referended: {}", page.0);
-                    println!("Data: {:?}", page.1.data[0..10].to_vec());
+                    //println!("Page modified or referended: {}", page.0);
+                    //println!("Data: {:?}", page.1.data[0..10].to_vec());
                     for (i, byte) in page.1.data.iter().enumerate() {
                         //println!("Byte: {byte}, pos: {i}");
                         if *byte != 0 {
-                            println!("Byte: {byte}, pos: {i}");
+                            //println!("Byte: {byte}, pos: {i}");
                             if offset.is_none() {
                                 offset = Some(i as RamAddress);
-                                println!("Offset: {}", offset.unwrap());
+                                //println!("Offset: {}", offset.unwrap());
                             }
                             
                             content.push(*byte);
@@ -132,6 +128,19 @@ mod tests {
             expected_gas: pvm_ctx.gas.clone(),
         };
 
+        assert_eq!(testcase.initial_regs, result.initial_regs);
+        assert_eq!(testcase.initial_pc, result.initial_pc);
+        assert_eq!(testcase.initial_page_map, result.initial_page_map);
+        assert_eq!(testcase.initial_memory, result.initial_memory);
+        assert_eq!(testcase.initial_gas, result.initial_gas);
+        assert_eq!(testcase.program, result.program);
+        assert_eq!(testcase.expected_status, result.expected_status);
+        assert_eq!(testcase.expected_regs, result.expected_regs);
+        assert_eq!(testcase.expected_pc, result.expected_pc);
+        assert_eq!(testcase.expected_memory, result.expected_memory);
+        assert_eq!(testcase.expected_gas, result.expected_gas);
+
+
         assert_eq!(testcase, result);
 
     }
@@ -140,55 +149,143 @@ mod tests {
     fn test_pvm_programs() {
         
         let test_files = vec![
-            /*"inst_move_reg.json",
-            "inst_add_imm_32.json",
-            "inst_add_imm_32_with_truncation.json",
-            "inst_add_imm_32_with_truncation_and_sign_extension.json",
-            "inst_add_32.json",
             "inst_add_32_with_overflow.json",
-            "inst_add_32_with_truncation.json",
             "inst_add_32_with_truncation_and_sign_extension.json",
-            "inst_and.json",
+            "inst_add_32_with_truncation.json",
+            "inst_add_32.json",
+            "inst_add_64.json",
+            "inst_add_64_with_overflow.json",
+            "inst_add_imm_32_with_truncation_and_sign_extension.json",
+            "inst_add_imm_32_with_truncation.json",
+            "inst_add_imm_32.json",
+            "inst_add_imm_64.json",
             "inst_and_imm.json",
-            "inst_xor_imm.json",
-            "inst_xor.json",
-            "inst_trap.json",
-            "inst_sub_32.json",
-            "inst_sub_32_with_overflow.json",
-            "inst_sub_64.json",
-            "inst_sub_64_with_overflow.json",
-            "inst_load_imm_64.json",*/
-            "inst_store_imm_u8.json",
-            "inst_store_imm_u16.json",
-            "inst_store_imm_u32.json",
-            //"inst_load_imm.json",
-            "inst_load_u8.json",
-            /*"inst_load_i8.json",
-            "inst_load_u16.json",
+            "inst_and.json",
+            "inst_branch_eq_imm_nok.json",
+            "inst_branch_eq_imm_ok.json",
+            "inst_branch_eq_nok.json",
+            "inst_branch_eq_ok.json",
+            "inst_branch_greater_or_equal_signed_imm_nok.json",
+            "inst_branch_greater_or_equal_signed_imm_ok.json",
+            "inst_branch_greater_or_equal_signed_nok.json",
+            "inst_branch_greater_or_equal_signed_ok.json",
+            "inst_branch_greater_or_equal_unsigned_imm_nok.json",
+            "inst_branch_greater_or_equal_unsigned_imm_ok.json",
+            "inst_branch_greater_or_equal_unsigned_nok.json",
+            "inst_branch_greater_or_equal_unsigned_ok.json",
+            "inst_branch_greater_signed_imm_nok.json",
+            "inst_branch_greater_signed_imm_ok.json",
+            "inst_branch_greater_unsigned_imm_nok.json",
+            "inst_branch_greater_unsigned_imm_ok.json",
+            "inst_branch_less_or_equal_signed_imm_nok.json",
+            "inst_branch_less_or_equal_signed_imm_ok.json",
+            "inst_branch_less_or_equal_unsigned_imm_nok.json",
+            "inst_branch_less_or_equal_unsigned_imm_ok.json",
+            "inst_branch_less_signed_imm_nok.json",
+            "inst_branch_less_signed_imm_ok.json",
+            "inst_branch_less_signed_nok.json",
+            "inst_branch_less_signed_ok.json",
+            "inst_branch_less_unsigned_imm_nok.json",
+            "inst_branch_less_unsigned_imm_ok.json",
+            "inst_branch_less_unsigned_nok.json",
+            "inst_branch_less_unsigned_ok.json",
+            "inst_branch_not_eq_imm_nok.json",
+            "inst_branch_not_eq_imm_ok.json",
+            "inst_branch_not_eq_nok.json",
+            "inst_branch_not_eq_ok.json",
+            "inst_cmov_if_zero_imm_nok.json",
+            "inst_cmov_if_zero_imm_ok.json",
+            "inst_cmov_if_zero_nok.json",
+            "inst_cmov_if_zero_ok.json",
+            "inst_div_signed_32_by_zero.json",
+            "inst_div_signed_32_with_overflow.json",
+            "inst_div_signed_32.json",
+            "inst_div_signed_64_by_zero.json",
+            "inst_div_signed_64_with_overflow.json",
+            "inst_div_signed_64.json",
+            "inst_div_unsigned_32_by_zero.json",
+            "inst_div_unsigned_32_with_overflow.json",
+            "inst_div_unsigned_32.json",
+            "inst_div_unsigned_64_by_zero.json",
+            "inst_div_unsigned_64_with_overflow.json",
+            "inst_div_unsigned_64.json",
+            "inst_fallthrough.json",
+            /*"inst_jump_indirect_with_offset_ok.json",
+            "inst_jump_indirect_invalid_djump_to_zero_nok.json",
+            "inst_jump_indirect_misaligned_djump_with_offset_nok.json",*/
+
+
+            "inst_load_i8.json",
             "inst_load_i16.json",
-            "inst_load_u32.json",
             "inst_load_i32.json",
-            "inst_load_u64.json",*/
-            "inst_store_u8.json",
-            "inst_store_u8_trap_read_only.json",
-            "inst_store_u8_trap_inaccessible.json",
-            "inst_store_u16.json",
-            "inst_store_u32.json",
-            "inst_store_u64.json",
+            "inst_load_imm_64.json",
+            "inst_load_imm.json",
+
+            "inst_load_indirect_i8_with_offset.json",
+            "inst_load_indirect_i8_without_offset.json",
+            "inst_load_indirect_i16_with_offset.json",
+            "inst_load_indirect_i16_without_offset.json",
+            "inst_load_indirect_i32_with_offset.json",
+            "inst_load_indirect_i32_without_offset.json",
+            "inst_load_indirect_u8_with_offset.json",
+            "inst_load_indirect_u8_without_offset.json",
+            "inst_load_indirect_u16_with_offset.json",
+            "inst_load_indirect_u16_without_offset.json",
+            "inst_load_indirect_u32_with_offset.json",
+            "inst_load_indirect_u32_without_offset.json",
+            "inst_load_indirect_u64_with_offset.json",
+            "inst_load_indirect_u64_without_offset.json",
+            "inst_load_u8_trap.json",
+            "inst_load_u8.json",
+            "inst_load_u16.json",
+            "inst_load_u32.json",
+            "inst_load_u64.json",
+            "inst_move_reg.json",
+            "inst_mul_32.json",
+            "inst_mul_64.json",
+            "inst_mul_imm_32.json",
+            "inst_mul_imm_64.json",
+            "inst_negate_and_add_imm_32.json",
+            "inst_negate_and_add_imm_64.json",
+            "inst_or.json",
+            "inst_or_imm.json",
+            //"inst_rem_signed_32.json",
+
+
+
             "inst_store_imm_indirect_u8_with_offset_ok.json",
             "inst_store_imm_indirect_u8_with_offset_nok.json",
             "inst_store_imm_indirect_u8_without_offset_ok.json",
             "inst_store_imm_indirect_u16_with_offset_ok.json",
             "inst_store_imm_indirect_u16_with_offset_nok.json",
+            "inst_store_imm_indirect_u16_without_offset_ok.json",
             "inst_store_imm_indirect_u32_with_offset_ok.json",
             "inst_store_imm_indirect_u32_with_offset_nok.json",
+            "inst_store_imm_indirect_u32_without_offset_ok.json",
             "inst_store_imm_indirect_u64_with_offset_ok.json",
             "inst_store_imm_indirect_u64_with_offset_nok.json",
-            /*"gas_basic_consume_all.json",
-            "inst_add_imm.json",
-            "inst_add_with_overflow.json",
-            "inst_branch_eq_imm_nok.json",
-            "inst_branch_eq_imm_ok.json"*/
+            "inst_store_imm_indirect_u64_without_offset_ok.json",
+            "inst_store_imm_u8_trap_inaccessible.json",
+            "inst_store_imm_u8_trap_read_only.json",
+            "inst_store_imm_u8.json",
+            "inst_store_imm_u16.json",
+            "inst_store_imm_u32.json",
+            "inst_store_imm_u64.json",
+            "inst_store_u8_trap_inaccessible.json",
+            "inst_store_u8_trap_read_only.json",
+            "inst_store_u8.json",
+            "inst_store_u16.json",
+            "inst_store_u32.json",
+            "inst_store_u64.json",
+            "inst_sub_32_with_overflow.json",
+            "inst_sub_32.json",
+            "inst_sub_64_with_overflow.json",
+            "inst_sub_64.json",
+            "inst_sub_imm_32.json",
+            "inst_sub_imm_64.json",
+            "inst_trap.json",
+            "inst_xor_imm.json",
+            "inst_xor.json",
         ];
         for file in test_files {
             println!("Running test for file: {}", file);

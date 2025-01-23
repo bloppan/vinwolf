@@ -1,6 +1,14 @@
 
 use std::collections::BTreeMap;
-use crate::utils::codec::{Encode, Decode, EncodeSize, EncodeLen, DecodeLen, DecodeSize, ReadError, BytesReader};
+use crate::utils::codec::{FromLeBytes, Encode, Decode, EncodeSize, EncodeLen, DecodeLen, DecodeSize, ReadError, BytesReader};
+
+pub fn decode<T: FromLeBytes>(bytes: &[u8]) -> T {
+    let mut buffer = vec![0u8; std::mem::size_of::<T>()];
+    for i in 0..bytes.len() {
+        buffer[i] = bytes[i];
+    }
+    T::from_le_bytes(&buffer)
+}
 
 pub fn decode_to_bits(v: &[u8]) -> Vec<bool> {
 
@@ -123,6 +131,7 @@ impl Decode for i64 {
     }
 }
 
+
 impl<const N: usize> Decode for [u8; N] {
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
         let bytes = reader.read_bytes(N)?;
@@ -204,4 +213,16 @@ mod test {
             assert_eq!(expected, result);
         }
     }
+
+    #[test]
+    fn decode_test() {
+        let bytes = [0x01, 0x02, 0x03, 0x04];
+        let value: u32 = decode::<u32>(&bytes);
+        assert_eq!(value, 0x04030201);
+
+        let byte = [0x01];
+        let value: u8 = decode::<u8>(&byte);
+        assert_eq!(value, 0x01);
+    }
+
 }

@@ -5,7 +5,7 @@ mod encode;
 mod decode;
 
 pub use encode::{encode_unsigned, encode_integer, encode_from_bits};
-pub use decode::{decode_unsigned, decode_to_bits, decode_integer};
+pub use decode::{decode_unsigned, decode_to_bits, decode_integer, decode};
 
 pub fn seq_to_number(v: &Vec<u8>) -> u32 {
 
