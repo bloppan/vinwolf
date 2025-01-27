@@ -110,11 +110,6 @@ inst_negate_and_add_imm_64.json
 inst_or.json
 inst_or_imm.json
 inst_rem_signed_32.json
-
-
-
-
-
 inst_rem_signed_32_by_zero.json
 inst_rem_signed_32_with_overflow.json
 inst_rem_signed_64.json
@@ -146,6 +141,10 @@ inst_shift_arithmetic_right_imm_32.json
 inst_shift_arithmetic_right_imm_64.json
 inst_shift_arithmetic_right_imm_alt_32.json
 inst_shift_arithmetic_right_imm_alt_64.json
+
+
+
+
 inst_shift_logical_left_32.json
 inst_shift_logical_left_32_with_overflow.json
 inst_shift_logical_left_64.json
@@ -162,6 +161,7 @@ inst_shift_logical_right_imm_32.json
 inst_shift_logical_right_imm_64.json
 inst_shift_logical_right_imm_alt_32.json
 inst_shift_logical_right_imm_alt_64.json
+
 inst_store_imm_indirect_u16_with_offset_nok.json
 inst_store_imm_indirect_u16_with_offset_ok.json
 inst_store_imm_indirect_u16_without_offset_ok.json
@@ -180,6 +180,7 @@ inst_store_imm_u64.json
 inst_store_imm_u8.json
 inst_store_imm_u8_trap_inaccessible.json
 inst_store_imm_u8_trap_read_only.json
+
 inst_store_indirect_u16_with_offset_nok.json
 inst_store_indirect_u16_with_offset_ok.json
 inst_store_indirect_u16_without_offset_ok.json
@@ -192,6 +193,7 @@ inst_store_indirect_u64_without_offset_ok.json
 inst_store_indirect_u8_with_offset_nok.json
 inst_store_indirect_u8_with_offset_ok.json
 inst_store_indirect_u8_without_offset_ok.json
+
 inst_store_u16.json
 inst_store_u32.json
 inst_store_u64.json

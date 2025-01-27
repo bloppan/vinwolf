@@ -5,7 +5,9 @@
 use std::cmp::{min, max};
 use crate::pvm;
 use crate::types::{Context, ExitReason, Program, RegSigned, RegSize};
-use crate::pvm::isa::{skip, extend_sign, unsigned_to_signed};
+use crate::pvm::isa::{skip, extend_sign, signed};
+use crate::utils::codec::{BytesReader};
+use crate::utils::codec::generic::{decode_integer};
 
 
 fn get_reg(pc: &RegSize, program: &Program) -> (usize, usize) {
@@ -21,7 +23,9 @@ fn get_x_length(pc: &RegSize, program: &Program) -> RegSize {
 fn get_value(pc: &RegSize, program: &Program) -> i64 {
     let start = (*pc + 2) as usize;
     let end = start + get_x_length(pc, program) as usize;
-    (extend_sign(&program.code[start..end]) as i64) + *pc as i64
+    let mut reader = BytesReader::new(&program.code[start..end]);
+    let value = decode_integer(&mut reader, get_x_length(pc, program) as usize).unwrap() as u64;
+    signed(value, get_x_length(pc, program) as usize) + *pc as i64
 }
 
 fn branch_common(
@@ -31,10 +35,16 @@ fn branch_common(
 ) -> ExitReason {
     let (reg_a, reg_b) = get_reg(&pvm_ctx.pc, program);
     let value = get_value(&pvm_ctx.pc, program);
+    _branch(pvm_ctx, program, value, compare)
+}
+
+fn _branch(pvm_ctx: &mut Context, program: &Program, n: i64, compare: impl Fn(RegSize, RegSize) -> bool) -> ExitReason {
+    let (reg_a, reg_b) = get_reg(&pvm_ctx.pc, program);
+    let value = get_value(&pvm_ctx.pc, program);
     if compare(pvm_ctx.reg[reg_a], pvm_ctx.reg[reg_b]) {
-        pvm_ctx.pc = value as RegSize - 1;
+        pvm_ctx.pc = n as RegSize - 1;
     }
-    ExitReason::Continue
+    return ExitReason::Continue;
 }
 
 pub fn branch_eq(pvm_ctx: &mut Context, program: &Program) -> ExitReason {

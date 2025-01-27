@@ -4,7 +4,7 @@
 
 use std::cmp::{min, max};
 use crate::types::{Context, ExitReason, Program, RegSigned, RegSize};
-use crate::pvm::isa::{skip, extend_sign};
+use crate::pvm::isa::{skip, extend_sign, signed, unsigned};
 
 fn get_reg(pc: &u64, program: &Program) -> (usize, usize, usize) {
     let reg_a = min(12, program.code[*pc as usize + 1] % 16) as usize;
@@ -56,21 +56,56 @@ pub fn div_s_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     ExitReason::Continue
 }
 
+pub fn rem_u_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    if pvm_ctx.reg[reg_b as usize] % (1 << 32) == 0 {
+        pvm_ctx.reg[reg_d as usize] = extend_sign(&(pvm_ctx.reg[reg_a as usize] as u32).to_le_bytes());
+        return ExitReason::Continue;
+    }    
+    let value_reg_a = pvm_ctx.reg[reg_a as usize] as u32;
+    let value_reg_b = pvm_ctx.reg[reg_b as usize] as u32;
+    pvm_ctx.reg[reg_d as usize] = extend_sign(&(value_reg_a % value_reg_b as u32).to_le_bytes()) as RegSize;
+    ExitReason::Continue
+}
+
 pub fn rem_s_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
     let a = pvm_ctx.reg[reg_a as usize] as i32;
     let b = pvm_ctx.reg[reg_b as usize] as i32;
     if b == 0 {
-        pvm_ctx.reg[reg_d as usize] = (a as i64) as RegSize;
-    } else if a as i64 == 0xFFFFFFFF80000000 || b == 0xFFFFFFFF {
+        pvm_ctx.reg[reg_d as usize] = extend_sign(&a.to_le_bytes());
+    } else if extend_sign(&a.to_le_bytes()) == 0xFFFFFFFF80000000 || extend_sign(&b.to_le_bytes()) == 0xFFFFFFFFFFFFFFFFu64 {
         pvm_ctx.reg[reg_d as usize] = 0;
     } else {
-        pvm_ctx.reg[reg_d as usize] = (a % b) as RegSize;
+        pvm_ctx.reg[reg_d as usize] = extend_sign(&(a % b).to_le_bytes()) as RegSize;
     }
 
     ExitReason::Continue
 }
 
+pub fn shlo_l_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    let value_reg_a = (pvm_ctx.reg[reg_a as usize] % (1 << 32)) as u32;
+    let value_reg_b = (pvm_ctx.reg[reg_b as usize] % (1 << 32)) as u32;
+    pvm_ctx.reg[reg_d as usize] = extend_sign(&((value_reg_a << (value_reg_b % 32)) as u32).to_le_bytes());
+    ExitReason::Continue
+}
+
+pub fn shlo_r_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    let value_reg_a = (pvm_ctx.reg[reg_a as usize] % (1 << 32)) as u32;
+    let value_reg_b = (pvm_ctx.reg[reg_b as usize] % (1 << 32)) as u32;
+    pvm_ctx.reg[reg_d as usize] = extend_sign(&((value_reg_a >> (value_reg_b % 32)) as u32).to_le_bytes());
+    ExitReason::Continue
+}
+
+pub fn shar_r_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    let value_reg_a = (pvm_ctx.reg[reg_a as usize] % (1 << 32)) as u32;
+    let value_reg_b = (pvm_ctx.reg[reg_b as usize] % (1 << 32)) as u32;
+    pvm_ctx.reg[reg_d as usize] = unsigned(signed(value_reg_a as u64, 4) >> (value_reg_b % 32), 8) as RegSize;
+    ExitReason::Continue
+}
 
 pub fn add_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
@@ -126,6 +161,84 @@ pub fn div_s_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
         pvm_ctx.reg[reg_d as usize] = (pvm_ctx.reg[reg_a as usize] as i64) as RegSize;
     } else {
         pvm_ctx.reg[reg_d as usize] = (pvm_ctx.reg[reg_a as usize] as i64 / pvm_ctx.reg[reg_b as usize] as i64) as RegSize;
+    }
+    ExitReason::Continue
+}
+
+pub fn rem_u_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+
+    if pvm_ctx.reg[reg_b as usize] == 0 {
+        pvm_ctx.reg[reg_d as usize] = pvm_ctx.reg[reg_a as usize];
+        return ExitReason::Continue;
+    }
+
+    let value_reg_a = pvm_ctx.reg[reg_a as usize] as u64;
+    let value_reg_b = pvm_ctx.reg[reg_b as usize] as u64;
+    pvm_ctx.reg[reg_d as usize] = value_reg_a % value_reg_b;
+    ExitReason::Continue
+}
+
+pub fn rem_s_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    let value_reg_a = pvm_ctx.reg[reg_a as usize] as RegSize;
+    let value_reg_b = pvm_ctx.reg[reg_b as usize] as RegSize;
+    
+    if value_reg_b == 0 {
+        pvm_ctx.reg[reg_d as usize] = value_reg_a;
+    } else if extend_sign(&value_reg_a.to_le_bytes()) == 0x8000000000000000 || extend_sign(&value_reg_b.to_le_bytes()) == 0xFFFFFFFFFFFFFFFF {
+        pvm_ctx.reg[reg_d as usize] = 0;
+    } else {
+        let a_signed = extend_sign(&value_reg_a.to_le_bytes()) as i64;
+        let b_signed = extend_sign(&value_reg_b.to_le_bytes()) as i64;
+        let module = a_signed % b_signed;
+        pvm_ctx.reg[reg_d as usize] = module as RegSize;
+    }
+    ExitReason::Continue
+}
+
+pub fn shlo_l_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    let value_reg_a = pvm_ctx.reg[reg_a as usize] as u64;
+    let value_reg_b = pvm_ctx.reg[reg_b as usize] as u64;
+    pvm_ctx.reg[reg_d as usize] = (value_reg_a << (value_reg_b % 64)) as u64;
+    ExitReason::Continue
+}
+
+pub fn shlo_r_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    let value_reg_a = pvm_ctx.reg[reg_a as usize] as u64;
+    let value_reg_b = pvm_ctx.reg[reg_b as usize] as u64;
+    pvm_ctx.reg[reg_d as usize] = (value_reg_a >> (value_reg_b % 64)) as RegSize;
+    ExitReason::Continue
+}
+
+pub fn shar_r_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    let value_reg_a = pvm_ctx.reg[reg_a as usize] as u64;
+    let value_reg_b = pvm_ctx.reg[reg_b as usize] as u64;
+    pvm_ctx.reg[reg_d as usize] = unsigned(signed(value_reg_a, 8) >> (value_reg_b % 64), 8) as RegSize;
+    ExitReason::Continue
+}
+
+pub fn set_lt_u(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    if pvm_ctx.reg[reg_a as usize] < pvm_ctx.reg[reg_b as usize] {
+        pvm_ctx.reg[reg_d as usize] = 1;
+        return ExitReason::Continue;
+    } 
+    pvm_ctx.reg[reg_d as usize] = 0;
+    return ExitReason::Continue;
+}
+
+pub fn set_lt_s(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    let value_reg_a = pvm_ctx.reg[reg_a as usize] as RegSigned;
+    let value_reg_b = pvm_ctx.reg[reg_b as usize] as RegSigned;
+    if value_reg_a < value_reg_b {
+        pvm_ctx.reg[reg_d as usize] = 1;
+    } else {
+        pvm_ctx.reg[reg_d as usize] = 0;
     }
     ExitReason::Continue
 }

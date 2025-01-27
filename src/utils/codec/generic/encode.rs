@@ -249,6 +249,19 @@ impl<const N: usize> EncodeSize for [u8; N] {
 }
 
 pub fn encode_integer(x: usize, l: usize) -> Vec<u8> {
+    
+    if l == 0 {
+        return vec![];
+    }
+
+    let mut result = vec![];
+
+    result.push((x % 256) as u8);
+    result.extend_from_slice(&encode_integer(x >> 8, l - 1));
+    return result;
+}
+
+/*pub fn encode_integer(x: usize, l: usize) -> Vec<u8> {
 
     let mut sequence: Vec<u8> = Vec::new();
     if l == 0 { return sequence } 
@@ -266,7 +279,7 @@ pub fn encode_integer(x: usize, l: usize) -> Vec<u8> {
     }
     
     return sequence;
-}
+}*/
 
 impl<T: Encode> EncodeLen for &[T] {
 
@@ -295,4 +308,31 @@ pub fn encode_from_bits(v: &[bool]) -> Vec<u8> {
                 .fold(0u8, |acc, (i, &bit)| acc | ((bit as u8) << i))
         })
         .collect()
+}
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_encode_integer() {
+        assert_eq!(Vec::<u8>::new(), encode_integer(0, 0));       
+        assert_eq!(vec![0x00], encode_integer(0, 1));             
+        assert_eq!(vec![0xFF], encode_integer(255, 1));           
+        assert_eq!(vec![0x00, 0x01], encode_integer(256, 2));     
+        assert_eq!(vec![0x3C], encode_integer(1340, 1));          
+        assert_eq!(vec![0x3C, 0x05], encode_integer(1340, 2));    
+        assert_eq!(vec![0x34, 0x12], encode_integer(4660, 2));    
+        assert_eq!(vec![0xFF, 0xFF], encode_integer(65535, 2));   
+        assert_eq!(vec![0x00, 0x00, 0x01], encode_integer(65536, 3));
+        assert_eq!(vec![0x78, 0x56, 0x34, 0x12], encode_integer(0x12345678, 4)); 
+        assert_eq!(vec![0xEF, 0xCD, 0xAB, 0x89], encode_integer(0x89ABCDEF, 4)); 
+        assert_eq!(vec![0xFF, 0xFF, 0xFF, 0xFF], encode_integer(0xFFFFFFFF, 4)); 
+        assert_eq!(vec![0xAA, 0xBB, 0xCC, 0xDD, 0xEE], encode_integer(0xEE_DD_CC_BB_AA, 5)); 
+        assert_eq!(vec![0x78, 0x56, 0x34, 0x12, 0x00, 0x00], encode_integer(0x12345678, 6)); 
+        assert_eq!(vec![0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE], encode_integer(0xDEBC9A78563412, 7)); 
+        assert_eq!(vec![0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF], encode_integer(0xEFCDAB8967452301, 8));
+    }
+
 }

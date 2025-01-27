@@ -643,7 +643,7 @@ pub struct Block {
 pub struct Program {
     pub code: Vec<u8>,          // Instruction data (c)
     pub bitmask: Vec<bool>,     // Bitmask (k)
-    pub jump_table: Vec<u8>,    // Dynamic jump table (j)
+    pub jump_table: Vec<usize>,    // Dynamic jump table (j)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -698,6 +698,7 @@ pub struct MemoryChunk {
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 pub enum ExitReason {
     trap,
+    halt,
     Continue,
     Halt,        
     Panic,              

@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use crate::types::{
-    Context, RamAccess, RamAddress, RegSize, Program, ExitReason
+    Context, RamAccess, RamAddress, RegSize, RegSigned, Program, ExitReason
 };
 use crate::constants::{NUM_PAGES, PAGE_SIZE};
-use crate::utils::codec::EncodeSize;
+use crate::utils::codec::{EncodeSize, FromLeBytes};
 use crate::utils::codec::generic::decode;
 pub mod no_arg;
 pub mod one_imm;
@@ -48,6 +48,20 @@ pub fn extend_sign(le_bytes: &[u8]) -> RegSize {
     } 
 
     return x;
+}
+
+pub fn signed(a: u64, n: usize) -> i64 {
+
+    if a < (1 << (8 * n - 1)) {
+        return a as i64;
+    }
+
+    return (a as u128).wrapping_sub(1u128 << (8 * n)) as i64;
+}
+
+pub fn unsigned(a: i64, n: usize) -> u64 {
+    let modulus = 1u128 << (8 * n);
+    ((modulus.wrapping_add(a as u128)) % modulus) as u64
 }
 
 fn unsigned_to_signed(le_bytes: &[u8]) -> i64 {
@@ -143,14 +157,15 @@ pub fn djump(a: &RegSize, pc: &mut RegSize, program: &Program) -> ExitReason {
     if *a == 0xFFFF0000 {
         println!("Halt");
         println!("pc = {}", pc);
-        return ExitReason::Halt;
+        return ExitReason::halt;
     } else if *a == 0 ||  *a as usize > program.bitmask.len() * 2 || a % 2 != 0 {
         println!("Trap");
-        *pc = 0;
         println!("pc = {}", pc);
         ExitReason::trap
     } else {
-        println!("Jumping to {}", a);
+        let jump = (*a as usize / 2) - 1;
+        println!("Jumping to jump table pos {}", jump);
+        *pc = program.jump_table[jump] as u64 - 1;
         println!("pc = {}", pc);
         ExitReason::Continue
     }    
@@ -225,32 +240,90 @@ mod test {
     }
 
     #[test]
-fn test_signed_to_unsigned() {
-    let test_cases = vec![
-        (0i64, 1, vec![0x00]),
-        (-1i64, 1, vec![0xFF]),
-        (127i64, 1, vec![0x7F]),
-        (-128i64, 1, vec![0x80]),
+    fn test_signed_to_unsigned() {
+        let test_cases = vec![
+            (0i64, 1, vec![0x00]),
+            (-1i64, 1, vec![0xFF]),
+            (127i64, 1, vec![0x7F]),
+            (-128i64, 1, vec![0x80]),
 
-        (0i64, 2, vec![0x00, 0x00]),
-        (-1i64, 2, vec![0xFF, 0xFF]),
-        (32767i64, 2, vec![0xFF, 0x7F]),
-        (-32768i64, 2, vec![0x00, 0x80]),
+            (0i64, 2, vec![0x00, 0x00]),
+            (-1i64, 2, vec![0xFF, 0xFF]),
+            (32767i64, 2, vec![0xFF, 0x7F]),
+            (-32768i64, 2, vec![0x00, 0x80]),
 
-        (0i64, 4, vec![0x00, 0x00, 0x00, 0x00]),
-        (-1i64, 4, vec![0xFF, 0xFF, 0xFF, 0xFF]),
-        (2147483647i64, 4, vec![0xFF, 0xFF, 0xFF, 0x7F]),
-        (-2147483648i64, 4, vec![0x00, 0x00, 0x00, 0x80]),
+            (0i64, 4, vec![0x00, 0x00, 0x00, 0x00]),
+            (-1i64, 4, vec![0xFF, 0xFF, 0xFF, 0xFF]),
+            (2147483647i64, 4, vec![0xFF, 0xFF, 0xFF, 0x7F]),
+            (-2147483648i64, 4, vec![0x00, 0x00, 0x00, 0x80]),
 
-        (0i64, 8, vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
-        (-1i64, 8, vec![0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]),
-        (9223372036854775807i64, 8, vec![0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F]),
-        (-9223372036854775808i64, 8, vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80]),
-    ];
+            (0i64, 8, vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
+            (-1i64, 8, vec![0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]),
+            (9223372036854775807i64, 8, vec![0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F]),
+            (-9223372036854775808i64, 8, vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80]),
+        ];
 
-    for (input, n, expected) in test_cases {
-        let result = signed_to_unsigned(&input.to_le_bytes());
-        assert_eq!(result[..n], expected[..], "Failed on input: {}, n: {}", input, n);
+        for (input, n, expected) in test_cases {
+            let result = signed_to_unsigned(&input.to_le_bytes());
+            assert_eq!(result[..n], expected[..], "Failed on input: {}, n: {}", input, n);
+        }
     }
-}
+
+    #[test]
+    fn test_signed() {
+        let test_cases = vec![
+            (1, 1, 1i64),
+            (255, 1, -1i64),
+            (127, 1, 127i64),
+            (128, 1, -128i64),
+            (65535, 2, -1i64),
+            (32768, 2, -32768i64),
+            (32767, 2, 32767i64),
+            (2147483648, 4, -2147483648i64),
+            (2147483647, 4, 2147483647i64),
+            (0, 8, 0i64),
+            (0xFFFFFFFFFFFFFFFF, 8, -1i64),
+            (1, 8, 1i64),
+            (0x8000000000000000, 8, -9223372036854775808i64),
+            (9223372036854775807, 8, 9223372036854775807i64),
+            (0x8000000000000001, 8, -9223372036854775807i64),
+            (0x8000000000000000, 8, -9223372036854775808i64),
+            (0x7FFFFFFFFFFFFFFF, 8, 9223372036854775807i64),
+        ];
+        for (input, n, expected) in test_cases {
+            let result = signed(input, n);
+            assert_eq!(result, expected, "Failed on input: {}, n: {}", input, n);
+        }
+    }
+
+    #[test]
+    fn test_unsigned() {
+        let test_cases: Vec<(i64, usize, u64)> = vec![
+            (0, 1, 0u64),
+            (-1, 1, 255u64),       
+            (127, 1, 127u64),      
+            (-128, 1, 128u64),     
+            (255, 1, 255u64),      
+            (-1, 2, 65535u64),     
+            (-32768, 2, 32768u64), 
+            (32767, 2, 32767u64),  
+            (-2147483648, 4, 2147483648u64), 
+            (2147483647, 4, 2147483647u64),  
+            (0, 8, 0u64),
+            (-1, 8, 0xFFFFFFFFFFFFFFFFu64),
+            (1, 8, 1u64),
+            (-9223372036854775808, 8, 0x8000000000000000u64),
+            (9223372036854775807, 8, 9223372036854775807u64),
+            (-9223372036854775807, 8, 0x8000000000000001u64),
+            (i64::MIN, 8, 0x8000000000000000u64),  
+            (i64::MAX, 8, 0x7FFFFFFFFFFFFFFF_u64), 
+        ];
+        
+        for (input, n, expected) in test_cases {
+            let result = unsigned(input, n);
+            assert_eq!(result, expected, "Failed on input: {}, n: {}", input, n);
+        }
+    }
+    
+    
 }
