@@ -701,7 +701,7 @@ pub enum ExitReason {
     halt,
     Continue,
     Halt,        
-    Panic,              
+    panic,              
     OutOfGas,           
     PageFault(u32),     
     HostCall(u32),      

@@ -146,7 +146,29 @@ mod tests {
     }
 
     #[test]
-    fn test_pvm_programs() {
+    fn test_programs() {
+        let test_files = vec![
+            "gas_basic_consume_all.json",
+            "inst_add_32.json",
+            "inst_add_32_with_overflow.json",
+            "inst_add_32_with_truncation.json",
+            "inst_add_32_with_truncation_and_sign_extension.json",
+            "inst_add_64.json",
+            "inst_add_64_with_overflow.json",
+            "inst_add_imm_32.json",
+            "inst_add_imm_32_with_truncation.json",
+            "inst_add_imm_32_with_truncation_and_sign_extension.json",
+        ];
+        
+        for file in test_files {
+            println!("Running test for file: {}", file);
+            run_pvm_test(file);
+            println!("Ok\n\n");
+        }
+    }
+
+    #[warn(dead_code)]
+    fn test_subotic_64bit_programs() {
         
         let test_files = vec![
             "inst_add_32_with_overflow.json",

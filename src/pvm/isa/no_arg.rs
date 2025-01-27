@@ -9,7 +9,7 @@ use crate::utils::codec::{EncodeSize, DecodeSize, BytesReader};
 use crate::pvm::isa::{skip, extend_sign};
 
 pub fn trap() -> ExitReason {
-    ExitReason::trap // TODO esto es un panic
+    ExitReason::panic
 }
 
 pub fn fallthrough() -> ExitReason {

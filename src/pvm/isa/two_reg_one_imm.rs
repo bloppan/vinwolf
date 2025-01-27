@@ -3,6 +3,8 @@
 */
 
 use std::cmp::{min, max};
+use serde::de::value;
+
 use crate::constants::{NUM_REG, PAGE_SIZE};
 use crate::pvm;
 use crate::types::{Context, ExitReason, Program, RamAccess, RamAddress, RegSigned, RegSize};
@@ -16,7 +18,7 @@ fn get_imm(pc: &RegSize, program: &Program) -> RegSize {
 }
 
 fn get_x_length(pc: &RegSize, program: &Program) -> RegSize {
-    min(4, max(0, skip(pc, &program.bitmask) - 1))
+    min(4, max(0, skip(pc, &program.bitmask).saturating_sub(1)))
 }
 
 fn get_reg(pc: &RegSize, code: &[u8]) -> (u8, u8) {
@@ -110,7 +112,7 @@ pub fn load_ind_u64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
 
 pub fn add_imm_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let (reg_a, reg_b, value_imm, value_reg_b) = get_data(pvm_ctx, program);
-    let result = (value_reg_b as u32).wrapping_add(value_imm as u32) as u32;
+    let result = (value_reg_b.wrapping_add(value_imm) % (1 << 32)) as u32;
     pvm_ctx.reg[reg_a as usize] = extend_sign(&result.to_le_bytes());
     ExitReason::Continue
 }

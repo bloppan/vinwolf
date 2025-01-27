@@ -15,8 +15,8 @@ fn get_reg(pc: &u64, program: &Program) -> (usize, usize, usize) {
 
 pub fn add_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
-    let result = (pvm_ctx.reg[reg_a as usize] as u32).wrapping_add(pvm_ctx.reg[reg_b as usize] as u32).to_le_bytes();
-    pvm_ctx.reg[reg_d as usize] = extend_sign(&result);
+    let result = (pvm_ctx.reg[reg_a].wrapping_add(pvm_ctx.reg[reg_b]) % (1 << 32)) as u32;
+    pvm_ctx.reg[reg_d as usize] = extend_sign(&result.to_le_bytes());
     ExitReason::Continue
 }
 
@@ -109,7 +109,7 @@ pub fn shar_r_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
 
 pub fn add_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
-    pvm_ctx.reg[reg_d as usize] = pvm_ctx.reg[reg_a as usize].wrapping_add(pvm_ctx.reg[reg_b as usize]);
+    pvm_ctx.reg[reg_d] = pvm_ctx.reg[reg_a].wrapping_add(pvm_ctx.reg[reg_b]) as u64;
     ExitReason::Continue
 }
 
