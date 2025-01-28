@@ -16,7 +16,7 @@ fn get_reg(pvm_ctx: &mut Context, program: &Program) -> u8 {
 fn get_imm(pc: &RegSize, program: &Program) -> RegSize {
     let start = *pc as usize + 2;
     let end = start + 8;
-    decode::<RegSize>(&program.code[start..end])
+    decode::<RegSize>(&program.code[start..end], 8)
 }
 
 pub fn load_imm_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {

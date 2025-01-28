@@ -4,7 +4,7 @@
 
 use std::cmp::{min, max};
 use crate::types::{Context, ExitReason, Program, RamAddress, RegSigned, RegSize};
-use crate::pvm::isa::{skip, extend_sign};
+use crate::pvm::isa::{skip, extend_sign, signed};
 
 
 fn get_reg(pc: &RegSize, program: &Program) -> u8 {
@@ -22,13 +22,15 @@ fn get_y_length(pc: &RegSize, program: &Program) -> RegSize {
 fn get_x_value(pc: &RegSize, program: &Program) -> RegSize {
     let start = *pc as usize + 2;
     let end = start + get_x_length(pc, program) as usize;
-    extend_sign(&program.code[start..end]) as RegSize
+    let n = get_x_length(pc, program) as usize;
+    extend_sign(&program.code[start..end], n) as RegSize
 }
 
 fn get_y_value(pc: &RegSize, program: &Program) -> RegSize {
     let start = *pc as usize + 2 + get_x_length(pc, program) as usize;
     let end = start + get_y_length(pc, program) as usize;
-    extend_sign(&program.code[start..end]) as RegSize
+    let n = get_y_length(pc, program) as usize;
+    extend_sign(&program.code[start..end], n) as RegSize
 }
 
 fn branch_common_imm(
@@ -54,14 +56,6 @@ pub fn branch_ne_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     branch_common_imm(pvm_ctx, program, |a, b| a as RegSize != b as RegSize)
 }
 
-pub fn branch_ge_s_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch_common_imm(pvm_ctx, program, |a, b| (a as RegSigned) >= (b as RegSigned))
-}
-
-pub fn branch_gt_s_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch_common_imm(pvm_ctx, program, |a, b| (a as RegSigned) > (b as RegSigned))
-}
-
 pub fn branch_lt_u_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     branch_common_imm(pvm_ctx, program, |a, b| (a as RegSize) < (b as RegSize))
 }
@@ -79,9 +73,18 @@ pub fn branch_gt_u_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
 }
 
 pub fn branch_lt_s_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch_common_imm(pvm_ctx, program, |a, b| (a as RegSigned) < (b as RegSigned))
+    branch_common_imm(pvm_ctx, program, |a, b| signed(a, 8) < signed(b, 8))
 }
 
 pub fn branch_le_s_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch_common_imm(pvm_ctx, program, |a, b| (a as RegSigned) <= (b as RegSigned))
+    branch_common_imm(pvm_ctx, program, |a, b| signed(a, 8) <= signed(b, 8))
 }
+
+pub fn branch_ge_s_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    branch_common_imm(pvm_ctx, program, |a, b| signed(a, 8) >= signed(b, 8))
+}
+
+pub fn branch_gt_s_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    branch_common_imm(pvm_ctx, program, |a, b| signed(a, 8) > signed(b, 8))
+}
+

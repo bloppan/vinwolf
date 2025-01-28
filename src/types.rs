@@ -652,6 +652,7 @@ pub struct Context {
     pub gas: Gas,
     pub page_table: PageTable,
     pub reg: [RegSize; NUM_REG as usize],
+    pub page_fault: Option<RamAddress>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -702,7 +703,9 @@ pub enum ExitReason {
     Continue,
     Halt,        
     panic,              
-    OutOfGas,           
+    OutOfGas,
+    #[serde(rename = "page-fault")]
+    page_fault,       
     PageFault(u32),     
     HostCall(u32),      
 }

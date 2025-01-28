@@ -3,6 +3,8 @@
 */
 
 use std::cmp::{min, max};
+use num::traits::sign;
+
 use crate::pvm;
 use crate::types::{Context, ExitReason, Program, RegSigned, RegSize};
 use crate::pvm::isa::{skip, extend_sign, signed};
@@ -55,18 +57,19 @@ pub fn branch_ne(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     branch_common(pvm_ctx, program, |a, b| a as RegSize != b as RegSize)
 }
 
-pub fn branch_ge_s(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch_common(pvm_ctx, program, |a, b| (a as RegSigned) >= (b as RegSigned))
-}
-
 pub fn branch_lt_u(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     branch_common(pvm_ctx, program, |a, b| (a as RegSize) < (b as RegSize))
 }
 
 pub fn branch_lt_s(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch_common(pvm_ctx, program, |a, b| (a as RegSigned) < (b as RegSigned))
+    branch_common(pvm_ctx, program, |a, b| signed(a, 8) < signed(b, 8))
 }
 
 pub fn branch_ge_u(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     branch_common(pvm_ctx, program, |a, b| a as RegSize >= b as RegSize)
 }
+
+pub fn branch_ge_s(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    branch_common(pvm_ctx, program, |a, b| signed(a, 8) >= signed(b, 8))
+}
+

@@ -1,11 +1,19 @@
-use std::collections::BTreeMap;
 use crate::utils::codec::{FromLeBytes, Encode, Decode, EncodeSize, EncodeLen, DecodeLen, DecodeSize, ReadError, BytesReader};
 
-pub fn decode<T: FromLeBytes>(bytes: &[u8]) -> T {
+// TODO revisar esta funcion
+pub fn decode<T: FromLeBytes>(bytes: &[u8], n: usize) -> T {
     let mut buffer = vec![0u8; std::mem::size_of::<T>()];
-    for i in 0..bytes.len() {
+    
+    let mut len = n;
+
+    if bytes.len() < n {
+        len = bytes.len();
+    }
+
+    for i in 0..len {
         buffer[i] = bytes[i];
     }
+
     T::from_le_bytes(&buffer)
 }
 
@@ -48,26 +56,6 @@ pub fn decode_unsigned(data: &mut BytesReader) -> Result<usize, ReadError> {
 
     return Ok(result | ((first_byte & mask) as usize) << (8 * l));
 }
-/*
-pub fn decompact_len(v: &[u8]) -> Vec<usize> {
-
-    if v.is_empty() {
-        return vec![0];
-    }
-
-    let length = v[0] as usize;
-    let mut result = Vec::with_capacity(length);
-    let mut k = 1;
-
-    for _ in 0..length {
-        let l = v[k].leading_ones() as usize;
-        let member = &v[k..=k + l]; 
-        result.push(decode_unsigned(member));
-        k += l + 1;
-    }
-
-    result
-}*/
 
 impl Decode for u8 {
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
@@ -254,11 +242,11 @@ mod test {
     #[test]
     fn decode_test() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
-        let value: u32 = decode::<u32>(&bytes);
+        let value: u32 = decode::<u32>(&bytes, 4);
         assert_eq!(value, 0x04030201);
 
         let byte = [0x01];
-        let value: u8 = decode::<u8>(&byte);
+        let value: u8 = decode::<u8>(&byte, 1);
         assert_eq!(value, 0x01);
     }
 

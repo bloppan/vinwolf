@@ -27,6 +27,7 @@ impl Default for Context {
             gas: 0,
             reg: [0; NUM_REG as usize],
             page_table: PageTable::default(),
+            page_fault: None,
         }
     }
 }
@@ -51,7 +52,7 @@ pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
             jump_table: jump_table,
         }
     };
-        
+
     let mut exit_reason;
 
     while pvm_ctx.gas > 0 {
@@ -65,7 +66,7 @@ pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
             },
             ExitReason::PageFault(_) => {
                 pvm_ctx.gas -= 1; 
-                return ExitReason::trap;
+                return ExitReason::page_fault;
             },
             ExitReason::trap => {
                 return exit_reason;

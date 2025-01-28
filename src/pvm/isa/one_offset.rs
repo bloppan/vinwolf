@@ -15,5 +15,6 @@ fn get_lx_length(pc: &u64, bitmask: &[bool]) -> u64 {
 fn get_lx_imm(pc: &u64, program: &Program) -> u64 {
     let start = *pc as usize + 1;
     let end = start + get_lx_length(pc, &program.bitmask) as usize;
-    extend_sign(&program.code[start..end]) as u64
+    let n = get_lx_length(pc, &program.bitmask) as usize;
+    extend_sign(&program.code[start..end], n) as u64
 }
