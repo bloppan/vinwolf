@@ -62,6 +62,28 @@ pub fn unsigned(a: i64, n: usize) -> u64 {
     ((modulus.wrapping_add(a as u128)) % modulus) as u64
 }
 
+pub fn _branch(
+    pvm_ctx: &mut Context, 
+    program: &Program, 
+    n: i64,
+) -> ExitReason {
+
+    // Check if the jump is out of bounds
+    if n <= 0 || n as usize >= program.code.len() {
+        println!("Panic: jump out of bounds");
+        return ExitReason::panic;
+    }
+    // Check for the beginning of a basic-block
+    if program.code[n as usize - 1] != 0 {
+        println!("Panic: not a basic block: {}", program.code[n as usize - 1]);
+        return ExitReason::panic;
+    }
+
+    pvm_ctx.pc = (n - 1) as RegSize;
+        
+    return ExitReason::Continue;
+}
+
 pub fn _load<T>(pvm_ctx: &mut Context, address: RamAddress, reg: RegSize, signed: bool) -> ExitReason {
 
     if let Err(address) = check_page_fault::<T>(pvm_ctx, address as RamAddress, RamAccess::Read) {
@@ -138,7 +160,7 @@ pub fn djump(a: &RegSize, pc: &mut RegSize, program: &Program) -> ExitReason {
         return ExitReason::halt;
     } else if *a == 0 ||  *a as usize > program.bitmask.len() * 2 || a % 2 != 0 {
         println!("Panic: invalid address");
-        println!("pc = {}", pc);
+        println!("a = {} pc = {}", *a, pc);
         ExitReason::panic
     } else {
         let jump = (*a as usize / 2) - 1;

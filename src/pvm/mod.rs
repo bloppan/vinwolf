@@ -9,9 +9,11 @@ use crate::types::{Context, ExitReason, PageFlags, Page, PageMap, Program, RamMe
 use crate::utils::codec::generic::{decode_to_bits, decode_unsigned, seq_to_number, decode_integer};
 use crate::utils::codec::{BytesReader, FromLeBytes, Decode};
 use crate::pvm::isa::skip;
+use isa::one_offset::*;
 use isa::no_arg::*;
 use isa::two_reg::*;
 use isa::two_reg_one_imm::*;
+use isa::two_reg_two_imm::*;
 use isa::two_reg_one_offset::*;
 use isa::three_reg::*;
 use isa::one_reg_one_ext_imm::*;
@@ -68,9 +70,6 @@ pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
                 pvm_ctx.gas -= 1; 
                 return ExitReason::page_fault;
             },
-            ExitReason::trap => {
-                return exit_reason;
-            },
             _ => { return exit_reason; },
         }
     }
@@ -96,6 +95,7 @@ fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
         31_u8   => { store_imm_u16(pvm_ctx, program) },
         32_u8   => { store_imm_u32(pvm_ctx, program) },
         33_u8   => { store_imm_u64(pvm_ctx, program) },
+        40_u8   => { jump(pvm_ctx, program) },
         50_u8   => { jump_ind(pvm_ctx, program) },
         51_u8   => { load_imm(pvm_ctx, program) },
         52_u8   => { load_u8(pvm_ctx, program) },
@@ -113,6 +113,7 @@ fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
         71_u8   => { store_imm_ind_u16(pvm_ctx, program) },
         72_u8   => { store_imm_ind_u32(pvm_ctx, program) },
         73_u8   => { store_imm_ind_u64(pvm_ctx, program) },
+        80_u8   => { load_imm_jump(pvm_ctx, program) },
         81_u8   => { branch_eq_imm(pvm_ctx, program) },
         82_u8   => { branch_ne_imm(pvm_ctx, program) },
         83_u8   => { branch_lt_u_imm(pvm_ctx, program) },
@@ -167,6 +168,7 @@ fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
         173_u8  => { branch_lt_s(pvm_ctx, program) },
         174_u8  => { branch_ge_u(pvm_ctx, program) },
         175_u8  => { branch_ge_s(pvm_ctx, program) },
+        180_u8  => { load_imm_jump_ind(pvm_ctx, program) },
         190_u8  => { add_32(pvm_ctx, program) },
         191_u8  => { sub_32(pvm_ctx, program) },
         192_u8  => { mul_32(pvm_ctx, program) },

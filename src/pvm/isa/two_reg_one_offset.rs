@@ -3,11 +3,9 @@
 */
 
 use std::cmp::{min, max};
-use num::traits::sign;
 
-use crate::pvm;
-use crate::types::{Context, ExitReason, Program, RegSigned, RegSize};
-use crate::pvm::isa::{skip, extend_sign, signed};
+use crate::types::{Context, ExitReason, Program, RegSize};
+use crate::pvm::isa::{skip, extend_sign, signed, _branch};
 use crate::utils::codec::{BytesReader};
 use crate::utils::codec::generic::{decode_integer};
 
@@ -30,46 +28,42 @@ fn get_value(pc: &RegSize, program: &Program) -> i64 {
     signed(value, get_x_length(pc, program) as usize) + *pc as i64
 }
 
-fn branch_common(
+fn branch(
     pvm_ctx: &mut Context,
     program: &Program,
     compare: impl Fn(RegSize, RegSize) -> bool,
 ) -> ExitReason {
     let (reg_a, reg_b) = get_reg(&pvm_ctx.pc, program);
-    let value = get_value(&pvm_ctx.pc, program);
-    _branch(pvm_ctx, program, value, compare)
-}
-
-fn _branch(pvm_ctx: &mut Context, program: &Program, n: i64, compare: impl Fn(RegSize, RegSize) -> bool) -> ExitReason {
-    let (reg_a, reg_b) = get_reg(&pvm_ctx.pc, program);
-    let value = get_value(&pvm_ctx.pc, program);
-    if compare(pvm_ctx.reg[reg_a], pvm_ctx.reg[reg_b]) {
-        pvm_ctx.pc = n as RegSize - 1;
+    let l_value = pvm_ctx.reg[reg_a];
+    let r_value = pvm_ctx.reg[reg_b];
+    let n = get_value(&pvm_ctx.pc, program);
+    if !compare(l_value, r_value) {
+        return ExitReason::Continue;
     }
-    return ExitReason::Continue;
+    _branch(pvm_ctx, program, n)
 }
 
 pub fn branch_eq(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch_common(pvm_ctx, program, |a, b| a as RegSize == b as RegSize)
+    branch(pvm_ctx, program, |a, b| a as RegSize == b as RegSize)
 }
 
 pub fn branch_ne(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch_common(pvm_ctx, program, |a, b| a as RegSize != b as RegSize)
+    branch(pvm_ctx, program, |a, b| a as RegSize != b as RegSize)
 }
 
 pub fn branch_lt_u(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch_common(pvm_ctx, program, |a, b| (a as RegSize) < (b as RegSize))
+    branch(pvm_ctx, program, |a, b| (a as RegSize) < (b as RegSize))
 }
 
 pub fn branch_lt_s(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch_common(pvm_ctx, program, |a, b| signed(a, 8) < signed(b, 8))
+    branch(pvm_ctx, program, |a, b| signed(a, 8) < signed(b, 8))
 }
 
 pub fn branch_ge_u(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch_common(pvm_ctx, program, |a, b| a as RegSize >= b as RegSize)
+    branch(pvm_ctx, program, |a, b| a as RegSize >= b as RegSize)
 }
 
 pub fn branch_ge_s(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch_common(pvm_ctx, program, |a, b| signed(a, 8) >= signed(b, 8))
+    branch(pvm_ctx, program, |a, b| signed(a, 8) >= signed(b, 8))
 }
 

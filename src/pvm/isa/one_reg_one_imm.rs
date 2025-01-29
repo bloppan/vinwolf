@@ -14,7 +14,7 @@ fn get_reg(pc: &RegSize, program: &Program) -> RegSize {
 }
 
 fn get_x_length(pc: &RegSize, program: &Program) -> RegSize {
-    min(4, max(0, skip(pc, &program.bitmask).saturating_sub(1)))
+    min(4, max(0, skip(pc, &program.bitmask) - 1))
 }
 
 fn get_x_imm(pc: &RegSize, program: &Program) -> RegSize {
