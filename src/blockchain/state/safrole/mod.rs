@@ -106,7 +106,11 @@ pub fn process_safrole(
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
         key_rotation(safrole_state, curr_validators, prev_validators);
         // Create the ring set
-        let ring_set = create_ring_set(&curr_validators.0.iter().map(|validator| validator.bandersnatch.clone()).collect::<Vec<BandersnatchPublic>>());
+        let ring_set = create_ring_set(&safrole_state.pending_validators.0
+                                                                    .iter()
+                                                                    .map(|validator| validator.bandersnatch.clone())
+                                                                    .collect::<Vec<BandersnatchPublic>>()
+                                                            );
         // Create the epoch root and update the safrole state
         safrole_state.epoch_root = create_root_epoch(ring_set);
         // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
