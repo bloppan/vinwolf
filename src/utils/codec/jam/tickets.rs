@@ -1,5 +1,6 @@
 use crate::types::{
-    BandersnatchPublic, BandersnatchRingVrfSignature, TicketAttempt, TicketBody, TicketEnvelope, TicketsExtrinsic, TicketsMark, TicketsOrKeys
+    BandersnatchPublic, BandersnatchRingVrfSignature, TicketAttempt, TicketBody, TicketEnvelope, TicketsExtrinsic, TicketsMark, TicketsOrKeys,
+    BandersnatchEpoch
 };
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
@@ -85,9 +86,9 @@ impl Decode for TicketsOrKeys {
 
         match marker {
             1 => {
-                    let mut keys = Box::new(std::array::from_fn(|_| BandersnatchPublic::default()));
+                    let mut keys: BandersnatchEpoch = BandersnatchEpoch::default();
 
-                    for key in keys.iter_mut() {
+                    for key in keys.0.iter_mut() {
                         *key = BandersnatchPublic::decode(blob)?;
                     }
 
@@ -118,7 +119,7 @@ impl Encode for TicketsOrKeys {
         match self {
             TicketsOrKeys::Keys(keys) => {
                 encoded.push(1); // Keys marker
-                for key in keys.iter() {
+                for key in keys.0.iter() {
                     key.encode_to(&mut encoded);
                 }
             }

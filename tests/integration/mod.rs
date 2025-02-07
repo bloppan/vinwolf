@@ -7,7 +7,7 @@ extern crate vinwolf;
 use vinwolf::blockchain::state::ProcessError;
 
 mod safrole;
-mod pvm;
+mod seals;
 mod codec;
 mod trie;
 mod erasure;
@@ -19,7 +19,8 @@ mod assurances;
 mod authorization;
 mod statistics;
 mod preimages;
-
+mod pvm;
+mod host_function;
 
 pub fn read_test_file(filename: &str) -> Vec<u8> {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(filename);

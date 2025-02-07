@@ -33,7 +33,7 @@ use ark_ec_vrfs::suites::bandersnatch::edwards as bandersnatch_ark_ec_vrfs;
 use ark_ec_vrfs::prelude::ark_serialize;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bandersnatch_ark_ec_vrfs::Public;
-use crate::blockchain::state::safrole::bandersnatch::{ring_context, Verifier};
+use crate::blockchain::state::safrole::bandersnatch::{ring_context, Verifier, Prover};
 
 use sp_core::blake2_256;
 
@@ -57,6 +57,13 @@ impl Default for Safrole {
             seal: TicketsOrKeys::None,
             epoch_root: [0u8; std::mem::size_of::<BandersnatchRingCommitment>()],
         }
+    }
+}
+
+impl Default for BandersnatchEpoch {
+    fn default() -> Self {
+        let keys: [BandersnatchPublic; EPOCH_LENGTH] = std::array::from_fn(|_| BandersnatchPublic::default());
+        BandersnatchEpoch(Box::new(keys))
     }
 }
 
@@ -98,7 +105,10 @@ pub fn process_safrole(
         rotate_entropy_pool(entropy_pool); 
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
         key_rotation(safrole_state, curr_validators, prev_validators);
-        safrole_state.epoch_root = create_root_epoch(safrole_state);
+        // Create the ring set
+        let ring_set = create_ring_set(&curr_validators.0.iter().map(|validator| validator.bandersnatch.clone()).collect::<Vec<BandersnatchPublic>>());
+        // Create the epoch root and update the safrole state
+        safrole_state.epoch_root = create_root_epoch(ring_set);
         // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
         // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
         epoch_mark = Some(EpochMark {
@@ -141,24 +151,21 @@ pub fn process_safrole(
     return Ok(OutputDataSafrole {epoch_mark, tickets_mark});
 }
 
-fn create_root_epoch(safrole_state: &mut Safrole) -> BandersnatchRingCommitment {
-
-    let bandersnatch_keys: Vec<BandersnatchPublic> = safrole_state.pending_validators.0
-                                                            .iter()
-                                                            .map(|validator| validator.bandersnatch.clone())
-                                                            .collect();
-
-    let padding_point = Public::from(ring_context().padding_point());
-    let ring_set: Vec<Public> = bandersnatch_keys
-        .iter()
+pub fn create_ring_set(keys: &[BandersnatchPublic]) -> Vec<Public> {
+    keys.iter()
         .map(|key| {
-            Public::deserialize_compressed(&key[..]).unwrap_or_else(|_| {
-                // Use the padding point in case of invalid key
-                padding_point.clone()
-            })
+            let point = Public::deserialize_compressed(&key[..])
+                .unwrap_or_else(|_| {
+                    // In the case a key has no corresponding Bandersnatch point when constructing the ring, then 
+                    // the Bandersnatch padding point as stated by Hosseini and Galassi 2024 should be substituted
+                    Public::from(ring_context().padding_point())
+                });
+            point
         })
-        .collect();
+        .collect()
+}
 
+pub fn create_root_epoch(ring_set: Vec<Public>) -> BandersnatchRingCommitment {
     let verifier = Verifier::new(ring_set);
     let mut proof: BandersnatchRingCommitment = [0u8; std::mem::size_of::<BandersnatchRingCommitment>()];
     verifier.commitment.serialize_compressed(&mut proof[..]).unwrap();
@@ -166,7 +173,7 @@ fn create_root_epoch(safrole_state: &mut Safrole) -> BandersnatchRingCommitment 
 }
 
 fn outside_in_sequencer(tickets: &[TicketBody]) -> TicketsMark {
-    
+
     let mut new_ticket_accumulator = TicketsMark::default();
 
     for i in 0..EPOCH_LENGTH / 2 {
@@ -177,16 +184,16 @@ fn outside_in_sequencer(tickets: &[TicketBody]) -> TicketsMark {
     new_ticket_accumulator
 }
 
-fn fallback(buf: &Entropy, keys: &[BandersnatchPublic]) -> BandersnatchEpoch {
+fn fallback(buf: &Entropy, current_keys: &[BandersnatchPublic]) -> BandersnatchEpoch {
     // This is the fallback key sequence function which selects an epoch's worth of validator Bandersnatch keys from the 
     // validator key set using the entropy collected on-chain
-    let mut new_keys: BandersnatchEpoch = Box::new(std::array::from_fn(|_| BandersnatchPublic::default()));
+    let mut new_epoch_keys: BandersnatchEpoch = BandersnatchEpoch::default();
     for i in 0u32..EPOCH_LENGTH as u32 { 
         let index_le = i.encode();
         let hash = blake2_256(&[&buf.entropy[..], &index_le].concat());
         let hash_4 = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
         let id = (hash_4 % VALIDATORS_COUNT as u32) as usize;
-        new_keys[i as usize] = keys[id].clone();
+        new_epoch_keys.0[i as usize] = current_keys[id].clone();
     }
-    new_keys
+    new_epoch_keys
 }

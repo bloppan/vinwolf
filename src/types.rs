@@ -44,7 +44,7 @@ pub type PageAddress = RamAddress;
 pub type RegSize = u64;
 pub type RegSigned = i64;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct Entropy {
     pub entropy: OpaqueHash,
 }
@@ -69,7 +69,11 @@ pub struct ValidatorData {
     pub metadata: Metadata,
 }
 pub type BandersnatchKeys = Box<[BandersnatchPublic; VALIDATORS_COUNT]>;
-pub type BandersnatchEpoch = Box<[BandersnatchPublic; EPOCH_LENGTH]>;
+//pub type BandersnatchEpoch = Box<[BandersnatchPublic; EPOCH_LENGTH]>;
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct BandersnatchEpoch(pub Box<[BandersnatchPublic; EPOCH_LENGTH]>);
+
 #[derive(Clone, PartialEq, Debug)]
 pub struct ValidatorsData(pub Box<[ValidatorData; VALIDATORS_COUNT]>);
 // ----------------------------------------------------------------------------------------------------------
@@ -442,6 +446,12 @@ pub enum SafroleErrorCode {
     Reserved = 5,           // Reserved.
     DuplicateTicket = 6,   // Found a ticket duplicate.
     TooManyTickets = 7,    // Too many tickets in extrinsic.
+    InvalidTicketSeal = 8,       // Invalid seal.
+    InvalidKeySeal = 9,         // Invalid seal.
+    InvalidEntropySource = 10, // Invalid entropy source.
+    TicketsOrKeysNone = 11, // Tickets or keys is none.
+    TicketNotMatch = 12,      // Seal does not match.
+    KeyNotMatch = 13,        // Seal key does not match.
 }
 // ----------------------------------------------------------------------------------------------------------
 // Disputes
@@ -606,7 +616,7 @@ pub struct TicketsMark {
 
 pub type OffendersMark = Vec<Ed25519Public>;
 
-#[derive(Debug, PartialEq, Clone)]
+/*#[derive(Debug, PartialEq, Clone)]
 pub struct Header {
     pub parent: HeaderHash,
     pub parent_state_root: StateRoot,
@@ -618,6 +628,24 @@ pub struct Header {
     pub author_index: ValidatorIndex,
     pub entropy_source: BandersnatchVrfSignature,
     pub seal: BandersnatchVrfSignature,
+}*/
+#[derive(Debug, PartialEq, Clone)]
+pub struct Header {
+    pub unsigned: UnsignedHeader,
+    pub seal: BandersnatchVrfSignature,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct UnsignedHeader {
+    pub parent: HeaderHash,
+    pub parent_state_root: StateRoot,
+    pub extrinsic_hash: OpaqueHash,
+    pub slot: TimeSlot,
+    pub epoch_mark: Option<EpochMark>,
+    pub tickets_mark: Option<TicketsMark>,
+    pub offenders_mark: Vec<Ed25519Public>,
+    pub author_index: ValidatorIndex,
+    pub entropy_source: BandersnatchVrfSignature,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Block
@@ -704,11 +732,12 @@ pub enum ExitReason {
     halt,
     Continue,
     Branch,
-    Halt,        
-    panic,              
+    Halt,
+    panic,
     OutOfGas,
     #[serde(rename = "page-fault")]
-    page_fault,       
+    page_fault,
     PageFault(u32),     
     HostCall(u32),      
 }
+

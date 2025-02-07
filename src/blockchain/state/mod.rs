@@ -77,13 +77,13 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     process_assurances(
         &mut new_state.availability,
         &block.extrinsic.assurances,
-        &block.header.slot,
-        &block.header.parent,
+        &block.header.unsigned.slot,
+        &block.header.unsigned.parent,
     )?;
     let _ = process_guarantees(
         &mut new_state.availability, 
         &block.extrinsic.guarantees,
-        &block.header.slot
+        &block.header.unsigned.slot
     )?; 
     // Process recent history
     /*process_recent_history(
@@ -96,8 +96,8 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     //process_authorizations(&mut new_state.auth_pools, &block.header.slot, code_authorizers);
     process_statistics(
         &mut new_state.statistics, 
-        &block.header.slot, 
-        &block.header.author_index, 
+        &block.header.unsigned.slot, 
+        &block.header.unsigned.author_index, 
         &block.extrinsic
     );
     
