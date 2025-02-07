@@ -3,10 +3,9 @@
 */
 
 use std::cmp::{min, max};
-use crate::constants::{PAGE_SIZE, RAM_SIZE};
-use crate::types::{Context, ExitReason, Program, RamAccess, RamAddress, RegSize};
-use crate::utils::codec::EncodeSize;
-use crate::pvm::isa::{skip, extend_sign, check_page_fault, _store};
+use crate::constants::RAM_SIZE;
+use crate::types::{Context, ExitReason, Program, RamAddress, RegSize};
+use crate::pvm::isa::{skip, extend_sign, _store};
 
 fn get_reg(pc: &RegSize, program: &Program) -> RegSize {
     min(12, program.code[*pc as usize + 1] % 16) as u64

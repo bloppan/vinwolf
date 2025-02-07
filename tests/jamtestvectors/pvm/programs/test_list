@@ -174,8 +174,6 @@ inst_store_imm_u16.json
 inst_store_imm_u32.json
 inst_store_imm_u64.json
 inst_store_imm_u8.json
-
-
 inst_store_imm_u8_trap_inaccessible.json
 inst_store_indirect_u16_with_offset_nok.json
 inst_store_indirect_u16_with_offset_ok.json
@@ -203,6 +201,7 @@ inst_sub_imm_64.json
 inst_trap.json
 inst_xor.json
 inst_xor_imm.json
+
 riscv_rv64ua_amoadd_d.json
 riscv_rv64ua_amoadd_w.json
 riscv_rv64ua_amoand_d.json
@@ -218,6 +217,7 @@ riscv_rv64ua_amominu_w.json
 riscv_rv64ua_amoor_d.json
 riscv_rv64ua_amoor_w.json
 riscv_rv64ua_amoswap_d.json
+
 riscv_rv64ua_amoswap_w.json
 riscv_rv64ua_amoxor_d.json
 riscv_rv64ua_amoxor_w.json

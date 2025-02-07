@@ -696,11 +696,14 @@ pub struct MemoryChunk {
     pub address: u32,
     pub contents: Vec<u8>,
 }
+
+#[warn(non_camel_case_types)]
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 pub enum ExitReason {
     trap,
     halt,
     Continue,
+    Branch,
     Halt,        
     panic,              
     OutOfGas,

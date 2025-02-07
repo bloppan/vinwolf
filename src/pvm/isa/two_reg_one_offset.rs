@@ -5,9 +5,9 @@
 use std::cmp::{min, max};
 
 use crate::types::{Context, ExitReason, Program, RegSize};
-use crate::pvm::isa::{skip, extend_sign, signed, _branch};
-use crate::utils::codec::{BytesReader};
-use crate::utils::codec::generic::{decode_integer};
+use crate::pvm::isa::{skip, signed, _branch};
+use crate::utils::codec::BytesReader;
+use crate::utils::codec::generic::decode_integer;
 
 
 fn get_reg(pc: &RegSize, program: &Program) -> (usize, usize) {

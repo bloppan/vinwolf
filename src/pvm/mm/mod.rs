@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
 use crate::constants::{PAGE_SIZE, NUM_PAGES};
-use crate::types::{
-    PageFlags, Page, PageMap, Program, PageTable, RamMemory, RamAddress, RegSize, Context, ExitReason, MemoryChunk
-};
+use crate::types::{PageFlags, Page, PageMap, PageTable, RamMemory, RamAddress, MemoryChunk};
 
 
 impl Default for PageTable {

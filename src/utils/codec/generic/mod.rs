@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use crate::utils::codec::{Encode, Decode, EncodeSize, EncodeLen, DecodeLen, ReadError, BytesReader, FromLeBytes};
+use crate::utils::codec::FromLeBytes;
 
 mod encode;
 mod decode;
@@ -72,7 +72,8 @@ impl FromLeBytes for i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+    use crate::utils::codec::{EncodeSize, EncodeLen, DecodeLen, BytesReader};
+
     macro_rules! reader {
         ($($byte:expr),*) => {
             {
@@ -146,14 +147,14 @@ mod tests {
 
     #[test]
     fn test_decode_to_bits() {
-        assert_eq!(Vec::<bool>::new(), decode_to_bits(&[]));
-        assert_eq!(vec![false, false, false, false, false, false, false, false], decode_to_bits(&[0]));
-        assert_eq!(vec![true, false, false, false, false, false, false, false], decode_to_bits(&[1]));
+        assert_eq!(Vec::<bool>::new(), decode_to_bits(&mut reader![], 0).unwrap());
+        assert_eq!(vec![false, false, false, false, false, false, false, false], decode_to_bits(&mut reader![0], 1).unwrap());
+        assert_eq!(vec![true, false, false, false, false, false, false, false], decode_to_bits(&mut reader![1], 1).unwrap());
         assert_eq!(vec![true, true, false, true, true, false, false, false,
-                        true, true, true, true, true, true, true, true], decode_to_bits(&[27, 255]));
+                        true, true, true, true, true, true, true, true], decode_to_bits(&mut reader![27, 255], 2).unwrap());
         assert_eq!(vec![true, false, true, false, true, false, true, false,
                         false, false, false, false, false, false, false, false,
-                        false, false, false, false, true, true, true, true], decode_to_bits(&[0x55, 0, 0xF0]));
+                        false, false, false, false, true, true, true, true], decode_to_bits(&mut reader![0x55, 0, 0xF0], 3).unwrap());
     }
     
     /*#[test]

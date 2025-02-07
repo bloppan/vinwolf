@@ -1,11 +1,8 @@
-use std::collections::HashMap;
-
-use crate::types::{
-    Context, RamAccess, RamAddress, RegSize, RegSigned, Program, ExitReason
-};
-use crate::constants::{NUM_PAGES, PAGE_SIZE};
-use crate::utils::codec::{EncodeSize, FromLeBytes};
+use crate::types::{Context, RamAccess, RamAddress, RegSize, Program, ExitReason};
+use crate::constants::{JUMP_ALIGNMENT, PAGE_SIZE};
+use crate::utils::codec::EncodeSize;
 use crate::utils::codec::generic::decode;
+
 pub mod no_arg;
 pub mod one_imm;
 pub mod one_offset;
@@ -68,17 +65,25 @@ pub fn _branch(
     n: i64,
 ) -> ExitReason {
 
+    if n == 0 {
+        pvm_ctx.pc = 0;
+        return ExitReason::Branch;
+    }
     // Check if the jump is out of bounds
-    if n <= 0 || n as usize >= program.code.len() {
+    if n < 0 || n as usize >= program.code.len() {
         println!("Panic: jump out of bounds");
         return ExitReason::panic;
     }
     // Check for the beginning of a basic-block
-    if program.code[n as usize - 1] != 0 {
-        println!("Panic: not a basic block: {}", program.code[n as usize - 1]);
+    /*if program.code[n as usize - 1] != 0 {
+        println!("Panic: not a basic block: {}, n = {n}", program.code[n as usize - 1]);
+        println!("Should be executed the instruction: {}", program.code[n as usize]);
+        for i in 0..10 {
+            println!("{}", program.code[i + n as usize - 1]);
+        }
         return ExitReason::panic;
-    }
-
+    }*/
+    //println!("Branching to {}, instruction {}", n, program.code[n as usize]);
     pvm_ctx.pc = (n - 1) as RegSize;
         
     return ExitReason::Continue;
@@ -155,24 +160,24 @@ pub fn check_page_fault<T>(pvm_ctx: &mut Context, address: RamAddress, access: R
 
 pub fn djump(a: &RegSize, pc: &mut RegSize, program: &Program) -> ExitReason {
     if *a == 0xFFFF0000 {
-        println!("Halt");
-        println!("pc = {}", pc);
+        /*println!("Halt");
+        println!("pc = {}", pc);*/
         return ExitReason::halt;
-    } else if *a == 0 ||  *a as usize > program.bitmask.len() * 2 || a % 2 != 0 {
-        println!("Panic: invalid address");
-        println!("a = {} pc = {}", *a, pc);
+    } else if *a == 0 
+        || *a as usize > program.jump_table.len() * JUMP_ALIGNMENT 
+        || *a as usize % JUMP_ALIGNMENT != 0 
+        //|| program.code[program.jump_table[(*a as usize / JUMP_ALIGNMENT) - 1] - 1] != 0 
+        {
+        /*println!("Panic: invalid address");
+        println!("a = {} pc = {}", *a, pc);*/
         ExitReason::panic
     } else {
         let jump = (*a as usize / 2) - 1;
-        println!("Jumping to jump table pos {}", jump);
+        //println!("Jumping to jump table pos {}", jump);
         *pc = program.jump_table[jump] as u64 - 1;
-        println!("pc = {}", pc);
+        //println!("pc = {}", pc);
         ExitReason::Continue
     }    
-}
-
-fn basic_block_seq(pc: &RegSize, k: &[bool]) -> RegSize {
-    return 1 + skip(pc, k) as RegSize;
 }
 
 #[cfg(test)]
@@ -216,6 +221,9 @@ mod test {
             (255, 1, -1i64),
             (127, 1, 127i64),
             (128, 1, -128i64),
+            (129, 1, -127i64),
+            (130, 1, -126i64),
+            (254, 1, -2i64),
             (65535, 2, -1i64),
             (32768, 2, -32768i64),
             (32767, 2, 32767i64),
@@ -256,7 +264,7 @@ mod test {
             (9223372036854775807, 8, 9223372036854775807u64),
             (-9223372036854775807, 8, 0x8000000000000001u64),
             (i64::MIN, 8, 0x8000000000000000u64),  
-            (i64::MAX, 8, 0x7FFFFFFFFFFFFFFF_u64), 
+            (i64::MAX, 8, 0x7FFFFFFFFFFFFFFFu64), 
         ];
         
         for (input, n, expected) in test_cases {

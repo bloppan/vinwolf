@@ -4,10 +4,8 @@
 
 use std::cmp::{min, max};
 
-use crate::constants::PAGE_SIZE;
-use crate::types::{Context, ExitReason, Program, RamAccess, RamAddress, RegSize};
-use crate::utils::codec::generic::decode;
-use crate::pvm::isa::{skip, extend_sign, check_page_fault, _load, _store, djump};
+use crate::types::{Context, ExitReason, Program, RamAddress, RegSize};
+use crate::pvm::isa::{skip, extend_sign, _load, _store, djump};
 
 fn get_reg(pc: &RegSize, program: &Program) -> RegSize {
     min(12, program.code[*pc as usize + 1] % 16) as RegSize
@@ -29,14 +27,13 @@ pub fn jump_ind(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let value_imm = get_x_imm(&pvm_ctx.pc, program);
     let value_reg_a = pvm_ctx.reg[reg_a as usize];
     let a = (value_reg_a.wrapping_add(value_imm) % (1 << 32)) as RegSize;
-    println!("jump_ind: a = {a}");
-    println!("jump_ind: pc = {}", pvm_ctx.pc);
     djump(&a, &mut pvm_ctx.pc, program)
 }
 
 pub fn load_imm(pvm_ctx: &mut Context, program: &Program)-> ExitReason {
     let reg_a = get_reg(&pvm_ctx.pc, program);
-    pvm_ctx.reg[reg_a as usize] = get_x_imm(&pvm_ctx.pc, program);
+    let value = get_x_imm(&pvm_ctx.pc, program);
+    pvm_ctx.reg[reg_a as usize] = value;
     ExitReason::Continue
 }
 

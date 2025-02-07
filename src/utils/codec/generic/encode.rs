@@ -1,6 +1,5 @@
 
-use std::collections::BTreeMap;
-use crate::utils::codec::{Encode, Decode, EncodeSize, EncodeLen, DecodeLen, ReadError};
+use crate::utils::codec::{Encode, EncodeSize, EncodeLen};
 
 pub fn encode_unsigned(x: usize) -> Vec<u8> {
 

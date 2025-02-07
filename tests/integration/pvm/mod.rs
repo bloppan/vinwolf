@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
@@ -9,9 +8,7 @@ extern crate vinwolf;
 
 use vinwolf::constants::{NUM_REG, PAGE_SIZE};
 use vinwolf::pvm::invoke_pvm;
-use vinwolf::types::{Context, ExitReason, MemoryChunk, PageMap, PageFlags, RamAddress, RamMemory, Gas, Page, PageTable};
-
-mod isa;
+use vinwolf::types::{Context, ExitReason, MemoryChunk, PageMap, PageFlags, RamAddress, Gas, Page, PageTable};
 
 #[derive(Deserialize, Debug, PartialEq)]
 struct Testcase {
@@ -86,35 +83,31 @@ mod tests {
 
         let exit_reason = invoke_pvm(&mut pvm_ctx, &testcase.program);
 
-        let mut ram_result: Vec<MemoryChunk> = vec![];
+        let mut ram_result: Vec<MemoryChunk> = vec![];              
 
-        for page in pvm_ctx.page_table.pages.iter() {
-                let mut content = vec![];
-                let mut offset: Option<RamAddress> = None;
-                if page.1.flags.modified || page.1.flags.referenced {
-                    //println!("Page modified or referended: {}", page.0);
-                    //println!("Data: {:?}", page.1.data[0..10].to_vec());
-                    for (i, byte) in page.1.data.iter().enumerate() {
-                        //println!("Byte: {byte}, pos: {i}");
-                        if *byte != 0 {
-                            //println!("Byte: {byte}, pos: {i}");
-                            if offset.is_none() {
-                                offset = Some(i as RamAddress);
-                                //println!("Offset: {}", offset.unwrap());
-                            }
-                            
-                            content.push(*byte);
-                        }
-                    }
-                    if !offset.is_none() {
-                        ram_result.push(MemoryChunk {
-                            address: (page.0 * PAGE_SIZE).wrapping_add(offset.unwrap() as u32),
-                            contents: content,
-                        });
-                    }
+        for chunk in testcase.expected_memory.iter() {
+
+            let address = chunk.address;
+            let contents = chunk.contents.clone();
+
+            let page_target = address / PAGE_SIZE;
+            let offset = address % PAGE_SIZE;
+
+            if let Some(page) = pvm_ctx.page_table.pages.get_mut(&page_target) {
+                let mut bytes_contents: Vec<u8> = vec![];
+                for (i, byte) in contents.iter().enumerate() {
+                    assert_eq!(*byte, page.data[offset as usize + i]);
+                    bytes_contents.push(*byte);
                 }
+                let memory_chunk = MemoryChunk {
+                    address: address,
+                    contents: bytes_contents,
+                };
+                ram_result.push(memory_chunk);
+            } else {
+                panic!("Page not found");
+            }
         }
-               
 
         let result = Testcase {
             name: testcase.name.clone(),
@@ -355,217 +348,121 @@ mod tests {
             "inst_sub_64_with_overflow.json",
             "inst_sub_imm_32.json",
             "inst_sub_imm_64.json",
-
-
-        ];
-        
-        for file in test_files {
-            println!("Running test for file: {}", file);
-            run_pvm_test(file);
-            println!("Ok\n\n");
-        }
-    }
-
-    #[warn(dead_code)]
-    fn test_subotic_64bit_programs() {
-        
-        let test_files = vec![
-            "inst_add_32_with_overflow.json",
-            "inst_add_32_with_truncation_and_sign_extension.json",
-            "inst_add_32_with_truncation.json",
-            "inst_add_32.json",
-            "inst_add_64.json",
-            "inst_add_64_with_overflow.json",
-            "inst_add_imm_32_with_truncation_and_sign_extension.json",
-            "inst_add_imm_32_with_truncation.json",
-            "inst_add_imm_32.json",
-            "inst_add_imm_64.json",
-            "inst_and_imm.json",
-            "inst_and.json",
-            "inst_branch_eq_imm_nok.json",
-            "inst_branch_eq_imm_ok.json",
-            "inst_branch_eq_nok.json",
-            "inst_branch_eq_ok.json",
-            "inst_branch_greater_or_equal_signed_imm_nok.json",
-            "inst_branch_greater_or_equal_signed_imm_ok.json",
-            "inst_branch_greater_or_equal_signed_nok.json",
-            "inst_branch_greater_or_equal_signed_ok.json",
-            "inst_branch_greater_or_equal_unsigned_imm_nok.json",
-            "inst_branch_greater_or_equal_unsigned_imm_ok.json",
-            "inst_branch_greater_or_equal_unsigned_nok.json",
-            "inst_branch_greater_or_equal_unsigned_ok.json",
-            "inst_branch_greater_signed_imm_nok.json",
-            "inst_branch_greater_signed_imm_ok.json",
-            "inst_branch_greater_unsigned_imm_nok.json",
-            "inst_branch_greater_unsigned_imm_ok.json",
-            "inst_branch_less_or_equal_signed_imm_nok.json",
-            "inst_branch_less_or_equal_signed_imm_ok.json",
-            "inst_branch_less_or_equal_unsigned_imm_nok.json",
-            "inst_branch_less_or_equal_unsigned_imm_ok.json",
-            "inst_branch_less_signed_imm_nok.json",
-            "inst_branch_less_signed_imm_ok.json",
-            "inst_branch_less_signed_nok.json",
-            "inst_branch_less_signed_ok.json",
-            "inst_branch_less_unsigned_imm_nok.json",
-            "inst_branch_less_unsigned_imm_ok.json",
-            "inst_branch_less_unsigned_nok.json",
-            "inst_branch_less_unsigned_ok.json",
-            "inst_branch_not_eq_imm_nok.json",
-            "inst_branch_not_eq_imm_ok.json",
-            "inst_branch_not_eq_nok.json",
-            "inst_branch_not_eq_ok.json",
-            "inst_cmov_if_zero_imm_nok.json",
-            "inst_cmov_if_zero_imm_ok.json",
-            "inst_cmov_if_zero_nok.json",
-            "inst_cmov_if_zero_ok.json",
-            "inst_div_signed_32_by_zero.json",
-            "inst_div_signed_32_with_overflow.json",
-            "inst_div_signed_32.json",
-            "inst_div_signed_64_by_zero.json",
-            "inst_div_signed_64_with_overflow.json",
-            "inst_div_signed_64.json",
-            "inst_div_unsigned_32_by_zero.json",
-            "inst_div_unsigned_32_with_overflow.json",
-            "inst_div_unsigned_32.json",
-            "inst_div_unsigned_64_by_zero.json",
-            "inst_div_unsigned_64_with_overflow.json",
-            "inst_div_unsigned_64.json",
-            "inst_fallthrough.json",
-            "inst_jump_indirect_without_offset_ok.json",
-            "inst_jump_indirect_with_offset_ok.json",
-            "inst_jump_indirect_misaligned_djump_without_offset_nok.json",
-            "inst_jump_indirect_misaligned_djump_with_offset_nok.json",
-            "inst_load_i8.json",
-            "inst_load_i16.json",
-            "inst_load_i32.json",
-            "inst_load_imm_64.json",
-            "inst_load_imm.json",
-            "inst_load_indirect_i8_with_offset.json",
-            "inst_load_indirect_i8_without_offset.json",
-            "inst_load_indirect_i16_with_offset.json",
-            "inst_load_indirect_i16_without_offset.json",
-            "inst_load_indirect_i32_with_offset.json",
-            "inst_load_indirect_i32_without_offset.json",
-            "inst_load_indirect_u8_with_offset.json",
-            "inst_load_indirect_u8_without_offset.json",
-            "inst_load_indirect_u16_with_offset.json",
-            "inst_load_indirect_u16_without_offset.json",
-            "inst_load_indirect_u32_with_offset.json",
-            "inst_load_indirect_u32_without_offset.json",
-            "inst_load_indirect_u64_with_offset.json",
-            "inst_load_indirect_u64_without_offset.json",
-            "inst_load_u8_trap.json",
-            "inst_load_u8.json",
-            "inst_load_u16.json",
-            "inst_load_u32.json",
-            "inst_load_u64.json",
-            "inst_move_reg.json",
-            "inst_mul_32.json",
-            "inst_mul_64.json",
-            "inst_mul_imm_32.json",
-            "inst_mul_imm_64.json",
-            "inst_negate_and_add_imm_32.json",
-            "inst_negate_and_add_imm_64.json",
-            "inst_or.json",
-            "inst_or_imm.json",
-            "inst_rem_signed_32.json",
-            "inst_rem_signed_32_by_zero.json",
-            "inst_rem_signed_32_with_overflow.json",
-            "inst_rem_signed_64.json",
-            "inst_rem_signed_64_by_zero.json",
-            "inst_rem_signed_64_with_overflow.json",
-            "inst_rem_unsigned_32.json",
-            "inst_rem_unsigned_32_by_zero.json",
-            "inst_rem_unsigned_64.json",
-            "inst_rem_unsigned_64_by_zero.json",
-            "inst_ret_halt.json",
-            "inst_ret_invalid.json",
-            "inst_set_greater_than_signed_imm_0.json",
-            "inst_set_greater_than_signed_imm_1.json",
-            "inst_set_greater_than_unsigned_imm_0.json",
-            "inst_set_greater_than_unsigned_imm_1.json",
-            "inst_set_less_than_signed_0.json",
-            "inst_set_less_than_signed_1.json",
-            "inst_set_less_than_signed_imm_0.json",
-            "inst_set_less_than_signed_imm_1.json",
-            "inst_set_less_than_unsigned_0.json",
-            "inst_set_less_than_unsigned_1.json",
-            "inst_set_less_than_unsigned_imm_0.json",
-            "inst_set_less_than_unsigned_imm_1.json",
-            "inst_shift_arithmetic_right_32.json",
-            "inst_shift_arithmetic_right_32_with_overflow.json",
-            "inst_shift_arithmetic_right_64.json",
-            "inst_shift_arithmetic_right_64_with_overflow.json",
-            "inst_shift_arithmetic_right_imm_32.json",
-            "inst_shift_arithmetic_right_imm_64.json",
-            "inst_shift_arithmetic_right_imm_alt_32.json",
-            "inst_shift_arithmetic_right_imm_alt_64.json",
-            "inst_shift_logical_left_32.json",
-            "inst_shift_logical_left_32_with_overflow.json",
-            "inst_shift_logical_left_64.json",
-            "inst_shift_logical_left_64_with_overflow.json",
-            "inst_shift_logical_left_imm_32.json",
-            "inst_shift_logical_left_imm_64.json",
-            "inst_shift_logical_left_imm_alt_32.json",
-            "inst_shift_logical_left_imm_alt_64.json",
-            "inst_shift_logical_right_32.json",
-            "inst_shift_logical_right_32_with_overflow.json",
-            "inst_shift_logical_right_64.json",
-            "inst_shift_logical_right_64_with_overflow.json",
-            "inst_shift_logical_right_imm_32.json",
-            "inst_shift_logical_right_imm_64.json",
-            "inst_shift_logical_right_imm_alt_32.json",
-            "inst_shift_logical_right_imm_alt_64.json",
-            "inst_store_imm_indirect_u8_with_offset_ok.json",
-            "inst_store_imm_indirect_u8_with_offset_nok.json",
-            "inst_store_imm_indirect_u8_without_offset_ok.json",
-            "inst_store_imm_indirect_u16_with_offset_ok.json",
-            "inst_store_imm_indirect_u16_with_offset_nok.json",
-            "inst_store_imm_indirect_u16_without_offset_ok.json",
-            "inst_store_imm_indirect_u32_with_offset_ok.json",
-            "inst_store_imm_indirect_u32_with_offset_nok.json",
-            "inst_store_imm_indirect_u32_without_offset_ok.json",
-            "inst_store_imm_indirect_u64_with_offset_ok.json",
-            "inst_store_imm_indirect_u64_with_offset_nok.json",
-            "inst_store_imm_indirect_u64_without_offset_ok.json",
-            "inst_store_imm_u8_trap_inaccessible.json",
-            "inst_store_imm_u8_trap_read_only.json",
-            "inst_store_imm_u8.json",
-            "inst_store_imm_u16.json",
-            "inst_store_imm_u32.json",
-            "inst_store_imm_u64.json",
-            "inst_store_indirect_u16_with_offset_nok.json",
-            "inst_store_indirect_u16_with_offset_ok.json",
-            "inst_store_indirect_u16_without_offset_ok.json",
-            "inst_store_indirect_u32_with_offset_nok.json",
-            "inst_store_indirect_u32_with_offset_ok.json",
-            "inst_store_indirect_u32_without_offset_ok.json",
-            "inst_store_indirect_u64_with_offset_nok.json",
-            "inst_store_indirect_u64_with_offset_ok.json",
-            "inst_store_indirect_u64_without_offset_ok.json",
-            "inst_store_indirect_u8_with_offset_nok.json",
-            "inst_store_indirect_u8_with_offset_ok.json",
-            "inst_store_indirect_u8_without_offset_ok.json",
-            "inst_store_u8_trap_inaccessible.json",
-            "inst_store_u8_trap_read_only.json",
-            "inst_store_u8.json",
-            "inst_store_u16.json",
-            "inst_store_u32.json",
-            "inst_store_u64.json",
-            "inst_sub_32_with_overflow.json",
-            "inst_sub_32.json",
-            "inst_sub_64_with_overflow.json",
-            "inst_sub_64.json",
-            "inst_sub_imm_32.json",
-            "inst_sub_imm_64.json",
             "inst_trap.json",
-            "inst_xor_imm.json",
             "inst_xor.json",
+            "inst_xor_imm.json",
+            "riscv_rv64ua_amoadd_d.json",
+            "riscv_rv64ua_amoadd_w.json",
+            "riscv_rv64ua_amoand_d.json",
+            "riscv_rv64ua_amoand_w.json",
+            "riscv_rv64ua_amomax_d.json",
+            "riscv_rv64ua_amomax_w.json",
+            "riscv_rv64ua_amomaxu_d.json",
+            "riscv_rv64ua_amomaxu_w.json",
+            "riscv_rv64ua_amomin_d.json",
+            "riscv_rv64ua_amomin_w.json",
+            "riscv_rv64ua_amominu_d.json",
+            "riscv_rv64ua_amominu_w.json",
+            "riscv_rv64ua_amoor_d.json",
+            "riscv_rv64ua_amoor_w.json",
+            "riscv_rv64ua_amoswap_d.json",
+            "riscv_rv64ua_amoswap_w.json",
+            "riscv_rv64ua_amoxor_d.json",
+            "riscv_rv64ua_amoxor_w.json",
+            "riscv_rv64uc_rvc.json",
+            "riscv_rv64ui_add.json",
+            "riscv_rv64ui_addi.json",
+            "riscv_rv64ui_addiw.json",
+            "riscv_rv64ui_addw.json",
+            "riscv_rv64ui_and.json",
+            "riscv_rv64ui_andi.json",
+            "riscv_rv64ui_beq.json",
+            "riscv_rv64ui_bge.json",
+            "riscv_rv64ui_bgeu.json",
+            "riscv_rv64ui_blt.json",
+            "riscv_rv64ui_bltu.json",
+            "riscv_rv64ui_bne.json",
+            "riscv_rv64ui_jal.json",
+            "riscv_rv64ui_jalr.json",
+            "riscv_rv64ui_lb.json",
+            "riscv_rv64ui_lbu.json",
+            "riscv_rv64ui_ld.json",
+            "riscv_rv64ui_lh.json",
+            "riscv_rv64ui_lhu.json",
+            "riscv_rv64ui_lui.json",
+            "riscv_rv64ui_lw.json",
+            "riscv_rv64ui_lwu.json",
+            "riscv_rv64ui_ma_data.json",
+            "riscv_rv64ui_or.json",
+            "riscv_rv64ui_ori.json",
+            "riscv_rv64ui_sb.json",
+            "riscv_rv64ui_sd.json",
+            "riscv_rv64ui_sh.json",
+            "riscv_rv64ui_simple.json",
+            "riscv_rv64ui_sll.json",
+            "riscv_rv64ui_slli.json",
+            "riscv_rv64ui_slliw.json",
+            "riscv_rv64ui_sllw.json",
+            "riscv_rv64ui_slt.json",
+            "riscv_rv64ui_slti.json",
+            "riscv_rv64ui_sltiu.json",
+            "riscv_rv64ui_sltu.json",
+            "riscv_rv64ui_sra.json",
+            "riscv_rv64ui_srai.json",
+            "riscv_rv64ui_sraiw.json",
+            "riscv_rv64ui_sraw.json",
+            "riscv_rv64ui_srl.json",
+            "riscv_rv64ui_srli.json",
+            "riscv_rv64ui_srliw.json",
+            "riscv_rv64ui_srlw.json",
+            "riscv_rv64ui_sub.json",
+            "riscv_rv64ui_subw.json",
+            "riscv_rv64ui_sw.json",
+            "riscv_rv64ui_xor.json",
+            "riscv_rv64ui_xori.json",
+            "riscv_rv64um_div.json",
+            "riscv_rv64um_divu.json",
+            "riscv_rv64um_divuw.json",
+            "riscv_rv64um_divw.json",
+            "riscv_rv64um_mul.json",
+            "riscv_rv64um_mulh.json",
+            "riscv_rv64um_mulhsu.json",
+            "riscv_rv64um_mulhu.json",
+            "riscv_rv64um_mulw.json",
+            "riscv_rv64um_rem.json",
+            "riscv_rv64um_remu.json",
+            "riscv_rv64um_remuw.json",
+            "riscv_rv64um_remw.json",
+            "riscv_rv64uzbb_andn.json",
+            "riscv_rv64uzbb_clz.json",
+            "riscv_rv64uzbb_clzw.json",
+            "riscv_rv64uzbb_cpop.json",
+            "riscv_rv64uzbb_cpopw.json",
+            "riscv_rv64uzbb_ctz.json",
+            "riscv_rv64uzbb_ctzw.json",
+            "riscv_rv64uzbb_max.json",
+            "riscv_rv64uzbb_maxu.json",
+            "riscv_rv64uzbb_min.json",
+            "riscv_rv64uzbb_minu.json",
+            "riscv_rv64uzbb_orc_b.json",
+            "riscv_rv64uzbb_orn.json",
+            "riscv_rv64uzbb_rev8.json",
+            "riscv_rv64uzbb_rol.json",
+            "riscv_rv64uzbb_rolw.json",
+            "riscv_rv64uzbb_ror.json",
+            "riscv_rv64uzbb_rori.json",
+            "riscv_rv64uzbb_roriw.json",
+            "riscv_rv64uzbb_rorw.json",
+            "riscv_rv64uzbb_sext_b.json",
+            "riscv_rv64uzbb_sext_h.json",
+            "riscv_rv64uzbb_xnor.json",
+            "riscv_rv64uzbb_zext_h.json",
         ];
+        
         for file in test_files {
             println!("Running test for file: {}", file);
             run_pvm_test(file);
-            println!("Ok\n\n");
+            //println!("Ok");
         }
     }
 }

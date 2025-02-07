@@ -1,13 +1,6 @@
-pub mod isa;
-pub mod mm;
-
-use std::collections::HashMap;
-use std::u8;
-
-use crate::constants::{NUM_REG, PAGE_SIZE};
-use crate::types::{Context, ExitReason, PageFlags, Page, PageMap, Program, RamMemory, PageTable};
-use crate::utils::codec::generic::{decode_to_bits, decode_unsigned, seq_to_number, decode_integer};
-use crate::utils::codec::{BytesReader, FromLeBytes, Decode};
+use crate::constants::NUM_REG;
+use crate::types::{Context, ExitReason, Program, PageTable};
+use crate::utils::codec::{BytesReader, Decode};
 use crate::pvm::isa::skip;
 use isa::one_offset::*;
 use isa::no_arg::*;
@@ -21,6 +14,9 @@ use isa::two_imm::*;
 use isa::one_reg_one_imm::*;
 use isa::one_reg_two_imm::*;
 use isa::one_reg_one_imm_one_offset::*;
+
+pub mod isa;
+pub mod mm;
 
 impl Default for Context {
     fn default() -> Self {
@@ -46,25 +42,20 @@ impl Default for Program {
 
 pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
     
-    let program = {
-        let (program_code, bitmask, jump_table) = split_program_blob(program_blob);
-        Program {
-            code: program_code,
-            bitmask: bitmask,
-            jump_table: jump_table,
-        }
-    };
-
-    let mut exit_reason;
+    let program = Program::decode(&mut BytesReader::new(program_blob)).unwrap();
 
     while pvm_ctx.gas > 0 {
 
-        exit_reason = single_step_pvm(pvm_ctx, &program);
+        let exit_reason = single_step_pvm(pvm_ctx, &program);
+        //println!("reg_0 = {}", pvm_ctx.reg[0]);
+        //println!("\n");
         // TODO revisar esto
         match exit_reason {
             ExitReason::Continue => {
                 pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
-                println!("pc = {}", pvm_ctx.pc);
+            },
+            ExitReason::Branch => {
+              
             },
             ExitReason::PageFault(_) => {
                 pvm_ctx.gas -= 1; 
@@ -82,13 +73,27 @@ fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     pvm_ctx.gas -= 1;
 
     let next_instruction = program.code[pvm_ctx.pc as usize];
-    println!("next instruction = {next_instruction}");
-    
+    /*println!("\nnext instruction = {next_instruction}");
+    println!("pc = {:x?}", pvm_ctx.pc);
+    println!("gas = {}", pvm_ctx.gas);
+    println!("reg_0 = 0x{:x?}", pvm_ctx.reg[0]);
+    println!("reg_1 = 0x{:x?}", pvm_ctx.reg[1]);
+    println!("reg_2 = 0x{:x?}", pvm_ctx.reg[2]);
+    println!("reg_3 = 0x{:x?}", pvm_ctx.reg[3]);
+    println!("reg_4 = 0x{:x?}", pvm_ctx.reg[4]);
+    println!("reg_5 = 0x{:x?}", pvm_ctx.reg[5]);
+    println!("reg_6 = 0x{:x?}", pvm_ctx.reg[6]);
+    println!("reg_7 = 0x{:x?}", pvm_ctx.reg[7]);
+    println!("reg_8 = 0x{:x?}", pvm_ctx.reg[8]);
+    println!("reg_9 = 0x{:x?}", pvm_ctx.reg[9]);
+    println!("reg_10 = 0x{:x?}", pvm_ctx.reg[10]);
+    println!("reg_11 = 0x{:x?}", pvm_ctx.reg[11]);
+    println!("reg_12 = 0x{:x?}", pvm_ctx.reg[12]);*/
+
     let exit_reason = match next_instruction { 
 
         0_u8    => { trap() },
         1_u8    => { fallthrough() },
-        //7_u8    => { halt() },
         //10_u8   => { ecalli(pvm_ctx, program) },
         20_u8   => { load_imm_64(pvm_ctx, program) },
         30_u8   => { store_imm_u8(pvm_ctx, program) },
@@ -125,6 +130,16 @@ fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
         89_u8   => { branch_ge_s_imm(pvm_ctx, program) },
         90_u8   => { branch_gt_s_imm(pvm_ctx, program) },
         100_u8  => { move_reg(pvm_ctx, program) }, 
+        102_u8  => { count_set_bits_64(pvm_ctx, program) },
+        103_u8  => { count_set_bits_32(pvm_ctx, program) },
+        104_u8  => { leading_zero_bits_64(pvm_ctx, program) },
+        105_u8  => { leading_zero_bits_32(pvm_ctx, program) },
+        106_u8  => { trailing_zero_bits_64(pvm_ctx, program) },
+        107_u8  => { trailing_zero_bits_32(pvm_ctx, program) },
+        108_u8  => { sign_extend_8(pvm_ctx, program) },
+        109_u8  => { sign_extend_16(pvm_ctx, program) },
+        110_u8  => { zero_extend_16(pvm_ctx, program) },
+        111_u8  => { reverse_bytes(pvm_ctx, program) },
         120_u8  => { store_ind_u8(pvm_ctx, program) },
         121_u8  => { store_ind_u16(pvm_ctx, program) },
         122_u8  => { store_ind_u32(pvm_ctx, program) },
@@ -162,6 +177,10 @@ fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
         155_u8  => { shlo_l_imm_alt_64(pvm_ctx, program) },
         156_u8  => { shlo_r_imm_alt_64(pvm_ctx, program) },
         157_u8  => { shar_r_imm_alt_64(pvm_ctx, program) },
+        158_u8  => { rot_r_64_imm(pvm_ctx, program) },
+        159_u8  => { rot_r_64_imm_alt(pvm_ctx, program) },
+        160_u8  => { rot_r_32_imm(pvm_ctx, program) },
+        161_u8  => { rot_r_32_imm_alt(pvm_ctx, program) },
         170_u8  => { branch_eq(pvm_ctx, program) },
         171_u8  => { branch_ne(pvm_ctx, program) },
         172_u8  => { branch_lt_u(pvm_ctx, program) },
@@ -192,47 +211,26 @@ fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
         210_u8  => { and(pvm_ctx, program) },
         211_u8  => { xor(pvm_ctx, program) },
         212_u8  => { or(pvm_ctx, program) },
+        213_u8  => { mul_upper_s_s(pvm_ctx, program) },
+        214_u8  => { mul_upper_u_u(pvm_ctx, program) },
+        215_u8  => { mul_upper_s_u(pvm_ctx, program) },
         216_u8  => { set_lt_u(pvm_ctx, program) },
         217_u8  => { set_lt_s(pvm_ctx, program) },
         218_u8  => { cmov_iz(pvm_ctx, program) },
-        _       => { return ExitReason::trap },   // Panic
+        219_u8  => { cmov_nz(pvm_ctx, program) },
+        220_u8  => { rot_l_64(pvm_ctx, program) },
+        221_u8  => { rot_l_32(pvm_ctx, program) },
+        222_u8  => { rot_r_64(pvm_ctx, program) },
+        223_u8  => { rot_r_32(pvm_ctx, program) },
+        224_u8  => { and_inv(pvm_ctx, program) },
+        225_u8  => { or_inv(pvm_ctx, program) },
+        226_u8  => { xnor(pvm_ctx, program) },
+        227_u8  => { max(pvm_ctx, program) },
+        228_u8  => { max_u(pvm_ctx, program) },
+        229_u8  => { min(pvm_ctx, program) },
+        230_u8  => { min_u(pvm_ctx, program) },
+        _       => { return ExitReason::panic },   // Panic
     };
 
     return exit_reason;
 }
-
-
-fn split_program_blob(blob: &[u8]) -> (Vec<u8>, Vec<bool>, Vec<usize>) {
-    
-    println!("Split program blob");
-    let mut program_blob = BytesReader::new(blob);
-
-    let jump_table_size = decode_unsigned(&mut program_blob).unwrap();   // Dynamic jump table size
-    let jump_opcode_size = program_blob.read_byte().unwrap();
-    let program_code_size = decode_unsigned(&mut program_blob).unwrap(); // Program size
-    
-    let mut jump_table = vec![];
-
-    for _ in 0..jump_table_size {
-        jump_table.push(decode_integer(&mut program_blob, jump_opcode_size as usize).unwrap());
-    }
-    
-    let program_code_slice = program_blob.read_bytes(program_code_size as usize).unwrap();
-    let program_code: Vec<u8> = program_code_slice.to_vec().into_iter().chain(std::iter::repeat(0).take(25)).collect();
-    let current_pos = program_blob.get_position();
-
-    let mut bitmask = decode_to_bits(&blob[current_pos..]);
-    bitmask.truncate(program_code_size);
-    bitmask.extend(std::iter::repeat(true).take(program_code.len() - bitmask.len()));
-
-
-    println!("Program code len  = {} | Bitmask len = {}", program_code.len(), bitmask.len());
-    println!("Jump table = {:?} \n", jump_table);
-    println!("Program code = {:?}", program_code);
-    println!("Bitmask = {:?}", bitmask);
-    
-    (program_code, bitmask, jump_table)
-}
-
-
-

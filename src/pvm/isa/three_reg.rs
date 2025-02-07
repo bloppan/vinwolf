@@ -2,14 +2,13 @@
     Instructions with Arguments of Three Registers.
 */
 
-use std::cmp::{min, max};
-use crate::types::{Context, ExitReason, Program, RegSigned, RegSize};
-use crate::pvm::isa::{skip, extend_sign, signed, unsigned};
+use crate::types::{Context, ExitReason, Program, RegSize};
+use crate::pvm::isa::{extend_sign, signed, unsigned};
 
 fn get_reg(pc: &u64, program: &Program) -> (usize, usize, usize) {
-    let reg_a = min(12, program.code[*pc as usize + 1] % 16) as usize;
-    let reg_b = min(12, program.code[*pc as usize + 1] >> 4) as usize;
-    let reg_d = min(12, program.code[*pc as usize + 2]) as usize;
+    let reg_a = std::cmp::min(12, program.code[*pc as usize + 1] % 16) as usize;
+    let reg_b = std::cmp::min(12, program.code[*pc as usize + 1] >> 4) as usize;
+    let reg_d = std::cmp::min(12, program.code[*pc as usize + 2]) as usize;
     (reg_a, reg_b, reg_d)
 }
 
@@ -38,10 +37,11 @@ pub fn div_u_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
     if pvm_ctx.reg[reg_b as usize] % (1 << 32) == 0 {
         pvm_ctx.reg[reg_d as usize] = 0xFFFFFFFFFFFFFFFFu64;
-    } else {
-        pvm_ctx.reg[reg_d as usize] = ((pvm_ctx.reg[reg_a as usize] % (1 << 32)) / pvm_ctx.reg[reg_b as usize] % (1 << 32)) as RegSize;
+        return ExitReason::Continue;
     }
-    ExitReason::Continue
+    let result = pvm_ctx.reg[reg_a as usize] as u32 / pvm_ctx.reg[reg_b as usize] as u32;
+    pvm_ctx.reg[reg_d as usize] = extend_sign(&result.to_le_bytes(), 4);
+    return ExitReason::Continue;
 }
 
 pub fn div_s_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
@@ -137,6 +137,33 @@ pub fn xor(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
 pub fn or(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
     pvm_ctx.reg[reg_d as usize] = pvm_ctx.reg[reg_a as usize] | pvm_ctx.reg[reg_b as usize];
+    ExitReason::Continue
+}
+
+pub fn mul_upper_s_s(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    let a = signed(pvm_ctx.reg[reg_a as usize], 8) as i128;
+    let b = signed(pvm_ctx.reg[reg_b as usize], 8) as i128;
+    let result = a * b;
+    pvm_ctx.reg[reg_d as usize] = unsigned((result >> 64) as i64, 8) as RegSize;
+    ExitReason::Continue
+}
+
+pub fn mul_upper_u_u(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    let a = pvm_ctx.reg[reg_a as usize] as u128;
+    let b = pvm_ctx.reg[reg_b as usize] as u128;
+    let result = a * b;
+    pvm_ctx.reg[reg_d as usize] = (result >> 64) as RegSize;
+    ExitReason::Continue
+}
+
+pub fn mul_upper_s_u(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    let a = signed(pvm_ctx.reg[reg_a as usize], 8) as i128;
+    let b = pvm_ctx.reg[reg_b as usize] as i128;
+    let result = a * b;
+    pvm_ctx.reg[reg_d as usize] = unsigned((result >> 64) as i64, 8) as RegSize;
     ExitReason::Continue
 }
 
@@ -255,10 +282,116 @@ pub fn cmov_iz(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     ExitReason::Continue
 }
 
+pub fn cmov_nz(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    if pvm_ctx.reg[reg_b as usize] != 0 {
+        pvm_ctx.reg[reg_d as usize] = pvm_ctx.reg[reg_a as usize];
+    }
+    ExitReason::Continue
+}
+
+pub fn rot_l_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    let value_reg_a = pvm_ctx.reg[reg_a as usize] as u128;
+    let value_reg_b = pvm_ctx.reg[reg_b as usize];
+    let mut result = 0 as u64;
+    for i in 0..64 {
+        let bit_a = (value_reg_a >> i) & 1;
+        result |= (bit_a << (((i as u64).wrapping_add(value_reg_b)) % 64)) as u64;
+    }
+    pvm_ctx.reg[reg_d as usize] = result as RegSize;
+    ExitReason::Continue
+}
+
+pub fn rot_l_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, &program);
+    let value_reg_a = pvm_ctx.reg[reg_a as usize] as u32;
+    let value_reg_b = pvm_ctx.reg[reg_b as usize] as u32;
+    let mut result = 0 as u32;
+    for i in 0..32 {
+        let bit_a = (value_reg_a >> i) & 1;
+        result |= (bit_a << (((i as u32).wrapping_add(value_reg_b)) % 32)) as u32;
+    }
+    pvm_ctx.reg[reg_d as usize] = extend_sign(&result.to_le_bytes(), 4) as RegSize;
+    ExitReason::Continue
+}
+
+pub fn rot_r_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, &program);
+    let value_reg_a = pvm_ctx.reg[reg_a as usize] as u64;
+    let value_reg_b = pvm_ctx.reg[reg_b as usize];
+    let mut result = 0 as u64;
+    for i in 0..64 {
+        let bit_a = (value_reg_a >> ((i as u64).wrapping_add(value_reg_b)) % 64) & 1;
+        result |= (bit_a << i) as u64;
+    }
+    pvm_ctx.reg[reg_d as usize] = result as RegSize;
+    ExitReason::Continue
+}
+
+pub fn rot_r_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, &program);
+    let value_reg_a = pvm_ctx.reg[reg_a as usize] as u32;
+    let value_reg_b = pvm_ctx.reg[reg_b as usize] as u32;
+    let mut result = 0 as u32;
+    for i in 0..32 {
+        let bit_a = (value_reg_a >> ((i as u32).wrapping_add(value_reg_b)) % 32) & 1;
+        result |= (bit_a << i) as u32;
+    }
+    pvm_ctx.reg[reg_d as usize] = extend_sign(&result.to_le_bytes(), 4) as RegSize;
+    ExitReason::Continue
+}
+
+pub fn and_inv(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    pvm_ctx.reg[reg_d as usize] = pvm_ctx.reg[reg_a as usize] & !pvm_ctx.reg[reg_b as usize];
+    ExitReason::Continue
+}
+
+pub fn or_inv(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    pvm_ctx.reg[reg_d as usize] = pvm_ctx.reg[reg_a as usize] | !pvm_ctx.reg[reg_b as usize];
+    ExitReason::Continue
+}
+
+pub fn xnor(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, &program);
+    pvm_ctx.reg[reg_d as usize] = !(pvm_ctx.reg[reg_a as usize] ^ pvm_ctx.reg[reg_b as usize]);
+    ExitReason::Continue
+}
+
+pub fn max(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    let a = signed(pvm_ctx.reg[reg_a as usize], 8);
+    let b = signed(pvm_ctx.reg[reg_b as usize], 8);
+    pvm_ctx.reg[reg_d as usize] = std::cmp::max(a, b) as RegSize;
+    ExitReason::Continue
+}
+
+pub fn max_u(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    pvm_ctx.reg[reg_d as usize] = std::cmp::max(pvm_ctx.reg[reg_a as usize], pvm_ctx.reg[reg_b as usize]);
+    ExitReason::Continue
+}
+
+pub fn min(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    let a = signed(pvm_ctx.reg[reg_a as usize], 8);
+    let b = signed(pvm_ctx.reg[reg_b as usize], 8);
+    pvm_ctx.reg[reg_d as usize] = std::cmp::min(a, b) as RegSize;
+    ExitReason::Continue
+}
+
+pub fn min_u(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
+    pvm_ctx.reg[reg_d as usize] = std::cmp::min(pvm_ctx.reg[reg_a as usize], pvm_ctx.reg[reg_b as usize]);
+    ExitReason::Continue
+}
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::pvm::isa::skip;
 
     #[cfg(test)]
     mod test {

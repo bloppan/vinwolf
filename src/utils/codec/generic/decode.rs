@@ -1,4 +1,4 @@
-use crate::utils::codec::{FromLeBytes, Encode, Decode, EncodeSize, EncodeLen, DecodeLen, DecodeSize, ReadError, BytesReader};
+use crate::utils::codec::{FromLeBytes, Decode, DecodeLen, DecodeSize, ReadError, BytesReader};
 
 // TODO revisar esta funcion
 pub fn decode<T: FromLeBytes>(bytes: &[u8], n: usize) -> T {
@@ -17,7 +17,7 @@ pub fn decode<T: FromLeBytes>(bytes: &[u8], n: usize) -> T {
     T::from_le_bytes(&buffer)
 }
 
-pub fn decode_to_bits(v: &[u8]) -> Vec<bool> {
+/*pub fn decode_to_bits(v: &[u8]) -> Vec<bool> {
 
     let mut bools = Vec::new();
     for byte in v {
@@ -27,7 +27,19 @@ pub fn decode_to_bits(v: &[u8]) -> Vec<bool> {
         }
     }
     return bools;
+}*/
+pub fn decode_to_bits(bytes: &mut BytesReader, n: usize) -> Result<Vec<bool>, ReadError> {
+    let mut bools = Vec::new();
+    for _ in 0..n {
+        let byte = bytes.read_byte()?;
+        for i in 0..8 { 
+            let bit = (byte >> i) & 1; 
+            bools.push(bit == 1); // Convert bit (0 o 1) to boolean
+        }
+    }
+    return Ok(bools);
 }
+
 
 pub fn decode_integer(data: &mut BytesReader, l: usize) -> Result<usize, ReadError> {
     let mut array = [0u8; std::mem::size_of::<usize>()];

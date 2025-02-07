@@ -2,11 +2,10 @@
     Instructions with Arguments of One Offset.
 */
 
-use std::cmp::{min, max};
-use crate::constants::{NUM_REG, PAGE_SIZE, RAM_SIZE};
-use crate::types::{Context, ExitReason, MemoryChunk, Program};
+use std::cmp::min;
+use crate::types::{Context, ExitReason, Program};
 use crate::utils::codec::generic::decode_integer;
-use crate::utils::codec::{EncodeSize, DecodeSize, BytesReader};
+use crate::utils::codec::BytesReader;
 use crate::pvm::isa::{skip, _branch, signed};
 
 fn get_lx_length(pc: &u64, bitmask: &[bool]) -> u64 {

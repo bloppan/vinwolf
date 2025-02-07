@@ -83,3 +83,6 @@ pub const RAM_SIZE: u64 = 1 << 32;
 
 // The number of pages in ram
 pub const NUM_PAGES: RamAddress = (RAM_SIZE / PAGE_SIZE as u64) as RamAddress;
+
+// Jump aligment factor
+pub const JUMP_ALIGNMENT: usize = 2;
