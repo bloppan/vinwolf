@@ -7,19 +7,18 @@ use std::convert::TryInto;
 
 extern crate vinwolf;
 
+use vinwolf::constants::{EPOCH_LENGTH, VALIDATORS_COUNT};  
 use vinwolf::types::{
-    Header, BandersnatchVrfSignature, BandersnatchRingCommitment, Entropy, EntropyPool, Safrole, BandersnatchEpoch, TicketsOrKeys, BandersnatchKeys,
-    TimeSlot
+    Header, BandersnatchVrfSignature, Entropy, EntropyPool, Safrole, BandersnatchEpoch, TicketsOrKeys, TimeSlot, BandersnatchPublic, 
+    TicketsMark, ValidatorsData
 };
 use vinwolf::utils::codec::{Decode, BytesReader};
 use vinwolf::blockchain::block::extrinsic::tickets::verify_seal;
-use vinwolf::blockchain::state::set_entropy;
+use vinwolf::blockchain::state::{set_validators, validators::ValidatorSet, set_entropy};
+use vinwolf::blockchain::state::safrole::{create_ring_set, create_root_epoch};
 
 use ark_ec_vrfs::suites::bandersnatch::edwards as bandersnatch_ark_ec_vrfs;
-use ark_ec_vrfs::prelude::ark_serialize;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bandersnatch_ark_ec_vrfs::Public;
-use vinwolf::blockchain::state::safrole::bandersnatch::{ring_context, Verifier, Prover};
 
 #[derive(Deserialize, Debug, PartialEq)]
 struct Testcase {
@@ -78,38 +77,11 @@ fn decode_test(testcase: Testcase) -> TestDecoded {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    
-    fn create_root_epoch(ring_set: Vec<Public>) -> BandersnatchRingCommitment {
-    
-        let verifier = Verifier::new(ring_set);
-        let mut proof: BandersnatchRingCommitment = [0u8; std::mem::size_of::<BandersnatchRingCommitment>()];
-        verifier.commitment.serialize_compressed(&mut proof[..]).unwrap();
-        proof
-    }
-
-    fn create_ring_set(public_keys: &[BandersnatchPublic]) -> Vec<Public> {
-        let padding_point = Public::from(ring_context().padding_point());
-        public_keys
-            .iter()
-            .map(|key| {
-                //println!("key = {:x?}", key);
-                Public::deserialize_compressed(&key[..]).unwrap_or_else(|_| {
-                    // Use the padding point in case of invalid key
-                    padding_point.clone()
-                })
-            })
-            .collect()
-    }
-
-    use vinwolf::{blockchain::state::{set_validators, validators::ValidatorSet}, constants::{EPOCH_LENGTH, VALIDATORS_COUNT}, types::{BandersnatchPublic, TicketsMark, TicketsOrKeys, ValidatorsData}};
-
-    use super::*;
-
+   
     fn run_seal_test(filename: &str) {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("tests/jamtestvectors/seals/");
