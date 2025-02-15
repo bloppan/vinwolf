@@ -1,36 +1,30 @@
-/*use once_cell::sync::Lazy;
+use std::collections::HashMap;
+use once_cell::sync::Lazy;
 use crate::integration::{read_test_file, FromProcessError};
 use crate::integration::codec::{TestBody, encode_decode_test};
 
 pub mod codec;
-use codec::{InputAssurances, StateAssurances};
+use codec::{InputPreimages, PreimagesState};
 
 use vinwolf::constants::{CORES_COUNT, VALIDATORS_COUNT};
-use vinwolf::types::{OutputDataAssurances, OutputAssurances};
-use vinwolf::blockchain::state::{ProcessError, get_global_state, set_reporting_assurance, get_reporting_assurance, set_validators, get_validators};
-use vinwolf::blockchain::state::validators::ValidatorSet;
-use vinwolf::blockchain::state::reporting_assurance::process_assurances;
+use vinwolf::types::{PreimagesErrorCode, OutputPreimages, OpaqueHash, HeaderHash, Account, ServiceAccounts};
+use vinwolf::blockchain::state::{ProcessError, set_service_accounts, get_service_accounts, set_time, get_global_state};
+use vinwolf::blockchain::state::services::{process_services};
 use vinwolf::utils::codec::{Decode, BytesReader};
-
-static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
-    if VALIDATORS_COUNT == 6 && CORES_COUNT == 2 {
-        "tiny"
-    } else if VALIDATORS_COUNT == 1023 && CORES_COUNT == 341 {
-        "full"
-    } else {
-        panic!("Invalid configuration for tiny nor full tests");
-    }
-});
 
 #[cfg(test)]
 mod tests {
 
+    use std::{collections::VecDeque, result};
+
+    use vinwolf::types::{Account, ServiceAccounts};
+
     use super::*;
 
-    impl FromProcessError for OutputAssurances {
+    impl FromProcessError for OutputPreimages {
         fn from_process_error(error: ProcessError) -> Self {
             match error {
-                ProcessError::AssurancesError(code) => OutputAssurances::Err(code),
+                ProcessError::PreimagesError(code) => OutputPreimages::Err(code),
                 _ => panic!("Unexpected error type in conversion"),
             }
         }
@@ -38,66 +32,107 @@ mod tests {
     
     fn run_test(filename: &str) {
 
-        let test_content = read_test_file(&format!("tests/jamtestvectors/assurances/{}/{}", *TEST_TYPE, filename));
+        let test_content = read_test_file(&format!("tests/jamtestvectors/preimages/data/{}", filename));
         let test_body: Vec<TestBody> = vec![
-                                        TestBody::InputAssurances,
-                                        TestBody::StateAssurances,
-                                        TestBody::OutputAssurances,
-                                        TestBody::StateAssurances];
+                                        TestBody::InputPreimages,
+                                        TestBody::PreimagesState,
+                                        TestBody::OutputPreimages,
+                                        TestBody::PreimagesState];
         
         let _ = encode_decode_test(&test_content, &test_body);
 
         let mut reader = BytesReader::new(&test_content);
-        let input = InputAssurances::decode(&mut reader).expect("Error decoding post InputAssurances");
-        let pre_state = StateAssurances::decode(&mut reader).expect("Error decoding post Assurances PreState");
-        let expected_output = OutputAssurances::decode(&mut reader).expect("Error decoding post OutputAssurances");
-        let expected_state = StateAssurances::decode(&mut reader).expect("Error decoding post Assurances PostState");
+        let input = InputPreimages::decode(&mut reader).expect("Error decoding post InputAssurances");
+        let pre_state = PreimagesState::decode(&mut reader).expect("Error decoding post Assurances PreState");
+        let expected_output = OutputPreimages::decode(&mut reader).expect("Error decoding post OutputAssurances");
+        let expected_state = PreimagesState::decode(&mut reader).expect("Error decoding post Assurances PostState");
         
-        set_reporting_assurance(pre_state.avail_assignments);
-        set_validators(pre_state.curr_validators, ValidatorSet::Current);
-  
-        let current_state = get_global_state().lock().unwrap();
-        let mut assurances_state = current_state.availability.clone();
+        println!("input: {:?}", input);
+        println!("pre_state: {:?}", pre_state);
+        println!("expected_output: {:?}", expected_output);
+        println!("expected_state: {:?}", expected_state);
 
-        let output_result = process_assurances(
-                                                                            &mut assurances_state, 
-                                                                            &input.assurances, 
-                                                                            &input.slot,
-                                                                            &input.parent);
-        
-        match output_result {
-            Ok(_) => { set_reporting_assurance(assurances_state);},
-            Err(_) => { },
+        let mut service_accounts = ServiceAccounts::default();
+        for account in pre_state.accounts.iter() {
+            let mut preimages_map = HashMap::new();
+            for preimage in account.data.preimages.iter() {
+                preimages_map.insert(preimage.hash.clone(), preimage.blob.clone());
+            }
+            let mut lookup_map = HashMap::new();
+            for lookup_meta in account.data.lookup_meta.iter() {     
+                let mut timeslot_values = Vec::new();
+                for timeslot in lookup_meta.value.iter() {
+                    timeslot_values.push(timeslot.clone());
+                }   
+                lookup_map.insert((lookup_meta.key.hash.clone(), lookup_meta.key.length.clone()), timeslot_values.clone());
+            }
+            let mut new_account = Account::default();
+            new_account.preimages = preimages_map.clone();
+            new_account.lookup = lookup_map.clone();
+            service_accounts.service_accounts.insert(account.id.clone(), new_account);
         }
 
-        let result_avail_assignments = get_reporting_assurance();
-        let result_curr_validators = get_validators(ValidatorSet::Current);
+        set_time(input.slot.clone());
+        set_service_accounts(service_accounts.clone());
 
-        assert_eq!(expected_state.avail_assignments, result_avail_assignments);
-        assert_eq!(expected_state.curr_validators, result_curr_validators);
-        
+        let mut state = get_global_state().lock().unwrap().clone();
+
+        let output_result = process_services(&mut state.service_accounts, &input.slot, &input.preimages);
+
         match output_result {
-            Ok(OutputDataAssurances { reported}) => {
-                assert_eq!(expected_output, OutputAssurances::Ok(OutputDataAssurances {reported}));
+            Ok(_) => { set_service_accounts(state.service_accounts);},
+            Err(_) => { println!("Error: {:?}", output_result); },
+        }
+
+        let result_service_accounts = get_service_accounts();
+        for account in expected_state.accounts.iter() {
+            let result_account = result_service_accounts.service_accounts.get(&account.id).unwrap();
+            for preimage in account.data.preimages.iter() {
+                if let Some(_) = result_account.preimages.get(&preimage.hash) {
+                    assert_eq!(preimage.blob, *result_account.preimages.get(&preimage.hash).unwrap());
+                }
             }
-            Err(error_code) => {
-                assert_eq!(expected_output, OutputAssurances::from_process_error(error_code));
+            for lookup_meta in account.data.lookup_meta.iter() {
+                let timeslot_values = result_account.lookup.get(&(lookup_meta.key.hash.clone(), lookup_meta.key.length.clone())).unwrap();
+                assert_eq!(lookup_meta.value.len(), timeslot_values.len());
+                for (i, byte) in lookup_meta.value.iter().enumerate() {
+                    assert_eq!(byte.clone(), timeslot_values[i].clone());
+                }
             }
         }
+
+        match output_result {
+            Ok(OutputPreimages::Ok {  }) => {
+                assert_eq!(expected_output, OutputPreimages::Ok());
+            }
+            Err(error) => {
+                assert_eq!(expected_output, OutputPreimages::from_process_error(error));
+            }
+            _ => panic!("Unexpected output"),
+        }
+
+        println!("\n");
+        
     }
 
     #[test]
     fn run_preimages_tests() {
         
-        println!("Assurances tests in {} mode", *TEST_TYPE);
+        println!("Preimages tests");
 
         let test_files = vec![
-            "no_assurances-1.bin",
-
+            "preimage_needed-1.bin",
+            "preimage_needed-2.bin",
+            "preimage_not_needed-1.bin",
+            "preimage_not_needed-2.bin",
+            "preimages_order_check-1.bin",
+            "preimages_order_check-2.bin",
+            "preimages_order_check-3.bin",
+            "preimages_order_check-4.bin",
         ];
         for file in test_files {
             println!("Running test: {}", file);
             run_test(file);
         }
     }
-}*/
+}

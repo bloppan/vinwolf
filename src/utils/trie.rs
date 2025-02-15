@@ -57,7 +57,7 @@ fn leaf(k: &[u8], v: &[u8]) -> [u8; 64] {
         // The last 32 bytes are defined as the value
         v.encode_to(&mut encoded);
         // Fill with zeroes if its length is less than 32 bytes
-        vec![0; 32 - v_len_1 as usize].encode_to(&mut encoded);
+        vec![0u8; 32 - v_len_1 as usize].encode_to(&mut encoded);
     } else {
         // In the case of a regular leaf, the remaining 6 bits of the first byte are zeroed
         let head = 0b11000000 as u8;

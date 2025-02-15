@@ -119,6 +119,19 @@ impl Encode for Vec<u8> {
     }
 }
 
+impl Encode for Vec<u32> {
+    fn encode(&self) -> Vec<u8> {
+        let mut blob = Vec::with_capacity(self.len() * 4);
+        for item in self {
+            item.encode_to(&mut blob);
+        }
+        blob
+    }
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
 impl<const N: usize> Encode for [u8; N] {
     fn encode(&self) -> Vec<u8> {
         self.to_vec()

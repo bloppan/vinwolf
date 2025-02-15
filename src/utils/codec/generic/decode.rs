@@ -130,7 +130,6 @@ impl Decode for i64 {
     }
 }
 
-
 impl<const N: usize> Decode for [u8; N] {
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
         let bytes = reader.read_bytes(N)?;
@@ -152,6 +151,17 @@ impl<const N: usize, const M: usize> Decode for [[u8; N]; M] {
         }
 
         Ok(array)
+    }
+}
+
+impl Decode for Vec<u32> {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        let len = decode_unsigned(reader)?;
+        let mut result = Vec::with_capacity(len);
+        for _ in 0..len {
+            result.push(u32::decode(reader)?);
+        }
+        Ok(result)
     }
 }
 

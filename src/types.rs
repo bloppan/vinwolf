@@ -23,13 +23,13 @@ pub type BandersnatchRingCommitment = [u8; 144];
 // Application Specific Core
 // ----------------------------------------------------------------------------------------------------------
 pub type OpaqueHash = [u8; 32];
-pub type Hash = [u8; 32];
 pub type Metadata = [u8; 128];
 
 pub type TimeSlot = u32;
 pub type ValidatorIndex = u16;
 pub type CoreIndex = u16;
 
+pub type Hash = OpaqueHash;
 pub type HeaderHash = OpaqueHash;
 pub type StateRoot = OpaqueHash;
 pub type BeefyRoot = OpaqueHash;
@@ -526,25 +526,49 @@ pub struct DisputesExtrinsic {
     pub faults: Vec<Fault>,
 }
 // ----------------------------------------------------------------------------------------------------------
-// Accounts
+// Service Accounts
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
+pub struct ServiceAccounts {
+    pub service_accounts: HashMap<ServiceId, Account>,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Account {
-    pub id: u32,
-    //pub info: AccountInf//o,
+    pub storage: HashMap<OpaqueHash, Vec<u8>>,
+    pub preimages: HashMap<OpaqueHash, Vec<u8>>,
+    pub lookup: HashMap<(OpaqueHash, u32), Vec<TimeSlot>>,
+    pub code_hash: OpaqueHash,
+    pub balance: u64,
+    pub gas: Gas,
+    pub min_gas: Gas,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Preimages
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, std::hash::Hash)]
 pub struct Preimage {
     pub requester: ServiceId,
     pub blob: Vec<u8>,
 }
-
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, std::hash::Hash)]
 pub struct PreimagesExtrinsic {
     pub preimages: Vec<Preimage>,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct PreimagesMapEntry {
+    pub hash: HeaderHash,
+    pub blob: Vec<u8>,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum PreimagesErrorCode {
+    PreimageUnneeded = 0,
+    PreimagesNotSortedOrUnique = 1,
+    RequesterNotFound = 2,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum OutputPreimages {
+    Ok(),
+    Err(PreimagesErrorCode),
 }
 // ----------------------------------------------------------------------------------------------------------
 // Assurances

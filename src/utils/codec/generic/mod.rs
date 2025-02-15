@@ -110,7 +110,7 @@ mod tests {
         assert_eq!(vec![4, 0x2C, 0x1, 18, 0, 127, 0, 128, 0], (&[300u16, 18u16, 127u16, 128u16][..]).encode_len());
         assert_eq!(vec![2, 0xF0, 0x49, 0x02, 0, 0xFF, 0xFF, 0x1F, 0], (&[150000u32, 2097151u32][..]).encode_len());
         assert_eq!(vec![2, 0x1, 0, 0, 0, 0, 0, 0, 0x80, 0, 0, 0, 0, 8, 0, 0, 0], (&[9223372036854775809u64, 0x800000000u64][..]).encode_len());
-        assert_eq!(vec![2, 1, 2, 3, 4], (&[vec![1,2], vec![3,4]][..]).encode_len());
+        assert_eq!(vec![2, 1, 2, 3, 4], (&[vec![1u8,2u8], vec![3u8,4u8]][..]).encode_len());
     }
 
     /*#[test]

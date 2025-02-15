@@ -1,41 +1,198 @@
-use vinwolf::types::{TimeSlot, ValidatorsData, HeaderHash, AvailabilityAssignments, AssurancesExtrinsic};
+use vinwolf::types::{HeaderHash, OpaqueHash, TimeSlot, PreimagesExtrinsic, PreimagesMapEntry, ServiceId};
+use vinwolf::utils::codec::generic::{decode_unsigned, encode_unsigned};
 use vinwolf::utils::codec::{BytesReader, Decode, Encode, ReadError};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputPreimages {
-    pub assurances: AssurancesExtrinsic,
+    pub preimages: PreimagesExtrinsic,
     pub slot: TimeSlot,
-    pub parent: HeaderHash
-}
-/*
-State ::= SEQUENCE {
-    -- [..] Accounts.
-    accounts SEQUENCE OF AccountsMapEntry,
 }
 
-Input ::= SEQUENCE {
-    -- [E_P] Preimages extrinsic.
-    preimages PreimagesExtrinsic,
-
-    -- [H_t] Block's timeslot.
-    slot TimeSlot
+impl Encode for InputPreimages {
+    fn encode(&self) -> Vec<u8> {
+        let mut blob = Vec::new();
+        self.preimages.encode_to(&mut blob);
+        self.slot.encode_to(&mut blob);
+        return blob;
+    }
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
 }
 
--- State transition function execution error.
--- Error codes **are not specified** in the the Graypaper.
--- Feel free to ignore the actual value.
-ErrorCode ::= ENUMERATED {
-    preimage-unneeded (0)
+impl Decode for InputPreimages {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        Ok(InputPreimages { 
+            preimages: PreimagesExtrinsic::decode(reader)?,
+            slot: TimeSlot::decode(reader)?,
+        })
+    }
 }
 
-Output ::= CHOICE {
-    ok  NULL,
-    err ErrorCode
+#[derive(Debug, Clone, PartialEq)]
+pub struct PreimagesState {
+    pub accounts: Vec<AccountsMapEntry>,
 }
 
-TestCase ::= SEQUENCE {
-    input        Input,
-    pre-state    State,
-    output       Output,
-    post-state   State
-}*/
+#[derive(Debug, Clone, PartialEq)]
+pub struct AccountsMapEntry {
+    pub id: ServiceId,
+    pub data: AccountTest,
+}
+
+impl Encode for AccountsMapEntry {
+    fn encode(&self) -> Vec<u8> {
+        let mut blob = Vec::new();
+        self.id.encode_to(&mut blob);
+        self.data.encode_to(&mut blob);
+        return blob;
+    }
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for AccountsMapEntry {
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+        Ok(AccountsMapEntry { 
+            id: ServiceId::decode(blob)?,
+            data: AccountTest::decode(blob)?,
+        })
+    }
+}
+
+impl Encode for PreimagesState {
+    fn encode(&self) -> Vec<u8> {
+        let mut blob = Vec::new();
+        encode_unsigned(self.accounts.len() as usize).encode_to(&mut blob);
+        for entry in &self.accounts {
+            entry.encode_to(&mut blob);
+        }
+        return blob;
+    }
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for PreimagesState {
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+        Ok(PreimagesState { 
+            accounts: { 
+                let len = decode_unsigned(blob)? as usize;
+                let mut accounts = Vec::with_capacity(len);
+                for _ in 0..len {
+                    accounts.push(AccountsMapEntry::decode(blob)?);
+                }
+                accounts
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AccountTest {
+    pub preimages: Vec<PreimagesMapEntry>,
+    pub lookup_meta: Vec<LookupMetaMapEntry>,
+}
+
+impl Encode for AccountTest {
+    fn encode(&self) -> Vec<u8> {
+        let mut blob = Vec::new();
+        encode_unsigned(self.preimages.len() as usize).encode_to(&mut blob);
+        for entry in &self.preimages {
+            entry.encode_to(&mut blob);
+        }
+        encode_unsigned(self.lookup_meta.len() as usize).encode_to(&mut blob);
+        for entry in &self.lookup_meta {
+            entry.encode_to(&mut blob);
+        }
+        return blob;
+    }
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for AccountTest {
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+        Ok(AccountTest { 
+            preimages: { 
+                let len = decode_unsigned(blob)? as usize;
+                let mut preimages = Vec::with_capacity(len);
+                for _ in 0..len {
+                    preimages.push(PreimagesMapEntry::decode(blob)?);
+                }
+                preimages
+            },
+            lookup_meta: { 
+                let len = decode_unsigned(blob)? as usize;
+                let mut lookup_meta = Vec::with_capacity(len);
+                for _ in 0..len {
+                    lookup_meta.push(LookupMetaMapEntry::decode(blob)?);
+                }
+                lookup_meta
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LookupMetaMapKeyTest {
+    pub hash: HeaderHash,
+    pub length: u32,
+}
+
+impl Encode for LookupMetaMapKeyTest {
+    fn encode(&self) -> Vec<u8> {
+        let mut blob = Vec::new();
+        self.hash.encode_to(&mut blob);
+        self.length.encode_to(&mut blob);
+        return blob;
+    }
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for LookupMetaMapKeyTest {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        Ok(LookupMetaMapKeyTest { 
+            hash: HeaderHash::decode(reader)?,
+            length: u32::decode(reader)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LookupMetaMapEntry {
+    pub key: LookupMetaMapKeyTest,
+    pub value: Vec<TimeSlot>,
+}
+
+impl Encode for LookupMetaMapEntry {
+    fn encode(&self) -> Vec<u8> {
+        let mut blob = Vec::new();
+        self.key.encode_to(&mut blob);
+        encode_unsigned(self.value.len() as usize).encode_to(&mut blob);
+        self.value.encode_to(&mut blob);
+        return blob;
+    }
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for LookupMetaMapEntry {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        Ok(LookupMetaMapEntry { 
+            key: LookupMetaMapKeyTest::decode(reader)?,
+            value: Vec::<TimeSlot>::decode(reader)?,
+        })
+    }
+}
+
+
+
+
+

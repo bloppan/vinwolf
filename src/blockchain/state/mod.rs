@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use crate::types::{
     AssurancesErrorCode, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesErrorCode, DisputesRecords, 
-    EntropyPool, Safrole, SafroleErrorCode, Statistics, TimeSlot, ValidatorsData, ReportErrorCode
+    EntropyPool, Safrole, SafroleErrorCode, Statistics, TimeSlot, ValidatorsData, ReportErrorCode, PreimagesErrorCode, ServiceAccounts
 };
 use validators::ValidatorSet;
 use reporting_assurance::{process_assurances, process_guarantees};
@@ -39,6 +39,7 @@ pub struct GlobalState {
     pub next_validators: ValidatorsData,
     pub disputes: DisputesRecords,
     pub safrole: Safrole,
+    pub service_accounts: ServiceAccounts,
 }
 
 impl Default for GlobalState {
@@ -56,6 +57,7 @@ impl Default for GlobalState {
             next_validators: ValidatorsData::default(),
             disputes: DisputesRecords::default(),
             safrole: Safrole::default(),
+            service_accounts: ServiceAccounts::default(),
         }
     }
 }
@@ -67,6 +69,7 @@ pub enum ProcessError {
     DisputesError(DisputesErrorCode),
     ReportError(ReportErrorCode),
     AssurancesError(AssurancesErrorCode),
+    PreimagesError(PreimagesErrorCode),
 }
 
 pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
@@ -193,6 +196,15 @@ pub fn set_safrole(new_safrole: Safrole) {
 pub fn get_safrole() -> Safrole {
     let state = GLOBAL_STATE.lock().unwrap();
     state.safrole.clone()
+}
+// Service Accounts
+pub fn set_service_accounts(new_service_accounts: ServiceAccounts) {
+    let mut state = GLOBAL_STATE.lock().unwrap();
+    state.service_accounts = new_service_accounts;
+}
+pub fn get_service_accounts() -> ServiceAccounts {
+    let state = GLOBAL_STATE.lock().unwrap();
+    state.service_accounts.clone()
 }
 // Validators
 pub fn set_validators(new_validators: ValidatorsData, validator_set: ValidatorSet) {

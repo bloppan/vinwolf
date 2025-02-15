@@ -6,7 +6,7 @@ use crate::integration::read_test_file;
 
 use vinwolf::types::{
     RefineContext, WorkItem, WorkPackage, WorkResult, TicketsExtrinsic, DisputesExtrinsic, PreimagesExtrinsic, AssurancesExtrinsic, 
-    GuaranteesExtrinsic, Header, Block, BlockHistory, WorkReport, OutputAssurances, OutputSafrole
+    GuaranteesExtrinsic, Header, Block, BlockHistory, WorkReport, OutputAssurances, OutputSafrole, OutputPreimages
 };
 use vinwolf::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
@@ -17,6 +17,7 @@ use crate::integration::authorization::codec::{InputAuthorizations, StateAuthori
 use crate::integration::history::codec::InputHistory;
 use crate::integration::statistics::codec::{InputStatistics, StateStatistics};
 use crate::integration::reports::codec::{InputWorkReport, WorkReportState, OutputWorkReport};
+use crate::integration::preimages::codec::{InputPreimages, PreimagesState};
 
 fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
     data1.iter()
@@ -59,6 +60,9 @@ pub enum TestBody {
     StateAuthorizations,
     InputStatistics,
     StateStatistics,
+    InputPreimages,
+    PreimagesState,
+    OutputPreimages,
 }
 
 struct TestContext<'a, 'b> {
@@ -207,9 +211,21 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
             TestBody::StateStatistics => {
                 context.process_test_part("StateStatistics", StateStatistics::decode, StateStatistics::encode)?;
             }
+            TestBody::InputPreimages => {
+                context.process_test_part("InputPreimages", InputPreimages::decode, InputPreimages::encode)?;
+            }
+            TestBody::PreimagesState => {
+                context.process_test_part("PreimagesState", PreimagesState::decode, PreimagesState::encode)?;
+            }
+            TestBody::OutputPreimages => {
+                context.process_test_part("OutputPreimages", OutputPreimages::decode, OutputPreimages::encode)?;
+            }
         }
     }
 
+    println!("blob.len() = {}", blob.len());
+    println!("context.global_position = {}", context.global_position);
+    
     if context.global_position != blob.len() {
         println!("Codec test was not readed properly! Readed {} bytes. The test file has {} bytes", context.global_position, blob.len());
         assert_eq!(blob.len(), context.global_position);
