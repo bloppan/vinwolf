@@ -73,10 +73,18 @@ pub const TOTAL_GAS_ALLOCATED: Gas = 3_500_000_000;
 pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 14_400;
 
 // The number of the registers in the PVM
-pub const NUM_REG: u8 = 13;
+pub const NUM_REG: usize = 13;
 
-// The size of ram page
+// The size of ram page (Zp)
 pub const PAGE_SIZE: RamAddress = 1 << 12;
+
+// The standard pvm program initialization input data size. (Zi)
+pub const PVM_INIT_INPUT_DATA_SIZE: RamAddress = 1 << 24;
+pub const Zi: u64 = 1 << 24;
+
+// The standard pvm program initialization zone size (Zz)
+pub const PVM_INIT_ZONE_SIZE: RamAddress = 1 << 16;
+pub const Zz: u64 = 1 << 16;
 
 // The size of ram
 pub const RAM_SIZE: u64 = 1 << 32;

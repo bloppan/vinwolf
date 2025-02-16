@@ -765,3 +765,18 @@ pub enum ExitReason {
     HostCall(u32),      
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct StandardProgram {
+    pub code: Vec<u8>,
+    pub reg: [RegSize; NUM_REG],
+    pub ram: RamMemory,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProgramFormat {
+    pub c: Vec<u8>,
+    pub o: Vec<u8>,
+    pub w: Vec<u8>,
+    pub z: u16,
+    pub s: u32,
+}

@@ -1,7 +1,7 @@
-use crate::types::Program;
-use crate::utils::codec::{Decode, BytesReader, ReadError};
+use crate::types::{Program, Page, RamAccess, RamAddress, RamMemory, ProgramFormat};
+use crate::utils::codec::{Decode, DecodeSize, BytesReader, ReadError};
 use crate::utils::codec::generic::{decode_integer, decode_to_bits, decode_unsigned};
-
+use crate::constants::{PAGE_SIZE, PVM_INIT_INPUT_DATA_SIZE, PVM_INIT_ZONE_SIZE};
 
 impl Decode for Program {
 
@@ -37,3 +37,27 @@ impl Decode for Program {
         });
     }
 }
+
+impl Decode for ProgramFormat {
+    
+    fn decode(blob: &mut BytesReader) -> Result<ProgramFormat, ReadError> {
+        
+        let o_len = Vec::<u8>::decode_size(blob, 3)?;
+        let w_len = Vec::<u8>::decode_size(blob, 3)?;
+        let z = Vec::<u8>::decode_size(blob, 2)?;
+        let s = Vec::<u8>::decode_size(blob, 3)?;
+        let o = blob.read_bytes(o_len as usize)?.to_vec();
+        let w = blob.read_bytes(w_len as usize)?.to_vec();
+        let c_len = u32::decode(blob)?;
+        let c = blob.read_bytes(c_len as usize)?.to_vec();
+    
+        return Ok(ProgramFormat {
+            c: c.to_vec(),
+            o: o.to_vec(),
+            w: w.to_vec(),
+            z: z as u16,
+            s: s as u32,
+        });
+    }
+}
+

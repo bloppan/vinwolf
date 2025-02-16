@@ -17,6 +17,7 @@ use isa::one_reg_one_imm_one_offset::*;
 
 pub mod isa;
 pub mod mm;
+pub mod host_call;
 
 impl Default for Context {
     fn default() -> Self {
