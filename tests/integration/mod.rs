@@ -19,6 +19,7 @@ mod assurances;
 mod authorization;
 mod statistics;
 mod preimages;
+mod accumulate;
 mod pvm;
 mod host_function;
 

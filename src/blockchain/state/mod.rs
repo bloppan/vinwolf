@@ -1,15 +1,15 @@
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use crate::types::{
-    AssurancesErrorCode, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesErrorCode, DisputesRecords, 
-    EntropyPool, Safrole, SafroleErrorCode, Statistics, TimeSlot, ValidatorsData, ReportErrorCode, PreimagesErrorCode, ServiceAccounts
+    AccumulatedHistory, AssurancesErrorCode, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesErrorCode, DisputesRecords, EntropyPool, PreimagesErrorCode, Privileges, ReadyQueue, ReportErrorCode, Safrole, SafroleErrorCode, ServiceAccounts, Statistics, TimeSlot, ValidatorsData
 };
 use validators::ValidatorSet;
 use reporting_assurance::{process_assurances, process_guarantees};
 use statistics::process_statistics;
 use crate::utils::codec::ReadError;
 
-pub mod accumulation;
+pub mod ready_queue;
+pub mod accumulation_history;
 pub mod authorization;
 pub mod disputes;
 pub mod entropy;
@@ -20,6 +20,7 @@ pub mod services;
 pub mod time;
 pub mod statistics;
 pub mod validators;
+pub mod privileges;
 
 static GLOBAL_STATE: Lazy<Mutex<GlobalState>> = Lazy::new(|| {
     Mutex::new(GlobalState::default())
@@ -40,6 +41,9 @@ pub struct GlobalState {
     pub disputes: DisputesRecords,
     pub safrole: Safrole,
     pub service_accounts: ServiceAccounts,
+    pub accumulation_history: AccumulatedHistory,
+    pub ready_queue: ReadyQueue,
+    pub privileges: Privileges,
 }
 
 impl Default for GlobalState {
@@ -58,6 +62,9 @@ impl Default for GlobalState {
             disputes: DisputesRecords::default(),
             safrole: Safrole::default(),
             service_accounts: ServiceAccounts::default(),
+            accumulation_history: AccumulatedHistory::default(),
+            ready_queue: ReadyQueue::default(),
+            privileges: Privileges::default(),
         }
     }
 }
@@ -205,6 +212,33 @@ pub fn set_service_accounts(new_service_accounts: ServiceAccounts) {
 pub fn get_service_accounts() -> ServiceAccounts {
     let state = GLOBAL_STATE.lock().unwrap();
     state.service_accounts.clone()
+}
+// Accumulation History
+pub fn set_accumulation_history(new_accumulation_history: AccumulatedHistory) {
+    let mut state = GLOBAL_STATE.lock().unwrap();
+    state.accumulation_history = new_accumulation_history;
+}
+pub fn get_accumulation_history() -> AccumulatedHistory {
+    let state = GLOBAL_STATE.lock().unwrap();
+    state.accumulation_history.clone()
+}
+// Ready Queue
+pub fn set_ready_queue(new_ready_queue: ReadyQueue) {
+    let mut state = GLOBAL_STATE.lock().unwrap();
+    state.ready_queue = new_ready_queue;
+}
+pub fn get_ready_queue() -> ReadyQueue {
+    let state = GLOBAL_STATE.lock().unwrap();
+    state.ready_queue.clone()
+}
+// Privileges
+pub fn set_privileges(new_privileges: Privileges) {
+    let mut state = GLOBAL_STATE.lock().unwrap();
+    state.privileges = new_privileges;
+}
+pub fn get_privileges() -> Privileges {
+    let state = GLOBAL_STATE.lock().unwrap();
+    state.privileges.clone()
 }
 // Validators
 pub fn set_validators(new_validators: ValidatorsData, validator_set: ValidatorSet) {

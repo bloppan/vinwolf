@@ -624,6 +624,44 @@ pub struct GuaranteesExtrinsic {
     pub report_guarantee: Vec<ReportGuarantee>,
 }
 // ----------------------------------------------------------------------------------------------------------
+// Accumulation
+// ----------------------------------------------------------------------------------------------------------
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReadyRecord {
+    pub report: WorkReport,
+    pub dependencies: Vec<WorkPackageHash>,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReadyQueue {
+    pub queue: Box<[Vec<ReadyRecord>; EPOCH_LENGTH]>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AccumulatedHistory {
+    pub queue: VecDeque<Vec<WorkPackageHash>>,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct AlwaysAccumulateMapItem {
+    pub id: ServiceId,
+    pub gas: Gas,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct Privileges {
+    pub bless: ServiceId,
+    pub assign: ServiceId,
+    pub designate: ServiceId,
+    pub always_acc: Vec<AlwaysAccumulateMapItem>,
+}
+
+pub type AccumulateRoot = OpaqueHash;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OutputAccumulation {
+    Ok(AccumulateRoot),
+    Err(),
+}
+
+// ----------------------------------------------------------------------------------------------------------
 // Header
 // ----------------------------------------------------------------------------------------------------------
 #[derive(Debug, PartialEq, Clone)]

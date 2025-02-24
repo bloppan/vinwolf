@@ -7,6 +7,8 @@ pub mod validators;
 pub mod services;
 pub mod statistics;
 pub mod safrole;
+pub mod accumulate;
+pub mod privileges;
 
 pub mod header;
 pub mod assurances;

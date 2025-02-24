@@ -6,7 +6,7 @@ use crate::integration::read_test_file;
 
 use vinwolf::types::{
     RefineContext, WorkItem, WorkPackage, WorkResult, TicketsExtrinsic, DisputesExtrinsic, PreimagesExtrinsic, AssurancesExtrinsic, 
-    GuaranteesExtrinsic, Header, Block, BlockHistory, WorkReport, OutputAssurances, OutputSafrole, OutputPreimages
+    GuaranteesExtrinsic, Header, Block, BlockHistory, WorkReport, OutputAssurances, OutputSafrole, OutputPreimages, OutputAccumulation,
 };
 use vinwolf::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
@@ -18,6 +18,7 @@ use crate::integration::history::codec::InputHistory;
 use crate::integration::statistics::codec::{InputStatistics, StateStatistics};
 use crate::integration::reports::codec::{InputWorkReport, WorkReportState, OutputWorkReport};
 use crate::integration::preimages::codec::{InputPreimages, PreimagesState};
+use crate::integration::accumulate::codec::{InputAccumulate, StateAccumulate};
 
 fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
     data1.iter()
@@ -63,6 +64,9 @@ pub enum TestBody {
     InputPreimages,
     PreimagesState,
     OutputPreimages,
+    InputAccumulate,
+    StateAccumulate,
+    OutputAccumulation,
 }
 
 struct TestContext<'a, 'b> {
@@ -220,11 +224,20 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
             TestBody::OutputPreimages => {
                 context.process_test_part("OutputPreimages", OutputPreimages::decode, OutputPreimages::encode)?;
             }
+            TestBody::InputAccumulate => {
+                context.process_test_part("InputAccumulate", InputAccumulate::decode, InputAccumulate::encode)?;
+            }
+            TestBody::StateAccumulate => {
+                context.process_test_part("StateAccumulate", StateAccumulate::decode, StateAccumulate::encode)?;
+            }
+            TestBody::OutputAccumulation => {
+                context.process_test_part("OutputAccumulation", OutputAccumulation::decode, OutputAccumulation::encode)?;
+            }
         }
     }
 
-    println!("blob.len() = {}", blob.len());
-    println!("context.global_position = {}", context.global_position);
+    /*println!("blob.len() = {}", blob.len());
+    println!("context.global_position = {}", context.global_position);*/
     
     if context.global_position != blob.len() {
         println!("Codec test was not readed properly! Readed {} bytes. The test file has {} bytes", context.global_position, blob.len());
