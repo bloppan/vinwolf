@@ -2,12 +2,11 @@ use once_cell::sync::Lazy;
 use crate::integration::{read_test_file, FromProcessError};
 use crate::integration::codec::{TestBody, encode_decode_test};
 
-use vinwolf::types::{Safrole, OutputSafrole, OutputDataSafrole, DisputesRecords};
+use vinwolf::types::{Safrole, OutputSafrole, OutputDataSafrole, DisputesRecords, ValidatorSet, ProcessError};
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, TICKET_ENTRIES_PER_VALIDATOR};
-use vinwolf::blockchain::state::validators::ValidatorSet;
 use vinwolf::blockchain::state::{
     get_global_state, set_time, get_time, set_entropy, get_entropy, set_validators, get_validators, set_safrole, get_safrole,
-    set_disputes, get_disputes, ProcessError
+    set_disputes, get_disputes
 };
 use vinwolf::blockchain::state::safrole::process_safrole;
 use vinwolf::utils::codec::{Decode, BytesReader};

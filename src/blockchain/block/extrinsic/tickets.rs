@@ -12,32 +12,16 @@ use ark_ec_vrfs::suites::bandersnatch::edwards as bandersnatch_ark_ec_vrfs;
 use ark_ec_vrfs::prelude::ark_serialize;
 use ark_serialize::CanonicalDeserialize;
 use bandersnatch_ark_ec_vrfs::Public;
-use crate::blockchain::state::safrole::bandersnatch::{ring_context, Verifier, Prover};
-
+use crate::blockchain::state::safrole::bandersnatch::Verifier;
 
 use crate::constants::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR};
 use crate::types::{
-    BandersnatchPublic, BandersnatchVrfSignature, EntropyPool, Header, OpaqueHash, Safrole, SafroleErrorCode, TicketsOrKeys, TicketBody, 
-    TicketsExtrinsic, TicketsMark, TimeSlot, UnsignedHeader, ValidatorsData
+    EntropyPool, Header, OpaqueHash, Safrole, SafroleErrorCode, TicketsOrKeys, TicketBody, TicketsExtrinsic, TicketsMark, 
+    TimeSlot, ValidatorsData, ProcessError
 };
-use crate::blockchain::state::ProcessError;
+
 use crate::utils::codec::Encode;
 use crate::utils::common::{has_duplicates, bad_order};
-
-impl Default for TicketBody {
-    fn default() -> Self {
-        TicketBody {
-            id: [0u8; std::mem::size_of::<OpaqueHash>()],
-            attempt: 0,
-        }
-    }
-}
-
-impl Default for TicketsMark {
-    fn default() -> Self {
-        TicketsMark{ tickets_mark: Box::new(std::array::from_fn(|_| TicketBody::default()))}
-    }
-}
 
 // Sealing using the ticket is of greater security, and we utilize this knowledge when determining a candidate block
 // on which to extend the chain.

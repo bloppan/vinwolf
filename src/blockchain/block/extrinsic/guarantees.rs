@@ -1,6 +1,8 @@
 use crate::constants::{CORES_COUNT, MAX_DEPENDENCY_ITEMS};
-use crate::types::{TimeSlot, ValidatorIndex, CoreIndex, Hash, GuaranteesExtrinsic, AvailabilityAssignments, ReportErrorCode, OutputDataReports};
-use crate::blockchain::state::{ProcessError, get_recent_history};
+use crate::types::{
+    TimeSlot, ValidatorIndex, CoreIndex, Hash, GuaranteesExtrinsic, AvailabilityAssignments, ReportErrorCode, OutputDataReports, ProcessError
+};
+use crate::blockchain::state::get_recent_history;
 use crate::utils::common::is_sorted_and_unique;
 
 impl GuaranteesExtrinsic {

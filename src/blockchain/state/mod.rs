@@ -1,15 +1,13 @@
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use crate::types::{
-    AccumulatedHistory, AssurancesErrorCode, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesErrorCode, DisputesRecords, EntropyPool, PreimagesErrorCode, Privileges, ReadyQueue, ReportErrorCode, Safrole, SafroleErrorCode, ServiceAccounts, Statistics, TimeSlot, ValidatorsData
+    AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesRecords, EntropyPool, 
+    ProcessError, Privileges, ReadyQueue, Safrole, ServiceAccounts, Statistics, TimeSlot, ValidatorsData, GlobalState, ValidatorSet
 };
-use validators::ValidatorSet;
 use reporting_assurance::{process_assurances, process_guarantees};
 use statistics::process_statistics;
-use crate::utils::codec::ReadError;
 
-pub mod ready_queue;
-pub mod accumulation_history;
+pub mod accumulation;
 pub mod authorization;
 pub mod disputes;
 pub mod entropy;
@@ -26,58 +24,6 @@ static GLOBAL_STATE: Lazy<Mutex<GlobalState>> = Lazy::new(|| {
     Mutex::new(GlobalState::default())
 });
 
-#[derive(Clone)]
-pub struct GlobalState {
-    pub time: TimeSlot,
-    pub availability: AvailabilityAssignments,
-    pub entropy: EntropyPool,
-    pub recent_history: BlockHistory,
-    pub auth_pools: AuthPools,
-    pub auth_queues: AuthQueues,
-    pub statistics: Statistics,
-    pub prev_validators: ValidatorsData,
-    pub curr_validators: ValidatorsData,
-    pub next_validators: ValidatorsData,
-    pub disputes: DisputesRecords,
-    pub safrole: Safrole,
-    pub service_accounts: ServiceAccounts,
-    pub accumulation_history: AccumulatedHistory,
-    pub ready_queue: ReadyQueue,
-    pub privileges: Privileges,
-}
-
-impl Default for GlobalState {
-    fn default() -> Self {
-        GlobalState {
-            time: TimeSlot::default(),
-            availability: AvailabilityAssignments::default(),
-            entropy: EntropyPool::default(),
-            recent_history: BlockHistory::default(),
-            auth_pools: AuthPools::default(),
-            auth_queues: AuthQueues::default(),
-            statistics: Statistics::default(),
-            prev_validators: ValidatorsData::default(),
-            curr_validators: ValidatorsData::default(),
-            next_validators: ValidatorsData::default(),
-            disputes: DisputesRecords::default(),
-            safrole: Safrole::default(),
-            service_accounts: ServiceAccounts::default(),
-            accumulation_history: AccumulatedHistory::default(),
-            ready_queue: ReadyQueue::default(),
-            privileges: Privileges::default(),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ProcessError {
-    ReadError(ReadError),
-    SafroleError(SafroleErrorCode),
-    DisputesError(DisputesErrorCode),
-    ReportError(ReportErrorCode),
-    AssurancesError(AssurancesErrorCode),
-    PreimagesError(PreimagesErrorCode),
-}
 
 pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     

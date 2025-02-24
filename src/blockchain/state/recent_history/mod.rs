@@ -6,7 +6,6 @@
     work-package hashes of each item reported (which is no more than the total number of cores, C = 341).
 */
 
-use std::collections::VecDeque;
 use sp_core::keccak_256;
 
 use crate::types::{Hash, BlockHistory, BlockInfo, ReportedWorkPackages, Mmr};
@@ -74,10 +73,3 @@ fn add_new_block(
     });
 }
 
-impl Default for BlockHistory {
-    fn default() -> Self {
-        BlockHistory {
-            blocks: VecDeque::with_capacity(RECENT_HISTORY_SIZE),
-        }
-    }
-}

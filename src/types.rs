@@ -1,11 +1,11 @@
 // JAM Protocol Types
 use std::collections::{HashMap, VecDeque};
 use serde::Deserialize;
-use bitvec::slice::BitSlice;
 
+use crate::utils::codec::ReadError;
 use crate::constants::{
     ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH,
-    NUM_REG, PAGE_SIZE, NUM_PAGES
+    NUM_REG, PAGE_SIZE,
 };
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
@@ -76,6 +76,12 @@ pub struct BandersnatchEpoch(pub Box<[BandersnatchPublic; EPOCH_LENGTH]>);
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct ValidatorsData(pub Box<[ValidatorData; VALIDATORS_COUNT]>);
+#[derive(Clone, Debug, PartialEq)]
+pub enum ValidatorSet {
+    Previous,
+    Current,
+    Next,
+}
 // ----------------------------------------------------------------------------------------------------------
 // Service
 // ----------------------------------------------------------------------------------------------------------
@@ -725,6 +731,38 @@ pub struct Extrinsic {
 pub struct Block {
     pub header: Header,
     pub extrinsic: Extrinsic,
+}
+// ----------------------------------------------------------------------------------------------------------
+// Global state
+// ----------------------------------------------------------------------------------------------------------
+#[derive(Clone)]
+pub struct GlobalState {
+    pub time: TimeSlot,
+    pub availability: AvailabilityAssignments,
+    pub entropy: EntropyPool,
+    pub recent_history: BlockHistory,
+    pub auth_pools: AuthPools,
+    pub auth_queues: AuthQueues,
+    pub statistics: Statistics,
+    pub prev_validators: ValidatorsData,
+    pub curr_validators: ValidatorsData,
+    pub next_validators: ValidatorsData,
+    pub disputes: DisputesRecords,
+    pub safrole: Safrole,
+    pub service_accounts: ServiceAccounts,
+    pub accumulation_history: AccumulatedHistory,
+    pub ready_queue: ReadyQueue,
+    pub privileges: Privileges,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ProcessError {
+    ReadError(ReadError),
+    SafroleError(SafroleErrorCode),
+    DisputesError(DisputesErrorCode),
+    ReportError(ReportErrorCode),
+    AssurancesError(AssurancesErrorCode),
+    PreimagesError(PreimagesErrorCode),
 }
 // ----------------------------------------------------------------------------------------------------------
 // Polkadot Virtual Machine

@@ -1,8 +1,7 @@
 // Preimages are static data which is presently being requested to be available for workloads to be able to 
 // fetch on demand. Prior to accumulation, we must first integrate all preimages provided in the lookup extrinsic. 
 
-use crate::types::{ServiceId, PreimagesExtrinsic, PreimagesErrorCode};
-use crate::blockchain::state::ProcessError;
+use crate::types::{ProcessError, PreimagesExtrinsic, PreimagesErrorCode};
 
 use std::collections::HashSet;
 

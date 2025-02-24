@@ -1,34 +1,12 @@
-use std::array::from_fn;
-
-use crate::types::{ValidatorsData, ValidatorData, BandersnatchPublic, Ed25519Public, BlsPublic, Metadata, Safrole};
+use crate::types::{ValidatorsData, ValidatorSet, Safrole};
 use crate::blockchain::state::{get_validators, get_disputes};
 use crate::utils::common::set_offenders_null;
 
-impl Default for ValidatorsData {
-    fn default() -> Self {
-        ValidatorsData {
-            0: Box::new(from_fn(|_| ValidatorData {
-                bandersnatch: [0u8; std::mem::size_of::<BandersnatchPublic>()],
-                ed25519: [0u8; std::mem::size_of::<Ed25519Public>()],
-                bls: [0u8; std::mem::size_of::<BlsPublic>()],
-                metadata: [0u8; std::mem::size_of::<Metadata>()],
-            }))
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum ValidatorSet {
-    Previous,
-    Current,
-    Next,
-}
-
 pub fn key_rotation(
-    safrole_state: &mut Safrole, 
-    curr_validators: &mut ValidatorsData, 
-    prev_validators: &mut ValidatorsData,
-) { 
+                    safrole_state: &mut Safrole, 
+                    curr_validators: &mut ValidatorsData, 
+                    prev_validators: &mut ValidatorsData) 
+{ 
     *prev_validators = curr_validators.clone();
     *curr_validators = safrole_state.pending_validators.clone(); 
     // In addition to the active set of validator keys "curr_validators" and staging set "next_validators", internal to the Safrole state 

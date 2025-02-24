@@ -23,13 +23,8 @@
     in-core. However, on-chain logic must identify each set of authorizers assigned to each core in order to verify that a 
     work-package is legitimately able to utilize that resource. It is this subsystem we will now define.
 */
-
-use std::array::from_fn;
-use std::mem::size_of;
-use std::collections::VecDeque;
-
 use crate::constants::{CORES_COUNT, MAX_ITEMS_AUTHORIZATION_POOL, MAX_ITEMS_AUTHORIZATION_QUEUE};
-use crate::types::{AuthorizerHash, AuthPool, AuthPools, AuthQueue, AuthQueues, CodeAuthorizers, TimeSlot};
+use crate::types::{AuthPools, CodeAuthorizers, TimeSlot};
 use crate::blockchain::state::get_authqueues;
 
 pub fn process_authorizations(
@@ -43,7 +38,7 @@ pub fn process_authorizations(
     // Note: The portion of state AUTH_QUEUE_STATE may be altered only through an exogenous call made from the accumulate logic
     // of an appropriately privileged service.
 
-    // We utilize the CodeAuthorizers (from guarantees extrinsic) to remove the oldest authorizer which has 
+    // We utilize the code_authorizers (from guarantees extrinsic) to remove the oldest authorizer which has 
     // been used to justify a guaranteed work-package in the current block.
     for auth in code_authorizers.authorizers.iter() {
         if auth_pool_state.auth_pools[auth.core as usize].auth_pool.contains(&auth.auth_hash) {
@@ -65,34 +60,4 @@ pub fn process_authorizations(
     }
 }
 
-impl Default for AuthPool {
-    fn default() -> Self {
-        AuthPool {
-            auth_pool: VecDeque::with_capacity(MAX_ITEMS_AUTHORIZATION_POOL),
-        }
-    }
-}
 
-impl Default for AuthPools {
-    fn default() -> Self {
-        AuthPools {
-            auth_pools: Box::new(from_fn(|_| AuthPool::default())),
-        }
-    }
-}
-
-impl Default for AuthQueue {
-    fn default() -> Self {
-        AuthQueue {
-            auth_queue: Box::new(from_fn(|_| [0; size_of::<AuthorizerHash>()])),
-        }
-    }
-}
-
-impl Default for AuthQueues {
-    fn default() -> Self {
-        AuthQueues {
-            auth_queues: Box::new(from_fn(|_| AuthQueue::default())),
-        }
-    }
-}

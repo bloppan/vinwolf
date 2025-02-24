@@ -1,20 +1,6 @@
-use std::default::Default;
-use core::array::from_fn;
 use sp_core::blake2_256;
 
-use crate::types::{OpaqueHash, Entropy, EntropyPool};
-
-impl Default for EntropyPool {
-    fn default() -> Self {
-        EntropyPool { buf: Box::new(from_fn(|_| Entropy::default())) }
-    }
-}
-
-impl Default for Entropy {
-    fn default() -> Self {
-        Entropy { entropy: OpaqueHash::default() }
-    }
-}
+use crate::types::{Entropy, EntropyPool};
 
 pub fn rotate_entropy_pool(entropy_pool: &mut EntropyPool) {
     // In addition to the entropy accumulator eta0, we retain three additional historical values of the accumulator at the point of 

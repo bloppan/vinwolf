@@ -19,28 +19,6 @@ pub mod isa;
 pub mod mm;
 pub mod host_call;
 
-impl Default for Context {
-    fn default() -> Self {
-        Context {
-            pc: 0,
-            gas: 0,
-            reg: [0; NUM_REG as usize],
-            page_table: PageTable::default(),
-            page_fault: None,
-        }
-    }
-}
-
-impl Default for Program {
-    fn default() -> Self {
-        Program {
-            code: vec![],
-            bitmask: vec![],
-            jump_table: vec![],
-        }
-    }
-}
-
 pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
     
     let program = Program::decode(&mut BytesReader::new(program_blob)).unwrap();

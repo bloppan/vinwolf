@@ -5,8 +5,8 @@ use crate::integration::codec::{TestBody, encode_decode_test};
 pub mod codec;
 use codec::{InputPreimages, PreimagesState};
 
-use vinwolf::types::{Account, OutputPreimages, ServiceAccounts};
-use vinwolf::blockchain::state::{ProcessError, set_service_accounts, get_service_accounts, set_time, get_global_state};
+use vinwolf::types::{Account, OutputPreimages, ServiceAccounts, ProcessError};
+use vinwolf::blockchain::state::{set_service_accounts, get_service_accounts, set_time, get_global_state};
 use vinwolf::blockchain::state::services::process_services;
 use vinwolf::utils::codec::{Decode, BytesReader};
 

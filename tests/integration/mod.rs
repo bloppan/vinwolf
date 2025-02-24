@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 extern crate vinwolf;
 
-use vinwolf::blockchain::state::ProcessError;
+use vinwolf::types::ProcessError;
 
 mod safrole;
 mod seals;

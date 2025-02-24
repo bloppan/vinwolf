@@ -55,24 +55,4 @@ pub fn process_services(
     Ok(OutputPreimages::Ok())
 }
 
-impl Default for ServiceAccounts {
-    fn default() -> Self {
-        ServiceAccounts {
-            service_accounts: HashMap::new(),
-        }
-    }
-}
 
-impl Default for Account {
-    fn default() -> Self {
-        Account {
-            storage: HashMap::new(),
-            preimages: HashMap::new(),
-            lookup: HashMap::new(),
-            code_hash: OpaqueHash::default(),
-            balance: 0,
-            gas: 0,
-            min_gas: 0,
-        }
-    }
-}

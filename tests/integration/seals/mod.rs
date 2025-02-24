@@ -10,11 +10,11 @@ extern crate vinwolf;
 use vinwolf::constants::{EPOCH_LENGTH, VALIDATORS_COUNT};  
 use vinwolf::types::{
     Header, BandersnatchVrfSignature, Entropy, EntropyPool, Safrole, BandersnatchEpoch, TicketsOrKeys, TimeSlot, BandersnatchPublic, 
-    TicketsMark, ValidatorsData
+    TicketsMark, ValidatorsData, ValidatorSet
 };
 use vinwolf::utils::codec::{Decode, BytesReader};
 use vinwolf::blockchain::block::extrinsic::tickets::verify_seal;
-use vinwolf::blockchain::state::{set_validators, validators::ValidatorSet, set_entropy};
+use vinwolf::blockchain::state::{set_validators, set_entropy};
 use vinwolf::blockchain::state::safrole::{create_ring_set, create_root_epoch};
 
 use ark_ec_vrfs::suites::bandersnatch::edwards as bandersnatch_ark_ec_vrfs;

@@ -33,7 +33,7 @@ use ark_ec_vrfs::suites::bandersnatch::edwards as bandersnatch_ark_ec_vrfs;
 use ark_ec_vrfs::prelude::ark_serialize;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bandersnatch_ark_ec_vrfs::Public;
-use crate::blockchain::state::safrole::bandersnatch::{ring_context, Verifier, Prover};
+use crate::blockchain::state::safrole::bandersnatch::{ring_context, Verifier};
 
 use sp_core::blake2_256;
 
@@ -48,24 +48,6 @@ use crate::blockchain::state::validators::key_rotation;
 use crate::utils::codec::Encode;
 
 pub mod bandersnatch;
-
-impl Default for Safrole {
-    fn default() -> Self {
-        Safrole {
-            pending_validators: ValidatorsData::default(),
-            ticket_accumulator: vec![TicketBody::default()],
-            seal: TicketsOrKeys::None,
-            epoch_root: [0u8; std::mem::size_of::<BandersnatchRingCommitment>()],
-        }
-    }
-}
-
-impl Default for BandersnatchEpoch {
-    fn default() -> Self {
-        let keys: [BandersnatchPublic; EPOCH_LENGTH] = std::array::from_fn(|_| BandersnatchPublic::default());
-        BandersnatchEpoch(Box::new(keys))
-    }
-}
 
 // Process Safrole state
 pub fn process_safrole(

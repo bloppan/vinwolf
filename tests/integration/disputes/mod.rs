@@ -2,13 +2,12 @@ use once_cell::sync::Lazy;
 use crate::integration::{read_test_file, FromProcessError};
 use crate::integration::codec::{TestBody, encode_decode_test};
 
-use vinwolf::blockchain::state::{
-    ProcessError, get_disputes, get_global_state, get_reporting_assurance, get_time, get_validators, set_disputes, 
-    set_reporting_assurance, set_time, set_validators,
+use vinwolf::blockchain::state::{ 
+    get_disputes, get_global_state, get_reporting_assurance, get_time, get_validators, set_disputes, set_reporting_assurance, 
+    set_time, set_validators,
 };
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, CORES_COUNT};
-use vinwolf::types::{DisputesExtrinsic, OutputDataDisputes};
-use vinwolf::blockchain::state::validators::ValidatorSet;
+use vinwolf::types::{DisputesExtrinsic, OutputDataDisputes, ValidatorSet, ProcessError};
 use vinwolf::blockchain::state::disputes::process_disputes;
 use vinwolf::utils::codec::{Decode, BytesReader};
 

@@ -5,13 +5,13 @@ use crate::integration::codec::{TestBody, encode_decode_test};
 pub mod codec;
 use codec::{InputAccumulate, StateAccumulate};
 
-use vinwolf::types::{EntropyPool, ServiceInfo, OutputPreimages, ServiceAccounts, OutputAccumulation, Account};
+use vinwolf::types::{EntropyPool, ServiceAccounts, OutputAccumulation, Account};
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, TICKET_ENTRIES_PER_VALIDATOR};
 use vinwolf::blockchain::state::{
     set_service_accounts, set_entropy, set_time, get_global_state, get_service_accounts, set_accumulation_history, 
     set_privileges, set_ready_queue
 };
-use vinwolf::blockchain::state::accumulation_history::process_accumulation;
+use vinwolf::blockchain::state::accumulation::process_accumulation;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
 extern crate vinwolf;
