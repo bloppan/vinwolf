@@ -55,10 +55,9 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn run_testnet() {
+    fn run_blocks(dir: &str) {
 
-        println!("Running jamtestnet");
+        println!("Running blocks in {} mode", dir);
 
         let json_file = deserialize_state_transition_file("1_000.json").unwrap();
 
@@ -118,6 +117,12 @@ mod tests {
                 epoch += 1;
             } 
         }
+    }
+
+    #[test]
+    fn run_testnet() {
+        //run_blocks("fallback");
+        run_blocks("safrole");
     }
 
 }
