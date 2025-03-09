@@ -19,7 +19,6 @@ use crate::types::{
     EntropyPool, Header, OpaqueHash, Safrole, SafroleErrorCode, TicketsOrKeys, TicketBody, TicketsExtrinsic, 
     TimeSlot, ValidatorsData, ProcessError,
 };
-
 use crate::utils::codec::Encode;
 use crate::utils::common::{has_duplicates, bad_order};
 
@@ -118,7 +117,7 @@ impl TicketsExtrinsic {
         }
         // Towards the end of the epoch, ticket submission ends implying successive blocks within the same epoch
         // must have an empty tickets extrinsic
-        if *post_tau >= TICKET_SUBMISSION_ENDS as TimeSlot {
+        if (*post_tau % EPOCH_LENGTH as TimeSlot) >= TICKET_SUBMISSION_ENDS as TimeSlot {
             return Err(ProcessError::SafroleError(SafroleErrorCode::UnexpectedTicket));
         }
 
@@ -168,7 +167,7 @@ impl TicketsExtrinsic {
                         attempt: self.tickets[i].attempt,
                     });
                 },
-                Err(_) => { return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketProof)); }
+                Err(_) => { println!("Bad ticket {}", i); return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketProof)); }
             }
         }
         // Check tickets order

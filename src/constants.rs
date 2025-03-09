@@ -27,6 +27,9 @@ pub const TICKET_SUBMISSION_ENDS: usize = 10;
 //pub const TICKET_ENTRIES_PER_VALIDATOR: u8 = 2;
 pub const TICKET_ENTRIES_PER_VALIDATOR: u8 = 3;
 
+// The maximum number of tickets which may be submitted in a single extrinsic.
+pub const MAX_TICKETS_PER_EXTRINSIC: usize = 3;
+//pub const MAX_TICKETS_PER_EXTRINSIC: usize = 16;
 
 // Validator super majority
 pub const VALIDATORS_SUPER_MAJORITY: usize = (VALIDATORS_COUNT * 2) / 3 + 1;
@@ -41,9 +44,6 @@ pub const RECENT_HISTORY_SIZE: usize = 8;
 
 // The maximum number of items in the authorizations pool.
 pub const MAX_ITEMS_AUTHORIZATION_POOL: usize = 8;
-
-// The maximum number of tickets which may be submitted in a single extrinsic.
-pub const MAX_TICKETS_PER_EXTRINSIC: usize = 16;
 
 // The number of items in the authorizations queue.
 pub const MAX_ITEMS_AUTHORIZATION_QUEUE: usize = 80;

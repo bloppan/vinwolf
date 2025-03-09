@@ -59,7 +59,7 @@ mod tests {
 
         println!("Running blocks in {} mode", dir);
 
-        let json_file = deserialize_state_transition_file("1_000.json").unwrap();
+        let json_file = deserialize_state_transition_file(dir, "1_000.json").unwrap();
 
         set_global_state(json_file.pre_state.clone());
         set_state_root(merkle_state(&json_file.pre_state.serialize().map, 0).unwrap());
@@ -72,26 +72,28 @@ mod tests {
         loop {
 
             let filename = format!("{}_{}.bin", epoch, format!("{:03}", slot));
-            let block_content = read_test(&format!("tests/jamtestnet/data/fallback/blocks/{}", filename));
+            let block_content = read_test(&format!("tests/jamtestnet/data/{}/blocks/{}", dir, filename));
 
             if block_content.is_err() {
                 return;
             }
 
             let state_json_filename = format!("{}_{}.json", epoch, format!("{:03}", slot));
-            let json_file = deserialize_state_transition_file(&state_json_filename).unwrap();
+            let json_file = deserialize_state_transition_file(dir, &state_json_filename).unwrap();
 
-            println!("Importing block {}", filename);
+            println!("Importing block {} | {}", filename, state_json_filename);
             
             let block_content = block_content.unwrap();
             let _ = encode_decode_test(&block_content.clone(), &body_block);
             let mut block_reader = BytesReader::new(&block_content);
             let block = Block::decode(&mut block_reader).expect("Error decoding Block");
 
-            let _ = state_transition_function(&block);
+            let error = state_transition_function(&block);
+            if error.is_err() {
+                println!("****************************************************** Error: {:?}", error);
+                //return;
+            }
             let state = get_global_state().lock().unwrap().clone();
-
-            assert_eq!(json_file.post_state_root, merkle_state(&state.serialize().map, 0).unwrap());
             
             assert_eq!(json_file.post_state.auth_pools, state.auth_pools);
             assert_eq!(json_file.post_state.auth_queues, state.auth_queues);
@@ -110,6 +112,8 @@ mod tests {
             assert_eq!(json_file.post_state.ready_queue, state.ready_queue);
             assert_eq!(json_file.post_state.service_accounts, state.service_accounts);        
             
+            assert_eq!(json_file.post_state_root, merkle_state(&state.serialize().map, 0).unwrap());
+
             slot += 1;
 
             if slot == EPOCH_LENGTH {

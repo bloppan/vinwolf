@@ -92,7 +92,9 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     );
     
     set_global_state(new_state);    
-
+    
+    println!("END STF");
+    
     Ok(())
 }
 

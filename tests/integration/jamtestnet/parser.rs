@@ -168,8 +168,8 @@ pub fn parse_account_lookup(input: &str) -> ParsedAccountLookup {
 
 }
 
-pub fn deserialize_state_transition_file(filename: &str) -> Result<ParsedTransitionFile, Box<dyn std::error::Error>> {
-    let filename = format!("tests/jamtestnet/data/fallback/state_transitions/{}", filename);
+pub fn deserialize_state_transition_file(dir: &str, filename: &str) -> Result<ParsedTransitionFile, Box<dyn std::error::Error>> {
+    let filename = format!("tests/jamtestnet/data/{}/state_transitions/{}", dir, filename);
     //let state_content = read_test(&format!("tests/jamtestnet/data/fallback/state_transitions/{}", filename));
     let mut file = std::fs::File::open(&filename).expect("Failed to open JSON file");
     let mut contents = String::new();

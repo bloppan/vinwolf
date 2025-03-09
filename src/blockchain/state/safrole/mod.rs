@@ -70,8 +70,7 @@ pub fn process_safrole(
         return Err(ProcessError::SafroleError(SafroleErrorCode::BadSlot));
     }
 
-    // Process tickets extrinsic
-    tickets_extrinsic.process(safrole_state, entropy_pool, &header.unsigned.slot)?;
+    
 
     // Calculate time parameters
     let epoch = *tau / EPOCH_LENGTH as TimeSlot;
@@ -131,6 +130,9 @@ pub fn process_safrole(
         // gamma_a is the ticket accumulator, a series of highestscoring ticket identifiers to be used for the next epoch.
         tickets_mark = Some(outside_in_sequencer(&safrole_state.ticket_accumulator));
     }
+    // Process tickets extrinsic
+    tickets_extrinsic.process(safrole_state, entropy_pool, &header.unsigned.slot)?;
+    
     // tau defines the most recent block's index
     *tau = header.unsigned.slot.clone();
 
