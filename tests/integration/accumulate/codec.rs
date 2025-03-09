@@ -1,8 +1,6 @@
-use ark_ec_vrfs::suites::bandersnatch::edwards::Input;
 use vinwolf::types::{AccumulatedHistory, Entropy, PreimagesMapEntry, Privileges, ReadyQueue, ServiceId, ServiceInfo, TimeSlot, WorkReport};
 use vinwolf::utils::codec::generic::{decode_unsigned, encode_unsigned};
 use vinwolf::utils::codec::{BytesReader, Decode, Encode, ReadError};
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccountTest {

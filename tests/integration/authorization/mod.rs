@@ -24,6 +24,8 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
 #[cfg(test)]
 mod tests {
 
+    use vinwolf::types::{GuaranteesExtrinsic, ReportGuarantee, WorkReport};
+
     use super::*;
 
     fn run_test(filename: &str) {
@@ -44,10 +46,19 @@ mod tests {
         set_authpools(pre_state.auth_pools);
         set_authqueues(pre_state.auth_queues);
         
-        let code_authorizers = input.auths.clone();
+        let mut guarantees_extrinsic = GuaranteesExtrinsic::default();
+        for auth in input.auths.authorizers.iter() {
+            let mut work_report = WorkReport::default();
+            work_report.authorizer_hash = auth.auth_hash;
+            work_report.core_index = auth.core;
+            let mut report_guarantee = ReportGuarantee::default();
+            report_guarantee.slot = input.slot;
+            report_guarantee.report = work_report;
+            guarantees_extrinsic.report_guarantee.push(report_guarantee);
+        }      
 
         let mut auth_pool_state = get_global_state().lock().unwrap().auth_pools.clone();
-        process_authorizations(&mut auth_pool_state, &input.slot, &code_authorizers);
+        process_authorizations(&mut auth_pool_state, &input.slot, &guarantees_extrinsic);
         
         let result_auth_queues = get_authqueues();
 

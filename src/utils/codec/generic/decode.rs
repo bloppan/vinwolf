@@ -1,4 +1,5 @@
 use crate::utils::codec::{FromLeBytes, Decode, DecodeLen, DecodeSize, ReadError, BytesReader};
+use std::collections::HashMap;
 
 // TODO revisar esta funcion
 pub fn decode<T: FromLeBytes>(bytes: &[u8], n: usize) -> T {
@@ -161,6 +162,26 @@ impl Decode for Vec<u32> {
         for _ in 0..len {
             result.push(u32::decode(reader)?);
         }
+        Ok(result)
+    }
+}
+
+impl<T, U> Decode for HashMap<T, U> 
+where T: Decode + Eq + std::hash::Hash, 
+      U: Decode
+{
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let len = decode_unsigned(reader)?;
+        
+        let mut result = HashMap::with_capacity(len);
+        
+        for _ in 0..len {
+            let key = T::decode(reader)?;
+            let value = U::decode(reader)?;
+            result.insert(key, value);
+        }
+        
         Ok(result)
     }
 }

@@ -1,5 +1,38 @@
-use crate::types::{EpochMark, OutputDataSafrole, OutputSafrole, SafroleErrorCode, TicketsMark};
+use crate::types::{
+    TicketsOrKeys ,EpochMark, OutputDataSafrole, OutputSafrole, Safrole, SafroleErrorCode, TicketsMark, ValidatorsData, BandersnatchRingCommitment,
+    TicketBody
+};
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
+
+impl Encode for Safrole {
+
+    fn encode(&self) -> Vec<u8> {
+        
+        let mut blob = Vec::new();
+
+        self.pending_validators.encode_to(&mut blob);
+        self.epoch_root.encode_to(&mut blob);
+        self.seal.encode_to(&mut blob);
+        self.ticket_accumulator.encode_to(&mut blob);
+
+        return blob;
+    }
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for Safrole {
+    
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+        Ok(Safrole {
+            pending_validators: ValidatorsData::decode(blob)?,
+            epoch_root: BandersnatchRingCommitment::decode(blob)?,
+            seal: TicketsOrKeys::decode(blob)?,
+            ticket_accumulator: Vec::<TicketBody>::decode(blob)?,
+        })
+    }
+}
 
 impl Encode for OutputSafrole {
 

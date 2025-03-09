@@ -1,4 +1,6 @@
-use crate::types::{ServiceId, Privileges, AlwaysAccumulateMapItem};
+use std::collections::HashMap;
+
+use crate::types::{Privileges, ServiceId};
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
 impl Encode for Privileges {
@@ -24,7 +26,7 @@ impl Decode for Privileges {
             bless: ServiceId::decode(blob)?,
             assign: ServiceId::decode(blob)?,
             designate: ServiceId::decode(blob)?,
-            always_acc: Vec::<AlwaysAccumulateMapItem>::decode(blob)?,
+            always_acc: HashMap::decode(blob)?,
         })
     }
 }

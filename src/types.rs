@@ -83,29 +83,6 @@ pub enum ValidatorSet {
     Next,
 }
 // ----------------------------------------------------------------------------------------------------------
-// Service
-// ----------------------------------------------------------------------------------------------------------
-pub type ServiceId = u32;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ServiceInfo {
-    pub code_hash: OpaqueHash,
-    pub balance: u64,
-    pub min_item_gas: Gas,
-    pub min_memo_gas: Gas,
-    pub bytes: u64,
-    pub items: u32,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ServiceItem {
-    pub id: ServiceId,
-    pub info: ServiceInfo,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Services(pub Vec<ServiceItem>);
-// ----------------------------------------------------------------------------------------------------------
 // Availability Assignments
 // ----------------------------------------------------------------------------------------------------------
 #[derive(Debug, Clone, PartialEq)]
@@ -547,7 +524,29 @@ pub struct Account {
     pub balance: u64,
     pub gas: Gas,
     pub min_gas: Gas,
+    pub items: u32,
+    pub bytes: u64,
 }
+pub type ServiceId = u32;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ServiceInfo {
+    pub code_hash: OpaqueHash,
+    pub balance: u64,
+    pub min_item_gas: Gas,
+    pub min_memo_gas: Gas,
+    pub bytes: u64,
+    pub items: u32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ServiceItem {
+    pub id: ServiceId,
+    pub info: ServiceInfo,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Services(pub Vec<ServiceItem>);
 // ----------------------------------------------------------------------------------------------------------
 // Preimages
 // ----------------------------------------------------------------------------------------------------------
@@ -646,17 +645,17 @@ pub struct ReadyQueue {
 pub struct AccumulatedHistory {
     pub queue: VecDeque<Vec<WorkPackageHash>>,
 }
-#[derive(Debug, Clone, PartialEq)]
+/*#[derive(Debug, Clone, PartialEq)]
 pub struct AlwaysAccumulateMapItem {
     pub id: ServiceId,
     pub gas: Gas,
-}
+}*/
 #[derive(Debug, Clone, PartialEq)]
 pub struct Privileges {
     pub bless: ServiceId,
     pub assign: ServiceId,
     pub designate: ServiceId,
-    pub always_acc: Vec<AlwaysAccumulateMapItem>,
+    pub always_acc: HashMap<ServiceId, Gas>,
 }
 
 pub type AccumulateRoot = OpaqueHash;
@@ -735,7 +734,7 @@ pub struct Block {
 // ----------------------------------------------------------------------------------------------------------
 // Global state
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GlobalState {
     pub time: TimeSlot,
     pub availability: AvailabilityAssignments,
@@ -750,9 +749,17 @@ pub struct GlobalState {
     pub disputes: DisputesRecords,
     pub safrole: Safrole,
     pub service_accounts: ServiceAccounts,
+    pub services_info: HashMap<ServiceId, ServiceInfo>,
+    pub preimages: HashMap<OpaqueHash, Vec<u8>>,
+    pub lookup_map: HashMap<(OpaqueHash, u32), Vec<TimeSlot>>,
     pub accumulation_history: AccumulatedHistory,
     pub ready_queue: ReadyQueue,
     pub privileges: Privileges,
+}
+
+#[derive(Clone, Debug)]
+pub struct SerializedState {
+    pub map: HashMap<OpaqueHash, Vec<u8>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -855,4 +862,11 @@ pub struct ProgramFormat {
     pub w: Vec<u8>,
     pub z: u16,
     pub s: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub enum StateKey {
+    U8(u8),
+    Service(u8, ServiceId),
+    Account(ServiceId, Vec<u8>),
 }

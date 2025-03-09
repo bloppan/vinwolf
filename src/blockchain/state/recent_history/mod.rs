@@ -14,10 +14,10 @@ use crate::utils::trie::append;
 
 pub fn process_recent_history(
     recent_history_state: &mut BlockHistory,
-    header_hash: Hash, 
-    parent_state_root: Hash, 
-    accumulate_root: Hash, 
-    work_packages: ReportedWorkPackages
+    header_hash: &Hash, 
+    parent_state_root: &Hash, 
+    accumulate_root: &Hash, 
+    work_packages: &ReportedWorkPackages
 ) {
     let history_len = recent_history_state.blocks.len();
 
@@ -27,7 +27,7 @@ pub fn process_recent_history(
             header_hash,
             &Mmr { peaks: Vec::new() },
             accumulate_root,
-            [0u8; std::mem::size_of::<Hash>()],
+            &[0u8; std::mem::size_of::<Hash>()],
             work_packages,
         );
         return;
@@ -36,13 +36,13 @@ pub fn process_recent_history(
     let last_mmr = Mmr {
         peaks: recent_history_state.blocks[history_len - 1].mmr.peaks.clone(),
     };
-    recent_history_state.blocks[history_len - 1].state_root = parent_state_root;
+    recent_history_state.blocks[history_len - 1].state_root = *parent_state_root;
     add_new_block(
         recent_history_state,
         header_hash,
         &last_mmr,
         accumulate_root,
-        [0u8; std::mem::size_of::<Hash>()],
+        &[0u8; std::mem::size_of::<Hash>()],
         work_packages,
     );
 
@@ -53,23 +53,23 @@ pub fn process_recent_history(
 
 fn add_new_block(
     recent_history_state: &mut BlockHistory,
-    header_hash: Hash,
+    header_hash: &Hash,
     mmr: &Mmr,
-    accumulate_root: Hash,
-    state_root: Hash,
-    work_packages: ReportedWorkPackages,
+    accumulate_root: &Hash,
+    state_root: &Hash,
+    work_packages: &ReportedWorkPackages,
 ) {
     // We define an item n comprising the new block's header hash, its accumulation-result Merkle tree root and the set
     // of work-reports made into it (for which we use the guarantees extrinsic).
     recent_history_state.blocks.push_back(BlockInfo {
-        header_hash,
+        header_hash: *header_hash,
         // Note that the accumulation-result tree root r is derived from C (section 12) using the basic binary Merklization 
         // function MB (defined in apendix E) and appending it using the mmr append function to form a Merkle mountain range.
-        mmr: append(mmr, accumulate_root, keccak_256),
+        mmr: append(mmr, *accumulate_root, keccak_256),
         // The state-trie root is as being the zero hash, which while inaccurate at the end state of the block β', it is
         // nevertheless safe since β' is not utilized except to define the next block’s β†, which contains a corrected value for this
-        state_root,
-        reported: work_packages,
+        state_root: *state_root,
+        reported: work_packages.clone(),
     });
 }
 

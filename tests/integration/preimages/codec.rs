@@ -1,4 +1,4 @@
-use vinwolf::types::{HeaderHash, OpaqueHash, TimeSlot, PreimagesExtrinsic, PreimagesMapEntry, ServiceId};
+use vinwolf::types::{HeaderHash, TimeSlot, PreimagesExtrinsic, PreimagesMapEntry, ServiceId};
 use vinwolf::utils::codec::generic::{decode_unsigned, encode_unsigned};
 use vinwolf::utils::codec::{BytesReader, Decode, Encode, ReadError};
 

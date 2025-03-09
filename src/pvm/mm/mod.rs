@@ -1,7 +1,5 @@
-use std::collections::HashMap;
-
-use crate::constants::{PAGE_SIZE, NUM_PAGES};
-use crate::types::{PageFlags, Page, PageMap, PageTable, RamMemory, RamAddress, MemoryChunk};
+use crate::constants::PAGE_SIZE;
+use crate::types::{RamMemory, RamAddress};
 
 impl RamMemory {
     pub fn insert(&mut self, address: RamAddress, value: u8) {

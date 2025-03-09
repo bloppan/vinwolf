@@ -28,10 +28,10 @@ fn run_test(filename: &str) {
 
     process_recent_history(
                     &mut recent_history_state,
-                    input.header_hash, 
-                    input.parent_state_root, 
-                    input.accumulate_root, 
-                    input.work_packages);
+                    &input.header_hash, 
+                    &input.parent_state_root, 
+                    &input.accumulate_root, 
+                    &input.work_packages);
 
     assert_eq!(expected_post_state, recent_history_state);
 

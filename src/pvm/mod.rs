@@ -1,7 +1,7 @@
-use crate::constants::NUM_REG;
-use crate::types::{Context, ExitReason, Program, PageTable};
+use crate::types::{Context, ExitReason, Program};
 use crate::utils::codec::{BytesReader, Decode};
 use crate::pvm::isa::skip;
+
 use isa::one_offset::*;
 use isa::no_arg::*;
 use isa::two_reg::*;

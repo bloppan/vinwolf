@@ -7,6 +7,8 @@ use crate::integration::read_test_file;
 use vinwolf::types::{
     RefineContext, WorkItem, WorkPackage, WorkResult, TicketsExtrinsic, DisputesExtrinsic, PreimagesExtrinsic, AssurancesExtrinsic, 
     GuaranteesExtrinsic, Header, Block, BlockHistory, WorkReport, OutputAssurances, OutputSafrole, OutputPreimages, OutputAccumulation,
+    AuthPools, AuthQueues, Safrole, DisputesRecords, EntropyPool, ValidatorsData, AvailabilityAssignments, TimeSlot, Privileges, Statistics,
+    AccumulatedHistory, ReadyQueue, 
 };
 use vinwolf::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
@@ -20,6 +22,8 @@ use crate::integration::reports::codec::{InputWorkReport, WorkReportState, Outpu
 use crate::integration::preimages::codec::{InputPreimages, PreimagesState};
 use crate::integration::accumulate::codec::{InputAccumulate, StateAccumulate};
 
+use crate::integration::jamtestnet::codec::{GlobalStateTest, ServiceAccounts};
+
 fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
     data1.iter()
         .zip(data2.iter())
@@ -31,6 +35,7 @@ fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usiz
         })
 }
 
+#[derive(Debug)]
 pub enum TestBody {
     RefineContext,
     WorkItem,
@@ -67,6 +72,21 @@ pub enum TestBody {
     InputAccumulate,
     StateAccumulate,
     OutputAccumulation,
+    GlobalStateTest,
+    AuthQueues,
+    AuthPools,
+    //BlockHistory,
+    Safrole,
+    DisputesRecords,
+    EntropyPool,
+    ValidatorsData,
+    AvailabilityAssignments,
+    TimeSlot,
+    Privileges,
+    Statistics,
+    AccumulatedHistory,
+    ReadyQueue,
+    ServiceAccounts,
 }
 
 struct TestContext<'a, 'b> {
@@ -107,6 +127,9 @@ impl<'a, 'b> TestContext<'a, 'b> {
 
         self.global_position = end_position;
 
+        /*println!("part_name: {}", part_name);
+        println!("decoded: {:0x?}", part);*/
+        
         /*println!("---------- {}: {:0x?}", part_name, part);
         use std::io::{stdin, stdout, Write};
         print!("Presiona Enter para continuar...");
@@ -232,6 +255,48 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
             }
             TestBody::OutputAccumulation => {
                 context.process_test_part("OutputAccumulation", OutputAccumulation::decode, OutputAccumulation::encode)?;
+            }
+            TestBody::GlobalStateTest => {
+                context.process_test_part("GlobalStateTest", GlobalStateTest::decode, GlobalStateTest::encode)?;
+            }
+            TestBody::AuthQueues => {
+                context.process_test_part("AuthQueues", AuthQueues::decode, AuthQueues::encode)?;
+            }
+            TestBody::AuthPools => {
+                context.process_test_part("AuthPools", AuthPools::decode, AuthPools::encode)?;
+            }
+            TestBody::Safrole => {
+                context.process_test_part("Safrole", Safrole::decode, Safrole::encode)?;
+            }
+            TestBody::DisputesRecords => {
+                context.process_test_part("DisputesRecords", DisputesRecords::decode, DisputesRecords::encode)?;
+            }
+            TestBody::EntropyPool => {
+                context.process_test_part("EntropyPool", EntropyPool::decode, EntropyPool::encode)?;
+            }
+            TestBody::ValidatorsData => {
+                context.process_test_part("ValidatorsData", ValidatorsData::decode, ValidatorsData::encode)?;
+            }
+            TestBody::AvailabilityAssignments => {
+                context.process_test_part("AvailabilityAssignments", AvailabilityAssignments::decode, AvailabilityAssignments::encode)?;
+            }
+            TestBody::TimeSlot => {
+                context.process_test_part("TimeSlot", TimeSlot::decode, TimeSlot::encode)?;
+            }
+            TestBody::Privileges => {
+                context.process_test_part("Privileges", Privileges::decode, Privileges::encode)?;
+            }
+            TestBody::Statistics => {
+                context.process_test_part("Statistics", Statistics::decode, Statistics::encode)?;
+            }
+            TestBody::AccumulatedHistory => {
+                context.process_test_part("AccumulatedHistory", AccumulatedHistory::decode, AccumulatedHistory::encode)?;
+            }
+            TestBody::ReadyQueue => {
+                context.process_test_part("ReadyQueue", ReadyQueue::decode, ReadyQueue::encode)?;
+            }
+            TestBody::ServiceAccounts => {
+                context.process_test_part("ServiceAccounts", ServiceAccounts::decode, ServiceAccounts::encode)?;
             }
         }
     }

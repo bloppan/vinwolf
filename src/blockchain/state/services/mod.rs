@@ -1,8 +1,8 @@
 use sp_core::blake2_256;
 use once_cell::sync::Lazy;
-use std::{collections::HashMap, sync::Mutex};
+use std::sync::Mutex;
 
-use crate::types::{Account, OpaqueHash, OutputPreimages, PreimagesErrorCode, PreimagesExtrinsic, ServiceAccounts, Services, TimeSlot};
+use crate::types::{OutputPreimages, PreimagesErrorCode, PreimagesExtrinsic, ServiceAccounts, Services, TimeSlot};
 use crate::blockchain::state::ProcessError;
 
 static SERVICES_STATE: Lazy<Mutex<Services>> = Lazy::new(|| Mutex::new(Services{0: Vec::new()}));

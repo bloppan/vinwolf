@@ -1,5 +1,6 @@
 
 use crate::utils::codec::{Encode, EncodeSize, EncodeLen};
+use std::collections::HashMap;
 
 pub fn encode_unsigned(x: usize) -> Vec<u8> {
 
@@ -203,6 +204,30 @@ impl<const N: usize, const M: usize> Encode for Vec<[[u8; N]; M]> {
         }
     }
 }
+
+impl<T, U> Encode for HashMap<T, U> 
+where T: Encode + Eq + std::hash::Hash,
+      U: Encode
+{
+    fn encode(&self) -> Vec<u8> {
+
+        let mut blob = Vec::new();
+
+        encode_unsigned(self.len()).encode_to(&mut blob);
+
+        for (key, value) in self.iter() {
+            key.encode_to(&mut blob);
+            value.encode_to(&mut blob);
+        }
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
 impl EncodeSize for u8 {
     fn encode_size(&self, l: usize) -> Vec<u8> {
         encode_integer(*self as usize, l)

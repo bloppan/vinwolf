@@ -23,6 +23,8 @@ mod accumulate;
 mod pvm;
 mod host_function;
 
+mod jamtestnet;
+
 pub fn read_test_file(filename: &str) -> Vec<u8> {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(filename);
     let mut file = match File::open(&path) {

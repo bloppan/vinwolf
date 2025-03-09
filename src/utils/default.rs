@@ -2,12 +2,15 @@ use std::collections::VecDeque;
 use std::collections::HashMap;
 use std::array::from_fn;
 use crate::constants::{EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_POOL, RECENT_HISTORY_SIZE, VALIDATORS_COUNT, NUM_REG, PAGE_SIZE, NUM_PAGES};
+use crate::types::ReportGuarantee;
+use crate::types::ReportedWorkPackages;
 use crate::types::{
     OpaqueHash, ReadyQueue, ReadyRecord, RefineContext, SegmentRootLookup, SegmentRootLookupItem, WorkPackageSpec, WorkReport, WorkResult,
     GlobalState, AvailabilityAssignments, EntropyPool, BlockHistory, AuthPools, AuthQueues, Statistics, ValidatorsData, DisputesRecords, Safrole,
     ServiceAccounts, AccumulatedHistory, Privileges, TimeSlot, WorkPackageHash, AuthPool, AuthQueue, AuthorizerHash, Entropy, TicketBody,
     BandersnatchEpoch, TicketsOrKeys, BandersnatchPublic, BandersnatchRingCommitment, Account, ActivityRecord, ActivityRecords, Metadata, BlsPublic,
-    Ed25519Public, ValidatorData, TicketsMark, Context, Program, PageTable, Page, PageFlags, PageMap, RamMemory, MemoryChunk
+    Ed25519Public, ValidatorData, TicketsMark, Context, Program, PageTable, Page, PageFlags, PageMap, RamMemory, MemoryChunk, GuaranteesExtrinsic,
+    SerializedState
 };
 // ----------------------------------------------------------------------------------------------------------
 // Jam Types
@@ -94,6 +97,14 @@ impl Default for TicketsMark {
         TicketsMark{ tickets_mark: Box::new(std::array::from_fn(|_| TicketBody::default()))}
     }
 }
+
+impl Default for ReportedWorkPackages {
+    fn default() -> Self {
+        ReportedWorkPackages {
+            0: Vec::new(),
+        }
+    }
+}
 // ----------------------------------------------------------------------------------------------------------
 // Global State
 // ----------------------------------------------------------------------------------------------------------
@@ -113,9 +124,20 @@ impl Default for GlobalState {
             disputes: DisputesRecords::default(),
             safrole: Safrole::default(),
             service_accounts: ServiceAccounts::default(),
+            services_info: HashMap::new(),
+            preimages: HashMap::new(),
+            lookup_map: HashMap::new(),
             accumulation_history: AccumulatedHistory::default(),
             ready_queue: ReadyQueue::default(),
             privileges: Privileges::default(),
+        }
+    }
+}
+
+impl Default for SerializedState {
+    fn default() -> Self {
+        SerializedState {
+            map: HashMap::new(),
         }
     }
 }
@@ -222,7 +244,7 @@ impl Default for Privileges {
             bless: 0,
             assign: 0,
             designate: 0,
-            always_acc: Vec::new(),
+            always_acc: HashMap::new(),
         }
     }
 }
@@ -288,6 +310,8 @@ impl Default for Account {
             balance: 0,
             gas: 0,
             min_gas: 0,
+            items: 0,
+            bytes: 0,
         }
     }
 }
@@ -335,6 +359,25 @@ impl Default for ValidatorsData {
                 bls: [0u8; std::mem::size_of::<BlsPublic>()],
                 metadata: [0u8; std::mem::size_of::<Metadata>()],
             }))
+        }
+    }
+}
+// ----------------------------------------------------------------------------------------------------------
+// Guarantees Extrinsic
+// ----------------------------------------------------------------------------------------------------------
+impl Default for GuaranteesExtrinsic {
+    fn default() -> Self {
+        GuaranteesExtrinsic {
+            report_guarantee: Vec::new(),
+        }
+    }
+}
+impl Default for ReportGuarantee {
+    fn default() -> Self {
+        ReportGuarantee {
+            report: WorkReport::default(),
+            slot: 0,
+            signatures: Vec::new(),
         }
     }
 }

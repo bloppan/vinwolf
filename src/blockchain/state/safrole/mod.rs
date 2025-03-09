@@ -38,13 +38,14 @@ use crate::blockchain::state::safrole::bandersnatch::{ring_context, Verifier};
 use sp_core::blake2_256;
 
 use crate::types::{
-    BandersnatchPublic, BandersnatchRingCommitment, Entropy, EntropyPool, EpochMark, OutputDataSafrole, Safrole, 
+    BandersnatchPublic, BandersnatchRingCommitment, Entropy, EntropyPool, EpochMark, OutputDataSafrole, Safrole, Header,
     SafroleErrorCode, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorsData, BandersnatchEpoch
 };
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 use crate::blockchain::state::ProcessError;
 use crate::blockchain::state::entropy::{rotate_entropy_pool, update_recent_entropy};
 use crate::blockchain::state::validators::key_rotation;
+use crate::blockchain::block::extrinsic::tickets::verify_seal;
 use crate::utils::codec::Encode;
 
 pub mod bandersnatch;
@@ -56,30 +57,37 @@ pub fn process_safrole(
     curr_validators: &mut ValidatorsData,
     prev_validators: &mut ValidatorsData,
     tau: &mut TimeSlot,
-    post_tau: &TimeSlot,
-    entropy: &Entropy,
+    /*post_tau: &TimeSlot,
+    entropy: &Entropy,*/
+    header: &Header,
     tickets_extrinsic: &TicketsExtrinsic,
 ) -> Result<OutputDataSafrole, ProcessError> {
 
     // tau defines de most recent block
     // post_tau defines the block being processed
     // Timeslot must be strictly monotonic
-    if *post_tau <= *tau {
+    if header.unsigned.slot <= *tau {
         return Err(ProcessError::SafroleError(SafroleErrorCode::BadSlot));
     }
 
     // Process tickets extrinsic
-    tickets_extrinsic.process(safrole_state, entropy_pool, post_tau)?;
+    tickets_extrinsic.process(safrole_state, entropy_pool, &header.unsigned.slot)?;
 
     // Calculate time parameters
     let epoch = *tau / EPOCH_LENGTH as TimeSlot;
     let m = *tau % EPOCH_LENGTH as TimeSlot;
-    let post_epoch= *post_tau / EPOCH_LENGTH as TimeSlot;
-    let post_m = *post_tau % EPOCH_LENGTH as TimeSlot;
+    let post_epoch= header.unsigned.slot / EPOCH_LENGTH as TimeSlot;
+    let post_m = header.unsigned.slot % EPOCH_LENGTH as TimeSlot;
     
     // Output marks
     let mut epoch_mark: Option<EpochMark> = None;
     let mut tickets_mark: Option<TicketsMark> = None;
+
+    // Create the ring set
+    let ring_set = create_ring_set(&safrole_state.pending_validators.0
+                .iter()
+                .map(|validator| validator.bandersnatch.clone())
+                .collect::<Vec<BandersnatchPublic>>());
 
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
@@ -87,14 +95,9 @@ pub fn process_safrole(
         rotate_entropy_pool(entropy_pool); 
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
         key_rotation(safrole_state, curr_validators, prev_validators);
-        // Create the ring set
-        let ring_set = create_ring_set(&safrole_state.pending_validators.0
-                                                                    .iter()
-                                                                    .map(|validator| validator.bandersnatch.clone())
-                                                                    .collect::<Vec<BandersnatchPublic>>()
-                                                            );
+
         // Create the epoch root and update the safrole state
-        safrole_state.epoch_root = create_root_epoch(ring_set);
+        safrole_state.epoch_root = create_root_epoch(ring_set.clone());
         // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
         // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
         epoch_mark = Some(EpochMark {
@@ -129,10 +132,11 @@ pub fn process_safrole(
         tickets_mark = Some(outside_in_sequencer(&safrole_state.ticket_accumulator));
     }
     // tau defines the most recent block's index
-    *tau = *post_tau;
+    *tau = header.unsigned.slot.clone();
 
+    let entropy_source_vrf_output = verify_seal(&safrole_state, &entropy_pool, &curr_validators, ring_set, &header)?;
     // Update recent entropy eta0
-    update_recent_entropy(entropy_pool, entropy.clone());
+    update_recent_entropy(entropy_pool, entropy_source_vrf_output);
     
     return Ok(OutputDataSafrole {epoch_mark, tickets_mark});
 }

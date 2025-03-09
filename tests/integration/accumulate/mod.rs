@@ -8,8 +8,7 @@ use codec::{InputAccumulate, StateAccumulate};
 use vinwolf::types::{EntropyPool, ServiceAccounts, OutputAccumulation, Account};
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, TICKET_ENTRIES_PER_VALIDATOR};
 use vinwolf::blockchain::state::{
-    set_service_accounts, set_entropy, set_time, get_global_state, get_service_accounts, set_accumulation_history, 
-    set_privileges, set_ready_queue
+    set_service_accounts, set_entropy, set_time, get_global_state, set_accumulation_history, set_privileges, set_ready_queue
 };
 use vinwolf::blockchain::state::accumulation::process_accumulation;
 use vinwolf::utils::codec::{Decode, BytesReader};
@@ -123,7 +122,7 @@ mod tests {
     #[test]
     fn run_accumulate_test() {
 
-        println!("Accumulate tests");
+        println!("Accumulate tests in {} mode", *TEST_TYPE);
 
         let test_files = vec![
             // No reports.

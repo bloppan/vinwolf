@@ -1,9 +1,5 @@
-use ark_ec_vrfs::suites::bandersnatch::edwards::Output;
-
 use crate::constants::EPOCH_LENGTH;
-use crate::types::{
-    AccumulateRoot, AccumulatedHistory, AlwaysAccumulateMapItem, Gas, OutputAccumulation, ReadyQueue, ReadyRecord, ServiceId, WorkPackageHash, WorkReport
-};
+use crate::types::{AccumulateRoot, AccumulatedHistory, OutputAccumulation, ReadyQueue, ReadyRecord, WorkPackageHash, WorkReport};
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
@@ -112,7 +108,7 @@ impl Decode for AccumulatedHistory {
     }
 }
 
-impl Encode for AlwaysAccumulateMapItem {
+/*impl Encode for AlwaysAccumulateMapItem {
     fn encode(&self) -> Vec<u8> {
 
         let mut blob = Vec::new();
@@ -170,7 +166,7 @@ impl Decode for Vec<AlwaysAccumulateMapItem> {
 
         Ok(items)
     }
-}
+}*/
 
 impl Encode for OutputAccumulation {
     fn encode(&self) -> Vec<u8> {

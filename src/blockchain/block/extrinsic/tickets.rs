@@ -16,8 +16,8 @@ use crate::blockchain::state::safrole::bandersnatch::Verifier;
 
 use crate::constants::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR};
 use crate::types::{
-    EntropyPool, Header, OpaqueHash, Safrole, SafroleErrorCode, TicketsOrKeys, TicketBody, TicketsExtrinsic, TicketsMark, 
-    TimeSlot, ValidatorsData, ProcessError
+    EntropyPool, Header, OpaqueHash, Safrole, SafroleErrorCode, TicketsOrKeys, TicketBody, TicketsExtrinsic, 
+    TimeSlot, ValidatorsData, ProcessError,
 };
 
 use crate::utils::codec::Encode;
@@ -31,14 +31,14 @@ pub fn verify_seal(
         current_validators: &ValidatorsData,
         ring_set: Vec<Public>,
         header: &Header
-) -> Result<(), ProcessError> {
+) -> Result<[u8; 32], ProcessError> {
     // The header must contain a valid seal and valid vrf output. These are two signatures both using the current slot’s 
     // seal key; the message data of the former is the header’s serialization omitting the seal component Hs, whereas the 
     // latter is used as a bias-resistant entropy source and thus its message must already have been fixed: we use the entropy
     // stemming from the vrf of the seal signature. 
     let unsigned_header = header.unsigned.encode();
     // Create the verifier object
-    let verifier = Verifier::new(ring_set);
+    let verifier = Verifier::new(ring_set.clone());
     // Get the block author
     let block_author = header.unsigned.author_index as usize;
     let i = header.unsigned.slot % EPOCH_LENGTH as TimeSlot;
@@ -74,7 +74,7 @@ pub fn verify_seal(
                                                         &header.seal,
                                                         block_author,
             ).map_err(|_| ProcessError::SafroleError(SafroleErrorCode::InvalidKeySeal))?;
-
+            
             if keys.0[i as usize] != current_validators.0[block_author].bandersnatch {
                 return Err(ProcessError::SafroleError(SafroleErrorCode::KeyNotMatch));
             }
@@ -100,7 +100,7 @@ pub fn verify_seal(
         Err(_) => { return Err(ProcessError::SafroleError(SafroleErrorCode::InvalidEntropySource)) },
     };
 
-    Ok(())
+    Ok(entropy_source_vrf_output)
 }
 
 

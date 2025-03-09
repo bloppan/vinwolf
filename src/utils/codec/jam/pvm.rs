@@ -1,7 +1,6 @@
-use crate::types::{Program, Page, RamAccess, RamAddress, RamMemory, ProgramFormat};
+use crate::types::{Program, ProgramFormat};
 use crate::utils::codec::{Decode, DecodeSize, BytesReader, ReadError};
 use crate::utils::codec::generic::{decode_integer, decode_to_bits, decode_unsigned};
-use crate::constants::{PAGE_SIZE, PVM_INIT_INPUT_DATA_SIZE, PVM_INIT_ZONE_SIZE};
 
 impl Decode for Program {
 

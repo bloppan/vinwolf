@@ -94,3 +94,23 @@ pub const NUM_PAGES: RamAddress = (RAM_SIZE / PAGE_SIZE as u64) as RamAddress;
 
 // Jump aligment factor
 pub const JUMP_ALIGNMENT: usize = 2;
+
+
+
+pub const AUTH_POOLS: u8 = 1;
+pub const AUTH_QUEUE: u8 = 2;
+pub const RECENT_HISTORY: u8 = 3;
+pub const SAFROLE: u8 = 4;
+pub const DISPUTES: u8 = 5;
+pub const ENTROPY: u8 = 6;
+pub const NEXT_VALIDATORS: u8 = 7;
+pub const CURR_VALIDATORS: u8 = 8;
+pub const PREV_VALIDATORS: u8 = 9;
+pub const AVAILABILITY: u8 = 10;
+pub const TIME: u8 = 11;
+pub const PRIVILEGES: u8 = 12;
+pub const STATISTICS: u8 = 13;
+pub const ACCUMULATION_HISTORY: u8 = 14;
+pub const READY_QUEUE: u8 = 15;
+
+
