@@ -197,13 +197,13 @@ impl Verifier {
             println!("Ring signature verification failure");
             return Err(());
         }
-        println!("Ietf signature verified");
+        //println!("Ietf signature verified");
 
         // This is the actual value used as ticket-id/score
         // NOTE: as far as vrf_input_data is the same, this matches the one produced
         // using the ring-vrf (regardless of aux_data).
         let vrf_output_hash: [u8; 32] = output.hash()[..32].try_into().unwrap();
-        println!(" vrf-output-hash: {}", hex::encode(vrf_output_hash));
+        //println!(" vrf-output-hash: {}", hex::encode(vrf_output_hash));
         Ok(vrf_output_hash)
     }
 }

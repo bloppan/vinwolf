@@ -4,15 +4,17 @@ use std::convert::TryInto;
 use serde_json;
 use std::io::Read;
 use hex;
+use crate::integration::codec::{TestBody, encode_decode_test};
+
 
 use vinwolf::types::{
     Account, AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, BlockHistory, DisputesRecords, EntropyPool, 
-    GlobalState, Privileges, ReadyQueue, Safrole, ServiceId, Statistics, TimeSlot, ValidatorsData
+    GlobalState, Privileges, ReadyQueue, Safrole, ServiceId, Statistics, TimeSlot, ValidatorsData,
 };
 
 use vinwolf::utils::codec::{Decode, BytesReader};
 
-use super::{TestnetState, TestData, ParsedTransitionFile};
+use super::{read_test, TestnetState, TestData, ParsedTransitionFile};
 
 #[derive(Debug, Deserialize)]
 pub struct ParsedServiceAccount {
@@ -169,7 +171,11 @@ pub fn parse_account_lookup(input: &str) -> ParsedAccountLookup {
 }
 
 pub fn deserialize_state_transition_file(dir: &str, filename: &str) -> Result<ParsedTransitionFile, Box<dyn std::error::Error>> {
-    let filename = format!("tests/jamtestnet/data/{}/state_transitions/{}", dir, filename);
+    
+    //let filename = format!("tests/jamtestnet/data/{}/state_transitions/{}", dir, filename);
+    //let filename = format!("tests/javajam-trace/stf/state_transitions/{}", filename);
+    let filename = format!("{}/{}", dir, filename);
+    //println!("filename = {}", filename);
     //let state_content = read_test(&format!("tests/jamtestnet/data/fallback/state_transitions/{}", filename));
     let mut file = std::fs::File::open(&filename).expect("Failed to open JSON file");
     let mut contents = String::new();
@@ -572,8 +578,8 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
 }*/
 
 
-/*fn read_state_snapshot(filename: &str) 
-{
+pub fn read_state_snapshot(filename: &str) -> GlobalState {
+
     let body_state: Vec<TestBody> = vec![TestBody::AuthPools,
                                         TestBody::AuthQueues,
                                         TestBody::BlockHistory,
@@ -591,26 +597,31 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
                                         TestBody::ReadyQueue,
                                         TestBody::ServiceAccounts];
                                         
-    let state_content = read_test(&format!("tests/jamtestnet/data/fallback/state_snapshots/{}", filename));
+    let state_content = read_test(filename);
 
-    let mut state_content = state_content.unwrap();
+    let state_content = state_content.unwrap();
     let _ = encode_decode_test(&state_content.clone(), &body_state);
     let mut state_reader = BytesReader::new(&state_content);
     //let state = GlobalStateTest::decode(&mut state_reader).expect("Error decoding GlobalStateTest");
-    let auth_pools = AuthPools::decode(&mut state_reader).expect("Error decoding AuthPools");
-    let auth_queues = AuthQueues::decode(&mut state_reader).expect("Error decoding AuthQueues");
-    let block_history = BlockHistory::decode(&mut state_reader).expect("Error decoding BlockHistory");
-    let safrole = Safrole::decode(&mut state_reader).expect("Error decoding Safrole");
-    let disputes = DisputesRecords::decode(&mut state_reader).expect("Error decoding DisputesRecords");
-    let entropy_pool = EntropyPool::decode(&mut state_reader).expect("Error decoding EntropyPool");
-    let next_validators = ValidatorsData::decode(&mut state_reader).expect("Error decoding ValidatorsData");
-    let curr_validators = ValidatorsData::decode(&mut state_reader).expect("Error decoding ValidatorsData");
-    let prev_validators = ValidatorsData::decode(&mut state_reader).expect("Error decoding ValidatorsData");
-    let availability = AvailabilityAssignments::decode(&mut state_reader).expect("Error decoding AvailabilityAssignments");
-    let time = TimeSlot::decode(&mut state_reader).expect("Error decoding TimeSlot");
-    let privileges = Privileges::decode(&mut state_reader).expect("Error decoding Privileges");
-    let statistics = Statistics::decode(&mut state_reader).expect("Error decoding Statistics");
-    let accumulation_history = AccumulatedHistory::decode(&mut state_reader).expect("Error decoding AccumulatedHistory");
-    let ready_queue = ReadyQueue::decode(&mut state_reader).expect("Error decoding ReadyQueue");
+
+    let mut state = GlobalState::default();
+
+    state.auth_pools = AuthPools::decode(&mut state_reader).expect("Error decoding AuthPools");
+    state.auth_queues = AuthQueues::decode(&mut state_reader).expect("Error decoding AuthQueues");
+    state.recent_history = BlockHistory::decode(&mut state_reader).expect("Error decoding BlockHistory");
+    state.safrole = Safrole::decode(&mut state_reader).expect("Error decoding Safrole");
+    state.disputes = DisputesRecords::decode(&mut state_reader).expect("Error decoding DisputesRecords");
+    state.entropy = EntropyPool::decode(&mut state_reader).expect("Error decoding EntropyPool");
+    state.next_validators = ValidatorsData::decode(&mut state_reader).expect("Error decoding ValidatorsData");
+    state.curr_validators = ValidatorsData::decode(&mut state_reader).expect("Error decoding ValidatorsData");
+    state.prev_validators = ValidatorsData::decode(&mut state_reader).expect("Error decoding ValidatorsData");
+    state.availability = AvailabilityAssignments::decode(&mut state_reader).expect("Error decoding AvailabilityAssignments");
+    state.time = TimeSlot::decode(&mut state_reader).expect("Error decoding TimeSlot");
+    state.privileges = Privileges::decode(&mut state_reader).expect("Error decoding Privileges");
+    state.statistics = Statistics::decode(&mut state_reader).expect("Error decoding Statistics");
+    state.accumulation_history = AccumulatedHistory::decode(&mut state_reader).expect("Error decoding AccumulatedHistory");
+    state.ready_queue = ReadyQueue::decode(&mut state_reader).expect("Error decoding ReadyQueue");
     //let service_accounts = ServiceAccounts::decode(&mut state_reader).expect("Error decoding ServiceAccounts");
-}*/
+
+    return state;
+}

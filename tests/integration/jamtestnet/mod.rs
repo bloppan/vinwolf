@@ -7,7 +7,7 @@ use crate::integration::codec::{TestBody, encode_decode_test};
 
 pub mod codec;
 pub mod parser;
-use parser::deserialize_state_transition_file;
+use parser::{deserialize_state_transition_file, read_state_snapshot};
 
 extern crate vinwolf;
 
@@ -39,30 +39,39 @@ pub struct ParsedTransitionFile {
     pub post_state: GlobalState,
 }
 
-fn read_test(filename: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+pub fn read_test(filename: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(filename);
     let mut file = match File::open(&path) {
         Ok(file) => file,
-        Err(e) => return Err(Box::new(e)),
+        Err(e) => {
+            return Err(Box::new(e));
+        }
     };
     let mut test_content = Vec::new();
     let _ = file.read_to_end(&mut test_content);
     Ok(test_content)
 }
 
+
 #[cfg(test)]
 mod tests {
 
     use super::*;
 
-    fn run_blocks(dir: &str) {
+    #[test]
+    fn run_testnet() {
+
+        //run_jamduna_blocks("tests/jamtestnet/data/fallback");
+        //run_jamduna_blocks("tests/jamtestnet/data/safrole");
+        run_javajam_blocks("tests/javajam-trace/stf");
+    }
+
+    fn run_jamduna_blocks(dir: &str) {
 
         println!("Running blocks in {} mode", dir);
 
-        let json_file = deserialize_state_transition_file(dir, "1_000.json").unwrap();
-
+        let json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), "1_000.json").unwrap();
         set_global_state(json_file.pre_state.clone());
-        set_state_root(merkle_state(&json_file.pre_state.serialize().map, 0).unwrap());
 
         let body_block: Vec<TestBody> = vec![TestBody::Block];
     
@@ -72,17 +81,15 @@ mod tests {
         loop {
 
             let filename = format!("{}_{}.bin", epoch, format!("{:03}", slot));
-            let block_content = read_test(&format!("tests/jamtestnet/data/{}/blocks/{}", dir, filename));
+            let block_content = read_test(&format!("{}/blocks/{}", dir, filename));
 
             if block_content.is_err() {
                 return;
             }
 
             let state_json_filename = format!("{}_{}.json", epoch, format!("{:03}", slot));
-            let json_file = deserialize_state_transition_file(dir, &state_json_filename).unwrap();
-
-            println!("Importing block {} | {}", filename, state_json_filename);
-            
+            let json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), &state_json_filename).unwrap();
+            println!("Importing block {}/{}", format!("{}/state_transitions", dir), state_json_filename);
             let block_content = block_content.unwrap();
             let _ = encode_decode_test(&block_content.clone(), &body_block);
             let mut block_reader = BytesReader::new(&block_content);
@@ -111,7 +118,7 @@ mod tests {
             assert_eq!(json_file.post_state.accumulation_history, state.accumulation_history);
             assert_eq!(json_file.post_state.ready_queue, state.ready_queue);
             assert_eq!(json_file.post_state.service_accounts, state.service_accounts);        
-            
+
             assert_eq!(json_file.post_state_root, merkle_state(&state.serialize().map, 0).unwrap());
 
             slot += 1;
@@ -123,10 +130,61 @@ mod tests {
         }
     }
 
-    #[test]
-    fn run_testnet() {
-        //run_blocks("fallback");
-        run_blocks("safrole");
+    fn run_javajam_blocks(dir: &str) {
+
+        let body_block: Vec<TestBody> = vec![TestBody::Block];
+        println!("Running JavaJAM blocks");
+        let json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), "785461.json").unwrap();
+        set_global_state(json_file.pre_state.clone());
+        let mut filenumber = 785461;
+        println!("Importing block sequence");
+
+        loop {
+
+            let bin_filename = format!("{}/blocks/{}.bin", dir, filenumber);
+            let block_content = read_test(&bin_filename);
+
+            if block_content.is_err() {
+                return;
+            }
+
+            println!("Importing block {}", bin_filename);
+            let state_json_filename = format!("{}.json", filenumber);
+            let json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), &state_json_filename).unwrap();
+            let block_content = block_content.unwrap();
+            let _ = encode_decode_test(&block_content.clone(), &body_block);
+            let mut block_reader = BytesReader::new(&block_content);
+            let block = Block::decode(&mut block_reader).expect("Error decoding Block");
+
+            let error = state_transition_function(&block);
+            if error.is_err() {
+                println!("****************************************************** Error: {:?}", error);
+                return;
+            }
+
+            let state = get_global_state().lock().unwrap().clone();
+
+            assert_eq!(json_file.post_state.auth_pools, state.auth_pools);
+            assert_eq!(json_file.post_state.auth_queues, state.auth_queues);
+            assert_eq!(json_file.post_state.recent_history, state.recent_history);
+            assert_eq!(json_file.post_state.safrole, state.safrole);            
+            assert_eq!(json_file.post_state.disputes.offenders, state.disputes.offenders);
+            assert_eq!(json_file.post_state.entropy, state.entropy);
+            assert_eq!(json_file.post_state.next_validators, state.next_validators);
+            assert_eq!(json_file.post_state.curr_validators, state.curr_validators);
+            assert_eq!(json_file.post_state.prev_validators, state.prev_validators);
+            assert_eq!(json_file.post_state.availability, state.availability);
+            assert_eq!(json_file.post_state.time, state.time);
+            assert_eq!(json_file.post_state.privileges, state.privileges);
+            assert_eq!(json_file.post_state.statistics, state.statistics);
+            assert_eq!(json_file.post_state.accumulation_history, state.accumulation_history);
+            assert_eq!(json_file.post_state.ready_queue, state.ready_queue);
+            assert_eq!(json_file.post_state.service_accounts, state.service_accounts);        
+
+            assert_eq!(json_file.post_state_root, merkle_state(&state.serialize().map, 0).unwrap());
+
+            filenumber += 1;
+        }
     }
 
 }
