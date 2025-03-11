@@ -61,8 +61,8 @@ mod tests {
     #[test]
     fn run_testnet() {
 
-        //run_jamduna_blocks("tests/jamtestnet/data/fallback");
-        //run_jamduna_blocks("tests/jamtestnet/data/safrole");
+        run_jamduna_blocks("tests/jamtestnet/data/fallback");
+        run_jamduna_blocks("tests/jamtestnet/data/safrole");
         run_javajam_blocks("tests/javajam-trace/stf");
     }
 

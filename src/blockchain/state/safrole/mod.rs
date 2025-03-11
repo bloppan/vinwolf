@@ -95,18 +95,6 @@ pub fn process_safrole(
     let mut epoch_mark: Option<EpochMark> = None;
     let mut tickets_mark: Option<TicketsMark> = None;
 
-    if get_ring_set().is_empty() {
-        set_ring_set(create_ring_set(&curr_validators.0
-            .iter()
-            .map(|validator| validator.bandersnatch.clone())
-            .collect::<Vec<BandersnatchPublic>>()));
-    }
-    // Create the ring set
-    /*let ring_set = create_ring_set(&safrole_state.pending_validators.0
-        .iter()
-        .map(|validator| validator.bandersnatch.clone())
-        .collect::<Vec<BandersnatchPublic>>());*/
-
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
         // On an epoch transition, we therefore rotate the accumulator value into the history eta1, eta2 eta3
@@ -118,12 +106,13 @@ pub fn process_safrole(
             .iter()
             .map(|validator| validator.bandersnatch.clone())
             .collect::<Vec<BandersnatchPublic>>()));
-        let ring_set = create_ring_set(&safrole_state.pending_validators.0
+        // Create the epoch root
+        let next_ring_set = create_ring_set(&safrole_state.pending_validators.0
             .iter()
             .map(|validator| validator.bandersnatch.clone())
             .collect::<Vec<BandersnatchPublic>>());
         // Create the epoch root and update the safrole state
-        safrole_state.epoch_root = create_root_epoch(ring_set);
+        safrole_state.epoch_root = create_root_epoch(next_ring_set);
         // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
         // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
         epoch_mark = Some(EpochMark {
