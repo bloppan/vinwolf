@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use crate::integration::codec::{TestBody, encode_decode_test};
+use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 pub mod codec;
 pub mod parser;
@@ -61,9 +61,9 @@ mod tests {
     #[test]
     fn run_testnet() {
 
-        run_jamduna_blocks("tests/jamtestnet/data/fallback");
-        run_jamduna_blocks("tests/jamtestnet/data/safrole");
-        run_javajam_blocks("tests/javajam-trace/stf");
+        run_jamduna_blocks("tests/test_vectors/jamtestnet/data/fallback");
+        run_jamduna_blocks("tests/test_vectors/jamtestnet/data/safrole");
+        run_javajam_blocks("tests/test_vectors/javajam-trace/stf");
     }
 
     fn run_jamduna_blocks(dir: &str) {

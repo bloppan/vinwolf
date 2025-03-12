@@ -4,7 +4,7 @@ use std::convert::TryInto;
 use serde_json;
 use std::io::Read;
 use hex;
-use crate::integration::codec::{TestBody, encode_decode_test};
+use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 
 use vinwolf::types::{
