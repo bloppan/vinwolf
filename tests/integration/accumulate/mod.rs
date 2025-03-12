@@ -16,9 +16,9 @@ use vinwolf::utils::codec::{Decode, BytesReader};
 extern crate vinwolf;
 
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
-    if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && TICKET_SUBMISSION_ENDS == 10 && TICKET_ENTRIES_PER_VALIDATOR == 3 {
+    if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 {
         "tiny"
-    } else if VALIDATORS_COUNT == 1023 && EPOCH_LENGTH == 600 && TICKET_SUBMISSION_ENDS == 500 && TICKET_ENTRIES_PER_VALIDATOR == 2 {
+    } else if VALIDATORS_COUNT == 1023 && EPOCH_LENGTH == 600 {
         "full"
     } else {
         panic!("Invalid configuration for tiny nor full tests");
@@ -169,6 +169,23 @@ mod tests {
             // New report creates a cycle with the previously queued reports.
             // This makes the reports stale, but pushed to the ready queue anyway.
             "enqueue_self_referential-4.bin",
+            // There are some reports in the ready-queue ready to be accumulated.
+            // Even though we don't supply any new available work report these are processed.
+            // This condition may result because of gas exhausition during previous block execution.
+            "accumulate_ready_queued_reports-1.bin",
+            // Check that ready-queue and accumulated-reports queues are shifted.
+            // A new available report is supplied.
+            "queues_are_shifted-1.bin",
+            // Check that ready-queue and accumulated-reports queues are shifted.
+            // No new report is supplied.
+            "queues_are_shifted-2.bin",
+            // Two reports with unsatisfied dependencies added to the ready-queue.
+            "ready_queue_editing-1.bin",
+            // Two reports with unsatisfied dependencies added to the ready-queue.
+            // One accumulated. Ready queue items dependencies are edited.
+            "ready_queue_editing-2.bin",
+            // One report unlocks reports in the ready-queue.
+            "ready_queue_editing-3.bin",
         ];
         for file in test_files {
             println!("Running test: {}", file);
