@@ -52,9 +52,7 @@ use crate::utils::codec::Encode;
 
 pub mod bandersnatch;
 
-static RING_SET: Lazy<Mutex<Vec<Public>>> = Lazy::new(|| {
-    Mutex::new(vec![])
-});
+static RING_SET: Lazy<Mutex<Vec<Public>>> = Lazy::new(|| { Mutex::new(vec![]) });
 
 fn set_ring_set(ring_set: Vec<Public>) {
     let mut ring_set_lock = RING_SET.lock().unwrap();
@@ -80,16 +78,17 @@ pub fn process_safrole(
 
     // tau defines de most recent block
     // post_tau defines the block being processed
+    let post_tau = header.unsigned.slot.clone();
     // Timeslot must be strictly monotonic
-    if header.unsigned.slot <= *tau {
+    if post_tau <= *tau {
         return Err(ProcessError::SafroleError(SafroleErrorCode::BadSlot));
     }
     
     // Calculate time parameters
     let epoch = *tau / EPOCH_LENGTH as TimeSlot;
     let m = *tau % EPOCH_LENGTH as TimeSlot;
-    let post_epoch= header.unsigned.slot / EPOCH_LENGTH as TimeSlot;
-    let post_m = header.unsigned.slot % EPOCH_LENGTH as TimeSlot;
+    let post_epoch= post_tau / EPOCH_LENGTH as TimeSlot;
+    let post_m = post_tau % EPOCH_LENGTH as TimeSlot;
     
     // Output marks
     let mut epoch_mark: Option<EpochMark> = None;
@@ -147,10 +146,10 @@ pub fn process_safrole(
         tickets_mark = Some(outside_in_sequencer(&safrole_state.ticket_accumulator));
     }
     // Process tickets extrinsic
-    tickets_extrinsic.process(safrole_state, entropy_pool, &header.unsigned.slot)?;
+    tickets_extrinsic.process(safrole_state, entropy_pool, &post_tau)?;
     
-    // tau defines the most recent block's index
-    *tau = header.unsigned.slot.clone();
+    // update tau which defines the most recent block's index
+    *tau = post_tau;
 
     let entropy_source_vrf_output = verify_seal(&safrole_state, &entropy_pool, &curr_validators, get_ring_set(), &header)?;
     // Update recent entropy eta0

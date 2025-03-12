@@ -227,7 +227,7 @@ fn mmr(h: &[Hash]) -> Hash {
     } else if h_len == 1 {
         return h[0];
     } else {
-        let mut payload  = Vec::from(b"node");
+        let mut payload  = Vec::from(b"peak");
         payload.extend_from_slice(&mmr(&h[..(h_len - 1)]));
         payload.extend(h[h_len - 1]);
         return keccak_256(&payload);

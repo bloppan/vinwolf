@@ -51,6 +51,9 @@ pub const MAX_ITEMS_AUTHORIZATION_QUEUE: usize = 80;
 // The maximum sum of dependency items in a work-report.
 pub const MAX_DEPENDENCY_ITEMS: usize = 8;
 
+// The maximum amount of work items in a package.
+pub const MAX_WORK_ITEMS: usize = 16;
+
 // The maximum total size of all output blobs in a work-report, in octets
 pub const MAX_OUTPUT_BLOB_SIZE: usize = 48 << 10;
 

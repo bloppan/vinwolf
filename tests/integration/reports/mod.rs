@@ -83,7 +83,7 @@ mod tests {
         
         match output_result {
             Ok(_) => { set_reporting_assurance(assurances_state);},
-            Err(_) => { },
+            Err(_) => { /*println!("Error processing guarantees: {:?}", output_result)*/ },
         }
 
         let result_disputes = get_disputes();
