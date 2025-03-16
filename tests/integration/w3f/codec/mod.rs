@@ -22,7 +22,7 @@ use crate::integration::w3f::reports::codec::{InputWorkReport, WorkReportState, 
 use crate::integration::w3f::preimages::codec::{InputPreimages, PreimagesState};
 use crate::integration::w3f::accumulate::codec::{InputAccumulate, StateAccumulate};
 
-use crate::integration::jamtestnet::codec::{GlobalStateTest, ServiceAccounts};
+use crate::integration::testnet::codec::{GlobalStateTest, ServiceAccounts};
 
 fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
     data1.iter()
@@ -315,7 +315,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
 #[cfg(test)]
 mod tests {
     use super::*;
-    const TEST_DIR: &str = "tests/test_vectors/jamtestvectors/codec/data";
+    const TEST_DIR: &str = "tests/test_vectors/w3f/jamtestvectors/codec/data";
 
     #[test]
     fn run_refine_context_test() {

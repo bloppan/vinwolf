@@ -30,7 +30,7 @@ mod tests {
 
     fn run_test(filename: &str) {
 
-        let test_content = read_test_file(&format!("tests/test_vectors/jamtestvectors/authorizations/{}/{}", *TEST_TYPE, filename));
+        let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/authorizations/{}/{}", *TEST_TYPE, filename));
         let test_body: Vec<TestBody> = vec![
                                         TestBody::InputAuthorizations,
                                         TestBody::StateAuthorizations,

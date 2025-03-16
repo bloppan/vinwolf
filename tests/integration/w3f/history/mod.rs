@@ -11,7 +11,7 @@ pub mod codec;
 
 fn run_test(filename: &str) {
   
-    let test_content = read_test_file(&format!("tests/test_vectors/jamtestvectors/history/data/{}", filename));
+    let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/history/data/{}", filename));
     let test_body: Vec<TestBody> = vec![TestBody::InputHistory, TestBody::BlockHistory, TestBody::BlockHistory];
 
     let _ = encode_decode_test(&test_content, &test_body);

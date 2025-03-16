@@ -37,7 +37,7 @@ mod tests {
 
     fn run_test(filename: &str) {
 
-        let test_content = read_test_file(&format!("tests/test_vectors/jamtestvectors/safrole/{}/{}", *TEST_TYPE, filename));
+        let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/safrole/{}/{}", *TEST_TYPE, filename));
         let test_body: Vec<TestBody> = vec![
                                         TestBody::InputSafrole, 
                                         TestBody::SafroleState, 

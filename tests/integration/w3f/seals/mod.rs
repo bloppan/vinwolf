@@ -84,7 +84,7 @@ mod tests {
    
     fn run_seal_test(filename: &str) {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push("tests/test_vectors/jamtestvectors/seals/");
+        path.push("tests/test_vectors/w3f/jamtestvectors/seals/");
         path.push(filename);
         let mut file = File::open(&path).expect("Failed to open JSON file");
         let mut contents = String::new();

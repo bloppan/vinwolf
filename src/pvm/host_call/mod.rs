@@ -2,6 +2,14 @@ use crate::types::{ProgramFormat, RamAddress, RamMemory, Page, StandardProgram};
 use crate::constants::{NUM_REG, PAGE_SIZE, PVM_INIT_INPUT_DATA_SIZE, PVM_INIT_ZONE_SIZE, RAM_SIZE, Zz, Zi};
 use crate::utils::codec::{Decode, BytesReader, ReadError};
 
+fn Page(x: usize) -> u64 {
+    x.div_ceil(PAGE_SIZE as usize) as u64 * PAGE_SIZE as u64
+}
+
+fn Zone(x: usize) -> u64 {
+    x.div_ceil(PVM_INIT_ZONE_SIZE as usize) as u64 * PVM_INIT_ZONE_SIZE as u64
+}
+
 fn ram_initialization(params: &ProgramFormat, arg: &[u8]) -> RamMemory {
 
     let mut ram = RamMemory::default();
@@ -89,14 +97,6 @@ fn standard_program_initialization(program: &[u8], arg: &[u8]) -> Result<Option<
         reg: reg_initialization(&params, arg),
         code: params.c,
     }));
-}
-
-fn Page(x: usize) -> u64 {
-    x.div_ceil(PAGE_SIZE as usize) as u64 * PAGE_SIZE as u64
-}
-
-fn Zone(x: usize) -> u64 {
-    x.div_ceil(PVM_INIT_ZONE_SIZE as usize) as u64 * PVM_INIT_ZONE_SIZE as u64
 }
 
 #[cfg(test)]

@@ -40,7 +40,7 @@ mod test {
     
     fn run_test(filename: &str) {
     
-        let test_content = read_test_file(&format!("tests/test_vectors/jamtestvectors/disputes/{}/{}", *TEST_TYPE, filename));
+        let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/disputes/{}/{}", *TEST_TYPE, filename));
         let test_body: Vec<TestBody> = vec![
                                             TestBody::DisputesExtrinsic,
                                             TestBody::DisputesState,
