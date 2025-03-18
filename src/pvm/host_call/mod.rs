@@ -1,6 +1,9 @@
-use crate::types::{ProgramFormat, RamAddress, RamMemory, Page, StandardProgram};
+use crate::types::{Page, PageTable, ProgramFormat, RamAccess, RamAddress, RamMemory, ServiceAccounts, ServiceId, StandardProgram};
 use crate::constants::{NUM_REG, PAGE_SIZE, PVM_INIT_INPUT_DATA_SIZE, PVM_INIT_ZONE_SIZE, RAM_SIZE, Zz, Zi};
-use crate::utils::codec::{Decode, BytesReader, ReadError};
+use crate::constants::{NONE, WHAT, OOB, WHO, FULL, CORE, CASH, LOW, HUH, OK};
+use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
+
+use crate::types::{Account, Context, ExitReason, Gas, ServiceInfo};
 
 fn Page(x: usize) -> u64 {
     x.div_ceil(PAGE_SIZE as usize) as u64 * PAGE_SIZE as u64
@@ -33,18 +36,18 @@ fn ram_initialization(params: &ProgramFormat, arg: &[u8]) -> RamMemory {
             if ram.pages[page as usize].is_none() {
                 ram.pages[page as usize] = Some(Page::default());
             }
-            ram.pages[page as usize].as_mut().unwrap().flags.is_writable = true;
+            ram.pages[page as usize].as_mut().unwrap().flags.access = RamAccess::Write;
             ram.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.w[i as usize - (2 * Zz + Zone(params.o.len()) as u64) as usize];
         } else if 2 * Zz + Zone(params.o.len()) as u64 + params.w.len() as u64 <= i && i < 2 * Zz + Zone(params.o.len()) as u64 + Page(params.w.len()) as u64 + params.z as u64 * PAGE_SIZE as u64 {
             if ram.pages[page as usize].is_none() {
                 ram.pages[page as usize] = Some(Page::default());
             }
-            ram.pages[page as usize].as_mut().unwrap().flags.is_writable = true;
+            ram.pages[page as usize].as_mut().unwrap().flags.access = RamAccess::Write;
         } else if (1 << 32) - 2 * Zz - Zi - Page(params.s as usize) as u64 <= i && i < (1 << 32) - 2 * Zz - Zi {
             if ram.pages[page as usize].is_none() {
                 ram.pages[page as usize] = Some(Page::default());
             }
-            ram.pages[page as usize].as_mut().unwrap().flags.is_writable = true;
+            ram.pages[page as usize].as_mut().unwrap().flags.access = RamAccess::Write;
         } else if (1 << 32) - Zz - Zi <= i && i < (1 << 32) - Zz - Zi + arg.len() as u64{
             if ram.pages[page as usize].is_none() {
                 ram.pages[page as usize] = Some(Page::default());
@@ -98,6 +101,93 @@ fn standard_program_initialization(program: &[u8], arg: &[u8]) -> Result<Option<
         code: params.c,
     }));
 }
+
+fn is_writable(page_table: &PageTable, start_page: &RamAddress, end_page: &RamAddress) -> Result<bool, ExitReason> {
+    
+    for i in *start_page..=*end_page {
+
+        if let Some(page) = page_table.pages.get(&(i as u32)) {
+            if page.flags.access != RamAccess::Write {
+                return Err(ExitReason::panic);
+            }
+        } else {
+            return Err(ExitReason::PageFault(i));
+        }
+    }
+
+    return Ok(true);
+}
+
+pub fn info(ctx: &mut Context, service_id: &ServiceId, accounts: &ServiceAccounts) -> ExitReason {
+
+    let t: Option<Account> = if ctx.reg[7] == u64::MAX {
+        if let Some(account) = accounts.service_accounts.get(&service_id) {
+            Some(account.clone())
+        } else {
+            None
+        }
+    } else {
+        if let Some(account) = accounts.service_accounts.get(&(ctx.reg[7] as ServiceId)) {
+            Some(account.clone())
+        } else {
+            None
+        }
+    };
+
+    let o = ctx.reg[8];
+
+    let m = if t.is_some() {
+        let account = t.unwrap();
+        let mut num_bytes: u64 = 0;
+        let mut num_items: u32 = 0;
+        for item in account.storage.iter() {
+            num_bytes += item.1.len() as u64;
+            num_items += 1;
+        }
+        let service_info = ServiceInfo {
+            code_hash: account.code_hash,
+            balance: account.balance,
+            min_item_gas: account.gas,
+            min_memo_gas: account.min_gas,
+            bytes: num_bytes,
+            items: num_items,
+        };
+        Some(service_info.encode())
+    } else {
+        None
+    };
+
+    if m.is_none() {
+        ctx.reg[7] = NONE;
+        return ExitReason::Continue;
+    }
+
+    /*let start_address = o as RamAddress;
+    let end_address = (o + m.as_ref().unwrap().len() as u64) as RamAddress;*/
+    let start_page = o as RamAddress / PAGE_SIZE;
+    let end_page = (o + m.as_ref().unwrap().len() as u64) as RamAddress / PAGE_SIZE;
+    let mut offset = (o % PAGE_SIZE as u64) as usize;
+
+    if let Err(error) = is_writable(&ctx.page_table, &start_page, &end_page) {
+        return error;
+    }
+
+    for page_number in start_page..=end_page {
+        let page = ctx.page_table.pages.get_mut(&page_number).unwrap();
+        let mut i = 0;
+        if page_number != start_page {
+            offset = 0;
+        }
+        while i < (PAGE_SIZE as usize - offset) && i < m.as_ref().unwrap().len() {
+            page.data[i + offset] = m.as_ref().unwrap()[i];
+            i += 1;
+        }
+    }
+
+    ctx.reg[7] = OK;
+    ExitReason::Continue
+}
+
 
 #[cfg(test)]
 mod tests {

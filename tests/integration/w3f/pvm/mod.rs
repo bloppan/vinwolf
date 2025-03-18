@@ -8,7 +8,9 @@ extern crate vinwolf;
 
 use vinwolf::constants::{NUM_REG, PAGE_SIZE};
 use vinwolf::pvm::invoke_pvm;
-use vinwolf::types::{Context, ExitReason, MemoryChunk, PageMap, PageFlags, RamAddress, Gas, Page, PageTable};
+use vinwolf::types::{
+    Context, ExitReason, MemoryChunk, PageMap, PageFlags, RamAddress, RamAccess, Gas, Page, PageTable
+};
 
 #[derive(Deserialize, Debug, PartialEq)]
 struct Testcase {
@@ -56,7 +58,13 @@ mod tests {
             let page_number = page.address / PAGE_SIZE;
             page_table.pages.insert(page_number, Page {
                 flags: PageFlags {
-                    is_writable: page.is_writable,
+                    access: {
+                        if page.is_writable {
+                            RamAccess::Write
+                        } else {
+                            RamAccess::Read
+                        }
+                    },
                     referenced: false,
                     modified: false,
                 },

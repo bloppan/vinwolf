@@ -145,7 +145,7 @@ pub fn check_page_fault<T>(pvm_ctx: &mut Context, address: RamAddress, access: R
     for i in 0..std::mem::size_of::<T>() {
         let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE;
         if let Some(page) = pvm_ctx.page_table.pages.get(&page_target) {
-            if access == RamAccess::Write && !page.flags.is_writable {
+            if access == RamAccess::Write && page.flags.access != RamAccess::Write {
                 pvm_ctx.page_fault = Some(address.wrapping_add(i as RamAddress));
                 return Err(address);
             }

@@ -10,7 +10,7 @@ use crate::types::{
     ServiceAccounts, AccumulatedHistory, Privileges, TimeSlot, WorkPackageHash, AuthPool, AuthQueue, AuthorizerHash, Entropy, TicketBody,
     BandersnatchEpoch, TicketsOrKeys, BandersnatchPublic, BandersnatchRingCommitment, Account, ActivityRecord, ActivityRecords, Metadata, BlsPublic,
     Ed25519Public, ValidatorData, TicketsMark, Context, Program, PageTable, Page, PageFlags, PageMap, RamMemory, MemoryChunk, GuaranteesExtrinsic,
-    SerializedState
+    SerializedState, RamAccess
 };
 // ----------------------------------------------------------------------------------------------------------
 // Jam Types
@@ -127,6 +127,7 @@ impl Default for GlobalState {
             services_info: HashMap::new(),
             preimages: HashMap::new(),
             lookup_map: HashMap::new(),
+            storage_map: HashMap::new(),
             accumulation_history: AccumulatedHistory::default(),
             ready_queue: ReadyQueue::default(),
             privileges: Privileges::default(),
@@ -426,7 +427,7 @@ impl Default for Page {
 impl Default for PageFlags {
     fn default() -> Self {
         PageFlags {
-            is_writable: false,
+            access: RamAccess::None,
             referenced: false,
             modified: false,
         }

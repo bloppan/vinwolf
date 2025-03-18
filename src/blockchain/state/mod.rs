@@ -128,7 +128,7 @@ impl GlobalState {
                 bytes: service.1.bytes,
                 items: service.1.items,
             };
-
+            // TODO revisar esto y ver si se puede hacer con encode account
             state.map.insert(key, service_info.encode());
 
             for preimage in service.1.preimages.iter() {

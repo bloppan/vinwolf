@@ -41,6 +41,7 @@ pub type ErasureRoot = OpaqueHash;
 pub type Gas = u64;
 pub type RamAddress = u32;
 pub type PageAddress = RamAddress;
+pub type PageNumber = u32;
 pub type RegSize = u64;
 pub type RegSigned = i64;
 
@@ -752,6 +753,7 @@ pub struct GlobalState {
     pub services_info: HashMap<ServiceId, ServiceInfo>,
     pub preimages: HashMap<OpaqueHash, Vec<u8>>,
     pub lookup_map: HashMap<(OpaqueHash, u32), Vec<TimeSlot>>,
+    pub storage_map: HashMap<OpaqueHash, Vec<u8>>,
     pub accumulation_history: AccumulatedHistory,
     pub ready_queue: ReadyQueue,
     pub privileges: Privileges,
@@ -797,7 +799,7 @@ pub struct RamMemory {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PageTable {
-    pub pages: HashMap<PageAddress, Page>,
+    pub pages: HashMap<PageNumber, Page>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -808,7 +810,8 @@ pub struct Page {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PageFlags {
-    pub is_writable: bool,
+    pub access: RamAccess,
+    //pub is_writable: bool,
     pub referenced: bool,
     pub modified: bool,
 }

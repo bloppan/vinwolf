@@ -99,6 +99,25 @@ pub const NUM_PAGES: RamAddress = (RAM_SIZE / PAGE_SIZE as u64) as RamAddress;
 pub const JUMP_ALIGNMENT: usize = 2;
 
 
+// Host Call result constants
+pub const NONE: u64 = u64::MAX;
+pub const WHAT: u64 = u64::MAX - 1;
+pub const OOB: u64 = u64::MAX - 2;
+pub const WHO: u64 = u64::MAX - 3;
+pub const FULL: u64 = u64::MAX - 4;
+pub const CORE: u64 = u64::MAX - 5;
+pub const CASH: u64 = u64::MAX - 6;
+pub const LOW: u64 = u64::MAX - 7;
+pub const HUH: u64 = u64::MAX - 8;
+pub const OK: u64 = 0;
+
+// Inner PVM result codes
+pub const HALT: usize = 0;
+pub const PANIC: usize = 1;
+pub const FAULT: usize = 2;
+pub const HOST: usize = 3;
+pub const OOG: usize = 4;
+
 
 pub const AUTH_POOLS: u8 = 1;
 pub const AUTH_QUEUE: u8 = 2;
