@@ -18,11 +18,10 @@
 
     For each epoch we track a performance record for each validator.
 */
-
 use std::default::Default;
 
-use crate::types::{Statistics, ValidatorIndex, TimeSlot, Extrinsic, ActivityRecord, ActivityRecords};
-use crate::constants::{EPOCH_LENGTH, VALIDATORS_COUNT};
+use crate::types::{Statistics, ValidatorIndex, TimeSlot, Extrinsic, ActivityRecords};
+use crate::constants::EPOCH_LENGTH;
 use super::get_time;
 
 pub fn process_statistics(
@@ -67,32 +66,3 @@ pub fn process_statistics(
     }
 }
 
-impl Default for ActivityRecord {
-    fn default() -> Self {
-        Self {
-            blocks: 0,
-            tickets: 0,
-            preimages: 0,
-            preimages_size: 0,
-            guarantees: 0,
-            assurances: 0,
-        }
-    }
-}
-
-impl Default for ActivityRecords {
-    fn default() -> Self {
-        Self {
-            records: Box::new([ActivityRecord::default(); VALIDATORS_COUNT]),
-        }
-    }
-}
-
-impl Default for Statistics {
-    fn default() -> Self {
-        Self {
-            curr: ActivityRecords::default(),
-            prev: ActivityRecords::default(),
-        }
-    }
-}

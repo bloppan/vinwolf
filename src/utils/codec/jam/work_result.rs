@@ -1,4 +1,4 @@
-use crate::types::{ServiceId, OpaqueHash, Gas, WorkResult, WorkExecResult};
+use crate::types::{ServiceId, OpaqueHash, Gas, WorkResult, WorkExecResult, WorkExecError};
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
@@ -47,15 +47,16 @@ impl Decode for WorkResult {
                     0 => {
                         let len = decode_unsigned(blob)?;
                         result.extend_from_slice(&blob.read_bytes(len)?);
-                        WorkExecResult::Ok
+                        WorkExecResult::Ok(result.clone())
                     },
-                    1 => WorkExecResult::OutOfGas,
-                    2 => WorkExecResult::Panic,
-                    3 => WorkExecResult::BadCode,
-                    4 => WorkExecResult::CodeOversize,
+                    1 => WorkExecResult::Error(WorkExecError::OutOfGas),
+                    2 => WorkExecResult::Error(WorkExecError::Panic),
+                    3 => WorkExecResult::Error(WorkExecError::BadNumberExports),
+                    4 => WorkExecResult::Error(WorkExecError::BadCode),
+                    5 => WorkExecResult::Error(WorkExecError::CodeOversize),
                     _ => { 
                         println!("Invalid value in WorkExecResult: {}", exec_result);
-                        WorkExecResult::UnknownError
+                        return Err(ReadError::InvalidData);
                     }
                 };
                 result

@@ -2,11 +2,10 @@ use sp_core::blake2_256;
 use crate::blockchain::state::reporting_assurance::{add_assignment, remove_assignment};
 use crate::types::{
     AssurancesErrorCode, OutputDataAssurances, ValidatorIndex, AssurancesExtrinsic, Hash, TimeSlot, 
-    AvailabilityAssignment, CoreIndex, AvailabilityAssignments
+    AvailabilityAssignment, CoreIndex, AvailabilityAssignments, ProcessError, ValidatorSet
 };
 use crate::constants::{AVAIL_BITFIELD_BYTES, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY};
-use crate::blockchain::state::validators::ValidatorSet;
-use crate::blockchain::state::{ProcessError, get_validators};
+use crate::blockchain::state::get_validators;
 use crate::utils::codec::Encode;
 use crate::utils::common::{is_sorted_and_unique, VerifySignature};
 

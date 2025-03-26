@@ -1,21 +1,15 @@
 use crate::types::{
     OpaqueHash, TimeSlot, Ed25519Public, ValidatorIndex, BandersnatchVrfSignature, BandersnatchPublic,
-    TicketBody, TicketsMark, EpochMark, Header, Entropy
+    TicketBody, TicketsMark, EpochMark, Header, Entropy, UnsignedHeader
 };
 use crate::constants::{EPOCH_LENGTH, VALIDATORS_COUNT};
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
-// The header comprises a parent hash and prior state root, an extrinsic hash, a time-slot index, the epoch, 
-// winning-tickets and offenders markers, and, a Bandersnatch block author index and two Bandersnatch signatures; 
-// the entropy-yielding, vrf signature, and a block seal. Excepting the Genesis header, all block headers H have
-// an associated parent header, whose hash is Hp.
-
-impl Encode for Header {
-
+impl Encode for UnsignedHeader {
     fn encode(&self) -> Vec<u8> {
 
-        let mut header_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Header>());
+        let mut header_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<UnsignedHeader>());
         self.parent.encode_to(&mut header_blob);
         self.parent_state_root.encode_to(&mut header_blob);
         self.extrinsic_hash.encode_to(&mut header_blob);
@@ -42,8 +36,6 @@ impl Encode for Header {
 
         self.author_index.encode_size(2).encode_to(&mut header_blob);
         self.entropy_source.encode_to(&mut header_blob);
-        self.seal.encode_to(&mut header_blob);
-
         return header_blob;
     }
 
@@ -52,11 +44,10 @@ impl Encode for Header {
     }
 }
 
-impl Decode for Header {
-
+impl Decode for UnsignedHeader {
     fn decode(header_blob: &mut BytesReader) -> Result<Self, ReadError> {
         
-        Ok(Header {
+        Ok(UnsignedHeader {
             parent: OpaqueHash::decode(header_blob)?,
             parent_state_root: OpaqueHash::decode(header_blob)?,
             extrinsic_hash: OpaqueHash::decode(header_blob)?,
@@ -82,6 +73,38 @@ impl Decode for Header {
             },
             author_index: ValidatorIndex::decode(header_blob)?,
             entropy_source: BandersnatchVrfSignature::decode(header_blob)?,
+        })
+    }
+}
+
+// The header comprises a parent hash and prior state root, an extrinsic hash, a time-slot index, the epoch, 
+// winning-tickets and offenders markers, and, a Bandersnatch block author index and two Bandersnatch signatures; 
+// the entropy-yielding, vrf signature, and a block seal. Excepting the Genesis header, all block headers H have
+// an associated parent header, whose hash is Hp.
+
+impl Encode for Header {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut header_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Header>());
+
+        self.unsigned.encode_to(&mut header_blob);
+        self.seal.encode_to(&mut header_blob);
+
+        return header_blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode()); 
+    }
+}
+
+impl Decode for Header {
+
+    fn decode(header_blob: &mut BytesReader) -> Result<Self, ReadError> {
+        
+        Ok(Header {
+            unsigned: UnsignedHeader::decode(header_blob)?,
             seal: BandersnatchVrfSignature::decode(header_blob)?,
         })
     }

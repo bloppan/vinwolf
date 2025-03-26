@@ -47,13 +47,4 @@ pub fn process_disputes(
     })
 }
 
-impl Default for DisputesRecords {
-    fn default() -> Self {
-        DisputesRecords {
-            good: vec![],
-            bad: vec![],
-            wonky: vec![],
-            offenders: vec![],
-        }
-    }
-}
+

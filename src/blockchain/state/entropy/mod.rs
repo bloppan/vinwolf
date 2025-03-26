@@ -1,20 +1,6 @@
-use std::default::Default;
-use core::array::from_fn;
 use sp_core::blake2_256;
 
-use crate::types::{OpaqueHash, Entropy, EntropyPool};
-
-impl Default for EntropyPool {
-    fn default() -> Self {
-        EntropyPool { buf: Box::new(from_fn(|_| Entropy::default())) }
-    }
-}
-
-impl Default for Entropy {
-    fn default() -> Self {
-        Entropy { entropy: OpaqueHash::default() }
-    }
-}
+use crate::types::{Entropy, EntropyPool};
 
 pub fn rotate_entropy_pool(entropy_pool: &mut EntropyPool) {
     // In addition to the entropy accumulator eta0, we retain three additional historical values of the accumulator at the point of 
@@ -26,9 +12,9 @@ pub fn rotate_entropy_pool(entropy_pool: &mut EntropyPool) {
     entropy_pool.buf[1] = entropy_pool.buf[0].clone();
 }
 
-pub fn update_recent_entropy(entropy_pool: &mut EntropyPool, new: Entropy) {
+pub fn update_recent_entropy(entropy_pool: &mut EntropyPool, entropy_source: [u8; 32]) {
     // eta0 defines the state of the randomness accumulator to which the provably random output of the vrf, the signature over 
     // some unbiasable input, is combined each block. eta1 and eta2 meanwhile retain the state of this accumulator at the end 
     // of the two most recently ended epochs in order.
-    entropy_pool.buf[0] = Entropy { entropy: blake2_256(&[entropy_pool.buf[0].entropy, new.entropy].concat())};
+    entropy_pool.buf[0] = Entropy { entropy: blake2_256(&[entropy_pool.buf[0].entropy, entropy_source].concat())};
 }

@@ -66,7 +66,7 @@ impl Decode for AuthPools {
         for pool in pools.auth_pools.iter_mut() {
             *pool = AuthPool::decode(blob)?;
         }
-
+        
         Ok(AuthPools{
             auth_pools: pools.auth_pools,
         })

@@ -60,7 +60,7 @@ impl Decode for ValidatorsData {
         for validator in validators.0.iter_mut() {
             *validator = ValidatorData::decode(validators_blob)?;
         }
-
+        
         Ok(validators)
     }
 }

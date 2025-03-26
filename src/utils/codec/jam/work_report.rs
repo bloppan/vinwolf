@@ -53,6 +53,41 @@ impl Decode for WorkReport {
     }
 }
 
+impl Encode for Vec<WorkReport> {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut work_reports_blob = Vec::with_capacity(std::mem::size_of::<WorkReport>() * self.len());
+
+        encode_unsigned(self.len()).encode_to(&mut work_reports_blob);
+        
+        for work_report in self.iter() {
+            work_report.encode_to(&mut work_reports_blob);
+        }
+
+        return work_reports_blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for Vec<WorkReport> {
+    
+    fn decode(work_reports: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let len = decode_unsigned(work_reports)?;
+        let mut work_reports_vec = Vec::with_capacity(len);
+        
+        for _ in 0..len {
+            work_reports_vec.push(WorkReport::decode(work_reports)?);
+        }
+
+        Ok(work_reports_vec)
+    }
+}
+
 impl Encode for Offenders {
 
     fn encode(&self) -> Vec<u8> {

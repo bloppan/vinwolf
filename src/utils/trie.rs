@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use sp_core::blake2_256;
 use sp_core::keccak_256;
+
 use crate::types::{Hash, Mmr, MmrPeak};
 use crate::utils::codec::{Encode, EncodeSize};
 
@@ -57,7 +59,7 @@ fn leaf(k: &[u8], v: &[u8]) -> [u8; 64] {
         // The last 32 bytes are defined as the value
         v.encode_to(&mut encoded);
         // Fill with zeroes if its length is less than 32 bytes
-        vec![0; 32 - v_len_1 as usize].encode_to(&mut encoded);
+        vec![0u8; 32 - v_len_1 as usize].encode_to(&mut encoded);
     } else {
         // In the case of a regular leaf, the remaining 6 bits of the first byte are zeroed
         let head = 0b11000000 as u8;
@@ -70,6 +72,37 @@ fn leaf(k: &[u8], v: &[u8]) -> [u8; 64] {
     let mut leaf_hash = [0u8; 64];
     leaf_hash.copy_from_slice(&encoded);
     leaf_hash
+}
+
+pub fn merkle_state(kvs: &HashMap<[u8; 32], Vec<u8>>, i: usize) -> Result<Hash, MerkleError> {
+    // Empty (sub-)tries are identified as the zero hash
+    if kvs.is_empty() {
+        return Ok([0u8; 32]);
+    }
+    // Generate a leaf if there only is one element
+    if kvs.len() == 1 {
+        let (k, v) = kvs.into_iter().next().unwrap();
+        return Ok(hash(&leaf(k, v)));
+    }
+    // Right and left vectors
+    let mut l = HashMap::new(); 
+    let mut r = HashMap::new(); 
+    
+    for (k, v) in kvs.iter() {
+        // Determine if kv has to be on right or left
+        if bit(k, i) {
+            r.insert(k.clone(), v.clone());
+        } else {
+            l.insert(k.clone(), v.clone());
+        }
+    }
+    // Recursive calls to calculate letf and right 
+    let left_hash = merkle_state(&l, i + 1)?;
+    let right_hash = merkle_state(&r, i + 1)?;
+
+    let branch_value = branch(&left_hash, &right_hash)?;
+    // Blake 256 of branch value
+    Ok(hash(&branch_value))
 }
 
 pub fn merkle(kvs: &[(Vec<u8>, Vec<u8>)], i: usize) -> Result<Hash, MerkleError> {
@@ -194,7 +227,7 @@ fn mmr(h: &[Hash]) -> Hash {
     } else if h_len == 1 {
         return h[0];
     } else {
-        let mut payload  = Vec::from(b"node");
+        let mut payload  = Vec::from(b"peak");
         payload.extend_from_slice(&mmr(&h[..(h_len - 1)]));
         payload.extend(h[h_len - 1]);
         return keccak_256(&payload);

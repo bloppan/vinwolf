@@ -35,29 +35,32 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bandersnatch_ark_ec_vrfs::Public;
 use crate::blockchain::state::safrole::bandersnatch::{ring_context, Verifier};
 
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
 use sp_core::blake2_256;
 
 use crate::types::{
-    BandersnatchPublic, BandersnatchRingCommitment, Entropy, EntropyPool, EpochMark, OutputDataSafrole, Safrole, 
+    BandersnatchPublic, BandersnatchRingCommitment, Entropy, EntropyPool, EpochMark, OutputDataSafrole, Safrole, Header,
     SafroleErrorCode, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorsData, BandersnatchEpoch
 };
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 use crate::blockchain::state::ProcessError;
 use crate::blockchain::state::entropy::{rotate_entropy_pool, update_recent_entropy};
 use crate::blockchain::state::validators::key_rotation;
+use crate::blockchain::block::extrinsic::tickets::verify_seal;
 use crate::utils::codec::Encode;
 
 pub mod bandersnatch;
 
-impl Default for Safrole {
-    fn default() -> Self {
-        Safrole {
-            pending_validators: ValidatorsData::default(),
-            ticket_accumulator: vec![TicketBody::default()],
-            seal: TicketsOrKeys::None,
-            epoch_root: [0u8; std::mem::size_of::<BandersnatchRingCommitment>()],
-        }
-    }
+static RING_SET: Lazy<Mutex<Vec<Public>>> = Lazy::new(|| { Mutex::new(vec![]) });
+
+fn set_ring_set(ring_set: Vec<Public>) {
+    let mut ring_set_lock = RING_SET.lock().unwrap();
+    *ring_set_lock = ring_set;
+}
+fn get_ring_set() -> Vec<Public> {
+    let ring_set_lock = RING_SET.lock().unwrap();
+    ring_set_lock.clone()
 }
 
 // Process Safrole state
@@ -67,26 +70,25 @@ pub fn process_safrole(
     curr_validators: &mut ValidatorsData,
     prev_validators: &mut ValidatorsData,
     tau: &mut TimeSlot,
-    post_tau: &TimeSlot,
-    entropy: &Entropy,
+    /*post_tau: &TimeSlot,
+    entropy: &Entropy,*/
+    header: &Header,
     tickets_extrinsic: &TicketsExtrinsic,
 ) -> Result<OutputDataSafrole, ProcessError> {
 
     // tau defines de most recent block
     // post_tau defines the block being processed
+    let post_tau = header.unsigned.slot.clone();
     // Timeslot must be strictly monotonic
-    if *post_tau <= *tau {
+    if post_tau <= *tau {
         return Err(ProcessError::SafroleError(SafroleErrorCode::BadSlot));
     }
-
-    // Process tickets extrinsic
-    tickets_extrinsic.process(safrole_state, entropy_pool, post_tau)?;
-
+    
     // Calculate time parameters
     let epoch = *tau / EPOCH_LENGTH as TimeSlot;
     let m = *tau % EPOCH_LENGTH as TimeSlot;
-    let post_epoch= *post_tau / EPOCH_LENGTH as TimeSlot;
-    let post_m = *post_tau % EPOCH_LENGTH as TimeSlot;
+    let post_epoch= post_tau / EPOCH_LENGTH as TimeSlot;
+    let post_m = post_tau % EPOCH_LENGTH as TimeSlot;
     
     // Output marks
     let mut epoch_mark: Option<EpochMark> = None;
@@ -98,7 +100,18 @@ pub fn process_safrole(
         rotate_entropy_pool(entropy_pool); 
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
         key_rotation(safrole_state, curr_validators, prev_validators);
-        safrole_state.epoch_root = create_root_epoch(safrole_state);
+        // Create the ring set
+        set_ring_set(create_ring_set(&curr_validators.0
+            .iter()
+            .map(|validator| validator.bandersnatch.clone())
+            .collect::<Vec<BandersnatchPublic>>()));
+        // Create the epoch root
+        let next_ring_set = create_ring_set(&safrole_state.pending_validators.0
+            .iter()
+            .map(|validator| validator.bandersnatch.clone())
+            .collect::<Vec<BandersnatchPublic>>());
+        // Create the epoch root and update the safrole state
+        safrole_state.epoch_root = create_root_epoch(next_ring_set);
         // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
         // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
         epoch_mark = Some(EpochMark {
@@ -132,33 +145,34 @@ pub fn process_safrole(
         // gamma_a is the ticket accumulator, a series of highestscoring ticket identifiers to be used for the next epoch.
         tickets_mark = Some(outside_in_sequencer(&safrole_state.ticket_accumulator));
     }
-    // tau defines the most recent block's index
-    *tau = *post_tau;
+    // Process tickets extrinsic
+    tickets_extrinsic.process(safrole_state, entropy_pool, &post_tau)?;
+    
+    // update tau which defines the most recent block's index
+    *tau = post_tau;
 
+    let entropy_source_vrf_output = verify_seal(&safrole_state, &entropy_pool, &curr_validators, get_ring_set(), &header)?;
     // Update recent entropy eta0
-    update_recent_entropy(entropy_pool, entropy.clone());
+    update_recent_entropy(entropy_pool, entropy_source_vrf_output);
     
     return Ok(OutputDataSafrole {epoch_mark, tickets_mark});
 }
 
-fn create_root_epoch(safrole_state: &mut Safrole) -> BandersnatchRingCommitment {
-
-    let bandersnatch_keys: Vec<BandersnatchPublic> = safrole_state.pending_validators.0
-                                                            .iter()
-                                                            .map(|validator| validator.bandersnatch.clone())
-                                                            .collect();
-
-    let padding_point = Public::from(ring_context().padding_point());
-    let ring_set: Vec<Public> = bandersnatch_keys
-        .iter()
+pub fn create_ring_set(keys: &[BandersnatchPublic]) -> Vec<Public> {
+    keys.iter()
         .map(|key| {
-            Public::deserialize_compressed(&key[..]).unwrap_or_else(|_| {
-                // Use the padding point in case of invalid key
-                padding_point.clone()
-            })
+            let point = Public::deserialize_compressed(&key[..])
+                .unwrap_or_else(|_| {
+                    // In the case a key has no corresponding Bandersnatch point when constructing the ring, then 
+                    // the Bandersnatch padding point as stated by Hosseini and Galassi 2024 should be substituted
+                    Public::from(ring_context().padding_point())
+                });
+            point
         })
-        .collect();
+        .collect()
+}
 
+pub fn create_root_epoch(ring_set: Vec<Public>) -> BandersnatchRingCommitment {
     let verifier = Verifier::new(ring_set);
     let mut proof: BandersnatchRingCommitment = [0u8; std::mem::size_of::<BandersnatchRingCommitment>()];
     verifier.commitment.serialize_compressed(&mut proof[..]).unwrap();
@@ -166,7 +180,7 @@ fn create_root_epoch(safrole_state: &mut Safrole) -> BandersnatchRingCommitment 
 }
 
 fn outside_in_sequencer(tickets: &[TicketBody]) -> TicketsMark {
-    
+
     let mut new_ticket_accumulator = TicketsMark::default();
 
     for i in 0..EPOCH_LENGTH / 2 {
@@ -177,16 +191,16 @@ fn outside_in_sequencer(tickets: &[TicketBody]) -> TicketsMark {
     new_ticket_accumulator
 }
 
-fn fallback(buf: &Entropy, keys: &[BandersnatchPublic]) -> BandersnatchEpoch {
+fn fallback(buf: &Entropy, current_keys: &[BandersnatchPublic]) -> BandersnatchEpoch {
     // This is the fallback key sequence function which selects an epoch's worth of validator Bandersnatch keys from the 
     // validator key set using the entropy collected on-chain
-    let mut new_keys: BandersnatchEpoch = Box::new(std::array::from_fn(|_| BandersnatchPublic::default()));
+    let mut new_epoch_keys: BandersnatchEpoch = BandersnatchEpoch::default();
     for i in 0u32..EPOCH_LENGTH as u32 { 
         let index_le = i.encode();
         let hash = blake2_256(&[&buf.entropy[..], &index_le].concat());
         let hash_4 = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
         let id = (hash_4 % VALIDATORS_COUNT as u32) as usize;
-        new_keys[i as usize] = keys[id].clone();
+        new_epoch_keys.0[i as usize] = current_keys[id].clone();
     }
-    new_keys
+    new_epoch_keys
 }

@@ -1,7 +1,11 @@
 // JAM Protocol Types
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
+use serde::Deserialize;
+
+use crate::utils::codec::ReadError;
 use crate::constants::{
-    ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH
+    ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH,
+    NUM_REG, PAGE_SIZE, SEGMENT_SIZE
 };
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
@@ -19,13 +23,13 @@ pub type BandersnatchRingCommitment = [u8; 144];
 // Application Specific Core
 // ----------------------------------------------------------------------------------------------------------
 pub type OpaqueHash = [u8; 32];
-pub type Hash = [u8; 32];
 pub type Metadata = [u8; 128];
 
 pub type TimeSlot = u32;
 pub type ValidatorIndex = u16;
 pub type CoreIndex = u16;
 
+pub type Hash = OpaqueHash;
 pub type HeaderHash = OpaqueHash;
 pub type StateRoot = OpaqueHash;
 pub type BeefyRoot = OpaqueHash;
@@ -35,8 +39,13 @@ pub type ExportsRoot = OpaqueHash;
 pub type ErasureRoot = OpaqueHash;
 
 pub type Gas = u64;
+pub type RamAddress = u32;
+pub type PageAddress = RamAddress;
+pub type PageNumber = u32;
+pub type RegSize = u64;
+pub type RegSigned = i64;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct Entropy {
     pub entropy: OpaqueHash,
 }
@@ -61,32 +70,19 @@ pub struct ValidatorData {
     pub metadata: Metadata,
 }
 pub type BandersnatchKeys = Box<[BandersnatchPublic; VALIDATORS_COUNT]>;
-pub type BandersnatchEpoch = Box<[BandersnatchPublic; EPOCH_LENGTH]>;
+//pub type BandersnatchEpoch = Box<[BandersnatchPublic; EPOCH_LENGTH]>;
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct BandersnatchEpoch(pub Box<[BandersnatchPublic; EPOCH_LENGTH]>);
+
 #[derive(Clone, PartialEq, Debug)]
 pub struct ValidatorsData(pub Box<[ValidatorData; VALIDATORS_COUNT]>);
-// ----------------------------------------------------------------------------------------------------------
-// Service
-// ----------------------------------------------------------------------------------------------------------
-pub type ServiceId = u32;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ServiceInfo {
-    pub code_hash: OpaqueHash,
-    pub balance: u64,
-    pub min_item_gas: Gas,
-    pub min_memo_gas: Gas,
-    pub bytes: u64,
-    pub items: u32,
+#[derive(Clone, Debug, PartialEq)]
+pub enum ValidatorSet {
+    Previous,
+    Current,
+    Next,
 }
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ServiceItem {
-    pub id: ServiceId,
-    pub info: ServiceInfo,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Services(pub Vec<ServiceItem>);
 // ----------------------------------------------------------------------------------------------------------
 // Availability Assignments
 // ----------------------------------------------------------------------------------------------------------
@@ -165,7 +161,7 @@ pub struct CodeAuthorizer {
 
 // The Import Spec is a sequence of imported data segments, which identify a prior exported segment 
 // through an index and the identity of an exporting work-package. Its a member of Work Item.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ImportSpec {
     pub tree_root: OpaqueHash,
     pub index: u16,
@@ -173,7 +169,7 @@ pub struct ImportSpec {
 
 // The extrinsic spec is a sequence of blob hashes and lengths to be introduced in this block 
 // (and which we assume the validator knows). It's a member of Work Item
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ExtrinsicSpec {
     pub hash: OpaqueHash,
     pub len: u32,
@@ -185,7 +181,7 @@ pub struct ExtrinsicSpec {
 // which identify a prior exported segment through an index and the identity of an exporting work-package, 
 // a sequence of blob hashes and lengths to be introduced in this block (and which we assume the validator knows) 
 // and the number of data segments exported by this work item.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WorkItem {
     pub service: ServiceId,
     pub code_hash: OpaqueHash,
@@ -199,7 +195,7 @@ pub struct WorkItem {
 // A work-package includes a simple blob acting as an authorization token, the index of the service which
 // hosts the authorization code, an authorization code hash and a parameterization blob, a context and a 
 // sequence of work items:
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WorkPackage {
     pub authorization: Vec<u8>,
     pub auth_code_host: ServiceId,
@@ -298,12 +294,16 @@ pub struct WorkResult {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum WorkExecResult {
-    Ok = 0,
+    Ok(Vec<u8>),
+    Error(WorkExecError),
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum WorkExecError {
     OutOfGas = 1,
     Panic = 2,
-    BadCode = 3,
-    CodeOversize = 4,
-    UnknownError = 5,
+    BadNumberExports = 3,
+    BadCode = 4,
+    CodeOversize = 5,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -434,6 +434,12 @@ pub enum SafroleErrorCode {
     Reserved = 5,           // Reserved.
     DuplicateTicket = 6,   // Found a ticket duplicate.
     TooManyTickets = 7,    // Too many tickets in extrinsic.
+    InvalidTicketSeal = 8,       // Invalid seal.
+    InvalidKeySeal = 9,         // Invalid seal.
+    InvalidEntropySource = 10, // Invalid entropy source.
+    TicketsOrKeysNone = 11, // Tickets or keys is none.
+    TicketNotMatch = 12,      // Seal does not match.
+    KeyNotMatch = 13,        // Seal key does not match.
 }
 // ----------------------------------------------------------------------------------------------------------
 // Disputes
@@ -508,25 +514,71 @@ pub struct DisputesExtrinsic {
     pub faults: Vec<Fault>,
 }
 // ----------------------------------------------------------------------------------------------------------
-// Accounts
+// Service Accounts
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Debug, Clone, PartialEq)]
-pub struct Account {
-    pub id: u32,
-    //pub info: AccountInf//o,
+#[derive(Debug, PartialEq, Clone)]
+pub struct ServiceAccounts {
+    pub service_accounts: HashMap<ServiceId, Account>,
 }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Account {
+    pub storage: HashMap<OpaqueHash, Vec<u8>>,
+    pub preimages: HashMap<OpaqueHash, Vec<u8>>,
+    pub lookup: HashMap<(OpaqueHash, u32), Vec<TimeSlot>>,
+    pub code_hash: OpaqueHash,
+    pub balance: u64,
+    pub gas: Gas,
+    pub min_gas: Gas,
+    pub items: u32,
+    pub bytes: u64,
+}
+pub type ServiceId = u32;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ServiceInfo {
+    pub code_hash: OpaqueHash,
+    pub balance: u64,
+    pub min_item_gas: Gas,
+    pub min_memo_gas: Gas,
+    pub bytes: u64,
+    pub items: u32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ServiceItem {
+    pub id: ServiceId,
+    pub info: ServiceInfo,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Services(pub Vec<ServiceItem>);
 // ----------------------------------------------------------------------------------------------------------
 // Preimages
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, std::hash::Hash)]
 pub struct Preimage {
     pub requester: ServiceId,
     pub blob: Vec<u8>,
 }
-
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, std::hash::Hash)]
 pub struct PreimagesExtrinsic {
     pub preimages: Vec<Preimage>,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct PreimagesMapEntry {
+    pub hash: HeaderHash,
+    pub blob: Vec<u8>,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum PreimagesErrorCode {
+    PreimageUnneeded = 0,
+    PreimagesNotSortedOrUnique = 1,
+    RequesterNotFound = 2,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum OutputPreimages {
+    Ok(),
+    Err(PreimagesErrorCode),
 }
 // ----------------------------------------------------------------------------------------------------------
 // Assurances
@@ -582,6 +634,44 @@ pub struct GuaranteesExtrinsic {
     pub report_guarantee: Vec<ReportGuarantee>,
 }
 // ----------------------------------------------------------------------------------------------------------
+// Accumulation
+// ----------------------------------------------------------------------------------------------------------
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReadyRecord {
+    pub report: WorkReport,
+    pub dependencies: Vec<WorkPackageHash>,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReadyQueue {
+    pub queue: Box<[Vec<ReadyRecord>; EPOCH_LENGTH]>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AccumulatedHistory {
+    pub queue: VecDeque<Vec<WorkPackageHash>>,
+}
+/*#[derive(Debug, Clone, PartialEq)]
+pub struct AlwaysAccumulateMapItem {
+    pub id: ServiceId,
+    pub gas: Gas,
+}*/
+#[derive(Debug, Clone, PartialEq)]
+pub struct Privileges {
+    pub bless: ServiceId,
+    pub assign: ServiceId,
+    pub designate: ServiceId,
+    pub always_acc: HashMap<ServiceId, Gas>,
+}
+
+pub type AccumulateRoot = OpaqueHash;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OutputAccumulation {
+    Ok(AccumulateRoot),
+    Err(),
+}
+
+// ----------------------------------------------------------------------------------------------------------
 // Header
 // ----------------------------------------------------------------------------------------------------------
 #[derive(Debug, PartialEq, Clone)]
@@ -598,7 +688,7 @@ pub struct TicketsMark {
 
 pub type OffendersMark = Vec<Ed25519Public>;
 
-#[derive(Debug, PartialEq, Clone)]
+/*#[derive(Debug, PartialEq, Clone)]
 pub struct Header {
     pub parent: HeaderHash,
     pub parent_state_root: StateRoot,
@@ -610,6 +700,24 @@ pub struct Header {
     pub author_index: ValidatorIndex,
     pub entropy_source: BandersnatchVrfSignature,
     pub seal: BandersnatchVrfSignature,
+}*/
+#[derive(Debug, PartialEq, Clone)]
+pub struct Header {
+    pub unsigned: UnsignedHeader,
+    pub seal: BandersnatchVrfSignature,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct UnsignedHeader {
+    pub parent: HeaderHash,
+    pub parent_state_root: StateRoot,
+    pub extrinsic_hash: OpaqueHash,
+    pub slot: TimeSlot,
+    pub epoch_mark: Option<EpochMark>,
+    pub tickets_mark: Option<TicketsMark>,
+    pub offenders_mark: Vec<Ed25519Public>,
+    pub author_index: ValidatorIndex,
+    pub entropy_source: BandersnatchVrfSignature,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Block
@@ -628,3 +736,218 @@ pub struct Block {
     pub header: Header,
     pub extrinsic: Extrinsic,
 }
+// ----------------------------------------------------------------------------------------------------------
+// Global state
+// ----------------------------------------------------------------------------------------------------------
+#[derive(Clone, Debug)]
+pub struct GlobalState {
+    pub time: TimeSlot,
+    pub availability: AvailabilityAssignments,
+    pub entropy: EntropyPool,
+    pub recent_history: BlockHistory,
+    pub auth_pools: AuthPools,
+    pub auth_queues: AuthQueues,
+    pub statistics: Statistics,
+    pub prev_validators: ValidatorsData,
+    pub curr_validators: ValidatorsData,
+    pub next_validators: ValidatorsData,
+    pub disputes: DisputesRecords,
+    pub safrole: Safrole,
+    pub service_accounts: ServiceAccounts,
+    pub services_info: HashMap<ServiceId, ServiceInfo>,
+    pub preimages: HashMap<OpaqueHash, Vec<u8>>,
+    pub lookup_map: HashMap<(OpaqueHash, u32), Vec<TimeSlot>>,
+    pub storage_map: HashMap<OpaqueHash, Vec<u8>>,
+    pub accumulation_history: AccumulatedHistory,
+    pub ready_queue: ReadyQueue,
+    pub privileges: Privileges,
+}
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub enum StateKey {
+    U8(u8),
+    Service(u8, ServiceId),
+    Account(ServiceId, Vec<u8>),
+}
+#[derive(Clone, Debug)]
+pub struct SerializedState {
+    pub map: HashMap<OpaqueHash, Vec<u8>>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ProcessError {
+    ReadError(ReadError),
+    SafroleError(SafroleErrorCode),
+    DisputesError(DisputesErrorCode),
+    ReportError(ReportErrorCode),
+    AssurancesError(AssurancesErrorCode),
+    PreimagesError(PreimagesErrorCode),
+}
+// ----------------------------------------------------------------------------------------------------------
+// Polkadot Virtual Machine
+// ----------------------------------------------------------------------------------------------------------
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+pub struct Program {
+    pub code: Vec<u8>,          // Instruction data (c)
+    pub bitmask: Vec<bool>,     // Bitmask (k)
+    pub jump_table: Vec<usize>,    // Dynamic jump table (j)
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Context {
+    pub pc: RegSize,
+    pub gas: Gas,
+    pub page_table: PageTable,
+    pub reg: [RegSize; NUM_REG as usize],
+    pub page_fault: Option<RamAddress>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RamMemory {
+    pub pages: Box<[Option<Page>]>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PageTable {
+    pub pages: HashMap<PageNumber, Page>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Page {
+    pub flags: PageFlags,
+    pub data: Box<[u8; PAGE_SIZE as usize]>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PageFlags {
+    pub access: RamAccess,
+    //pub is_writable: bool,
+    pub referenced: bool,
+    pub modified: bool,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum RamAccess {
+    Read,
+    Write,
+    None,
+}
+
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+pub struct PageMap {
+    pub address: u32,
+    pub length: u32,
+    #[serde(rename = "is-writable")]
+    pub is_writable: bool,
+}
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+pub struct MemoryChunk {
+    pub address: u32,
+    pub contents: Vec<u8>,
+}
+
+#[warn(non_camel_case_types)]
+#[derive(Deserialize, Debug, PartialEq, Eq)]
+pub enum ExitReason {
+    trap,
+    halt,
+    Continue,
+    Branch,
+    Halt,
+    panic,
+    OutOfGas,
+    #[serde(rename = "page-fault")]
+    page_fault,
+    PageFault(u32),     
+    HostCall(HostCallType),      
+}
+// ----------------------------------------------------------------------------------------------------------
+// Host Call
+// ----------------------------------------------------------------------------------------------------------
+#[derive(Deserialize, Eq, Debug, Clone, PartialEq)]
+pub enum HostCallType {
+    Gas = 0,
+    Lookup = 1,
+    Read = 2,
+    Write = 3,
+    Info = 4,
+    Bless = 5,
+    Assign = 6,
+    Designate = 7,
+    Checkpoint = 8,
+    New = 9,
+    Upgrade = 10,
+    Transfer = 11,
+    Eject = 12,
+    Query = 13,
+    Solicit = 14,
+    Forget = 15,
+    Yield = 16,
+    HistoricalLookup = 17,
+    Fetch = 18,
+    Export = 19,
+    Machine = 20,
+    Peek = 21,
+    Poke = 22,
+    Zero = 23,
+    Void = 24,
+    Invoke = 25,
+    Expugne = 26,
+}
+
+pub type Registers = [RegSize; NUM_REG as usize];
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StandardProgram {
+    pub code: Vec<u8>,
+    pub reg: [RegSize; NUM_REG],
+    pub ram: RamMemory,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProgramFormat {
+    pub c: Vec<u8>,
+    pub o: Vec<u8>,
+    pub w: Vec<u8>,
+    pub z: u16,
+    pub s: u32,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct AccumulationPartialState {
+    pub services_accounts: ServiceAccounts,
+    pub next_validators: ValidatorsData,
+    pub queues_auth: AuthQueues,
+    pub privileges: Privileges,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct DeferredTransfer {
+    pub from: ServiceId,
+    pub to: ServiceId,
+    pub amount: u64,
+    pub memo: u128,
+    pub gas_limit: Gas,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct AccumulationContext {
+    pub service_id: ServiceId,
+    pub partial_state: AccumulationPartialState,
+    pub index: ServiceId,
+    pub deferred_transfers: Vec<DeferredTransfer>,
+    pub y: Option<OpaqueHash>,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct AccumulationOperand {
+    code_hash: OpaqueHash,
+    exports_root: OpaqueHash,
+    authorizer_hash: OpaqueHash,
+    auth_output: Vec<u8>,
+    payload_hash: OpaqueHash,
+    result: Vec<u8>,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefineMemory {
+    pub program: Vec<u8>,
+    pub ram: RamMemory,
+    pub pc: RegSize,
+}
+
+// The set of data segments, equivalent to octet sequences of length WG.(4104)
+pub type DataSegment = [u8; SEGMENT_SIZE];

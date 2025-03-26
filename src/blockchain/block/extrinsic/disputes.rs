@@ -1,12 +1,10 @@
 use sp_core::blake2_256;
 
 use crate::types::{
-    AvailabilityAssignments, DisputesExtrinsic, DisputesRecords, Hash, DisputesErrorCode, OutputDataDisputes, Verdict
+    AvailabilityAssignments, DisputesExtrinsic, DisputesRecords, Hash, DisputesErrorCode, OutputDataDisputes, Verdict, ProcessError, ValidatorSet
 };
 use crate::constants::{EPOCH_LENGTH, ONE_THIRD_VALIDATORS, VALIDATORS_SUPER_MAJORITY};
 use crate::blockchain::state::{get_time, get_validators};
-use crate::blockchain::state::validators::ValidatorSet;
-use crate::blockchain::state::ProcessError;
 use crate::utils::common::{VerifySignature, is_sorted_and_unique, has_duplicates};
 use crate::utils::codec::Encode;
 

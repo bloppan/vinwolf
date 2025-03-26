@@ -62,11 +62,3 @@ pub fn process_guarantees(
     })
 }
 
-impl Default for AvailabilityAssignments {
-
-    fn default() -> Self {
-        AvailabilityAssignments {
-            0: Box::new(std::array::from_fn(|_| None)),
-        }
-    }
-}

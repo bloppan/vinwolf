@@ -1,234 +1,215 @@
-use frame_support::Deserialize;
+use crate::types::{Context, ExitReason, Program};
+use crate::utils::codec::{BytesReader, Decode};
+use crate::pvm::isa::skip;
 
-use crate::utils::codec::generic::{seq_to_number, decode_to_bits};
+use isa::one_offset::*;
+use isa::no_arg::*;
+use isa::two_reg::*;
+use isa::two_reg_one_imm::*;
+use isa::two_reg_two_imm::*;
+use isa::two_reg_one_offset::*;
+use isa::three_reg::*;
+use isa::one_reg_one_ext_imm::*;
+use isa::two_imm::*;
+use isa::one_reg_one_imm::*;
+use isa::one_reg_two_imm::*;
+use isa::one_reg_one_imm_one_offset::*;
 
+pub mod isa;
+pub mod mm;
+pub mod hostcall;
 
-/*const NO_ARG: usize = 0;                     // Without arguments
-const ONE_IMM: usize = 1;                    // Arguments of one immediate
-const TWO_IMM: usize = 2;                    // Arguments of two immediate
-const ONE_OFFSET: usize = 3;                 // Arguments of one offset
-*/const ONE_REG_ONE_IMM: usize = 4;            // Arguments of one reg and one immediate
-/*const ONE_REG_TWO_IMM: usize = 5;            // Arguments of one reg and two immediate
-*/const ONE_REG_ONE_IMM_ONE_OFFSET: usize = 6; // Arguments of one reg, one immediate and one offset
-/*const TWO_REG: usize = 7;                    // Arguments of two regs
-*/const TWO_REG_ONE_IMM: usize = 8;            // Arguments of two regs and one immediate
-/*const TWO_REG_ONE_OFFSET: usize = 9;         // Arguments of two regs and one offset
-const TWO_REG_TWO_IMM: usize = 10;           // Arguments of two regs and two immediates
-const THREE_REG: usize = 11;                 // Arguments of three regs
-*/
-/*#[derive(Deserialize, Debug, Clone, PartialEq)]
-pub struct MemoryChunk {
-    address: u32,
-    contents: Vec<u8>,
-}*/
-
-#[derive(Deserialize, Debug, Clone, PartialEq)]
-pub struct PVM {
-    pub pc: u32,
-    pub gas: i64,
-    pub ram: Vec<PageMap>,
-    pub reg: [u32; 13],
-}
-
-struct ProgramSequence {
-    c: Vec<u8>,   // Instrucción c
-    k: Vec<bool>, // Bitmask k
-    _j: Vec<u8>,   // Dynamic jump table
-}
-
-#[derive(Deserialize, Debug, Clone, PartialEq)]
-pub struct PageMap {
-    address: u32,
-    length: u32,
-    is_writable: bool,
-}
-
-fn trap() -> Result<(), String> {
-    return Err("trap".to_string());
-}
-
-fn panic() -> Result<(), String> {
-    return Err("panic".to_string());
-}
-
-fn skip(i: u32, k: &Vec<bool>) -> u32 {
-    let mut j = i + 1;
-    //println!("k = {:?}", k);
-    while j < k.len() as u32 && k[j as usize] == false {
-        j += 1;
-    }
-    //println!("j = {}", j-1);
-    std::cmp::min(24, j - 1)
-}
-
-fn move_reg(pvm_ctx: &mut PVM, program: &ProgramSequence) // Two regs -> 52 00 -> r0 = r0
-    -> Result<(), String> {
-    let dest: u8 = program.c[pvm_ctx.pc as usize + 1] >> 4;
-    if dest > 13 { return Err("panic".to_string()) };
-    let a: u8 = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
-    pvm_ctx.reg[dest as usize] = pvm_ctx.reg[a as usize];
-    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
-    Ok(())
-}
-
-fn add_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // Two regs one imm -> 02 79 02 | r9 = r7 + 0x2
-    -> Result<(), String> {
-    let dest: u8 = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
-    if dest > 13 { return Err("panic".to_string()) };
-    let value = get_imm(program, pvm_ctx.pc, TWO_REG_ONE_IMM);
-    //println!("value = {value}");
-    let b: u8 = program.c[pvm_ctx.pc as usize + 1] >> 4;
-    pvm_ctx.reg[dest as usize] = pvm_ctx.reg[b as usize].wrapping_add(value);
-    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
-    Ok(())
-}
-
-fn extend_sign(v: &Vec<u8>, n: u32) -> u32 {
-    let x = seq_to_number(v);
-    if n == 0 { return x; }
-    let sign_bit = (x / (1u32 << (8 * n - 1))) as u64;
-    return x + ((sign_bit * ((1u64 << 32) - (1u64 << (8 * n)))) as u32);
-}
-
-fn get_imm(program: &ProgramSequence, pc: u32, instr_type: usize) -> u32 {
-    let mut i = pc; 
-    let l_x = match instr_type {
-        ONE_REG_ONE_IMM | 
-        TWO_REG_ONE_IMM => { 
-                            i += 2; 
-                            //println!("TWO_REG_ONE_IMM");
-                            let x: isize = skip(pc, &program.k).saturating_sub(1) as isize;
-                            let x_u32 = if x < 0 { 0 } else { x as u32 }; 
-                            std::cmp::min(4_u32, x_u32)
-                        },
-        ONE_REG_ONE_IMM_ONE_OFFSET => {
-                            i += 2;
-                            //println!("ONE_REG_ONE_IMM_ONE_OFFSET");
-                            std::cmp::min(4_u32, (program.c[pc as usize + 1] / 16) as u32)
-        },
-        _ => return 0,
-    };
-    //println!("lx = {l_x}");
-    return extend_sign(&program.c[i as usize ..i as usize + l_x as usize].to_vec(), (4 - l_x as usize) as u32);
-}
-
-fn add(pvm_ctx: &mut PVM, program: &ProgramSequence) // Three regs -> 08 87 09 | r9 = r7 + r8
-    -> Result<(), String> {
-    let dest: u8 = program.c[pvm_ctx.pc as usize + 2] & 0x0F;
-    if dest > 13 { return Err("panic".to_string()) }; 
-    let a: u8 = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
-    let b: u8 = program.c[pvm_ctx.pc as usize + 1] >> 4;
-    pvm_ctx.reg[dest as usize] = pvm_ctx.reg[a as usize].wrapping_add(pvm_ctx.reg[b as usize]);
-    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
-    Ok(())
-}
-
-fn and(pvm_ctx: &mut PVM, program: &ProgramSequence) // Three regs -> 17 87 09 | r9 = r7 & r8
-    -> Result<(), String> {
-    let dest: u8 = program.c[pvm_ctx.pc as usize + 2] & 0x0F;
-    if dest > 13 { return Err("panic".to_string()) };
-    let a: u8 = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
-    let b: u8 = program.c[pvm_ctx.pc as usize + 1] >> 4;
-    pvm_ctx.reg[dest as usize] = pvm_ctx.reg[a as usize] & pvm_ctx.reg[b as usize];
-    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
-    Ok(())
-}
-
-fn and_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // Two regs one imm -> 12 79 03 | r9 = r7 & 0x3
-    -> Result<(), String> {
-    let dest: u8 = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
-    if dest > 13 { return Err("panic".to_string()) };
-    let b: u8 = program.c[pvm_ctx.pc as usize + 1] >> 4;
-    let value = get_imm(program, pvm_ctx.pc, TWO_REG_ONE_IMM);
-    pvm_ctx.reg[dest as usize] = pvm_ctx.reg[b as usize] & value;
-    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
-    Ok(())
-}
-
-fn load_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // One reg one imm -> 04 07 d2 04 | r7 = 0x4d2
-    -> Result<(), String> {
-    let dest = program.c[pvm_ctx.pc as usize + 1];
-    if dest > 13 { return Err("panic".to_string()) };
-    let value = get_imm(program, pvm_ctx.pc, ONE_REG_ONE_IMM);
-    pvm_ctx.reg[dest as usize] = value as u32;
-    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);   
-    Ok(())
-}
-
-fn branch_eq_imm(pvm_ctx: &mut PVM, program: &ProgramSequence) // One reg, one imm, one offset -> 07 27 d3 04 | jump if r7 = 0x4d3
-    -> Result<(), String> {
-    let target = program.c[pvm_ctx.pc as usize + 1] & 0x0F;
-    if target > 13 { return Err("panic".to_string()) };
-    let value = get_imm(program, pvm_ctx.pc, ONE_REG_ONE_IMM_ONE_OFFSET);
-    //println!("value branch = {value}");
-    if pvm_ctx.reg[target as usize] == value as u32 {
-        pvm_ctx.pc = basic_block_seq(pvm_ctx.pc, &program.k);
-    } 
-    pvm_ctx.pc = skip(pvm_ctx.pc, &program.k);
-    Ok(())
-}
-
-fn basic_block_seq(pc: u32, k: &Vec<bool>) -> u32 {
-    return 1 + skip(pc, k) as u32;
-}
-
-fn single_step_pvm(pvm_ctx: &mut PVM, program: &ProgramSequence) 
-    -> Result<(), String> {
-
-    //println!("next instruction = {}", program.c[pvm_ctx.pc as usize]);
-    let result = match program.c[pvm_ctx.pc as usize] {  // Next instruction
-        82_u8   => { move_reg(pvm_ctx, program) }, 
-        8_u8    => { add(pvm_ctx, program) },
-        2_u8    => { add_imm(pvm_ctx, program) },
-        23_u8   => { and(pvm_ctx, program) },
-        18_u8   => { and_imm(pvm_ctx, program) },
-        4_u8    => { load_imm(pvm_ctx, program) },
-        7_u8    => { branch_eq_imm(pvm_ctx, program) },
-        0_u8    => { trap() },    // Trap
-        _       => { panic() },   // Panic
-    };
-    pvm_ctx.gas -= 1;
+pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
     
-    return result;
-}
+    let program = Program::decode(&mut BytesReader::new(program_blob)).unwrap();
 
-pub fn invoke_pvm(
-    p: Vec<u8>,     // Program blob
-    pc: u32,    // Program counter
-    gas: i64,   // Gas
-    reg: [u32; 13],     // Registers
-    ram: Vec<PageMap>,  // Ram memory 
-) ->  (String, u32, i64, [u32; 13], Vec<PageMap>) { // Exit, i, gas, reg, ram
-    
-    let _j_size = p[0];          // Dynamic jump table size
-    let j: Vec<u8> = vec![];    // Dynamic jump table
-    let _z = p[1];               // Jump octects length
-    let program_size = p[2] as u32;
+    while pvm_ctx.gas > 0 {
 
-    let program = ProgramSequence {
-        c: p[3..3 + program_size as usize].to_vec() // Instruction vector
-            .into_iter()
-            .chain(std::iter::repeat(0).take(25)) // Sequence of zeroes suffixed to ensure that no out-of-bounds access is possible
-            .collect(),
-        k: decode_to_bits(&p[3 + program_size as usize..p.len()].to_vec())
-            .into_iter()
-            .chain(std::iter::repeat(true).take(25)) // Sequence of trues 
-            .collect(), // Bitmask boolean vector
-        _j: j, // Dynamic jump table
-    };
-    /*println!("Program sequence = {:?}", program.c);
-    println!("Bitmask sequence = {:?}", program.k);
-    println!("Program len = {} Bitmask len = {}", program.c.len(), program.k.len());*/
-    let mut pvm_ctx = PVM { pc, gas, reg, ram }; // PVM context
-    let mut exit_reason;
-    
-    while gas > 0 {
-
-        exit_reason = single_step_pvm(&mut pvm_ctx, &program);
-        if let Err(err) = exit_reason {
-            return (err, pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram);
+        let exit_reason = single_step_pvm(pvm_ctx, &program);
+        //println!("reg_0 = {}", pvm_ctx.reg[0]);
+        //println!("\n");
+        // TODO revisar esto
+        match exit_reason {
+            ExitReason::Continue => {
+                pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
+            },
+            ExitReason::Branch => {
+              
+            },
+            ExitReason::PageFault(_) => {
+                pvm_ctx.gas -= 1; 
+                return ExitReason::page_fault;
+            },
+            _ => { return exit_reason; },
         }
-        pvm_ctx.pc += 1; // Next instruction
     }
-    return (("out_of_gas".to_string()), pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram);
+
+    return ExitReason::OutOfGas;
+}
+
+fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+
+    pvm_ctx.gas -= 1;
+
+    let next_instruction = program.code[pvm_ctx.pc as usize];
+    /*println!("\nnext instruction = {next_instruction}");
+    println!("pc = {:x?}", pvm_ctx.pc);
+    println!("gas = {}", pvm_ctx.gas);
+    println!("reg_0 = 0x{:x?}", pvm_ctx.reg[0]);
+    println!("reg_1 = 0x{:x?}", pvm_ctx.reg[1]);
+    println!("reg_2 = 0x{:x?}", pvm_ctx.reg[2]);
+    println!("reg_3 = 0x{:x?}", pvm_ctx.reg[3]);
+    println!("reg_4 = 0x{:x?}", pvm_ctx.reg[4]);
+    println!("reg_5 = 0x{:x?}", pvm_ctx.reg[5]);
+    println!("reg_6 = 0x{:x?}", pvm_ctx.reg[6]);
+    println!("reg_7 = 0x{:x?}", pvm_ctx.reg[7]);
+    println!("reg_8 = 0x{:x?}", pvm_ctx.reg[8]);
+    println!("reg_9 = 0x{:x?}", pvm_ctx.reg[9]);
+    println!("reg_10 = 0x{:x?}", pvm_ctx.reg[10]);
+    println!("reg_11 = 0x{:x?}", pvm_ctx.reg[11]);
+    println!("reg_12 = 0x{:x?}", pvm_ctx.reg[12]);*/
+
+    let exit_reason = match next_instruction { 
+
+        0_u8    => { trap() },
+        1_u8    => { fallthrough() },
+        //10_u8   => { ecalli(pvm_ctx, program) },
+        20_u8   => { load_imm_64(pvm_ctx, program) },
+        30_u8   => { store_imm_u8(pvm_ctx, program) },
+        31_u8   => { store_imm_u16(pvm_ctx, program) },
+        32_u8   => { store_imm_u32(pvm_ctx, program) },
+        33_u8   => { store_imm_u64(pvm_ctx, program) },
+        40_u8   => { jump(pvm_ctx, program) },
+        50_u8   => { jump_ind(pvm_ctx, program) },
+        51_u8   => { load_imm(pvm_ctx, program) },
+        52_u8   => { load_u8(pvm_ctx, program) },
+        53_u8   => { load_i8(pvm_ctx, program) },
+        54_u8   => { load_u16(pvm_ctx, program) },
+        55_u8   => { load_i16(pvm_ctx, program) },
+        56_u8   => { load_u32(pvm_ctx, program) },
+        57_u8   => { load_i32(pvm_ctx, program) },
+        58_u8   => { load_u64(pvm_ctx, program) },
+        59_u8   => { store_u8(pvm_ctx, program) },
+        60_u8   => { store_u16(pvm_ctx, program) },
+        61_u8   => { store_u32(pvm_ctx, program) },
+        62_u8   => { store_u64(pvm_ctx, program) },
+        70_u8   => { store_imm_ind_u8(pvm_ctx, program) },
+        71_u8   => { store_imm_ind_u16(pvm_ctx, program) },
+        72_u8   => { store_imm_ind_u32(pvm_ctx, program) },
+        73_u8   => { store_imm_ind_u64(pvm_ctx, program) },
+        80_u8   => { load_imm_jump(pvm_ctx, program) },
+        81_u8   => { branch_eq_imm(pvm_ctx, program) },
+        82_u8   => { branch_ne_imm(pvm_ctx, program) },
+        83_u8   => { branch_lt_u_imm(pvm_ctx, program) },
+        84_u8   => { branch_le_u_imm(pvm_ctx, program) },
+        85_u8   => { branch_ge_u_imm(pvm_ctx, program) },
+        86_u8   => { branch_gt_u_imm(pvm_ctx, program) },
+        87_u8   => { branch_lt_s_imm(pvm_ctx, program) },
+        88_u8   => { branch_le_s_imm(pvm_ctx, program) },
+        89_u8   => { branch_ge_s_imm(pvm_ctx, program) },
+        90_u8   => { branch_gt_s_imm(pvm_ctx, program) },
+        100_u8  => { move_reg(pvm_ctx, program) }, 
+        102_u8  => { count_set_bits_64(pvm_ctx, program) },
+        103_u8  => { count_set_bits_32(pvm_ctx, program) },
+        104_u8  => { leading_zero_bits_64(pvm_ctx, program) },
+        105_u8  => { leading_zero_bits_32(pvm_ctx, program) },
+        106_u8  => { trailing_zero_bits_64(pvm_ctx, program) },
+        107_u8  => { trailing_zero_bits_32(pvm_ctx, program) },
+        108_u8  => { sign_extend_8(pvm_ctx, program) },
+        109_u8  => { sign_extend_16(pvm_ctx, program) },
+        110_u8  => { zero_extend_16(pvm_ctx, program) },
+        111_u8  => { reverse_bytes(pvm_ctx, program) },
+        120_u8  => { store_ind_u8(pvm_ctx, program) },
+        121_u8  => { store_ind_u16(pvm_ctx, program) },
+        122_u8  => { store_ind_u32(pvm_ctx, program) },
+        123_u8  => { store_ind_u64(pvm_ctx, program) },
+        124_u8  => { load_ind_u8(pvm_ctx, program) },
+        125_u8  => { load_ind_i8(pvm_ctx, program) },
+        126_u8  => { load_ind_u16(pvm_ctx, program) },
+        127_u8  => { load_ind_i16(pvm_ctx, program) },
+        128_u8  => { load_ind_u32(pvm_ctx, program) },
+        129_u8  => { load_ind_i32(pvm_ctx, program) },
+        130_u8  => { load_ind_u64(pvm_ctx, program) },
+        131_u8  => { add_imm_32(pvm_ctx, program) }, 
+        132_u8  => { and_imm(pvm_ctx, program) },
+        133_u8  => { xor_imm(pvm_ctx, program) },
+        134_u8  => { or_imm(pvm_ctx, program) },
+        135_u8  => { mul_imm_32(pvm_ctx, program) },
+        136_u8  => { set_lt_u_imm(pvm_ctx, program) },
+        137_u8  => { set_lt_s_imm(pvm_ctx, program) },
+        138_u8  => { shlo_l_imm_32(pvm_ctx, program) },
+        139_u8  => { shlo_r_imm_32(pvm_ctx, program) },
+        140_u8  => { shar_r_imm_32(pvm_ctx, program) },
+        141_u8  => { neg_add_imm_32(pvm_ctx, program) },
+        142_u8  => { set_gt_u_imm(pvm_ctx, program) },
+        143_u8  => { set_gt_s_imm(pvm_ctx, program) },
+        144_u8  => { shlo_l_imm_alt_32(pvm_ctx, program) },
+        145_u8  => { shlo_r_imm_alt_32(pvm_ctx, program) },
+        146_u8  => { shar_r_imm_alt_32(pvm_ctx, program) },
+        147_u8  => { cmov_iz_imm(pvm_ctx, program) },
+        149_u8  => { add_imm_64(pvm_ctx, program) },
+        150_u8  => { mul_imm_64(pvm_ctx, program) },
+        151_u8  => { shlo_l_imm_64(pvm_ctx, program) },
+        152_u8  => { shlo_r_imm_64(pvm_ctx, program) },
+        153_u8  => { shar_r_imm_64(pvm_ctx, program) },    
+        154_u8  => { neg_add_imm_64(pvm_ctx, program) },
+        155_u8  => { shlo_l_imm_alt_64(pvm_ctx, program) },
+        156_u8  => { shlo_r_imm_alt_64(pvm_ctx, program) },
+        157_u8  => { shar_r_imm_alt_64(pvm_ctx, program) },
+        158_u8  => { rot_r_64_imm(pvm_ctx, program) },
+        159_u8  => { rot_r_64_imm_alt(pvm_ctx, program) },
+        160_u8  => { rot_r_32_imm(pvm_ctx, program) },
+        161_u8  => { rot_r_32_imm_alt(pvm_ctx, program) },
+        170_u8  => { branch_eq(pvm_ctx, program) },
+        171_u8  => { branch_ne(pvm_ctx, program) },
+        172_u8  => { branch_lt_u(pvm_ctx, program) },
+        173_u8  => { branch_lt_s(pvm_ctx, program) },
+        174_u8  => { branch_ge_u(pvm_ctx, program) },
+        175_u8  => { branch_ge_s(pvm_ctx, program) },
+        180_u8  => { load_imm_jump_ind(pvm_ctx, program) },
+        190_u8  => { add_32(pvm_ctx, program) },
+        191_u8  => { sub_32(pvm_ctx, program) },
+        192_u8  => { mul_32(pvm_ctx, program) },
+        193_u8  => { div_u_32(pvm_ctx, program) },
+        194_u8  => { div_s_32(pvm_ctx, program) },
+        195_u8  => { rem_u_32(pvm_ctx, program) },
+        196_u8  => { rem_s_32(pvm_ctx, program) },
+        197_u8  => { shlo_l_32(pvm_ctx, program) },
+        198_u8  => { shlo_r_32(pvm_ctx, program) },
+        199_u8  => { shar_r_32(pvm_ctx, program) },
+        200_u8  => { add_64(pvm_ctx, program) },
+        201_u8  => { sub_64(pvm_ctx, program) },
+        202_u8  => { mul_64(pvm_ctx, program) },
+        203_u8  => { div_u_64(pvm_ctx, program) },
+        204_u8  => { div_s_64(pvm_ctx, program) },
+        205_u8  => { rem_u_64(pvm_ctx, program) },
+        206_u8  => { rem_s_64(pvm_ctx, program) },
+        207_u8  => { shlo_l_64(pvm_ctx, program) },
+        208_u8  => { shlo_r_64(pvm_ctx, program) },
+        209_u8  => { shar_r_64(pvm_ctx, program) },
+        210_u8  => { and(pvm_ctx, program) },
+        211_u8  => { xor(pvm_ctx, program) },
+        212_u8  => { or(pvm_ctx, program) },
+        213_u8  => { mul_upper_s_s(pvm_ctx, program) },
+        214_u8  => { mul_upper_u_u(pvm_ctx, program) },
+        215_u8  => { mul_upper_s_u(pvm_ctx, program) },
+        216_u8  => { set_lt_u(pvm_ctx, program) },
+        217_u8  => { set_lt_s(pvm_ctx, program) },
+        218_u8  => { cmov_iz(pvm_ctx, program) },
+        219_u8  => { cmov_nz(pvm_ctx, program) },
+        220_u8  => { rot_l_64(pvm_ctx, program) },
+        221_u8  => { rot_l_32(pvm_ctx, program) },
+        222_u8  => { rot_r_64(pvm_ctx, program) },
+        223_u8  => { rot_r_32(pvm_ctx, program) },
+        224_u8  => { and_inv(pvm_ctx, program) },
+        225_u8  => { or_inv(pvm_ctx, program) },
+        226_u8  => { xnor(pvm_ctx, program) },
+        227_u8  => { max(pvm_ctx, program) },
+        228_u8  => { max_u(pvm_ctx, program) },
+        229_u8  => { min(pvm_ctx, program) },
+        230_u8  => { min_u(pvm_ctx, program) },
+        _       => { return ExitReason::panic },   // Panic
+    };
+
+    return exit_reason;
 }

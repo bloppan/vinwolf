@@ -1,4 +1,4 @@
-use crate::constants::WORK_REPORT_GAS_LIMIT;
+use crate::constants::{WORK_REPORT_GAS_LIMIT, MAX_WORK_ITEMS};
 use crate::types::{Gas, WorkResult, ReportErrorCode};
 use crate::blockchain::state::ProcessError;
 use crate::blockchain::state::services::get_services_state;
@@ -11,7 +11,7 @@ impl WorkResult {
             return Err(ProcessError::ReportError(ReportErrorCode::NoResults));
         }
 
-        if results.len() > 4 {
+        if results.len() > MAX_WORK_ITEMS {
             return Err(ProcessError::ReportError(ReportErrorCode::TooManyResults));
         }
 
