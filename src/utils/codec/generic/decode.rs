@@ -214,10 +214,25 @@ impl DecodeSize for Vec<u8> {
     }
 }
 
+impl<const N: usize> DecodeSize for [u8; N] {
+    fn decode_size(reader: &mut BytesReader, l: usize) -> Result<usize, ReadError> {
+        let bytes = reader.read_bytes(l)?;
+        Ok(decode_integer(&mut BytesReader::new(bytes), l)?)
+    }
+}
+
 #[cfg(test)]
 mod test { 
 
     use super::*;
+
+    #[test]
+    fn test_decode_size_array() {
+
+        let array: [u8; 32] = (1..33).map(|x| x as u8).collect::<Vec<u8>>().try_into().unwrap();
+        let mut reader = BytesReader::new(&array);
+        assert_eq!(0x04030201, <[u8; 32]>::decode_size(&mut reader, 4).unwrap());
+    }
 
     #[test]
     fn test_decode_integer() {

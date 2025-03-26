@@ -17,7 +17,7 @@ use isa::one_reg_one_imm_one_offset::*;
 
 pub mod isa;
 pub mod mm;
-pub mod host_call;
+pub mod hostcall;
 
 pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
     

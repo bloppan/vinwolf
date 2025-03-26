@@ -74,6 +74,7 @@ pub fn _branch(
         println!("Panic: jump out of bounds");
         return ExitReason::panic;
     }
+    // TODO
     // Check for the beginning of a basic-block
     /*if program.code[n as usize - 1] != 0 {
         println!("Panic: not a basic block: {}, n = {n}", program.code[n as usize - 1]);

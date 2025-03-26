@@ -5,7 +5,7 @@ use serde::Deserialize;
 use crate::utils::codec::ReadError;
 use crate::constants::{
     ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH,
-    NUM_REG, PAGE_SIZE,
+    NUM_REG, PAGE_SIZE, SEGMENT_SIZE
 };
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
@@ -161,7 +161,7 @@ pub struct CodeAuthorizer {
 
 // The Import Spec is a sequence of imported data segments, which identify a prior exported segment 
 // through an index and the identity of an exporting work-package. Its a member of Work Item.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ImportSpec {
     pub tree_root: OpaqueHash,
     pub index: u16,
@@ -169,7 +169,7 @@ pub struct ImportSpec {
 
 // The extrinsic spec is a sequence of blob hashes and lengths to be introduced in this block 
 // (and which we assume the validator knows). It's a member of Work Item
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ExtrinsicSpec {
     pub hash: OpaqueHash,
     pub len: u32,
@@ -181,7 +181,7 @@ pub struct ExtrinsicSpec {
 // which identify a prior exported segment through an index and the identity of an exporting work-package, 
 // a sequence of blob hashes and lengths to be introduced in this block (and which we assume the validator knows) 
 // and the number of data segments exported by this work item.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WorkItem {
     pub service: ServiceId,
     pub code_hash: OpaqueHash,
@@ -195,7 +195,7 @@ pub struct WorkItem {
 // A work-package includes a simple blob acting as an authorization token, the index of the service which
 // hosts the authorization code, an authorization code hash and a parameterization blob, a context and a 
 // sequence of work items:
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WorkPackage {
     pub authorization: Vec<u8>,
     pub auth_code_host: ServiceId,
@@ -294,12 +294,16 @@ pub struct WorkResult {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum WorkExecResult {
-    Ok = 0,
+    Ok(Vec<u8>),
+    Error(WorkExecError),
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum WorkExecError {
     OutOfGas = 1,
     Panic = 2,
-    BadCode = 3,
-    CodeOversize = 4,
-    UnknownError = 5,
+    BadNumberExports = 3,
+    BadCode = 4,
+    CodeOversize = 5,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -758,7 +762,12 @@ pub struct GlobalState {
     pub ready_queue: ReadyQueue,
     pub privileges: Privileges,
 }
-
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub enum StateKey {
+    U8(u8),
+    Service(u8, ServiceId),
+    Account(ServiceId, Vec<u8>),
+}
 #[derive(Clone, Debug)]
 pub struct SerializedState {
     pub map: HashMap<OpaqueHash, Vec<u8>>,
@@ -848,8 +857,43 @@ pub enum ExitReason {
     #[serde(rename = "page-fault")]
     page_fault,
     PageFault(u32),     
-    HostCall(u32),      
+    HostCall(HostCallType),      
 }
+// ----------------------------------------------------------------------------------------------------------
+// Host Call
+// ----------------------------------------------------------------------------------------------------------
+#[derive(Deserialize, Eq, Debug, Clone, PartialEq)]
+pub enum HostCallType {
+    Gas = 0,
+    Lookup = 1,
+    Read = 2,
+    Write = 3,
+    Info = 4,
+    Bless = 5,
+    Assign = 6,
+    Designate = 7,
+    Checkpoint = 8,
+    New = 9,
+    Upgrade = 10,
+    Transfer = 11,
+    Eject = 12,
+    Query = 13,
+    Solicit = 14,
+    Forget = 15,
+    Yield = 16,
+    HistoricalLookup = 17,
+    Fetch = 18,
+    Export = 19,
+    Machine = 20,
+    Peek = 21,
+    Poke = 22,
+    Zero = 23,
+    Void = 24,
+    Invoke = 25,
+    Expugne = 26,
+}
+
+pub type Registers = [RegSize; NUM_REG as usize];
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StandardProgram {
@@ -866,10 +910,44 @@ pub struct ProgramFormat {
     pub z: u16,
     pub s: u32,
 }
-
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-pub enum StateKey {
-    U8(u8),
-    Service(u8, ServiceId),
-    Account(ServiceId, Vec<u8>),
+#[derive(Debug, Clone, PartialEq)]
+pub struct AccumulationPartialState {
+    pub services_accounts: ServiceAccounts,
+    pub next_validators: ValidatorsData,
+    pub queues_auth: AuthQueues,
+    pub privileges: Privileges,
 }
+#[derive(Debug, Clone, PartialEq)]
+pub struct DeferredTransfer {
+    pub from: ServiceId,
+    pub to: ServiceId,
+    pub amount: u64,
+    pub memo: u128,
+    pub gas_limit: Gas,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct AccumulationContext {
+    pub service_id: ServiceId,
+    pub partial_state: AccumulationPartialState,
+    pub index: ServiceId,
+    pub deferred_transfers: Vec<DeferredTransfer>,
+    pub y: Option<OpaqueHash>,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct AccumulationOperand {
+    code_hash: OpaqueHash,
+    exports_root: OpaqueHash,
+    authorizer_hash: OpaqueHash,
+    auth_output: Vec<u8>,
+    payload_hash: OpaqueHash,
+    result: Vec<u8>,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefineMemory {
+    pub program: Vec<u8>,
+    pub ram: RamMemory,
+    pub pc: RegSize,
+}
+
+// The set of data segments, equivalent to octet sequences of length WG.(4104)
+pub type DataSegment = [u8; SEGMENT_SIZE];

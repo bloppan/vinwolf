@@ -98,6 +98,14 @@ pub const NUM_PAGES: RamAddress = (RAM_SIZE / PAGE_SIZE as u64) as RamAddress;
 // Jump aligment factor
 pub const JUMP_ALIGNMENT: usize = 2;
 
+// The number of erasure-coded pieces in a segment.
+pub const SEGMENT_PIECES: usize = 6;
+
+// The basic size of erasure-coded pieces in octets.
+pub const PIECE_SIZE: usize = 684;
+
+// The size of a segment in octets.
+pub const SEGMENT_SIZE: usize = PIECE_SIZE * SEGMENT_PIECES;
 
 // Host Call result constants
 pub const NONE: u64 = u64::MAX;
