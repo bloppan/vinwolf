@@ -93,9 +93,9 @@ pub fn parse_memory(json_data: &InitialMemory) -> PageTable {
     for page in json_data.pages.iter() {
         let mut flags = PageFlags::default();
         if page.1.access.writable {
-            flags.access = RamAccess::Write;
+            flags.access.insert(RamAccess::Write);
         } else  {
-            flags.access = RamAccess::Read;
+            flags.access.insert(RamAccess::Read);
         }
         let new_page = Page {
             flags,

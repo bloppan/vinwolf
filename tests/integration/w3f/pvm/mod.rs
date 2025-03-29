@@ -2,6 +2,7 @@ use serde::Deserialize;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
+use std::collections::HashSet;
 
 extern crate vinwolf;
 
@@ -58,12 +59,16 @@ mod tests {
             let page_number = page.address / PAGE_SIZE;
             page_table.pages.insert(page_number, Page {
                 flags: PageFlags {
+                    
                     access: {
+                        let mut access = HashSet::new();
                         if page.is_writable {
-                            RamAccess::Write
+                            access.insert(RamAccess::Read);
+                            access.insert(RamAccess::Write);
                         } else {
-                            RamAccess::Read
+                            access.insert(RamAccess::Read);
                         }
+                        access
                     },
                     referenced: false,
                     modified: false,

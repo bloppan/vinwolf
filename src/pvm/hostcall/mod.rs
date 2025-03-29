@@ -23,7 +23,7 @@ pub fn is_writable(page_table: &PageTable, start_page: &RamAddress, end_page: &R
     for i in *start_page..=*end_page {
 
         if let Some(page) = page_table.pages.get(&(i as u32)) {
-            if page.flags.access != RamAccess::Write {
+            if page.flags.access.get(&RamAccess::Write).is_none() {
                 return Err(ExitReason::panic);
             }
         } else {
@@ -39,7 +39,7 @@ pub fn is_readable(page_table: &PageTable, start_page: &RamAddress, end_page: &R
     for i in *start_page..=*end_page {
 
         if let Some(page) = page_table.pages.get(&(i as u32)) {
-            if page.flags.access != RamAccess::Read {
+            if page.flags.access.get(&RamAccess::Read).is_none() {
                 return Err(ExitReason::panic);
             }
         } else {

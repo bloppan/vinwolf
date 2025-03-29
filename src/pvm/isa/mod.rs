@@ -1,5 +1,5 @@
 use crate::types::{Context, RamAccess, RamAddress, RegSize, Program, ExitReason};
-use crate::constants::{JUMP_ALIGNMENT, PAGE_SIZE};
+use crate::constants::{LOWEST_ACCESIBLE_PAGE, JUMP_ALIGNMENT, PAGE_SIZE};
 use crate::utils::codec::EncodeSize;
 use crate::utils::codec::generic::decode;
 
@@ -129,10 +129,8 @@ pub fn _branch(
 
 pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, reg: RegSize, signed: bool) -> ExitReason {
 
-    if let Err(address) = check_page_fault::<T>(pvm_ctx, address as RamAddress, RamAccess::Read) {
-        return ExitReason::page_fault;
-        // TODO cambiar esto
-        // return ExitReason::PageFault(address);
+    if let Err(check_error) = check_memory_access::<T>(pvm_ctx, address as RamAddress, RamAccess::Read) {
+        return check_error;
     }
     
     let mut value: Vec<u8> = Vec::new();
@@ -141,16 +139,10 @@ pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, r
     for i in 0..std::mem::size_of::<T>() {
         let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE; 
         let offset = address.wrapping_add(i as RamAddress) % PAGE_SIZE;
-        if let Some(page) = pvm_ctx.page_table.pages.get_mut(&page_target) {
-            value.push(page.data[offset as usize] as u8); 
-            page.flags.referenced = true;
-        } else {
-            // TODO cambiar esto, hay que devolver el n de pagina
-            pvm_ctx.page_fault = Some(address.wrapping_add(i as RamAddress));
-            return ExitReason::page_fault;
-            // TODO cambiar esto
-            //return ExitReason::PageFault(address);
-        }
+        let page = pvm_ctx.page_table.pages.get_mut(&page_target).unwrap();
+        value.push(page.data[offset as usize] as u8); 
+        page.flags.referenced = true;
+        
     }
     
     if signed {
@@ -167,41 +159,41 @@ pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, r
 
 pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, value: RegSize) -> ExitReason {
 
-    if let Err(address) = check_page_fault::<T>(pvm_ctx, address as RamAddress, RamAccess::Write) {
-        return ExitReason::page_fault;
-        // TODO cambiar esto
-        // return ExitReason::PageFault(address);
+    if let Err(check_error) = check_memory_access::<T>(pvm_ctx, address as RamAddress, RamAccess::Write) {
+        return check_error;
     }
     
     for (i, byte) in value.encode_size(std::mem::size_of::<T>()).iter().enumerate() {
-        let page_address = address.wrapping_add(i as RamAddress) / PAGE_SIZE;
+        let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE;
         let offset = address.wrapping_add(i as RamAddress) % PAGE_SIZE;
-        if let Some(page) = pvm_ctx.page_table.pages.get_mut(&page_address) {
-            page.data[offset as usize] = *byte;
-            page.flags.modified = true;
-        } else {
-            pvm_ctx.page_fault = Some(address.wrapping_add(i as RamAddress));
-            return ExitReason::page_fault;
-            // TODO cambiar esto
-            // return ExitReason::PageFault(address.wrapping_add(i as RamAddress));
-        }
+        let page = pvm_ctx.page_table.pages.get_mut(&page_target).unwrap();
+        page.data[offset as usize] = *byte;
+        page.flags.modified = true;
     }
+
     pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
     ExitReason::Continue
 }
 
-pub fn check_page_fault<T>(pvm_ctx: &mut Context, address: RamAddress, access: RamAccess) -> Result<(), RamAddress> {
-
+pub fn check_memory_access<T>(pvm_ctx: &mut Context, address: RamAddress, access: RamAccess) -> Result<(), ExitReason> {
+    
     for i in 0..std::mem::size_of::<T>() {
         let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE;
+        // Check if the page is in the range of the highest inaccessible page (0xFFFF0000)
+        if page_target < LOWEST_ACCESIBLE_PAGE {
+            return Err(ExitReason::panic);
+        }
+        // Check if the page is in the page table
         if let Some(page) = pvm_ctx.page_table.pages.get(&page_target) {
-            if access == RamAccess::Write && page.flags.access != RamAccess::Write {
-                pvm_ctx.page_fault = Some(address.wrapping_add(i as RamAddress));
-                return Err(address);
+            // Check the access flags
+            if page.flags.access.get(&access).is_none() {
+                return Err(ExitReason::panic);
             }
         } else {
             pvm_ctx.page_fault = Some(address.wrapping_add(i as RamAddress));
-            return Err(address);
+            return Err(ExitReason::page_fault);
+            // TODO cambiar esto
+            //return Err(ExitReason::PageFault(page_target));
         }
     }
 
@@ -355,5 +347,13 @@ mod test {
         assert_eq!(smod(i64::MIN + 1, 2), -1);
     }
     
+    /*#[test]
+    fn test_address() {
+        let address = (1 << 16) as RamAddress;
+        let page1 = (address - 1) / PAGE_SIZE;
+        let page2 = address / PAGE_SIZE;
+
+        println!("page1 = {}, page2 = {}", page1, page2);
+    }*/
     
 }

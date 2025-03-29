@@ -34,18 +34,18 @@ fn ram_initialization(params: &ProgramFormat, arg: &[u8]) -> RamMemory {
             if ram.pages[page as usize].is_none() {
                 ram.pages[page as usize] = Some(Page::default());
             }
-            ram.pages[page as usize].as_mut().unwrap().flags.access = RamAccess::Write;
+            ram.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Write);
             ram.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.w[i as usize - (2 * Zz + Zone(params.o.len()) as u64) as usize];
         } else if 2 * Zz + Zone(params.o.len()) as u64 + params.w.len() as u64 <= i && i < 2 * Zz + Zone(params.o.len()) as u64 + Page(params.w.len()) as u64 + params.z as u64 * PAGE_SIZE as u64 {
             if ram.pages[page as usize].is_none() {
                 ram.pages[page as usize] = Some(Page::default());
             }
-            ram.pages[page as usize].as_mut().unwrap().flags.access = RamAccess::Write;
+            ram.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Write);
         } else if (1 << 32) - 2 * Zz - Zi - Page(params.s as usize) as u64 <= i && i < (1 << 32) - 2 * Zz - Zi {
             if ram.pages[page as usize].is_none() {
                 ram.pages[page as usize] = Some(Page::default());
             }
-            ram.pages[page as usize].as_mut().unwrap().flags.access = RamAccess::Write;
+            ram.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Write);
         } else if (1 << 32) - Zz - Zi <= i && i < (1 << 32) - Zz - Zi + arg.len() as u64{
             if ram.pages[page as usize].is_none() {
                 ram.pages[page as usize] = Some(Page::default());

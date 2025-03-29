@@ -1,5 +1,5 @@
 // JAM Protocol Types
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use serde::Deserialize;
 
 use crate::utils::codec::ReadError;
@@ -817,14 +817,13 @@ pub struct Page {
     pub data: Box<[u8; PAGE_SIZE as usize]>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PageFlags {
-    pub access: RamAccess,
-    //pub is_writable: bool,
+    pub access: HashSet<RamAccess>,
     pub referenced: bool,
     pub modified: bool,
 }
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, std::hash::Hash)]
 pub enum RamAccess {
     Read,
     Write,

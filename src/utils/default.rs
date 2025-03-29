@@ -1,7 +1,8 @@
 use std::collections::VecDeque;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::array::from_fn;
 use crate::constants::{EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_POOL, RECENT_HISTORY_SIZE, VALIDATORS_COUNT, NUM_REG, PAGE_SIZE, NUM_PAGES};
+use crate::types::Hash;
 use crate::types::ReportGuarantee;
 use crate::types::ReportedWorkPackages;
 use crate::types::{
@@ -427,7 +428,7 @@ impl Default for Page {
 impl Default for PageFlags {
     fn default() -> Self {
         PageFlags {
-            access: RamAccess::None,
+            access: HashSet::new(),
             referenced: false,
             modified: false,
         }

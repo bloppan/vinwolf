@@ -26,7 +26,7 @@ pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
     loop {
 
         let exit_reason = single_step_pvm(pvm_ctx, &program);
-        
+        //println!("exit reason = {:?}", exit_reason);
         match exit_reason {
             ExitReason::Continue => {
                 // continue
