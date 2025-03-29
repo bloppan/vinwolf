@@ -9,7 +9,7 @@ use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 use vinwolf::types::{
     Account, AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, BlockHistory, DisputesRecords, EntropyPool, 
-    GlobalState, Privileges, ReadyQueue, Safrole, ServiceId, Statistics, TimeSlot, ValidatorsData,
+    GlobalState, Privileges, ReadyQueue, Safrole, ServiceId, Statistics, TimeSlot, ValidatorsData, Gas
 };
 
 use vinwolf::utils::codec::{Decode, BytesReader};
@@ -21,8 +21,8 @@ pub struct ParsedServiceAccount {
     pub s: ServiceId,
     pub c: Vec<u8>, 
     pub b: u64,
-    pub g: u64,
-    pub m: u64,
+    pub g: Gas,
+    pub m: Gas,
     pub l: u64,
     pub i: u32,
     pub clen: u32,
@@ -64,8 +64,8 @@ pub fn parse_service_account(input: &str) -> ParsedServiceAccount {
         s: map.get("s").unwrap_or(&"0").parse::<u32>().unwrap(),
         c: hex::decode(map.get("c").unwrap().trim_start_matches("0x")).unwrap(),
         b: map.get("b").unwrap_or(&"0").parse::<u64>().unwrap(),
-        g: map.get("g").unwrap_or(&"0").parse::<u64>().unwrap(),
-        m: map.get("m").unwrap_or(&"0").parse::<u64>().unwrap(),
+        g: map.get("g").unwrap_or(&"0").parse::<Gas>().unwrap(),
+        m: map.get("m").unwrap_or(&"0").parse::<Gas>().unwrap(),
         l: map.get("l").unwrap_or(&"0").parse::<u64>().unwrap(),
         i: map.get("i").unwrap_or(&"0").parse::<u32>().unwrap(),
         clen: map.get("clen").unwrap_or(&"0").parse::<u32>().unwrap(),

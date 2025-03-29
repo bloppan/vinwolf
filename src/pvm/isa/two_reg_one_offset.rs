@@ -38,6 +38,7 @@ fn branch(
     let r_value = pvm_ctx.reg[reg_b];
     let n = get_value(&pvm_ctx.pc, program);
     if !compare(l_value, r_value) {
+        pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
         return ExitReason::Continue;
     }
     _branch(pvm_ctx, program, n)

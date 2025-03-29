@@ -5,9 +5,10 @@
 use std::cmp::min;
 use crate::types::{Context, ExitReason, Program, RegSize};
 use crate::utils::codec::generic::decode;
+use crate::pvm::isa::skip;
 
-fn get_reg(pvm_ctx: &mut Context, program: &Program) -> u8 {
-    min(12, program.code[pvm_ctx.pc as usize + 1] % 16)
+fn get_reg(pvm_ctx: &mut Context, program: &Program) -> usize {
+    min(12, program.code[pvm_ctx.pc as usize + 1] % 16) as usize
 }
 
 fn get_imm(pc: &RegSize, program: &Program) -> RegSize {
@@ -19,6 +20,7 @@ fn get_imm(pc: &RegSize, program: &Program) -> RegSize {
 pub fn load_imm_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let reg_a = get_reg(pvm_ctx, program);
     let value = get_imm(&pvm_ctx.pc, program);
-    pvm_ctx.reg[reg_a as usize] = value;
+    pvm_ctx.reg[reg_a] = value;
+    pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
     ExitReason::Continue
 }

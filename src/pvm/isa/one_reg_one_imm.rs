@@ -34,13 +34,14 @@ pub fn load_imm(pvm_ctx: &mut Context, program: &Program)-> ExitReason {
     let reg_a = get_reg(&pvm_ctx.pc, program);
     let value = get_x_imm(&pvm_ctx.pc, program);
     pvm_ctx.reg[reg_a as usize] = value;
+    pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
     ExitReason::Continue
 }
 
 pub fn load<T>(pvm_ctx: &mut Context, program: &Program, signed: bool) -> ExitReason {
     let to_reg = get_reg(&pvm_ctx.pc, program) as RegSize;
     let address = get_x_imm(&pvm_ctx.pc, program) as RamAddress;
-    _load::<T>(pvm_ctx, address as RamAddress, to_reg, signed)
+    _load::<T>(pvm_ctx, program, address as RamAddress, to_reg, signed)
 }
 
 pub fn load_u8(pvm_ctx: &mut Context, program: &Program)-> ExitReason {

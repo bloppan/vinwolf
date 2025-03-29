@@ -105,10 +105,10 @@ pub fn _branch(
     n: i64,
 ) -> ExitReason {
 
-    if n == 0 {
+    /*if n == 0 {
         pvm_ctx.pc = 0;
-        return ExitReason::Branch;
-    }
+        return ExitReason::Continue;
+    }*/
     // Check if the jump is out of bounds
     if n < 0 || n as usize >= program.code.len() {
         println!("Panic: jump out of bounds");
@@ -121,15 +121,18 @@ pub fn _branch(
         return ExitReason::panic;
     }
 
-    pvm_ctx.pc = (n - 1) as RegSize;
+    //pvm_ctx.pc = (n - 1) as RegSize;
+    pvm_ctx.pc = n as RegSize;
         
     return ExitReason::Continue;
 }
 
-pub fn _load<T>(pvm_ctx: &mut Context, address: RamAddress, reg: RegSize, signed: bool) -> ExitReason {
+pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, reg: RegSize, signed: bool) -> ExitReason {
 
     if let Err(address) = check_page_fault::<T>(pvm_ctx, address as RamAddress, RamAccess::Read) {
-        return ExitReason::PageFault(address);
+        return ExitReason::page_fault;
+        // TODO cambiar esto
+        // return ExitReason::PageFault(address);
     }
     
     let mut value: Vec<u8> = Vec::new();
@@ -142,17 +145,22 @@ pub fn _load<T>(pvm_ctx: &mut Context, address: RamAddress, reg: RegSize, signed
             value.push(page.data[offset as usize] as u8); 
             page.flags.referenced = true;
         } else {
+            // TODO cambiar esto, hay que devolver el n de pagina
             pvm_ctx.page_fault = Some(address.wrapping_add(i as RamAddress));
-            return ExitReason::PageFault(address);
+            return ExitReason::page_fault;
+            // TODO cambiar esto
+            //return ExitReason::PageFault(address);
         }
     }
     
     if signed {
         pvm_ctx.reg[reg as usize] = extend_sign(&value, n);
+        pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
         return ExitReason::Continue;
     } 
 
     pvm_ctx.reg[reg as usize] = decode::<RegSize>(&value, n);
+    pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
     return ExitReason::Continue;
 }
 
@@ -160,7 +168,9 @@ pub fn _load<T>(pvm_ctx: &mut Context, address: RamAddress, reg: RegSize, signed
 pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, value: RegSize) -> ExitReason {
 
     if let Err(address) = check_page_fault::<T>(pvm_ctx, address as RamAddress, RamAccess::Write) {
-        return ExitReason::PageFault(address);
+        return ExitReason::page_fault;
+        // TODO cambiar esto
+        // return ExitReason::PageFault(address);
     }
     
     for (i, byte) in value.encode_size(std::mem::size_of::<T>()).iter().enumerate() {
@@ -171,9 +181,12 @@ pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, 
             page.flags.modified = true;
         } else {
             pvm_ctx.page_fault = Some(address.wrapping_add(i as RamAddress));
-            return ExitReason::PageFault(address.wrapping_add(i as RamAddress));
+            return ExitReason::page_fault;
+            // TODO cambiar esto
+            // return ExitReason::PageFault(address.wrapping_add(i as RamAddress));
         }
     }
+    pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
     ExitReason::Continue
 }
 
@@ -200,7 +213,7 @@ pub fn djump(a: &RegSize, pc: &mut RegSize, program: &Program) -> ExitReason {
     let jump_table_position = (*a as usize / JUMP_ALIGNMENT).saturating_sub(1);
 
     if *a == 0xFFFF0000 {
-        return ExitReason::halt;
+        return ExitReason::Halt;
     } else if *a == 0 
             || *a as usize > program.jump_table.len() * JUMP_ALIGNMENT 
             || *a as usize % JUMP_ALIGNMENT != 0 
@@ -208,7 +221,7 @@ pub fn djump(a: &RegSize, pc: &mut RegSize, program: &Program) -> ExitReason {
     {
         ExitReason::panic
     } else {        
-        *pc = program.jump_table[jump_table_position] as u64 - 1;
+        *pc = program.jump_table[jump_table_position] as u64;
         ExitReason::Continue
     }    
 }

@@ -38,7 +38,7 @@ pub type WorkReportHash = OpaqueHash;
 pub type ExportsRoot = OpaqueHash;
 pub type ErasureRoot = OpaqueHash;
 
-pub type Gas = u64;
+pub type Gas = i64;
 pub type RamAddress = u32;
 pub type PageAddress = RamAddress;
 pub type PageNumber = u32;
@@ -851,6 +851,7 @@ pub enum ExitReason {
     halt,
     Continue,
     Branch,
+    #[serde(rename = "halt")]
     Halt,
     panic,
     OutOfGas,
