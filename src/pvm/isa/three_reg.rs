@@ -36,7 +36,7 @@ pub fn mul_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
 pub fn div_u_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
     if pvm_ctx.reg[reg_b as usize] % (1 << 32) == 0 {
-        pvm_ctx.reg[reg_d as usize] = 0xFFFFFFFFFFFFFFFFu64;
+        pvm_ctx.reg[reg_d as usize] = u64::MAX;
         return ExitReason::Continue;
     }
     let result = pvm_ctx.reg[reg_a as usize] as u32 / pvm_ctx.reg[reg_b as usize] as u32;
@@ -49,7 +49,7 @@ pub fn div_s_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let a = signed(pvm_ctx.reg[reg_a as usize] % (1 << 32), 4);
     let b = signed(pvm_ctx.reg[reg_b as usize] % (1 << 32), 4);
     if pvm_ctx.reg[reg_b as usize] == 0 {
-        pvm_ctx.reg[reg_d as usize] = 0xFFFFFFFFFFFFFFFFu64;
+        pvm_ctx.reg[reg_d as usize] = u64::MAX;
     } else if a == i32::MIN as i64 && b == -1 {
         pvm_ctx.reg[reg_d as usize] = a as RegSize;
     } else {
@@ -176,7 +176,7 @@ pub fn mul_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
 pub fn div_u_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(&pvm_ctx.pc, program);
     if pvm_ctx.reg[reg_b as usize] == 0 {
-        pvm_ctx.reg[reg_d as usize] = 0xFFFFFFFFFFFFFFFFu64;
+        pvm_ctx.reg[reg_d as usize] = u64::MAX;
     } else {
         pvm_ctx.reg[reg_d as usize] = pvm_ctx.reg[reg_a as usize] / pvm_ctx.reg[reg_b as usize];
     }
@@ -188,7 +188,7 @@ pub fn div_s_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let a = signed(pvm_ctx.reg[reg_a as usize], 8);
     let b = signed(pvm_ctx.reg[reg_b as usize], 8);
     if pvm_ctx.reg[reg_b as usize] == 0 {
-        pvm_ctx.reg[reg_d as usize] = 0xFFFFFFFFFFFFFFFFu64;
+        pvm_ctx.reg[reg_d as usize] = u64::MAX;
     } else if a == i64::MIN && b == -1 {
         pvm_ctx.reg[reg_d as usize] = pvm_ctx.reg[reg_a as usize];
     } else {
