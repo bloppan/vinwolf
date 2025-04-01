@@ -22,6 +22,11 @@ pub fn invoke_accumulation(
         return (I(partial_state, service_id).partial_state, vec![], None, 0);
     }
 
+    let mut a: Vec<u8> = Vec::new();
+    slot.encode_to(&mut a);
+    service_id.encode_to(&mut a);
+    operand.len().encode_to(&mut a);
+
     return (I(partial_state, service_id).partial_state, vec![], None, 0);
 }
 
@@ -64,8 +69,10 @@ fn get_accumulating_service_account(partial_state: &AccumulationPartialState, se
     return None;
 }
 
-fn collapse(gas: Gas, output: WorkExecResult, context: (AccumulationContext, AccumulationContext))
--> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas) {
+fn collapse(gas: Gas, 
+            output: WorkExecResult, 
+            context: (AccumulationContext, AccumulationContext)
+) -> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas) {
 
     let (ctx_x, ctx_y) = context;
 

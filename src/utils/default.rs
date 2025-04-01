@@ -392,7 +392,7 @@ impl Default for Context {
             pc: 0,
             gas: 0,
             reg: [0; NUM_REG as usize],
-            page_table: PageTable::default(),
+            ram: RamMemory::default(),
             page_fault: None,
         }
     }

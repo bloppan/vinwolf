@@ -796,7 +796,7 @@ pub struct Program {
 pub struct Context {
     pub pc: RegSize,
     pub gas: Gas,
-    pub page_table: PageTable,
+    pub ram: RamMemory,
     pub reg: [RegSize; NUM_REG as usize],
     pub page_fault: Option<RamAddress>,
 }

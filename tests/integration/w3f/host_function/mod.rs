@@ -115,7 +115,7 @@ mod tests {
         let expected_context = parse_context(&json_data, TestPart::Expected);
 
         assert_eq!(expected_context.reg, context.reg);
-        assert_eq!(expected_context.page_table, context.page_table);
+        assert_eq!(expected_context.ram, context.ram);
         // TODO
         //assert_eq!(expected_context.gas, context.gas);
         assert_eq!(expected_service_accounts, global_state.service_accounts);

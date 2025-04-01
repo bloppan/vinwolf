@@ -44,6 +44,8 @@ struct Testcase {
 #[cfg(test)]
 mod tests {
 
+    use vinwolf::types::RamMemory;
+
     use super::*;
     fn run_pvm_test(filename: &str) {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -54,12 +56,11 @@ mod tests {
         file.read_to_string(&mut contents).expect("Failed to read JSON file");
         let testcase: Testcase = serde_json::from_str(&contents).expect("Failed to deserialize JSON");
 
-        let mut page_table = PageTable::default();
+        let mut ram = RamMemory::default();
         for page in &testcase.initial_page_map {
             let page_number = page.address / PAGE_SIZE;
-            page_table.pages.insert(page_number, Page {
+            let page_content = Page {
                 flags: PageFlags {
-                    
                     access: {
                         let mut access = HashSet::new();
                         if page.is_writable {
@@ -74,13 +75,14 @@ mod tests {
                     modified: false,
                 },
                 data: Box::new([0u8; PAGE_SIZE as usize]),
-            });
+            };
+            ram.pages[page_number as usize] = Some(page_content);
         }
 
         for chunk in &testcase.initial_memory {
             let page_number = chunk.address / PAGE_SIZE;
             let offset = chunk.address % PAGE_SIZE;
-            let page = page_table.pages.get_mut(&page_number).unwrap();
+            let page = ram.pages[page_number as usize].as_mut().unwrap();
             for (i, byte) in chunk.contents.iter().enumerate() {
                 page.data[offset as usize + i] = *byte;
             }
@@ -90,7 +92,7 @@ mod tests {
             pc: testcase.initial_pc.clone(),
             gas: testcase.initial_gas.clone(),
             reg: testcase.initial_regs.clone(),
-            page_table: page_table.clone(),
+            ram: ram.clone(),
             page_fault: None,
         };
 
@@ -106,7 +108,7 @@ mod tests {
             let page_target = address / PAGE_SIZE;
             let offset = address % PAGE_SIZE;
 
-            if let Some(page) = pvm_ctx.page_table.pages.get_mut(&page_target) {
+            if let Some(page) = pvm_ctx.ram.pages[page_target as usize].as_ref() {
                 let mut bytes_contents: Vec<u8> = vec![];
                 for (i, byte) in contents.iter().enumerate() {
                     assert_eq!(*byte, page.data[offset as usize + i]);
@@ -157,6 +159,15 @@ mod tests {
         }
         // TODO uncomment this when the gas is fixed
         //assert_eq!(testcase, result);
+        
+        /*println!("RAM Result");
+        for (index, page_option) in pvm_ctx.ram.pages.iter().enumerate() {
+            if let Some(page) = page_option {
+                println!("Page {}: {:?}", index, page);
+            }
+        }
+        println!("RAM expected: {:?}", testcase.expected_memory);*/
+
 
     }
 

@@ -49,7 +49,16 @@ impl Decode for ProgramFormat {
         let w = blob.read_bytes(w_len as usize)?.to_vec();
         let c_len = u32::decode(blob)?;
         let c = blob.read_bytes(c_len as usize)?.to_vec();
-    
+        
+        /*println!("o_len = {}", o_len);
+        println!("w_len = {}", w_len);
+        println!("z = {:x?}", z);
+        println!("s = {:x?}", s);
+        println!("o = {:x?}", o);
+        println!("w = {:x?}", w);
+        println!("c_len = {}", c_len);
+        //println!("c = {:x?}", c);*/
+
         return Ok(ProgramFormat {
             c: c.to_vec(),
             o: o.to_vec(),
