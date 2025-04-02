@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use serde_json;
 use std::io::Read;
+use std::path::PathBuf;
 use hex;
 use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
@@ -175,7 +176,7 @@ pub fn deserialize_state_transition_file(dir: &str, filename: &str) -> Result<Pa
     //let filename = format!("tests/jamtestnet/data/{}/state_transitions/{}", dir, filename);
     //let filename = format!("tests/javajam-trace/stf/state_transitions/{}", filename);
     let filename = format!("{}/{}", dir, filename);
-    //println!("filename = {}", filename);
+    println!("filename = {}", filename);
     //let state_content = read_test(&format!("tests/jamtestnet/data/fallback/state_transitions/{}", filename));
     let mut file = std::fs::File::open(&filename).expect("Failed to open JSON file");
     let mut contents = String::new();

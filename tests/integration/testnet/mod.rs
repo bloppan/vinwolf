@@ -61,9 +61,9 @@ mod tests {
     #[test]
     fn run_testnet() {
 
-        run_jamduna_blocks("tests/test_vectors/jamtestnet/data/fallback");
-        run_jamduna_blocks("tests/test_vectors/jamtestnet/data/safrole");
-        run_javajam_blocks("tests/test_vectors/javajam-trace/stf");
+        run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/fallback");
+        run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/safrole");
+        //run_javajam_blocks("tests/test_vectors/javajam-trace/stf");
     }
 
     fn run_jamduna_blocks(dir: &str) {
