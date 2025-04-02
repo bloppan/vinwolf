@@ -678,7 +678,7 @@ pub enum OutputAccumulation {
 pub struct EpochMark {
     pub entropy: Entropy,
     pub tickets_entropy: Entropy,
-    pub validators: BandersnatchKeys,
+    pub validators: Box<[(BandersnatchPublic, Ed25519Public); VALIDATORS_COUNT]>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -710,7 +710,7 @@ pub struct Header {
 #[derive(Debug, PartialEq, Clone)]
 pub struct UnsignedHeader {
     pub parent: HeaderHash,
-    pub parent_state_root: StateRoot,
+    pub parent_state_root: OpaqueHash,
     pub extrinsic_hash: OpaqueHash,
     pub slot: TimeSlot,
     pub epoch_mark: Option<EpochMark>,

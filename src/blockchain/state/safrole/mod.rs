@@ -29,19 +29,20 @@
 /// output is a ticket and validators' tickets with the best score define the new sealing keys allowing the chosen validators 
 /// to exercise their privilege and create a new block at the appropriate time.
 
-use ark_ec_vrfs::suites::bandersnatch::edwards as bandersnatch_ark_ec_vrfs;
-use ark_ec_vrfs::prelude::ark_serialize;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use bandersnatch_ark_ec_vrfs::Public;
-use crate::blockchain::state::safrole::bandersnatch::{ring_context, Verifier};
+use ark_vrf::reexports::{
+    ark_ec::AffineRepr,
+    ark_serialize::{self, CanonicalDeserialize, CanonicalSerialize},
+};
+use ark_vrf::{pedersen::PedersenSuite, ring::RingSuite, suites::bandersnatch::Public};
+use crate::blockchain::state::safrole::bandersnatch::Verifier;
+use ark_vrf::suites::bandersnatch::RingProofParams;
 
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use sp_core::blake2_256;
 
 use crate::types::{
-    BandersnatchPublic, BandersnatchRingCommitment, Entropy, EntropyPool, EpochMark, OutputDataSafrole, Safrole, Header,
-    SafroleErrorCode, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorsData, BandersnatchEpoch
+    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, Entropy, EntropyPool, EpochMark, Header, OutputDataSafrole, Safrole, SafroleErrorCode, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorsData
 };
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 use crate::blockchain::state::ProcessError;
@@ -117,12 +118,19 @@ pub fn process_safrole(
         epoch_mark = Some(EpochMark {
             entropy: entropy_pool.buf[1].clone(),
             tickets_entropy: entropy_pool.buf[2].clone(),
-            validators: safrole_state.pending_validators.0
+            validators: {
+                let bandersnatch_keys: Vec<BandersnatchPublic> = safrole_state.pending_validators.0
                 .iter()
                 .map(|validator| validator.bandersnatch.clone())
-                .collect::<Vec<BandersnatchPublic>>()  
-                .try_into()  
-                .expect("Incorrect number of validators"),  
+                .collect();
+
+                let mut array: [(BandersnatchPublic, Ed25519Public); VALIDATORS_COUNT] = Default::default();
+                for (i, key) in bandersnatch_keys.into_iter().enumerate() {
+                    array[i] = (key, key); // Replace `(key, key)` with the actual tuple logic
+                }
+            
+                Box::new(array)
+            }
         });
         // gamma_s is the current epoch's slot-sealer series, which is either a full complement of EPOCH_LENGTH tickets
         // or, in case of fallback, a series of EPOCH_LENGTH bandersnatch keys
@@ -165,7 +173,7 @@ pub fn create_ring_set(keys: &[BandersnatchPublic]) -> Vec<Public> {
                 .unwrap_or_else(|_| {
                     // In the case a key has no corresponding Bandersnatch point when constructing the ring, then 
                     // the Bandersnatch padding point as stated by Hosseini and Galassi 2024 should be substituted
-                    Public::from(ring_context().padding_point())
+                    Public::from(RingProofParams::padding_point())
                 });
             point
         })

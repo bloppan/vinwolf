@@ -105,7 +105,7 @@ impl<'a, 'b> TestContext<'a, 'b> {
         let part = decode_fn(self.reader)?;
         let encoded_part = encode_fn(&part);
         let end_position = self.reader.get_position();
-
+        
         if let Some(diff_pos) = find_first_difference(
             &self.blob[self.global_position..end_position],
             &encoded_part,
