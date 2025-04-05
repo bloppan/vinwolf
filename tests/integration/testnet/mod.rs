@@ -57,6 +57,8 @@ pub fn read_test(filename: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> 
 #[cfg(test)]
 mod tests {
 
+    use vinwolf::blockchain::state::services;
+
     use super::*;
 
     #[test]
@@ -124,6 +126,9 @@ mod tests {
             assert_eq!(json_file.post_state.ready_queue, state.ready_queue);
             assert_eq!(json_file.post_state.service_accounts, state.service_accounts);        
 
+            
+            println!("statistics: {:?}", state.statistics);
+            
             assert_eq!(json_file.post_state_root, merkle_state(&state.serialize().map, 0).unwrap());
 
             slot += 1;

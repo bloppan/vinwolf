@@ -1,4 +1,6 @@
-use crate::types::{ServiceId, OpaqueHash, Gas, WorkResult, WorkExecResult, WorkExecError};
+use std::cell::Ref;
+
+use crate::types::{ServiceId, OpaqueHash, Gas, WorkResult, WorkExecResult, WorkExecError, RefineLoad};
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
@@ -20,6 +22,8 @@ impl Encode for WorkResult {
             result_len.encode_to(&mut blob);
             self.result[1..].encode_to(&mut blob);
         } 
+        
+        self.refine_load.encode_to(&mut blob);
         
         return blob;
     }
@@ -61,6 +65,7 @@ impl Decode for WorkResult {
                 };
                 result
             },
+            refine_load: RefineLoad::decode(blob)?,
         })
     }  
 }
@@ -86,7 +91,7 @@ impl Encode for Vec<WorkResult> {
 impl Decode for Vec<WorkResult> {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
-
+        
         let num_results = decode_unsigned(blob)?;
         let mut results: Vec<WorkResult> = Vec::with_capacity(num_results);
 
@@ -98,4 +103,33 @@ impl Decode for Vec<WorkResult> {
     }
 }
 
+impl Encode for RefineLoad {
 
+    fn encode(&self) -> Vec<u8> {
+        let mut blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Self>());
+        
+        encode_unsigned(self.gas_used as usize).encode_to(&mut blob);
+        encode_unsigned(self.imports as usize).encode_to(&mut blob);
+        encode_unsigned(self.extrinsic_count as usize).encode_to(&mut blob);
+        encode_unsigned(self.extrinsic_size as usize).encode_to(&mut blob);
+        encode_unsigned(self.exports as usize).encode_to(&mut blob);
+
+        return blob;
+    }
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for RefineLoad {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+        Ok(RefineLoad {
+            gas_used: decode_unsigned(blob)? as u64,
+            imports: decode_unsigned(blob)? as u16,
+            extrinsic_count: decode_unsigned(blob)? as u16,
+            extrinsic_size: decode_unsigned(blob)? as u32,
+            exports: decode_unsigned(blob)? as u16,
+        })
+    }
+}

@@ -46,7 +46,7 @@ pub struct StateStatistics {
 
 impl Encode for StateStatistics {
     fn encode(&self) -> Vec<u8> {
-        let mut blob = Vec::with_capacity(std::mem::size_of::<StateStatistics>());
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
 
         self.stats.encode_to(&mut blob);
         self.tau.encode_to(&mut blob);

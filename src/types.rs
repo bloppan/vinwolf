@@ -218,8 +218,9 @@ pub struct WorkReport {
     pub core_index: CoreIndex,
     pub authorizer_hash: OpaqueHash,
     pub auth_output: Vec<u8>,
-    pub segment_root_lookup: SegmentRootLookup,
+    pub segment_root_lookup: Vec<SegmentRootLookupItem>,
     pub results: Vec<WorkResult>,
+    pub auth_gas_used: Gas,
 }
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct ReportedPackage {
@@ -283,6 +284,15 @@ pub enum ReportErrorCode {
 //      Unexpected program termination
 //      The code was not available for lookup in state at the posterior state of the lookup-anchor block.
 //      The code was available but was beyond the maximun size allowed Wc.
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefineLoad {
+    pub gas_used: u64,
+    pub imports: u16,
+    pub extrinsic_count: u16,
+    pub extrinsic_size: u32,
+    pub exports: u16,
+}
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorkResult {
     pub service: ServiceId,
@@ -290,6 +300,7 @@ pub struct WorkResult {
     pub payload_hash: OpaqueHash,
     pub gas: Gas,
     pub result: Vec<u8>,
+    pub refine_load: RefineLoad,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -320,8 +331,6 @@ pub struct SegmentRootLookupItem {
     pub work_package_hash: OpaqueHash,
     pub segment_tree_root: OpaqueHash,
 }
-#[derive(Debug, Clone, PartialEq)]
-pub struct SegmentRootLookup(pub Vec<SegmentRootLookupItem>);
 // ----------------------------------------------------------------------------------------------------------
 // Block History
 // ----------------------------------------------------------------------------------------------------------
@@ -369,10 +378,52 @@ pub struct ActivityRecord {
 pub struct ActivityRecords {
     pub records: Box<[ActivityRecord; VALIDATORS_COUNT]>,
 }
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CoreActivityRecord {
+    pub gas_used: u64,        // Total gas consumed by core for reported work. Includes all refinement and authorizations.
+    pub imports: u16,         // Number of segments imported from DA made by core for reported work.
+    pub extrinsic_count: u16, // Total number of extrinsics used by core for reported work.
+    pub extrinsic_size: u32,  // Total size of extrinsics used by core for reported work.
+    pub exports: u16,         // Number of segments exported into DA made by core for reported work.
+    pub bundle_size: u32,     // The work-bundle size. This is the size of data being placed into Audits DA by the core.
+    pub da_load: u32,         // Amount of bytes which are placed into either Audits or Segments DA. This includes the work-bundle (including all extrinsics and imports) as well as all (exported) segments
+    pub popularity: u16,      // Number of validators which formed super-majority for assurance.
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct CoresStatistics {
+    pub records: Box<[CoreActivityRecord; CORES_COUNT]>,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct SeviceActivityRecord {
+    pub provided_count: u16,        // Number of preimages provided to this service
+    pub provided_size: u32,         // Total size of preimages provided to this service.
+    pub refinement_count: u32,      // Number of work-items refined by service for reported work.
+    pub refinement_gas_used: u64,   // Amount of gas used for refinement by service for reported work.
+    pub imports: u32,               // Number of segments imported from the DL by service for reported work.
+    pub extrinsic_count: u32,       // Total number of extrinsics used by service for reported work.
+    pub extrinsic_size: u32,        // Total size of extrinsics used by service for reported work.
+    pub exports: u32,               // Number of segments exported into the DL by service for reported work.
+    pub accumulate_count: u32,      // Number of work-items accumulated by service.
+    pub accumulate_gas_used: u64,   // Amount of gas used for accumulation by service.
+    pub on_transfers_count: u32,    // Number of transfers processed by service.
+    pub on_transfers_gas_used: u64, // Amount of gas used for processing transfers by service.
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct ServicesStatisticsMapEntry {
+    pub id: ServiceId,
+    pub record: SeviceActivityRecord,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct ServicesStatistics {
+    pub records: HashMap<ServiceId, SeviceActivityRecord>,
+}
 #[derive(Clone, Debug, PartialEq)]
 pub struct Statistics {
     pub curr: ActivityRecords,
     pub prev: ActivityRecords,
+    pub cores: CoresStatistics,
+    pub services: ServicesStatistics,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Tickets

@@ -20,7 +20,7 @@
 */
 use std::default::Default;
 
-use crate::types::{Statistics, ValidatorIndex, TimeSlot, Extrinsic, ActivityRecords};
+use crate::types::{Statistics, ValidatorIndex, TimeSlot, Extrinsic, ActivityRecords, WorkReport};
 use crate::constants::EPOCH_LENGTH;
 use super::get_time;
 
@@ -29,6 +29,7 @@ pub fn process_statistics(
     post_tau: &TimeSlot,
     author_index: &ValidatorIndex,
     extrinsic: &Extrinsic,
+    new_available_wr: &[WorkReport],
 ) {
 
     let tau = get_time();
@@ -50,7 +51,7 @@ pub fn process_statistics(
         // The number of preimages introduced by the validator
         statistics.curr.records[*author_index as usize].preimages += 1;
         // The total number of octets across all preimages introduced by the validator
-        statistics.curr.records[*author_index as usize].preimages_size += preimage.blob.len() as u32;
+        statistics.curr.records[*author_index as usize].preimages_size = statistics.curr.records[*author_index as usize].preimages_size.saturating_add(preimage.blob.len() as u32);
     }
 
     // The number of reports guaranteed by the 
@@ -58,11 +59,36 @@ pub fn process_statistics(
         for signature in guarantee.signatures.iter() {
             statistics.curr.records[signature.validator_index as usize].guarantees += 1;
         }
+        // TODO terminar esto
+        statistics.cores.records[guarantee.report.core_index as usize].imports += guarantee.report.segment_root_lookup.len() as u16;
+        statistics.cores.records[guarantee.report.core_index as usize].exports += guarantee.report.results.len() as u16;
     }
 
     // The number of availability assurances made by the validator
     for assurance in extrinsic.assurances.assurances.iter() {
         statistics.curr.records[assurance.validator_index as usize].assurances += 1;
     }
+
+
+}
+/*pub struct WorkReport {
+    pub package_spec: WorkPackageSpec,
+    pub context: RefineContext,
+    pub core_index: CoreIndex,
+    pub authorizer_hash: OpaqueHash,
+    pub auth_output: Vec<u8>,
+    pub segment_root_lookup: Vec<SegmentRootLookupItem>,
+    pub results: Vec<WorkResult>,
+    pub auth_gas_used: Gas,
 }
 
+pub struct CoreActivityRecord {
+    pub gas_used: u64,        // Total gas consumed by core for reported work. Includes all refinement and authorizations.
+    pub imports: u16,         // Number of segments imported from DA made by core for reported work.
+    pub extrinsic_count: u16, // Total number of extrinsics used by core for reported work.
+    pub extrinsic_size: u32,  // Total size of extrinsics used by core for reported work.
+    pub exports: u16,         // Number of segments exported into DA made by core for reported work.
+    pub bundle_size: u32,     // The work-bundle size. This is the size of data being placed into Audits DA by the core.
+    pub da_load: u32,         // Amount of bytes which are placed into either Audits or Segments DA. This includes the work-bundle (including all extrinsics and imports) as well as all (exported) segments
+    pub popularity: u16,      // Number of validators which formed super-majority for assurance.
+}*/

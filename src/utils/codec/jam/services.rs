@@ -1,7 +1,7 @@
 use crate::types::{
     ServiceId, Gas, OpaqueHash, ServiceInfo, ServiceItem, Services
 };
-use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
+use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
 impl Encode for ServiceInfo {
@@ -11,11 +11,11 @@ impl Encode for ServiceInfo {
         let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
         
         self.code_hash.encode_to(&mut blob);
-        self.balance.encode_to(&mut blob);
-        self.min_item_gas.encode_to(&mut blob);
-        self.min_memo_gas.encode_to(&mut blob);
-        self.bytes.encode_to(&mut blob);
-        self.items.encode_to(&mut blob);
+        self.balance.encode_size(8).encode_to(&mut blob);
+        self.min_item_gas.encode_size(8).encode_to(&mut blob);
+        self.min_memo_gas.encode_size(8).encode_to(&mut blob);
+        self.bytes.encode_size(8).encode_to(&mut blob);
+        self.items.encode_size(4).encode_to(&mut blob);
         
         return blob;
     }

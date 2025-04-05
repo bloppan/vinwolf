@@ -1,6 +1,6 @@
 use crate::types::{
     CoreIndex, OpaqueHash, Ed25519Public, WorkPackageHash, RefineContext, WorkResult, SegmentRootLookupItem, 
-    SegmentRootLookup, WorkReport, WorkPackageSpec, Offenders, ReportedPackage, OutputDataReports
+    WorkReport, WorkPackageSpec, Offenders, ReportedPackage, OutputDataReports, Gas
 };
 use crate::utils::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
@@ -22,6 +22,7 @@ impl Encode for WorkReport {
         self.auth_output.as_slice().encode_len().encode_to(&mut work_report_blob);
         self.segment_root_lookup.encode_to(&mut work_report_blob);
         self.results.encode_to(&mut work_report_blob);
+        encode_unsigned(self.auth_gas_used as usize).encode_to(&mut work_report_blob);
 
         return work_report_blob;
     }
@@ -44,11 +45,12 @@ impl Decode for WorkReport {
                 exports_count: u16::decode(work_report)?,
             },
             context: RefineContext::decode(work_report)?,
-            core_index: CoreIndex::decode(work_report)?,
+            core_index: u16::decode(work_report)?,
             authorizer_hash: OpaqueHash::decode(work_report)?,
             auth_output: Vec::<u8>::decode_len(work_report)?,
-            segment_root_lookup: SegmentRootLookup::decode(work_report)?,
+            segment_root_lookup: Vec::<SegmentRootLookupItem>::decode(work_report)?,
             results: Vec::<WorkResult>::decode(work_report)?,
+            auth_gas_used: decode_unsigned(work_report)? as Gas,
         })
     }
 }
@@ -79,7 +81,7 @@ impl Decode for Vec<WorkReport> {
 
         let len = decode_unsigned(work_reports)?;
         let mut work_reports_vec = Vec::with_capacity(len);
-        
+
         for _ in 0..len {
             work_reports_vec.push(WorkReport::decode(work_reports)?);
         }
@@ -233,15 +235,15 @@ impl Decode for SegmentRootLookupItem {
     }
 }
 
-impl Encode for SegmentRootLookup {
+impl Encode for Vec<SegmentRootLookupItem> {
     
     fn encode(&self) -> Vec<u8> {
 
-        let len = self.0.len();
+        let len = self.len();
         let mut segment_root_lookup = Vec::with_capacity(len);
         encode_unsigned(len).encode_to(&mut segment_root_lookup);
 
-        for item in self.0.iter() {
+        for item in self.iter() {
             item.encode_to(&mut segment_root_lookup);
         }
 
@@ -253,15 +255,15 @@ impl Encode for SegmentRootLookup {
     }
 }
 
-impl Decode for SegmentRootLookup {
+impl Decode for Vec<SegmentRootLookupItem> {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
         let len = decode_unsigned(blob)?;
-        let mut segment_root_lookup = SegmentRootLookup { 0: Vec::with_capacity(len) };
+        let mut segment_root_lookup =  Vec::with_capacity(len);
 
         for _ in 0..len {
-            segment_root_lookup.0.push(SegmentRootLookupItem::decode(blob)?);
+            segment_root_lookup.push(SegmentRootLookupItem::decode(blob)?);
         }
 
         Ok(segment_root_lookup)

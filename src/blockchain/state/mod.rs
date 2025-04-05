@@ -55,7 +55,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &block.extrinsic.tickets)?;
 
     // Process report and assurance
-    process_assurances(
+    let new_available_workreports = process_assurances(
         &mut new_state.availability,
         &block.extrinsic.assurances,
         &block.header.unsigned.slot,
@@ -88,7 +88,8 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &mut new_state.statistics, 
         &block.header.unsigned.slot, 
         &block.header.unsigned.author_index, 
-        &block.extrinsic
+        &block.extrinsic,
+        &new_available_workreports.reported,
     );
     
     set_global_state(new_state);    

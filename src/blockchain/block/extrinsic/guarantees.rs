@@ -40,7 +40,7 @@ impl GuaranteesExtrinsic {
 
         // We limit the sum of the number of items in the segment-root lookup dictionary and the number of prerequisites to MAX_DEPENDENCY_ITEMS
         for guarantee in &self.report_guarantee {
-            if guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.0.len() > MAX_DEPENDENCY_ITEMS {
+            if guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.len() > MAX_DEPENDENCY_ITEMS {
                 return Err(ProcessError::ReportError(ReportErrorCode::TooManyDependencies));
             }
         }
@@ -107,7 +107,7 @@ impl GuaranteesExtrinsic {
             }
             // We require that any work-packages mentioned in the segment-root lookup, if present, be either in the extrinsic
             // or in our recent history
-            for segment in &guarantee.report.segment_root_lookup.0 {
+            for segment in &guarantee.report.segment_root_lookup {
                 let segment_root = packages_map.get(&segment.work_package_hash)
                     .or_else(|| recent_history_map.get(&segment.work_package_hash));
                 // We require that any segment roots mentioned in the segment-root lookup be verified as correct based on our
