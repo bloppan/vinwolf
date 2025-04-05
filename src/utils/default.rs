@@ -5,14 +5,76 @@ use crate::constants::{CORES_COUNT, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_POOL, 
 use crate::types::{
     Account, AccumulatedHistory, ActivityRecord, ActivityRecords, AuthPool, AuthPools, AuthQueue, AuthQueues, AuthorizerHash, AvailabilityAssignments, 
     BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, Context, CoreActivityRecord, CoresStatistics, 
-    DisputesRecords, Ed25519Public, Entropy, EntropyPool, GlobalState, GuaranteesExtrinsic, MemoryChunk, Metadata, OpaqueHash, Page, PageFlags, 
-    PageMap, PageTable, Privileges, Program, RamAccess, RamMemory, ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportGuarantee, ReportedWorkPackages, 
-    Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, 
-    Statistics, TicketBody, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorData, ValidatorsData, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult
+    DisputesRecords, Ed25519Public, Entropy, EntropyPool, Extrinsic, GlobalState, GuaranteesExtrinsic, MemoryChunk, Metadata, OpaqueHash, Page, 
+    PageFlags, PageMap, PageTable, Privileges, Program, RamMemory, ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportGuarantee, ReportedWorkPackages, 
+    Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, 
+    TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorData, ValidatorsData, WorkPackageHash, WorkPackageSpec, WorkReport, 
+    WorkResult, DisputesExtrinsic, PreimagesExtrinsic, AssurancesExtrinsic
 };
 // ----------------------------------------------------------------------------------------------------------
 // Jam Types
 // ----------------------------------------------------------------------------------------------------------
+impl Default for Extrinsic {
+    fn default() -> Self {
+        Extrinsic {
+            tickets: TicketsExtrinsic::default(),
+            disputes: DisputesExtrinsic::default(),
+            preimages: PreimagesExtrinsic::default(),
+            guarantees: GuaranteesExtrinsic::default(),
+            assurances: AssurancesExtrinsic::default(),
+
+        }
+    }
+}
+impl Default for TicketsExtrinsic {
+    fn default() -> Self {
+        TicketsExtrinsic {
+            tickets: Vec::new(),
+        }
+    }
+}
+impl Default for DisputesExtrinsic {
+    fn default() -> Self {
+        DisputesExtrinsic {
+            verdicts: Vec::new(),
+            culprits: Vec::new(),
+            faults: Vec::new(),
+        }
+    }
+}
+impl Default for PreimagesExtrinsic {
+    fn default() -> Self {
+        PreimagesExtrinsic {
+            preimages: Vec::new(),
+        }
+    }
+}
+impl Default for AssurancesExtrinsic {
+    fn default() -> Self {
+        AssurancesExtrinsic {
+            assurances: Vec::new(),
+        }
+    }
+}
+// ----------------------------------------------------------------------------------------------------------
+// Guarantees Extrinsic
+// ----------------------------------------------------------------------------------------------------------
+impl Default for GuaranteesExtrinsic {
+    fn default() -> Self {
+        GuaranteesExtrinsic {
+            report_guarantee: Vec::new(),
+        }
+    }
+}
+impl Default for ReportGuarantee {
+    fn default() -> Self {
+        ReportGuarantee {
+            report: WorkReport::default(),
+            slot: 0,
+            signatures: Vec::new(),
+        }
+    }
+}
 impl Default for WorkReport {
     fn default() -> Self {
         WorkReport {
@@ -418,25 +480,6 @@ impl Default for ValidatorsData {
                 bls: [0u8; std::mem::size_of::<BlsPublic>()],
                 metadata: [0u8; std::mem::size_of::<Metadata>()],
             }))
-        }
-    }
-}
-// ----------------------------------------------------------------------------------------------------------
-// Guarantees Extrinsic
-// ----------------------------------------------------------------------------------------------------------
-impl Default for GuaranteesExtrinsic {
-    fn default() -> Self {
-        GuaranteesExtrinsic {
-            report_guarantee: Vec::new(),
-        }
-    }
-}
-impl Default for ReportGuarantee {
-    fn default() -> Self {
-        ReportGuarantee {
-            report: WorkReport::default(),
-            slot: 0,
-            signatures: Vec::new(),
         }
     }
 }

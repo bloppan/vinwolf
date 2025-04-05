@@ -20,7 +20,7 @@
 */
 use std::default::Default;
 
-use crate::types::{Statistics, ValidatorIndex, TimeSlot, Extrinsic, ActivityRecords, WorkReport};
+use crate::types::{ActivityRecords, Extrinsic, ServicesStatistics, Statistics, TimeSlot, ValidatorIndex, WorkReport, SeviceActivityRecord};
 use crate::constants::EPOCH_LENGTH;
 use super::get_time;
 
@@ -60,15 +60,20 @@ pub fn process_statistics(
             statistics.curr.records[signature.validator_index as usize].guarantees += 1;
         }
         // TODO terminar esto
-        statistics.cores.records[guarantee.report.core_index as usize].imports += guarantee.report.segment_root_lookup.len() as u16;
-        statistics.cores.records[guarantee.report.core_index as usize].exports += guarantee.report.results.len() as u16;
+        statistics.cores.records[guarantee.report.core_index as usize].bundle_size += guarantee.report.package_spec.length as u32;
+
+        for result in guarantee.report.results.iter() {
+            if statistics.services.records.get(&result.service).is_none() {
+                statistics.services.records.insert(result.service, SeviceActivityRecord::default());
+            }
+            statistics.services.records.get_mut(&result.service).unwrap().refinement_count += 1;
+        }
     }
 
     // The number of availability assurances made by the validator
     for assurance in extrinsic.assurances.assurances.iter() {
         statistics.curr.records[assurance.validator_index as usize].assurances += 1;
     }
-
 
 }
 /*pub struct WorkReport {

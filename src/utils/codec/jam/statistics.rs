@@ -149,18 +149,18 @@ impl Encode for SeviceActivityRecord {
 
         let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
 
-        self.provided_count.encode_to(&mut blob);
-        self.provided_size.encode_to(&mut blob);
-        self.refinement_count.encode_to(&mut blob);
-        self.refinement_gas_used.encode_to(&mut blob);
-        self.imports.encode_to(&mut blob);
-        self.extrinsic_count.encode_to(&mut blob);
-        self.extrinsic_size.encode_to(&mut blob);
-        self.exports.encode_to(&mut blob);
-        self.accumulate_count.encode_to(&mut blob);
-        self.accumulate_gas_used.encode_to(&mut blob);
-        self.on_transfers_count.encode_to(&mut blob);
-        self.on_transfers_gas_used.encode_to(&mut blob);
+        encode_unsigned(self.provided_count as usize).encode_to(&mut blob);
+        encode_unsigned(self.provided_size as usize).encode_to(&mut blob);
+        encode_unsigned(self.refinement_count as usize).encode_to(&mut blob);
+        encode_unsigned(self.refinement_gas_used as usize).encode_to(&mut blob);
+        encode_unsigned(self.imports as usize).encode_to(&mut blob);
+        encode_unsigned(self.extrinsic_count as usize).encode_to(&mut blob);
+        encode_unsigned(self.extrinsic_size as usize).encode_to(&mut blob);
+        encode_unsigned(self.exports as usize).encode_to(&mut blob);
+        encode_unsigned(self.accumulate_count as usize).encode_to(&mut blob);
+        encode_unsigned(self.accumulate_gas_used as usize).encode_to(&mut blob);
+        encode_unsigned(self.on_transfers_count as usize).encode_to(&mut blob);
+        encode_unsigned(self.on_transfers_gas_used as usize).encode_to(&mut blob);
 
         return blob;
     }
@@ -175,18 +175,18 @@ impl Decode for SeviceActivityRecord {
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
         
         Ok(SeviceActivityRecord {
-                provided_count: u16::decode(reader)?,
-                provided_size: u32::decode(reader)?,
-                refinement_count: u32::decode(reader)?,
-                refinement_gas_used: u64::decode(reader)?,
-                imports: u32::decode(reader)?,
-                extrinsic_count: u32::decode(reader)?,
-                extrinsic_size: u32::decode(reader)?,
-                exports: u32::decode(reader)?,
-                accumulate_count: u32::decode(reader)?,
-                accumulate_gas_used: u64::decode(reader)?,
-                on_transfers_count: u32::decode(reader)?,
-                on_transfers_gas_used: u64::decode(reader)?,
+                provided_count: decode_unsigned(reader)? as u16,
+                provided_size: decode_unsigned(reader)? as u32,
+                refinement_count: decode_unsigned(reader)? as u32,
+                refinement_gas_used: decode_unsigned(reader)? as u64,
+                imports: decode_unsigned(reader)? as u32,
+                extrinsic_count: decode_unsigned(reader)? as u32,
+                extrinsic_size: decode_unsigned(reader)? as u32,
+                exports: decode_unsigned(reader)? as u32,
+                accumulate_count: decode_unsigned(reader)? as u32,
+                accumulate_gas_used: decode_unsigned(reader)? as u64,
+                on_transfers_count: decode_unsigned(reader)? as u32,
+                on_transfers_gas_used: decode_unsigned(reader)? as u64,
             }
         )
     }

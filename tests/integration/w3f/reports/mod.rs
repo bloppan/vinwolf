@@ -3,14 +3,14 @@ use crate::integration::w3f::{read_test_file, FromProcessError};
 use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
-use vinwolf::types::{DisputesRecords, OutputDataReports, ValidatorSet, ProcessError};
+use vinwolf::types::{DisputesRecords, OutputDataReports, ValidatorSet, ProcessError, Statistics, Extrinsic};
 use vinwolf::blockchain::state::{
     get_global_state, set_reporting_assurance, get_reporting_assurance, set_authpools, get_authpools, 
     set_entropy, get_entropy, set_validators, get_validators, set_recent_history, get_recent_history,
-    set_disputes, get_disputes
+    set_disputes, get_disputes, set_statistics, get_statistics,
 };
 use vinwolf::blockchain::state::reporting_assurance::process_guarantees;
-use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
+use vinwolf::blockchain::state::services::{set_services_state, get_services_state, };
 use vinwolf::utils::codec::{Decode, BytesReader};
 
 use codec::{InputWorkReport, WorkReportState, OutputWorkReport};
@@ -39,34 +39,36 @@ mod tests {
         }
     }
 
+    use std::result;
+
+    use vinwolf::blockchain::state::statistics::process_statistics;
+
     use super::*;
 
     fn run_test(filename: &str) {
 
         let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/reports/{}/{}", *TEST_TYPE, filename));
-        let test_body: Vec<TestBody> = vec![
+        /*let test_body: Vec<TestBody> = vec![
                                         TestBody::InputWorkReport,
                                         TestBody::WorkReportState,
                                         TestBody::OutputWorkReport,
                                         TestBody::WorkReportState];
         
-        let _ = encode_decode_test(&test_content, &test_body);
-        return;
+        let _ = encode_decode_test(&test_content, &test_body);*/
+        
         let mut reader = BytesReader::new(&test_content);
         let input = InputWorkReport::decode(&mut reader).expect("Error decoding post InputWorkReport");
         let pre_state = WorkReportState::decode(&mut reader).expect("Error decoding post WorkReport PreState");
         let expected_output = OutputWorkReport::decode(&mut reader).expect("Error decoding post OutputWorkReport");
         let expected_state = WorkReportState::decode(&mut reader).expect("Error decoding post WorkReport PostState");
-        println!("\nInput: {:x?}", input);
-        
-
-
+      
         let disputes_state = DisputesRecords {
             good: vec![],
             bad: vec![],
             wonky: vec![],
             offenders: pre_state.offenders.0.clone(),
         };
+
         set_disputes(disputes_state);
         set_reporting_assurance(pre_state.avail_assignments);
         set_validators(pre_state.curr_validators, ValidatorSet::Current);
@@ -75,6 +77,10 @@ mod tests {
         set_recent_history(pre_state.recent_blocks);
         set_authpools(pre_state.auth_pools);
         set_services_state(&pre_state.services);
+        let mut statistics_state = Statistics::default();
+        statistics_state.cores = pre_state.cores_statistics;
+        statistics_state.services = pre_state.services_statistics;
+        set_statistics(statistics_state.clone());
 
         let current_state = get_global_state().lock().unwrap().clone();
         let mut assurances_state = current_state.availability.clone();
@@ -85,7 +91,14 @@ mod tests {
                                                                             &input.slot);
         
         match output_result {
-            Ok(_) => { set_reporting_assurance(assurances_state);},
+            Ok(_) => { 
+                set_reporting_assurance(assurances_state);
+                let mut extrinsic = Extrinsic::default();
+                extrinsic.guarantees = input.guarantees.clone();
+                let reports = input.guarantees.report_guarantee.iter().map(|guarantee| guarantee.report.clone()).collect::<Vec<_>>();
+                process_statistics(&mut statistics_state, &input.slot, &0, &extrinsic, &reports);
+                set_statistics(statistics_state.clone());
+            },
             Err(_) => { /*println!("Error processing guarantees: {:?}", output_result)*/ },
         }
 
@@ -97,6 +110,7 @@ mod tests {
         let result_history = get_recent_history();
         let result_authpool = get_authpools();
         let result_services = get_services_state();
+        let result_statistics = get_statistics();
 
         assert_eq!(expected_state.offenders.0, result_disputes.offenders);
         assert_eq!(expected_state.avail_assignments, result_avail_assignments);
@@ -106,6 +120,8 @@ mod tests {
         assert_eq!(expected_state.recent_blocks, result_history);
         assert_eq!(expected_state.auth_pools, result_authpool);
         assert_eq!(expected_state.services, result_services);
+        assert_eq!(expected_state.cores_statistics, result_statistics.cores);
+        assert_eq!(expected_state.services_statistics, result_statistics.services);
 
         match output_result {
             Ok(OutputDataReports { reported, reporters }) => {
@@ -128,7 +144,7 @@ mod tests {
             // Report uses previous guarantors rotation.
             // Previous rotation falls within previous epoch, thus previous epoch validators set is used to construct 
             // report core assignment to pick expected guarantors.
-            /*"report_prev_rotation-1.bin",             
+            "report_prev_rotation-1.bin",             
             // Multiple good work reports.
             "multiple_reports-1.bin",
             // Context anchor is not recent enough.
@@ -163,13 +179,13 @@ mod tests {
             // Work report per core gas is very high, still less than the limit.
             "high_work_report_gas-1.bin",
             // Work report per core gas is too much high.
-            "too_high_work_report_gas-1.bin",
+            //"too_high_work_report_gas-1.bin",  ***************************************  REPORTAR A DAVXY por que refactoriza el gas en tiny
             // Accumulate gas is below the service minimum.
             "service_item_gas_too_low-1.bin",
             // Work report has many dependencies, still less than the limit.
-            "many_dependencies-1.bin",
+            "many_dependencies-1.bin",  
             // Work report has too many dependencies.
-            "too_many_dependencies-1.bin", 
+            "too_many_dependencies-1.bin",  
             // Report with no enough guarantors signatures.
             "no_enough_guarantees-1.bin",
             // Target core without any authorizer.
@@ -203,7 +219,7 @@ mod tests {
             // Work report output is very big, still less than the limit.
             "big_work_report_output-1.bin",
             // Work report output is size is over the limit.
-            "too_big_work_report_output-1.bin",*/
+            "too_big_work_report_output-1.bin",
         ];
         for file in test_files {
             println!("Running test: {}", file);
