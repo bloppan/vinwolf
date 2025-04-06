@@ -199,7 +199,7 @@
             "reported": []
         },
         {
-            "header_hash": "0x79f8dd1c44ad5c3174d257271f58e815e609b4f9123bd4f676669850dc72489d",
+            "header_hash": "0xef31396fbe55dbaabf6d02d4b0646aea94f1c351f0bed68d792d374ea609269b",
             "mmr": {
                 "peaks": [
                     null,
@@ -268,16 +268,16 @@
         },
         "gamma_a": [
             {
-                "id": "0x0b7537993b0a700def26bb16e99ed0bfb530f616e4c13cf63ecb60bcbe83387d",
-                "attempt": 2
-            },
-            {
                 "id": "0x22fdcfa858e5195e222174597d7d33bd66d97748c413b876f7a132134ce9baef",
                 "attempt": 0
             },
             {
-                "id": "0x23bd628fd365a0f3ecd10db746dd04ec5efe61f96da19ae070c44b97d3c9a7b8",
-                "attempt": 2
+                "id": "0x31d6a25525ff4bd6e47e611646d7b5835b94b5c0a69c225371b2b762c93095a2",
+                "attempt": 1
+            },
+            {
+                "id": "0x31e9b8070f42d7c9083eca5879e5528191259a395761b8fcc068dcdd36b06be4",
+                "attempt": 1
             }
         ]
     },
