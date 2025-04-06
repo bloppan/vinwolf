@@ -65,8 +65,8 @@ mod tests {
     fn run_testnet() {
 
         //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/fallback");
-        run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/safrole");
-        //run_javajam_blocks("tests/test_vectors/javajam-trace/stf");
+        //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/safrole");
+        run_javajam_blocks("tests/test_vectors/testnet/javajam-trace/stf");
     }
 
     fn run_jamduna_blocks(dir: &str) {
@@ -141,12 +141,12 @@ mod tests {
 
         let body_block: Vec<TestBody> = vec![TestBody::Block];
         println!("Running JavaJAM blocks");
-        let json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), "785461.json").unwrap();
+        let json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), "1350458.json").unwrap();
         set_global_state(json_file.pre_state.clone());
-        let mut filenumber = 785461;
+        let mut filenumber = 1350458;
         println!("Importing block sequence");
 
-        //loop {
+        loop {
 
             let bin_filename = format!("{}/blocks/{}.bin", dir, filenumber);
             let block_content = read_test(&bin_filename);
@@ -191,7 +191,7 @@ mod tests {
             assert_eq!(json_file.post_state_root, merkle_state(&state.serialize().map, 0).unwrap());
 
             filenumber += 1;
-        //}
+        }
     }
 
 }
