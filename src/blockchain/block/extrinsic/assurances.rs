@@ -50,7 +50,7 @@ impl AssurancesExtrinsic {
         if !is_sorted_and_unique(&validator_indexes) {
             return Err(ProcessError::AssurancesError(AssurancesErrorCode::NotSortedOrUniqueAssurers));
         }
-
+        
         let current_validators = get_validators(ValidatorSet::Current);
         //let list = get_reporting_assurance();
         let mut core_marks = [0_usize; CORES_COUNT as usize];
