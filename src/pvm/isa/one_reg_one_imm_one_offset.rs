@@ -45,6 +45,7 @@ fn branch(
     let r_value = get_x_value(&pvm_ctx.pc, program);
     let n = get_y_value(&pvm_ctx.pc, program);
     if !compare(l_value, r_value) {
+        pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
         return ExitReason::Continue;
     }
     _branch(pvm_ctx, program, n as RegSigned)

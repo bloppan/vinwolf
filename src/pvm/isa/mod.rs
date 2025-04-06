@@ -1,5 +1,5 @@
 use crate::types::{Context, RamAccess, RamAddress, RegSize, Program, ExitReason};
-use crate::constants::{JUMP_ALIGNMENT, PAGE_SIZE};
+use crate::constants::{LOWEST_ACCESIBLE_PAGE, JUMP_ALIGNMENT, PAGE_SIZE};
 use crate::utils::codec::EncodeSize;
 use crate::utils::codec::generic::decode;
 
@@ -16,6 +16,46 @@ pub mod two_reg_one_offset;
 pub mod two_reg_two_imm;
 pub mod two_reg;
 pub mod one_reg_one_ext_imm;
+
+use super::{*};
+
+static BASIC_BLOCK_TERMINATORS: &[u8] = &[
+    TRAP,
+    FALLTHROUGH,
+    JUMP,
+    JUMP_IND,
+    LOAD_IMM_JUMP,
+    LOAD_IMM_JUMP_IND,
+    BRANCH_EQ,
+    BRANCH_NE,
+    BRANCH_GE_U,
+    BRANCH_GE_S,
+    BRANCH_LT_U,
+    BRANCH_LT_S,
+    BRANCH_EQ_IMM,
+    BRANCH_NE_IMM,
+    BRANCH_LT_U_IMM,
+    BRANCH_LT_S_IMM,
+    BRANCH_LE_U_IMM,
+    BRANCH_LE_S_IMM,
+    BRANCH_GE_U_IMM,
+    BRANCH_GE_S_IMM,
+    BRANCH_GT_U_IMM,
+    BRANCH_GT_S_IMM,
+];
+
+pub fn begin_basic_block(program: &Program, pc: &RegSize, next_instr: usize) -> bool {
+    
+    if *pc == 0 {
+        return true;
+    }
+
+    if program.bitmask[next_instr] && BASIC_BLOCK_TERMINATORS.contains(&program.code[*pc as usize]) {
+        return true;
+    }
+
+    return false;
+}
 
 pub fn skip(i: &u64, k: &[bool]) -> u64 {
     let mut j = *i + 1;
@@ -65,35 +105,32 @@ pub fn _branch(
     n: i64,
 ) -> ExitReason {
 
-    if n == 0 {
+    /*if n == 0 {
         pvm_ctx.pc = 0;
-        return ExitReason::Branch;
-    }
+        return ExitReason::Continue;
+    }*/
     // Check if the jump is out of bounds
     if n < 0 || n as usize >= program.code.len() {
         println!("Panic: jump out of bounds");
         return ExitReason::panic;
     }
-    // TODO
+
     // Check for the beginning of a basic-block
-    /*if program.code[n as usize - 1] != 0 {
-        println!("Panic: not a basic block: {}, n = {n}", program.code[n as usize - 1]);
-        println!("Should be executed the instruction: {}", program.code[n as usize]);
-        for i in 0..10 {
-            println!("{}", program.code[i + n as usize - 1]);
-        }
+    if !begin_basic_block(program, &pvm_ctx.pc, pvm_ctx.pc as usize + 1 + skip(&pvm_ctx.pc, &program.bitmask) as usize) {
+        println!("Panic: not a basic block");
         return ExitReason::panic;
-    }*/
-    //println!("Branching to {}, instruction {}", n, program.code[n as usize]);
-    pvm_ctx.pc = (n - 1) as RegSize;
+    }
+
+    //pvm_ctx.pc = (n - 1) as RegSize;
+    pvm_ctx.pc = n as RegSize;
         
     return ExitReason::Continue;
 }
 
-pub fn _load<T>(pvm_ctx: &mut Context, address: RamAddress, reg: RegSize, signed: bool) -> ExitReason {
+pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, reg: RegSize, signed: bool) -> ExitReason {
 
-    if let Err(address) = check_page_fault::<T>(pvm_ctx, address as RamAddress, RamAccess::Read) {
-        return ExitReason::PageFault(address);
+    if let Err(check_error) = check_memory_access::<T>(pvm_ctx, address as RamAddress, RamAccess::Read) {
+        return check_error;
     }
     
     let mut value: Vec<u8> = Vec::new();
@@ -102,57 +139,59 @@ pub fn _load<T>(pvm_ctx: &mut Context, address: RamAddress, reg: RegSize, signed
     for i in 0..std::mem::size_of::<T>() {
         let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE; 
         let offset = address.wrapping_add(i as RamAddress) % PAGE_SIZE;
-        if let Some(page) = pvm_ctx.page_table.pages.get_mut(&page_target) {
-            value.push(page.data[offset as usize] as u8); 
-            page.flags.referenced = true;
-        } else {
-            pvm_ctx.page_fault = Some(address.wrapping_add(i as RamAddress));
-            return ExitReason::PageFault(address);
-        }
+        let byte = pvm_ctx.ram.pages[page_target as usize].as_ref().unwrap().data[offset as usize] as u8;
+        value.push(byte); 
+        pvm_ctx.ram.pages[page_target as usize].as_mut().unwrap().flags.referenced = true;
     }
     
     if signed {
         pvm_ctx.reg[reg as usize] = extend_sign(&value, n);
+        pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
         return ExitReason::Continue;
     } 
 
     pvm_ctx.reg[reg as usize] = decode::<RegSize>(&value, n);
+    pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
     return ExitReason::Continue;
 }
 
 
 pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, value: RegSize) -> ExitReason {
 
-    if let Err(address) = check_page_fault::<T>(pvm_ctx, address as RamAddress, RamAccess::Write) {
-        return ExitReason::PageFault(address);
+    if let Err(check_error) = check_memory_access::<T>(pvm_ctx, address as RamAddress, RamAccess::Write) {
+        return check_error;
     }
     
     for (i, byte) in value.encode_size(std::mem::size_of::<T>()).iter().enumerate() {
-        let page_address = address.wrapping_add(i as RamAddress) / PAGE_SIZE;
+        let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE;
         let offset = address.wrapping_add(i as RamAddress) % PAGE_SIZE;
-        if let Some(page) = pvm_ctx.page_table.pages.get_mut(&page_address) {
-            page.data[offset as usize] = *byte;
-            page.flags.modified = true;
-        } else {
-            pvm_ctx.page_fault = Some(address.wrapping_add(i as RamAddress));
-            return ExitReason::PageFault(address.wrapping_add(i as RamAddress));
-        }
+        pvm_ctx.ram.pages[page_target as usize].as_mut().unwrap().data[offset as usize] = *byte;
+        pvm_ctx.ram.pages[page_target as usize].as_mut().unwrap().flags.modified = true;
     }
+
+    pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
     ExitReason::Continue
 }
 
-pub fn check_page_fault<T>(pvm_ctx: &mut Context, address: RamAddress, access: RamAccess) -> Result<(), RamAddress> {
-
+pub fn check_memory_access<T>(pvm_ctx: &mut Context, address: RamAddress, access: RamAccess) -> Result<(), ExitReason> {
+    
     for i in 0..std::mem::size_of::<T>() {
         let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE;
-        if let Some(page) = pvm_ctx.page_table.pages.get(&page_target) {
-            if access == RamAccess::Write && page.flags.access != RamAccess::Write {
-                pvm_ctx.page_fault = Some(address.wrapping_add(i as RamAddress));
-                return Err(address);
+        // Check if the page is in the range of the highest inaccessible page (0xFFFF0000)
+        if page_target < LOWEST_ACCESIBLE_PAGE {
+            return Err(ExitReason::panic);
+        }
+        // Check if the page is in the page table
+        if let Some(page) = pvm_ctx.ram.pages[page_target as usize].as_ref() {
+            // Check the access flags
+            if page.flags.access.get(&access).is_none() {
+                return Err(ExitReason::panic);
             }
         } else {
             pvm_ctx.page_fault = Some(address.wrapping_add(i as RamAddress));
-            return Err(address);
+            return Err(ExitReason::page_fault);
+            // TODO cambiar esto
+            //return Err(ExitReason::PageFault(page_target));
         }
     }
 
@@ -160,25 +199,36 @@ pub fn check_page_fault<T>(pvm_ctx: &mut Context, address: RamAddress, access: R
 }
 
 pub fn djump(a: &RegSize, pc: &mut RegSize, program: &Program) -> ExitReason {
+
+    let jump_table_position = (*a as usize / JUMP_ALIGNMENT).saturating_sub(1);
+
     if *a == 0xFFFF0000 {
-        /*println!("Halt");
-        println!("pc = {}", pc);*/
-        return ExitReason::halt;
+        return ExitReason::Halt;
     } else if *a == 0 
-        || *a as usize > program.jump_table.len() * JUMP_ALIGNMENT 
-        || *a as usize % JUMP_ALIGNMENT != 0 
-        //|| program.code[program.jump_table[(*a as usize / JUMP_ALIGNMENT) - 1] - 1] != 0 
-        {
-        /*println!("Panic: invalid address");
-        println!("a = {} pc = {}", *a, pc);*/
+            || *a as usize > program.jump_table.len() * JUMP_ALIGNMENT 
+            || *a as usize % JUMP_ALIGNMENT != 0 
+            || !begin_basic_block(program, pc, program.jump_table[jump_table_position]) 
+    {
         ExitReason::panic
-    } else {
-        let jump = (*a as usize / 2) - 1;
-        //println!("Jumping to jump table pos {}", jump);
-        *pc = program.jump_table[jump] as u64 - 1;
-        //println!("pc = {}", pc);
+    } else {        
+        *pc = program.jump_table[jump_table_position] as u64;
         ExitReason::Continue
     }    
+}
+
+fn smod(a: i64, b: i64) -> i64 {
+    
+    if b == 0 {
+        return a;
+    }
+
+    let result = a.abs() % b.abs();
+
+    if a >= 0 {
+        return result;
+    } 
+
+    return -result;
 }
 
 #[cfg(test)]
@@ -273,6 +323,35 @@ mod test {
             assert_eq!(result, expected, "Failed on input: {}, n: {}", input, n);
         }
     }
+
+    #[test]
+    fn test_smod() {
+        assert_eq!(smod(10, 3), 1);
+        assert_eq!(smod(-10, 3), -1);
+        assert_eq!(smod(10, -3), 1);
+        assert_eq!(smod(-10, -3), -1);
+
+        assert_eq!(smod(5, 2), 1);
+        assert_eq!(smod(-5, 2), -1);
+        assert_eq!(smod(5, -2), 1);
+        assert_eq!(smod(-5, -2), -1);
+
+        assert_eq!(smod(0, 3), 0);
+        assert_eq!(smod(0, -3), 0);
+        assert_eq!(smod(42, 0), 42);
+        assert_eq!(smod(-42, 0), -42);
+
+        assert_eq!(smod(i64::MAX, 3), 1);
+        assert_eq!(smod(i64::MIN + 1, 2), -1);
+    }
     
+    /*#[test]
+    fn test_address() {
+        let address = (1 << 16) as RamAddress;
+        let page1 = (address - 1) / PAGE_SIZE;
+        let page2 = address / PAGE_SIZE;
+
+        println!("page1 = {}, page2 = {}", page1, page2);
+    }*/
     
 }

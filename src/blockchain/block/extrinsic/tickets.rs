@@ -8,10 +8,16 @@
 // becomes fixed. 
 // We define the extrinsic as a sequence of proofs of valid tickets, each of which is a tuple of an entry index 
 // (a natural number less than N) and a proof of ticket validity.
-use ark_ec_vrfs::suites::bandersnatch::edwards as bandersnatch_ark_ec_vrfs;
-use ark_ec_vrfs::prelude::ark_serialize;
-use ark_serialize::CanonicalDeserialize;
-use bandersnatch_ark_ec_vrfs::Public;
+use ark_vrf::reexports::{
+    ark_ec::AffineRepr,
+    ark_serialize::{self, CanonicalDeserialize, CanonicalSerialize},
+};
+use ark_vrf::{pedersen::PedersenSuite, ring::RingSuite, suites::bandersnatch};
+use bandersnatch::{
+    AffinePoint, BandersnatchSha512Ell2, IetfProof, Input, Output, Public, RingProof,
+    RingProofParams, Secret,
+};
+
 use crate::blockchain::state::safrole::bandersnatch::Verifier;
 
 use crate::constants::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR};
@@ -143,7 +149,7 @@ impl TicketsExtrinsic {
         let ring_set: Vec<Public> = ring_keys
                                             .iter()
                                             .map(|key| {
-                                                let point = bandersnatch_ark_ec_vrfs::Public::deserialize_compressed(&key[..])
+                                                let point = Public::deserialize_compressed(&key[..])
                                                 .expect("Deserialization failed");
                                                 point
                                             })

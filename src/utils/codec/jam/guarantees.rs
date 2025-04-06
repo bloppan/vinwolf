@@ -34,12 +34,9 @@ impl Encode for GuaranteesExtrinsic {
 impl Decode for GuaranteesExtrinsic {
 
     fn decode(guarantees_blob: &mut BytesReader) -> Result<Self, ReadError> {
-        
         let num_guarantees = decode_unsigned(guarantees_blob)?;
         let mut report_guarantee: Vec<ReportGuarantee> = Vec::with_capacity(num_guarantees);
-
         for _ in 0..num_guarantees {
-
             let report = WorkReport::decode(guarantees_blob)?;
             let slot = TimeSlot::decode(guarantees_blob)?;
             let num_signatures = decode_unsigned(guarantees_blob)?;
@@ -52,8 +49,8 @@ impl Decode for GuaranteesExtrinsic {
             }
 
             report_guarantee.push(ReportGuarantee{report, slot, signatures});
-        }
 
+        }
         Ok(GuaranteesExtrinsic{ report_guarantee })
     }
 }

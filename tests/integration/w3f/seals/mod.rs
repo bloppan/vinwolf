@@ -17,8 +17,7 @@ use vinwolf::blockchain::block::extrinsic::tickets::verify_seal;
 use vinwolf::blockchain::state::{set_validators, set_entropy};
 use vinwolf::blockchain::state::safrole::{create_ring_set, create_root_epoch};
 
-use ark_ec_vrfs::suites::bandersnatch::edwards as bandersnatch_ark_ec_vrfs;
-use bandersnatch_ark_ec_vrfs::Public;
+use ark_vrf::suites::bandersnatch::Public;
 
 #[derive(Deserialize, Debug, PartialEq)]
 struct Testcase {

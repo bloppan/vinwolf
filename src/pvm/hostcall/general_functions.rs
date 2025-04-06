@@ -1,5 +1,5 @@
 use crate::types::{
-    Account, ExitReason, Gas, PageTable, RamAddress, Registers, ServiceAccounts, ServiceId, ServiceInfo, 
+    Account, ExitReason, Gas, PageTable, RamAddress, RamMemory, Registers, ServiceAccounts, ServiceId, ServiceInfo 
 };
 use crate::constants::PAGE_SIZE;
 use crate::constants::{NONE, WHAT, OOB, WHO, FULL, CORE, CASH, LOW, HUH, OK};
@@ -8,7 +8,7 @@ use crate::pvm::hostcall::is_writable;
 
 pub fn info(gas: &mut Gas,
             reg: &mut Registers,
-            ram: &mut PageTable,
+            ram: &mut RamMemory,
             service_id: &ServiceId, 
             accounts: &ServiceAccounts
 ) -> ExitReason {
@@ -70,7 +70,7 @@ pub fn info(gas: &mut Gas,
     }
 
     for page_number in start_page..=end_page {
-        let page = ram.pages.get_mut(&page_number).unwrap();
+        let page = ram.pages[page_number as usize].as_mut().unwrap();
         let mut i = 0;
         if page_number != start_page {
             offset = 0;

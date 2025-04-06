@@ -41,6 +41,7 @@ pub struct ParsedTransitionFile {
 
 pub fn read_test(filename: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(filename);
+    println!("Reading test file: {:?}", path);
     let mut file = match File::open(&path) {
         Ok(file) => file,
         Err(e) => {
@@ -56,14 +57,16 @@ pub fn read_test(filename: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> 
 #[cfg(test)]
 mod tests {
 
+    use vinwolf::blockchain::state::services;
+
     use super::*;
 
     #[test]
     fn run_testnet() {
 
-        run_jamduna_blocks("tests/test_vectors/jamtestnet/data/fallback");
-        run_jamduna_blocks("tests/test_vectors/jamtestnet/data/safrole");
-        run_javajam_blocks("tests/test_vectors/javajam-trace/stf");
+        //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/fallback");
+        //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/safrole");
+        run_javajam_blocks("tests/test_vectors/testnet/javajam-trace/stf");
     }
 
     fn run_jamduna_blocks(dir: &str) {
@@ -91,7 +94,11 @@ mod tests {
             let json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), &state_json_filename).unwrap();
             println!("Importing block {}/{}", format!("{}/state_transitions", dir), state_json_filename);
             let block_content = block_content.unwrap();
-            let _ = encode_decode_test(&block_content.clone(), &body_block);
+            let encode_decode= encode_decode_test(&block_content.clone(), &body_block);
+            if encode_decode.is_err() {
+                println!("Error encoding/decoding block: {:?}", encode_decode);
+                return;
+            }
             let mut block_reader = BytesReader::new(&block_content);
             let block = Block::decode(&mut block_reader).expect("Error decoding Block");
 
@@ -134,9 +141,9 @@ mod tests {
 
         let body_block: Vec<TestBody> = vec![TestBody::Block];
         println!("Running JavaJAM blocks");
-        let json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), "785461.json").unwrap();
+        let json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), "1350458.json").unwrap();
         set_global_state(json_file.pre_state.clone());
-        let mut filenumber = 785461;
+        let mut filenumber = 1350458;
         println!("Importing block sequence");
 
         loop {

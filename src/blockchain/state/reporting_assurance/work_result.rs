@@ -1,7 +1,7 @@
 use crate::constants::{WORK_REPORT_GAS_LIMIT, MAX_WORK_ITEMS};
 use crate::types::{Gas, WorkResult, ReportErrorCode};
 use crate::blockchain::state::ProcessError;
-use crate::blockchain::state::services::get_services_state;
+use crate::blockchain::state::get_service_accounts;
 
 impl WorkResult {
 
@@ -15,22 +15,23 @@ impl WorkResult {
             return Err(ProcessError::ReportError(ReportErrorCode::TooManyResults));
         }
 
-        let services = get_services_state();
+        let services = get_service_accounts();
         let mut total_accumulation_gas: Gas = 0;
         
-        let service_map: std::collections::HashMap<_, _> = services.0.iter().map(|s| (s.id, s)).collect();
+        //let service_map: std::collections::HashMap<_, _> = services.0.iter().map(|s| (s.id, s)).collect();
         let mut results_size = 0;
 
         for result in results.iter() {
-            if let Some(service) = service_map.get(&result.service) {
+            if let Some(service) = services.service_accounts.get(&result.service) {
                 // We require that all work results within the extrinsic predicted the correct code hash for their 
                 // corresponding service
-                if result.code_hash != service.info.code_hash {
+                if result.code_hash != service.code_hash {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadCodeHash));
                 }
                 // We require that the gas allotted for accumulation of each work item in each work-report respects 
                 // its service's minimum gas requirements
-                if result.gas < service.info.min_item_gas {
+                // TODO revisar esto a ver si en realidad es este gas
+                if result.gas < service.min_gas {
                     return Err(ProcessError::ReportError(ReportErrorCode::ServiceItemGasTooLow));
                 }
                 total_accumulation_gas += result.gas;

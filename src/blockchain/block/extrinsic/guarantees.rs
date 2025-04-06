@@ -6,7 +6,7 @@ use crate::blockchain::state::get_recent_history;
 use crate::utils::common::is_sorted_and_unique;
 
 impl GuaranteesExtrinsic {
-    /// The guarantees extrinsic is a series of guarantees, at most one for each core, each of which is 
+    // The guarantees extrinsic is a series of guarantees, at most one for each core, each of which is 
     // a tuple of a work-report, a credential and its corresponding timeslot. The core index of each 
     // guarantee must be unique and guarantees must be in ascending order of this.
     // They are reports of newly completed workloads whose accuracy is guaranteed by specific validators. 
@@ -40,7 +40,7 @@ impl GuaranteesExtrinsic {
 
         // We limit the sum of the number of items in the segment-root lookup dictionary and the number of prerequisites to MAX_DEPENDENCY_ITEMS
         for guarantee in &self.report_guarantee {
-            if guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.0.len() > MAX_DEPENDENCY_ITEMS {
+            if guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.len() > MAX_DEPENDENCY_ITEMS {
                 return Err(ProcessError::ReportError(ReportErrorCode::TooManyDependencies));
             }
         }
@@ -107,7 +107,7 @@ impl GuaranteesExtrinsic {
             }
             // We require that any work-packages mentioned in the segment-root lookup, if present, be either in the extrinsic
             // or in our recent history
-            for segment in &guarantee.report.segment_root_lookup.0 {
+            for segment in &guarantee.report.segment_root_lookup {
                 let segment_root = packages_map.get(&segment.work_package_hash)
                     .or_else(|| recent_history_map.get(&segment.work_package_hash));
                 // We require that any segment roots mentioned in the segment-root lookup be verified as correct based on our

@@ -40,7 +40,7 @@ pub fn process_assurances(
     post_tau: &TimeSlot,
     parent: &Hash) 
 -> Result<OutputDataAssurances, ProcessError> {
-
+    
     let output_data = assurances.process(assurances_state, post_tau, parent)?;
 
     Ok(OutputDataAssurances {

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 extern crate vinwolf;
 use vinwolf::constants::{NUM_REG, PAGE_SIZE};
-use vinwolf::types::{Account, Context, OpaqueHash, Page, PageFlags, PageTable, RamAccess, ServiceAccounts};
+use vinwolf::types::{Account, Context, OpaqueHash, Page, PageFlags, PageTable, RamAccess, RamMemory, ServiceAccounts};
 
 use super::{DeltaEntry, InitialMemory, HostCallTestFile};
 
@@ -87,15 +87,15 @@ pub fn parse_regs(json_data: &HashMap<String, u64>) -> [u64; NUM_REG] {
     }
     return regs;
 }
-
-pub fn parse_memory(json_data: &InitialMemory) -> PageTable {
-    let mut page_table: PageTable = PageTable::default();
+// TODO arreglar esto
+pub fn parse_memory(json_data: &InitialMemory) -> RamMemory {
+    let mut ram: RamMemory = RamMemory::default();
     for page in json_data.pages.iter() {
         let mut flags = PageFlags::default();
         if page.1.access.writable {
-            flags.access = RamAccess::Write;
+            flags.access.insert(RamAccess::Write);
         } else  {
-            flags.access = RamAccess::Read;
+            flags.access.insert(RamAccess::Read);
         }
         let new_page = Page {
             flags,
@@ -107,9 +107,9 @@ pub fn parse_memory(json_data: &InitialMemory) -> PageTable {
                 data
             }   
         };
-        page_table.pages.insert(page.0.parse::<u32>().unwrap(), new_page);
+        //page_table.pages.insert(page.0.parse::<u32>().unwrap(), new_page);
     }
-    return page_table;
+    return ram;
 }
 
 pub enum TestPart {
@@ -123,12 +123,12 @@ pub fn parse_context(json_data: &HostCallTestFile, part: TestPart) -> Context {
         TestPart::Initial => {
             context.gas = json_data.initial_gas;
             context.reg = parse_regs(&json_data.initial_regs);
-            context.page_table = parse_memory(&json_data.initial_memory);
+            context.ram = parse_memory(&json_data.initial_memory);
         },
         TestPart::Expected => {
             context.gas = json_data.expected_gas;
             context.reg = parse_regs(&json_data.expected_regs);
-            context.page_table = parse_memory(&json_data.expected_memory);
+            context.ram = parse_memory(&json_data.expected_memory);
         }
     }
     return context;

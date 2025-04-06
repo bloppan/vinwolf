@@ -52,7 +52,6 @@ impl Decode for UnsignedHeader {
             parent_state_root: OpaqueHash::decode(header_blob)?,
             extrinsic_hash: OpaqueHash::decode(header_blob)?,
             slot: TimeSlot::decode(header_blob)?,
-
             epoch_mark: if header_blob.read_byte()? != 0 {
                 Some(EpochMark::decode(header_blob)?)
             } else {
@@ -133,7 +132,8 @@ impl Encode for EpochMark {
         self.tickets_entropy.encode_to(&mut blob);
 
         for validator in self.validators.iter() {
-            validator.encode_to(&mut blob);
+            validator.0.encode_to(&mut blob);
+            validator.1.encode_to(&mut blob);
         }
 
         return blob;
@@ -152,9 +152,9 @@ impl Decode for EpochMark {
             entropy: Entropy::decode(blob)?,
             tickets_entropy: Entropy::decode(blob)?,
             validators: {
-                let mut validators = Box::new(std::array::from_fn(|_| BandersnatchPublic::default()));
+                let mut validators = Box::new(std::array::from_fn(|_| (BandersnatchPublic::default(), Ed25519Public::default())));
                 for validator in validators.iter_mut() {
-                    *validator = BandersnatchPublic::decode(blob)?;
+                    *validator = (BandersnatchPublic::decode(blob)?, Ed25519Public::decode(blob)?);
                 }
                 validators
             },

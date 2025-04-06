@@ -3,13 +3,14 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use serde_json;
 use std::io::Read;
+use std::path::PathBuf;
 use hex;
 use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 
 use vinwolf::types::{
     Account, AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, BlockHistory, DisputesRecords, EntropyPool, 
-    GlobalState, Privileges, ReadyQueue, Safrole, ServiceId, Statistics, TimeSlot, ValidatorsData,
+    GlobalState, Privileges, ReadyQueue, Safrole, ServiceId, Statistics, TimeSlot, ValidatorsData, Gas
 };
 
 use vinwolf::utils::codec::{Decode, BytesReader};
@@ -21,8 +22,8 @@ pub struct ParsedServiceAccount {
     pub s: ServiceId,
     pub c: Vec<u8>, 
     pub b: u64,
-    pub g: u64,
-    pub m: u64,
+    pub g: Gas,
+    pub m: Gas,
     pub l: u64,
     pub i: u32,
     pub clen: u32,
@@ -64,8 +65,8 @@ pub fn parse_service_account(input: &str) -> ParsedServiceAccount {
         s: map.get("s").unwrap_or(&"0").parse::<u32>().unwrap(),
         c: hex::decode(map.get("c").unwrap().trim_start_matches("0x")).unwrap(),
         b: map.get("b").unwrap_or(&"0").parse::<u64>().unwrap(),
-        g: map.get("g").unwrap_or(&"0").parse::<u64>().unwrap(),
-        m: map.get("m").unwrap_or(&"0").parse::<u64>().unwrap(),
+        g: map.get("g").unwrap_or(&"0").parse::<Gas>().unwrap(),
+        m: map.get("m").unwrap_or(&"0").parse::<Gas>().unwrap(),
         l: map.get("l").unwrap_or(&"0").parse::<u64>().unwrap(),
         i: map.get("i").unwrap_or(&"0").parse::<u32>().unwrap(),
         clen: map.get("clen").unwrap_or(&"0").parse::<u32>().unwrap(),
@@ -175,7 +176,6 @@ pub fn deserialize_state_transition_file(dir: &str, filename: &str) -> Result<Pa
     //let filename = format!("tests/jamtestnet/data/{}/state_transitions/{}", dir, filename);
     //let filename = format!("tests/javajam-trace/stf/state_transitions/{}", filename);
     let filename = format!("{}/{}", dir, filename);
-    //println!("filename = {}", filename);
     //let state_content = read_test(&format!("tests/jamtestnet/data/fallback/state_transitions/{}", filename));
     let mut file = std::fs::File::open(&filename).expect("Failed to open JSON file");
     let mut contents = String::new();
@@ -208,7 +208,6 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
             match key_type {
                 "1" => {
                     global_state.auth_pools = AuthPools::decode(&mut BytesReader::new(&value)).expect("Error decoding AuthPools");
-                    //println!("auth_pools: {:x?}", global_state.auth_pools);
                     "AuthPools"
                 },
                 "2" => {
@@ -313,7 +312,7 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
             let blob = hex::decode(&keyval.1[2..]).unwrap();
             global_state.service_accounts.service_accounts.get_mut(&service).unwrap().preimages.insert(hash, blob);
 
-            //println!("key_type: Account preimage: {:?}", parsed_account_preimage);
+           // println!("key_type: Account preimage: {:?}", parsed_account_preimage);
         } else {
             println!("Unknown key type");
         }

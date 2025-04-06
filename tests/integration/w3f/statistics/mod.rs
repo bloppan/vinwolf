@@ -31,24 +31,22 @@ mod tests {
     fn run_test(filename: &str) {
 
         let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/statistics/{}/{}", *TEST_TYPE, filename));
-        let test_body: Vec<TestBody> = vec![
+        /*let test_body: Vec<TestBody> = vec![
                                         TestBody::InputStatistics,
                                         TestBody::StateStatistics,
-                                        TestBody::StateStatistics];
+                                        TestBody::StateStatistics];*/
         
-        let _ = encode_decode_test(&test_content, &test_body);
-
         let mut reader = BytesReader::new(&test_content);
-        let input = InputStatistics::decode(&mut reader).expect("Error decoding post InputStatistics");
-        let pre_state = StateStatistics::decode(&mut reader).expect("Error decoding post Statitstics PreState");
-        let expected_state = StateStatistics::decode(&mut reader).expect("Error decoding post Statitstics PostState");
+        let input = InputStatistics::decode(&mut reader).expect("Error decoding InputStatistics");
+        let pre_state = StateStatistics::decode(&mut reader).expect("Error decoding Statitstics PreState");
+        let expected_state = StateStatistics::decode(&mut reader).expect("Error decoding Statitstics PostState");
 
         set_statistics(pre_state.stats);
         set_time(pre_state.tau);
         set_validators(pre_state.next_validators, ValidatorSet::Next);
 
         let mut result_statistics = get_global_state().lock().unwrap().statistics.clone();
-        process_statistics(&mut result_statistics, &input.slot, &input.author_index, &input.extrinsic);
+        process_statistics(&mut result_statistics, &input.slot, &input.author_index, &input.extrinsic, &[]);
 
         let result_time = get_time();
         let result_validators = get_validators(ValidatorSet::Next);

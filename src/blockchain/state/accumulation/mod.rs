@@ -55,7 +55,7 @@ pub fn process_accumulation(
 fn get_reports_imm_accumulable(reports: &[WorkReport]) -> Vec<WorkReport> {
     let mut new_imm_available_work_reports = vec![];
     for report in reports.iter() {
-        if report.context.prerequisites.len() == 0 && report.segment_root_lookup.0.len() == 0 {
+        if report.context.prerequisites.len() == 0 && report.segment_root_lookup.len() == 0 {
             new_imm_available_work_reports.push(report.clone());
         }
     }
@@ -146,7 +146,7 @@ fn D(reports: &[WorkReport]) -> Vec<ReadyRecord> {
 
     for report in reports.iter() {
         let mut lookup_dep = vec![];
-        for dep in report.segment_root_lookup.0.iter() {
+        for dep in report.segment_root_lookup.iter() {
             lookup_dep.push(dep.work_package_hash);
         }
         let mut dependencies = vec![];

@@ -37,6 +37,8 @@ Run test safrole showing output
 ```bash
 cargo test -- safrole --show-output
 ```
+## DOT Address
+1urZ9pp1D6aL6SRwepP9zhU2kzgxJ3dtRodSLe4paJCpLrk
 
 ## License
 

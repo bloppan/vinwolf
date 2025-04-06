@@ -7,7 +7,7 @@ use std::collections::HashMap;
 extern crate vinwolf;
 
 use vinwolf::pvm::hostcall::general_functions::info;
-use vinwolf::types::GlobalState;
+use vinwolf::types::{GlobalState, Gas};
 
 mod parser;
 use parser::{parse_account, parse_context, parse_service_accounts, TestPart};
@@ -16,7 +16,7 @@ use parser::{parse_account, parse_context, parse_service_accounts, TestPart};
 struct HostCallTestFile {
     name: String,
     #[serde(rename = "initial-gas")]
-    initial_gas: u64,
+    initial_gas: Gas,
     #[serde(rename = "initial-regs")]
     initial_regs: HashMap<String, u64>,
     #[serde(rename = "initial-memory")]
@@ -28,7 +28,7 @@ struct HostCallTestFile {
     #[serde(rename = "initial-delta")]
     initial_delta: HashMap<String, DeltaEntry>,
     #[serde(rename = "expected-gas")]
-    expected_gas: u64,
+    expected_gas: Gas,
     #[serde(rename = "expected-regs")]
     expected_regs: HashMap<String, u64>,
     #[serde(rename = "expected-memory")]
@@ -65,8 +65,8 @@ struct LookupMap {
 struct DeltaEntry {
     code_hash: String,
     balance: u64,
-    g: u64,
-    m: u64,
+    g: Gas,
+    m: Gas,
     #[serde(rename = "s_map")]
     s_map: HashMap<String, Vec<u8>>,
     #[serde(rename = "l_map")]
@@ -115,7 +115,7 @@ mod tests {
         let expected_context = parse_context(&json_data, TestPart::Expected);
 
         assert_eq!(expected_context.reg, context.reg);
-        assert_eq!(expected_context.page_table, context.page_table);
+        assert_eq!(expected_context.ram, context.ram);
         // TODO
         //assert_eq!(expected_context.gas, context.gas);
         assert_eq!(expected_service_accounts, global_state.service_accounts);

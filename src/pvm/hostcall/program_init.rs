@@ -1,4 +1,4 @@
-use crate::types::{Page, ProgramFormat, RamAccess, RamMemory, StandardProgram};
+use crate::types::{Page, PageTable, ProgramFormat, RamAccess, RamAddress, RamMemory, StandardProgram};
 use crate::constants::{NUM_REG, PAGE_SIZE, PVM_INIT_INPUT_DATA_SIZE, PVM_INIT_ZONE_SIZE, RAM_SIZE, Zz, Zi};
 use crate::constants::{NONE, WHAT, OOB, WHO, FULL, CORE, CASH, LOW, HUH, OK};
 use crate::utils::codec::{Decode, BytesReader, ReadError};
@@ -11,61 +11,127 @@ fn Zone(x: usize) -> u64 {
     x.div_ceil(PVM_INIT_ZONE_SIZE as usize) as u64 * PVM_INIT_ZONE_SIZE as u64
 }
 
-fn ram_initialization(params: &ProgramFormat, arg: &[u8]) -> RamMemory {
+enum RamSection {
+    Zone1,
+    Zone2,
+    Zone3,
+    Zone4,
+    Zone5,
+    Zone6,
+    Zone7,
+}
 
-    let mut ram = RamMemory::default();
+fn init_ram_section(ram: &mut RamMemory,
+                    params: &ProgramFormat, 
+                    arg: &[u8],
+                    start: RamAddress, 
+                    end: RamAddress, 
+                    section: RamSection) 
+{
+    let start_page = start / PAGE_SIZE;
+    let end_page = (end - 1) / PAGE_SIZE;
 
-    for i in 0..RAM_SIZE {
-
-        let page = i / PAGE_SIZE as u64;
-        let offset = i % PAGE_SIZE as u64;
-
-        if Zz <= i && i < Zz + params.o.len() as u64 {
-            if ram.pages[page as usize].is_none() {
-                ram.pages[page as usize] = Some(Page::default());
-            }
-            ram.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.o[i as usize - Zz as usize];
-        } else if Zz + params.o.len() as u64 <= i && i < Zz + Page(params.o.len()) as u64 {
-            if ram.pages[page as usize].is_none() {
-                ram.pages[page as usize] = Some(Page::default());
-            }
-            ram.pages[page as usize].as_mut().unwrap().data[offset as usize] = 0;
-        } else if 2 * Zz + Zone(params.o.len()) as u64 <= i && i < 2 * Zz + Zone(params.o.len()) as u64 + params.w.len() as u64 {
-            if ram.pages[page as usize].is_none() {
-                ram.pages[page as usize] = Some(Page::default());
-            }
-            ram.pages[page as usize].as_mut().unwrap().flags.access = RamAccess::Write;
-            ram.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.w[i as usize - (2 * Zz + Zone(params.o.len()) as u64) as usize];
-        } else if 2 * Zz + Zone(params.o.len()) as u64 + params.w.len() as u64 <= i && i < 2 * Zz + Zone(params.o.len()) as u64 + Page(params.w.len()) as u64 + params.z as u64 * PAGE_SIZE as u64 {
-            if ram.pages[page as usize].is_none() {
-                ram.pages[page as usize] = Some(Page::default());
-            }
-            ram.pages[page as usize].as_mut().unwrap().flags.access = RamAccess::Write;
-        } else if (1 << 32) - 2 * Zz - Zi - Page(params.s as usize) as u64 <= i && i < (1 << 32) - 2 * Zz - Zi {
-            if ram.pages[page as usize].is_none() {
-                ram.pages[page as usize] = Some(Page::default());
-            }
-            ram.pages[page as usize].as_mut().unwrap().flags.access = RamAccess::Write;
-        } else if (1 << 32) - Zz - Zi <= i && i < (1 << 32) - Zz - Zi + arg.len() as u64{
-            if ram.pages[page as usize].is_none() {
-                ram.pages[page as usize] = Some(Page::default());
-            }
-            ram.pages[page as usize].as_mut().unwrap().data[offset as usize] = arg[i as usize - ((1 << 32) - Zz - Zi) as usize]; 
-        } else if (1 << 32) - Zz - Zi + arg.len() as u64 <= i && i < (1 << 32) - Zz - Zi + Page(arg.len() as usize) as u64 {
-            if ram.pages[page as usize].is_none() {
-                ram.pages[page as usize] = Some(Page::default());
-            }
+    for i in start_page..=end_page {
+        if ram.pages[i as usize].is_none() {
+            ram.pages[i as usize] = Some(Page::default());
         }
     }
+
+    match section {
+        RamSection::Zone1 => {
+            for i in start..end {
+                let page = i / PAGE_SIZE;
+                let offset = i % PAGE_SIZE;
+                ram.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Read);
+                ram.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.o[i as usize - Zz as usize];
+            }
+        },
+        RamSection::Zone2 => {
+            for i in start..end {
+                let page = i / PAGE_SIZE;
+                let offset = i % PAGE_SIZE;
+                ram.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Read);
+                ram.pages[page as usize].as_mut().unwrap().data[offset as usize] = 0;
+            }
+        },
+        RamSection::Zone3 => {
+            for i in start..end {
+                let page = i / PAGE_SIZE;
+                let offset = i % PAGE_SIZE;
+                ram.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Write);
+                ram.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.w[i as usize - (2 * Zz + Zone(params.o.len()) as u64) as usize];
+            }
+        },
+        RamSection::Zone4 => {
+            for i in start..end {
+                let page = i / PAGE_SIZE;
+                ram.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Write);
+            }
+        },
+        RamSection::Zone5 => {
+            for i in start..end {
+                let page = i / PAGE_SIZE;
+                ram.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Write);
+            }
+        },
+        RamSection::Zone6 => {
+            for i in start..end {
+                let page = i / PAGE_SIZE;
+                let offset = i % PAGE_SIZE;
+                ram.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Read);
+                ram.pages[page as usize].as_mut().unwrap().data[offset as usize] = arg[i as usize - ((1 << 32) - Zz - Zi) as usize]; 
+            }
+        },
+        RamSection::Zone7 => {
+            for i in start..end {
+                let page = i / PAGE_SIZE;
+                ram.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Read);
+            }
+        },
+    }
+}
+
+
+pub fn init_ram(params: &ProgramFormat, arg: &[u8]) -> RamMemory {
+
+    let mut ram = RamMemory::default();
+    
+    let start_zone_1 = Zz;
+    let end_zone_1 = Zz + params.o.len() as u64;
+    init_ram_section(&mut ram, params, arg, start_zone_1 as RamAddress, end_zone_1 as RamAddress, RamSection::Zone1);
+
+    let start_zone_2 = Zz + params.o.len() as u64;
+    let end_zone_2 = Zz + Page(params.o.len()) as u64;
+    init_ram_section(&mut ram, params, arg, start_zone_2 as RamAddress, end_zone_2 as RamAddress, RamSection::Zone2);
+
+    let start_zone_3 = 2 * Zz + Zone(params.o.len()) as u64;
+    let end_zone_3 = 2 * Zz + Zone(params.o.len()) as u64 + params.w.len() as u64;
+    init_ram_section(&mut ram, params, arg, start_zone_3 as RamAddress, end_zone_3 as RamAddress, RamSection::Zone3);
+
+    let start_zone_4 = 2 * Zz + Zone(params.o.len()) as u64 + params.w.len() as u64;
+    let end_zone_4 = 2 * Zz + Zone(params.o.len()) as u64 + Page(params.w.len()) as u64 + params.z as u64 * PAGE_SIZE as u64;
+    init_ram_section(&mut ram, params, arg, start_zone_4 as RamAddress, end_zone_4 as RamAddress, RamSection::Zone4);
+
+    let start_zone_5 = (1 << 32) - 2 * Zz - Zi - Page(params.s as usize) as u64;
+    let end_zone_5 = (1 << 32) - 2 * Zz - Zi;
+    init_ram_section(&mut ram, params, arg, start_zone_5 as RamAddress, end_zone_5 as RamAddress, RamSection::Zone5);
+
+    let start_zone_6 = (1 << 32) - Zz - Zi;
+    let end_zone_6 = (1 << 32) - Zz - Zi + arg.len() as u64;
+    init_ram_section(&mut ram, params, arg, start_zone_6 as RamAddress, end_zone_6 as RamAddress, RamSection::Zone6);
+
+    let start_zone_7 = (1 << 32) - Zz - Zi + arg.len() as u64;
+    let end_zone_7 = (1 << 32) - Zz - Zi + Page(arg.len() as usize) as u64;
+    init_ram_section(&mut ram, params, arg, start_zone_7 as RamAddress, end_zone_7 as RamAddress, RamSection::Zone7);
 
     return ram;
 
 }
 
-fn reg_initialization(params: &ProgramFormat, arg: &[u8]) -> [u64; NUM_REG] {
+pub fn init_registers(params: &ProgramFormat, arg: &[u8]) -> [u64; NUM_REG] {
 
     let mut reg = [0; NUM_REG];
-
+    println!("init registers");
     for i in 0..NUM_REG {
 
         if i == 0 {
@@ -80,11 +146,11 @@ fn reg_initialization(params: &ProgramFormat, arg: &[u8]) -> [u64; NUM_REG] {
             reg[i] = 0;
         }
     }
-
+    println!("registers init done");
     return reg;
 }
 
-fn standard_program_initialization(program: &[u8], arg: &[u8]) -> Result<Option<StandardProgram>, ReadError> {
+pub fn init_std_program(program: &[u8], arg: &[u8]) -> Result<Option<StandardProgram>, ReadError> {
 
     let mut blob = BytesReader::new(program);
     let params = ProgramFormat::decode(&mut blob)?;
@@ -94,8 +160,8 @@ fn standard_program_initialization(program: &[u8], arg: &[u8]) -> Result<Option<
     }
 
     return Ok(Some(StandardProgram {
-        ram: ram_initialization(&params, arg),
-        reg: reg_initialization(&params, arg),
+        ram: init_ram(&params, arg),
+        reg: init_registers(&params, arg),
         code: params.c,
     }));
 }

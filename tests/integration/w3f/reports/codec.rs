@@ -1,8 +1,8 @@
 
 use vinwolf::utils::codec::{BytesReader, Decode, Encode, ReadError};
 use vinwolf::types::{
-    TimeSlot, GuaranteesExtrinsic, AvailabilityAssignments, EntropyPool, BlockHistory, AuthPools, ValidatorsData,
-    Services, Offenders, OutputDataReports, ReportErrorCode
+    AuthPools, AvailabilityAssignments, BlockHistory, CoresStatistics, EntropyPool, GuaranteesExtrinsic, Offenders, OutputDataReports, 
+    ReportErrorCode, Services, TimeSlot, ValidatorsData, ServicesStatistics,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -47,6 +47,8 @@ pub struct WorkReportState {
     pub recent_blocks: BlockHistory,
     pub auth_pools: AuthPools,
     pub services: Services,
+    pub cores_statistics: CoresStatistics,
+    pub services_statistics: ServicesStatistics,
 }
 
 impl Encode for WorkReportState {
@@ -63,6 +65,8 @@ impl Encode for WorkReportState {
         self.recent_blocks.encode_to(&mut blob);
         self.auth_pools.encode_to(&mut blob);
         self.services.encode_to(&mut blob);
+        self.cores_statistics.encode_to(&mut blob);
+        self.services_statistics.encode_to(&mut blob);
 
         return blob;
     }
@@ -83,8 +87,26 @@ impl Decode for WorkReportState {
             entropy: EntropyPool::decode(blob)?,
             offenders: Offenders::decode(blob)?,
             recent_blocks: BlockHistory::decode(blob)?,
-            auth_pools: AuthPools::decode(blob)?,
-            services: Services::decode(blob)?,
+            auth_pools: {
+                let auth_pools = AuthPools::decode(blob)?;
+                //println!("\nAuth pools: {:x?}", auth_pools);
+                auth_pools
+            },
+            services: {
+                let services = Services::decode(blob)?;
+                //println!("\nServices: {:x?}", services);
+                services
+            },
+            cores_statistics: {
+                let core_statistics = CoresStatistics::decode(blob)?;
+                //println!("\nCore statistics: {:x?}", core_statistics);
+                core_statistics
+            },
+            services_statistics: {
+                let services_statistics = ServicesStatistics::decode(blob)?;
+                //println!("\nServices statistics: {:x?}", services_statistics);
+                services_statistics
+            },
         })
     }
 }

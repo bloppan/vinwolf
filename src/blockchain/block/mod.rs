@@ -24,7 +24,7 @@ impl Encode for Block {
 impl Decode for Block {
 
     fn decode(block_blob: &mut BytesReader) -> Result<Self, ReadError> {
-
+        
         let header = Header::decode(block_blob)?;
         let extrinsic = Extrinsic::decode(block_blob)?;
 

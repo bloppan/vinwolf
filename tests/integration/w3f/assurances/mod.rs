@@ -45,17 +45,17 @@ mod tests {
                                         TestBody::StateAssurances];
         
         let _ = encode_decode_test(&test_content, &test_body);
-
+        
         let mut reader = BytesReader::new(&test_content);
         let input = InputAssurances::decode(&mut reader).expect("Error decoding post InputAssurances");
         let pre_state = StateAssurances::decode(&mut reader).expect("Error decoding post Assurances PreState");
         let expected_output = OutputAssurances::decode(&mut reader).expect("Error decoding post OutputAssurances");
         let expected_state = StateAssurances::decode(&mut reader).expect("Error decoding post Assurances PostState");
-        
+            
         set_reporting_assurance(pre_state.avail_assignments);
         set_validators(pre_state.curr_validators, ValidatorSet::Current);
   
-        let current_state = get_global_state().lock().unwrap();
+        let current_state = get_global_state().lock().unwrap().clone();
         let mut assurances_state = current_state.availability.clone();
 
         let output_result = process_assurances(
@@ -68,10 +68,9 @@ mod tests {
             Ok(_) => { set_reporting_assurance(assurances_state);},
             Err(_) => { },
         }
-
         let result_avail_assignments = get_reporting_assurance();
         let result_curr_validators = get_validators(ValidatorSet::Current);
-
+        
         assert_eq!(expected_state.avail_assignments, result_avail_assignments);
         assert_eq!(expected_state.curr_validators, result_curr_validators);
         

@@ -51,7 +51,7 @@ impl<'a> BytesReader<'a> {
     pub fn read_bytes(&mut self, length: usize) -> Result<&[u8], ReadError> {
 
         if self.position + length > self.data.len() {
-            return Err(ReadError::NotEnoughData);
+            return Err(ReadError::NotEnoughData);   
         }
 
         let bytes = &self.data[self.position..self.position + length];

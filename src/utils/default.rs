@@ -1,20 +1,80 @@
 use std::collections::VecDeque;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::array::from_fn;
-use crate::constants::{EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_POOL, RECENT_HISTORY_SIZE, VALIDATORS_COUNT, NUM_REG, PAGE_SIZE, NUM_PAGES};
-use crate::types::ReportGuarantee;
-use crate::types::ReportedWorkPackages;
+use crate::constants::{CORES_COUNT, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_POOL, NUM_PAGES, NUM_REG, PAGE_SIZE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT};
 use crate::types::{
-    OpaqueHash, ReadyQueue, ReadyRecord, RefineContext, SegmentRootLookup, SegmentRootLookupItem, WorkPackageSpec, WorkReport, WorkResult,
-    GlobalState, AvailabilityAssignments, EntropyPool, BlockHistory, AuthPools, AuthQueues, Statistics, ValidatorsData, DisputesRecords, Safrole,
-    ServiceAccounts, AccumulatedHistory, Privileges, TimeSlot, WorkPackageHash, AuthPool, AuthQueue, AuthorizerHash, Entropy, TicketBody,
-    BandersnatchEpoch, TicketsOrKeys, BandersnatchPublic, BandersnatchRingCommitment, Account, ActivityRecord, ActivityRecords, Metadata, BlsPublic,
-    Ed25519Public, ValidatorData, TicketsMark, Context, Program, PageTable, Page, PageFlags, PageMap, RamMemory, MemoryChunk, GuaranteesExtrinsic,
-    SerializedState, RamAccess
+    Account, AccumulatedHistory, ActivityRecord, ActivityRecords, AuthPool, AuthPools, AuthQueue, AuthQueues, AuthorizerHash, AvailabilityAssignments, 
+    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, Context, CoreActivityRecord, CoresStatistics, 
+    DisputesRecords, Ed25519Public, Entropy, EntropyPool, Extrinsic, GlobalState, GuaranteesExtrinsic, MemoryChunk, Metadata, OpaqueHash, Page, 
+    PageFlags, PageMap, PageTable, Privileges, Program, RamMemory, ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportGuarantee, ReportedWorkPackages, 
+    Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, 
+    TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorData, ValidatorsData, WorkPackageHash, WorkPackageSpec, WorkReport, 
+    WorkResult, DisputesExtrinsic, PreimagesExtrinsic, AssurancesExtrinsic
 };
 // ----------------------------------------------------------------------------------------------------------
 // Jam Types
 // ----------------------------------------------------------------------------------------------------------
+impl Default for Extrinsic {
+    fn default() -> Self {
+        Extrinsic {
+            tickets: TicketsExtrinsic::default(),
+            disputes: DisputesExtrinsic::default(),
+            preimages: PreimagesExtrinsic::default(),
+            guarantees: GuaranteesExtrinsic::default(),
+            assurances: AssurancesExtrinsic::default(),
+
+        }
+    }
+}
+impl Default for TicketsExtrinsic {
+    fn default() -> Self {
+        TicketsExtrinsic {
+            tickets: Vec::new(),
+        }
+    }
+}
+impl Default for DisputesExtrinsic {
+    fn default() -> Self {
+        DisputesExtrinsic {
+            verdicts: Vec::new(),
+            culprits: Vec::new(),
+            faults: Vec::new(),
+        }
+    }
+}
+impl Default for PreimagesExtrinsic {
+    fn default() -> Self {
+        PreimagesExtrinsic {
+            preimages: Vec::new(),
+        }
+    }
+}
+impl Default for AssurancesExtrinsic {
+    fn default() -> Self {
+        AssurancesExtrinsic {
+            assurances: Vec::new(),
+        }
+    }
+}
+// ----------------------------------------------------------------------------------------------------------
+// Guarantees Extrinsic
+// ----------------------------------------------------------------------------------------------------------
+impl Default for GuaranteesExtrinsic {
+    fn default() -> Self {
+        GuaranteesExtrinsic {
+            report_guarantee: Vec::new(),
+        }
+    }
+}
+impl Default for ReportGuarantee {
+    fn default() -> Self {
+        ReportGuarantee {
+            report: WorkReport::default(),
+            slot: 0,
+            signatures: Vec::new(),
+        }
+    }
+}
 impl Default for WorkReport {
     fn default() -> Self {
         WorkReport {
@@ -23,8 +83,9 @@ impl Default for WorkReport {
             core_index: 0,
             authorizer_hash: OpaqueHash::default(),
             auth_output: Vec::new(),
-            segment_root_lookup: SegmentRootLookup::default(),
+            segment_root_lookup: Vec::new(),
             results: Vec::new(),
+            auth_gas_used: 0,
         }
     }
 }
@@ -34,14 +95,6 @@ impl Default for SegmentRootLookupItem {
         SegmentRootLookupItem {
             work_package_hash: OpaqueHash::default(),
             segment_tree_root: OpaqueHash::default(),
-        }
-    }
-}
-
-impl Default for SegmentRootLookup {
-    fn default() -> Self {
-        SegmentRootLookup {
-            0: Vec::new(),
         }
     }
 }
@@ -71,6 +124,18 @@ impl Default for RefineContext {
     }
 }
 
+impl Default for RefineLoad {
+    fn default() -> Self {
+        RefineLoad {
+            gas_used: 0,
+            imports: 0,
+            extrinsic_count: 0,
+            extrinsic_size: 0,
+            exports: 0,
+        }
+    }
+}
+
 impl Default for WorkResult {
     fn default() -> Self {
         WorkResult {
@@ -79,6 +144,7 @@ impl Default for WorkResult {
             payload_hash: OpaqueHash::default(),
             gas: 0,
             result: Vec::new(),
+            refine_load: RefineLoad::default(),
         }
     }
 }
@@ -331,7 +397,6 @@ impl Default for ActivityRecord {
         }
     }
 }
-
 impl Default for ActivityRecords {
     fn default() -> Self {
         Self {
@@ -339,12 +404,67 @@ impl Default for ActivityRecords {
         }
     }
 }
-
+impl Default for CoreActivityRecord {
+    fn default() -> Self {
+        Self {
+            gas_used: 0,
+            imports: 0,
+            extrinsic_count: 0,
+            extrinsic_size: 0,
+            exports: 0,
+            bundle_size: 0,
+            da_load: 0,
+            popularity: 0,
+        }
+    }
+}
+impl Default for CoresStatistics {
+    fn default() -> Self {
+        Self {
+            records: Box::new(std::array::from_fn(|_| CoreActivityRecord::default())),
+        }
+    }
+}
+impl Default for SeviceActivityRecord {
+    fn default() -> Self {
+        Self {
+            provided_count: 0,
+            provided_size: 0,
+            refinement_count: 0,
+            refinement_gas_used: 0,
+            imports: 0,
+            extrinsic_count: 0,
+            extrinsic_size: 0,
+            exports: 0,
+            accumulate_count: 0,
+            accumulate_gas_used: 0,
+            on_transfers_count: 0,
+            on_transfers_gas_used: 0,
+        }
+    }
+}
+impl Default for ServicesStatisticsMapEntry {
+    fn default() -> Self {
+        Self {
+            id: 0,
+            record: SeviceActivityRecord::default(),
+        }
+    }
+}
+impl Default for ServicesStatistics {
+    fn default() -> Self {
+        Self {
+            records: HashMap::new(),
+        }
+    }
+}
 impl Default for Statistics {
     fn default() -> Self {
         Self {
             curr: ActivityRecords::default(),
             prev: ActivityRecords::default(),
+            cores: CoresStatistics::default(),
+            services: ServicesStatistics::default(),
         }
     }
 }
@@ -364,25 +484,6 @@ impl Default for ValidatorsData {
     }
 }
 // ----------------------------------------------------------------------------------------------------------
-// Guarantees Extrinsic
-// ----------------------------------------------------------------------------------------------------------
-impl Default for GuaranteesExtrinsic {
-    fn default() -> Self {
-        GuaranteesExtrinsic {
-            report_guarantee: Vec::new(),
-        }
-    }
-}
-impl Default for ReportGuarantee {
-    fn default() -> Self {
-        ReportGuarantee {
-            report: WorkReport::default(),
-            slot: 0,
-            signatures: Vec::new(),
-        }
-    }
-}
-// ----------------------------------------------------------------------------------------------------------
 // Polkadot Virtual Machine
 // ----------------------------------------------------------------------------------------------------------
 impl Default for Context {
@@ -391,7 +492,7 @@ impl Default for Context {
             pc: 0,
             gas: 0,
             reg: [0; NUM_REG as usize],
-            page_table: PageTable::default(),
+            ram: RamMemory::default(),
             page_fault: None,
         }
     }
@@ -427,7 +528,7 @@ impl Default for Page {
 impl Default for PageFlags {
     fn default() -> Self {
         PageFlags {
-            access: RamAccess::None,
+            access: HashSet::new(),
             referenced: false,
             modified: false,
         }
