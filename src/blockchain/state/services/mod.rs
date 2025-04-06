@@ -7,7 +7,7 @@ use crate::blockchain::state::ProcessError;
 
 static SERVICES_STATE: Lazy<Mutex<Services>> = Lazy::new(|| Mutex::new(Services{0: Vec::new()}));
 
-pub fn set_services_state(post_state: &Services) {
+/*pub fn set_services_state(post_state: &Services) {
     let mut state = SERVICES_STATE.lock().unwrap();
     *state = post_state.clone();
 }
@@ -15,7 +15,7 @@ pub fn set_services_state(post_state: &Services) {
 pub fn get_services_state() -> Services {
     let state = SERVICES_STATE.lock().unwrap(); 
     return state.clone();
-}
+}*/
 
 pub fn process_services(
     services: &mut ServiceAccounts, 

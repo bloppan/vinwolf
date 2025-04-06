@@ -3,14 +3,14 @@ use crate::integration::w3f::{read_test_file, FromProcessError};
 use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
-use vinwolf::types::{DisputesRecords, OutputDataReports, ValidatorSet, ProcessError, Statistics, Extrinsic};
+use vinwolf::types::{DisputesRecords, OutputDataReports, ValidatorSet, ProcessError, Statistics, Extrinsic, ServiceAccounts, Account};
 use vinwolf::blockchain::state::{
     get_global_state, set_reporting_assurance, get_reporting_assurance, set_authpools, get_authpools, 
     set_entropy, get_entropy, set_validators, get_validators, set_recent_history, get_recent_history,
-    set_disputes, get_disputes, set_statistics, get_statistics,
+    set_disputes, get_disputes, set_statistics, get_statistics, set_service_accounts, get_service_accounts
 };
 use vinwolf::blockchain::state::reporting_assurance::process_guarantees;
-use vinwolf::blockchain::state::services::{set_services_state, get_services_state, };
+//use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
 use vinwolf::utils::codec::{Decode, BytesReader};
 
 use codec::{InputWorkReport, WorkReportState, OutputWorkReport};
@@ -41,7 +41,7 @@ mod tests {
 
     use std::result;
 
-    use vinwolf::blockchain::state::statistics::process_statistics;
+    use vinwolf::blockchain::state::{set_service_accounts, statistics::process_statistics};
 
     use super::*;
 
@@ -76,7 +76,19 @@ mod tests {
         set_entropy(pre_state.entropy);
         set_recent_history(pre_state.recent_blocks);
         set_authpools(pre_state.auth_pools);
-        set_services_state(&pre_state.services);
+        //set_services_state(&pre_state.services);
+        let mut services_accounts = ServiceAccounts::default();
+        for acc in pre_state.services.0.iter() {
+            let mut account = Account::default();
+            account.code_hash = acc.info.code_hash.clone();
+            account.balance = acc.info.balance.clone();
+            account.gas = acc.info.min_item_gas.clone();
+            account.min_gas = acc.info.min_memo_gas.clone();
+            account.items = acc.info.items.clone();
+            account.bytes = acc.info.bytes.clone();
+            services_accounts.service_accounts.insert(acc.id.clone(), account.clone());
+        }
+        set_service_accounts(services_accounts);
         let mut statistics_state = Statistics::default();
         statistics_state.cores = pre_state.cores_statistics;
         statistics_state.services = pre_state.services_statistics;
@@ -85,10 +97,9 @@ mod tests {
         let current_state = get_global_state().lock().unwrap().clone();
         let mut assurances_state = current_state.availability.clone();
 
-        let output_result = process_guarantees(
-                                                                            &mut assurances_state, 
-                                                                            &input.guarantees, 
-                                                                            &input.slot);
+        let output_result = process_guarantees(&mut assurances_state, 
+                                                                             &input.guarantees, 
+                                                                             &input.slot);
         
         match output_result {
             Ok(_) => { 
@@ -109,7 +120,8 @@ mod tests {
         let result_entropy = get_entropy();
         let result_history = get_recent_history();
         let result_authpool = get_authpools();
-        let result_services = get_services_state();
+        //let result_services = get_services_state();
+        let result_services = get_service_accounts();
         let result_statistics = get_statistics();
 
         assert_eq!(expected_state.offenders.0, result_disputes.offenders);
@@ -119,7 +131,20 @@ mod tests {
         assert_eq!(expected_state.entropy, result_entropy);
         assert_eq!(expected_state.recent_blocks, result_history);
         assert_eq!(expected_state.auth_pools, result_authpool);
-        assert_eq!(expected_state.services, result_services);
+        //assert_eq!(expected_state.services, result_services);
+
+        let mut expected_services_accounts = ServiceAccounts::default();
+        for acc in expected_state.services.0.iter() {
+            let mut account = Account::default();
+            account.code_hash = acc.info.code_hash.clone();
+            account.balance = acc.info.balance.clone();
+            account.gas = acc.info.min_item_gas.clone();
+            account.min_gas = acc.info.min_memo_gas.clone();
+            account.items = acc.info.items.clone();
+            account.bytes = acc.info.bytes.clone();
+            expected_services_accounts.service_accounts.insert(acc.id.clone(), account.clone());
+        }
+        assert_eq!(expected_services_accounts.service_accounts, result_services.service_accounts);
         assert_eq!(expected_state.cores_statistics, result_statistics.cores);
         assert_eq!(expected_state.services_statistics, result_statistics.services);
 

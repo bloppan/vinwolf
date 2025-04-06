@@ -130,7 +130,6 @@ impl WorkReport {
             // message is the serialization of the hash of the work-report.
             let mut message = Vec::from(b"jam_guarantee");
             message.extend_from_slice(&blake2_256(&self.encode()));
-
             for credential in credentials {
                 if credential.validator_index as usize >= VALIDATORS_COUNT {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadValidatorIndex));
