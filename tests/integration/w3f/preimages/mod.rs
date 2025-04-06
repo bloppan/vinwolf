@@ -41,10 +41,10 @@ mod tests {
         let expected_output = OutputPreimages::decode(&mut reader).expect("Error decoding post OutputAssurances");
         let expected_state = PreimagesState::decode(&mut reader).expect("Error decoding post Assurances PostState");
         
-        println!("input: {:?}", input);
+        /*println!("input: {:?}", input);
         println!("pre_state: {:?}", pre_state);
         println!("expected_output: {:?}", expected_output);
-        println!("expected_state: {:?}", expected_state);
+        println!("expected_state: {:?}", expected_state);*/
 
         let mut service_accounts = ServiceAccounts::default();
         for account in pre_state.accounts.iter() {
@@ -75,7 +75,7 @@ mod tests {
 
         match output_result {
             Ok(_) => { set_service_accounts(state.service_accounts);},
-            Err(_) => { println!("Error: {:?}", output_result); },
+            Err(_) => { /*println!("Error: {:?}", output_result);*/ },
         }
 
         let result_service_accounts = get_service_accounts();
@@ -105,7 +105,7 @@ mod tests {
             _ => panic!("Unexpected output"),
         }
 
-        println!("\n");
+        //println!("\n");
         
     }
 

@@ -42,7 +42,7 @@ impl PreimagesExtrinsic {
             return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
         }
         let pairs = pairs.iter().map(|(requester, blob)| (*requester, blob.as_slice())).collect::<Vec<_>>();
-        println!("pairs: {:x?}", pairs);
+        //println!("pairs: {:x?}", pairs);
         if !is_sorted_preimages(&pairs) {
             return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
         }
