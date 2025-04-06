@@ -64,8 +64,8 @@ mod tests {
     #[test]
     fn run_testnet() {
 
-        run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/fallback");
-        //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/safrole");
+        //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/fallback");
+        run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/safrole");
         //run_javajam_blocks("tests/test_vectors/javajam-trace/stf");
     }
 
@@ -81,7 +81,7 @@ mod tests {
         let mut epoch = 1;
         let mut slot = 0;
 
-        //loop {
+        loop {
 
             let filename = format!("{}_{}.bin", epoch, format!("{:03}", slot));
             let block_content = read_test(&format!("{}/blocks/{}", dir, filename));
@@ -126,9 +126,6 @@ mod tests {
             assert_eq!(json_file.post_state.ready_queue, state.ready_queue);
             assert_eq!(json_file.post_state.service_accounts, state.service_accounts);        
 
-            
-            println!("statistics: {:?}", state.statistics);
-            
             assert_eq!(json_file.post_state_root, merkle_state(&state.serialize().map, 0).unwrap());
 
             slot += 1;
@@ -137,7 +134,7 @@ mod tests {
                 slot = 0;
                 epoch += 1;
             } 
-        //}
+        }
     }
 
     fn run_javajam_blocks(dir: &str) {
@@ -149,7 +146,7 @@ mod tests {
         let mut filenumber = 785461;
         println!("Importing block sequence");
 
-        loop {
+        //loop {
 
             let bin_filename = format!("{}/blocks/{}.bin", dir, filenumber);
             let block_content = read_test(&bin_filename);
@@ -194,7 +191,7 @@ mod tests {
             assert_eq!(json_file.post_state_root, merkle_state(&state.serialize().map, 0).unwrap());
 
             filenumber += 1;
-        }
+        //}
     }
 
 }

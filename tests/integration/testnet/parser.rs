@@ -280,7 +280,7 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
             hash.copy_from_slice(&parsed_account_lookup.h);
             global_state.service_accounts.service_accounts.get_mut(&service).unwrap().lookup.insert((hash, parsed_account_lookup.l), parsed_account_lookup.t.clone());
 
-            println!("key_type: Account lookup: {:?}", parsed_account_lookup);
+            //println!("key_type: Account lookup: {:?}", parsed_account_lookup);
         } else if keyval.2 == "service_account" {
             let parsed_service_account = parse_service_account(&keyval.3);
             let service = parsed_service_account.s;
@@ -299,7 +299,7 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
             service.bytes = parsed_service_account.l;
             service.items = parsed_service_account.i;
 
-            println!("key_type: Service account: {:?}", parsed_service_account);
+            //println!("key_type: Service account: {:?}", parsed_service_account);
         } else if keyval.2 == "account_preimage" {
             let parsed_account_preimage = parse_account_preimage(&keyval.3);
             let service = parsed_account_preimage.s;
@@ -312,7 +312,7 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
             let blob = hex::decode(&keyval.1[2..]).unwrap();
             global_state.service_accounts.service_accounts.get_mut(&service).unwrap().preimages.insert(hash, blob);
 
-            println!("key_type: Account preimage: {:?}", parsed_account_preimage);
+           // println!("key_type: Account preimage: {:?}", parsed_account_preimage);
         } else {
             println!("Unknown key type");
         }
