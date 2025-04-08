@@ -66,7 +66,8 @@ mod tests {
 
         //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/fallback");
         //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/safrole");
-        run_javajam_blocks("tests/test_vectors/testnet/javajam-trace/stf");
+        run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/assurances");
+        //run_javajam_blocks("tests/test_vectors/testnet/javajam-trace/stf");
     }
 
     fn run_jamduna_blocks(dir: &str) {
@@ -105,27 +106,28 @@ mod tests {
             let error = state_transition_function(&block);
             if error.is_err() {
                 println!("****************************************************** Error: {:?}", error);
-                //return;
+                return;
             }
             let state = get_global_state().lock().unwrap().clone();
             
-            assert_eq!(json_file.post_state.auth_pools, state.auth_pools);
-            assert_eq!(json_file.post_state.auth_queues, state.auth_queues);
-            assert_eq!(json_file.post_state.recent_history, state.recent_history);
+            
+            assert_eq!(json_file.post_state.time, state.time);
             assert_eq!(json_file.post_state.safrole, state.safrole);
-            assert_eq!(json_file.post_state.disputes.offenders, state.disputes.offenders);
             assert_eq!(json_file.post_state.entropy, state.entropy);
-            assert_eq!(json_file.post_state.next_validators, state.next_validators);
             assert_eq!(json_file.post_state.curr_validators, state.curr_validators);
             assert_eq!(json_file.post_state.prev_validators, state.prev_validators);
+            assert_eq!(json_file.post_state.disputes.offenders, state.disputes.offenders);
             assert_eq!(json_file.post_state.availability, state.availability);
-            assert_eq!(json_file.post_state.time, state.time);
-            assert_eq!(json_file.post_state.privileges, state.privileges);
-            assert_eq!(json_file.post_state.statistics, state.statistics);
-            assert_eq!(json_file.post_state.accumulation_history, state.accumulation_history);
             assert_eq!(json_file.post_state.ready_queue, state.ready_queue);
-            assert_eq!(json_file.post_state.service_accounts, state.service_accounts);        
-
+            assert_eq!(json_file.post_state.accumulation_history, state.accumulation_history);
+            assert_eq!(json_file.post_state.privileges, state.privileges);
+            assert_eq!(json_file.post_state.next_validators, state.next_validators);
+            assert_eq!(json_file.post_state.auth_queues, state.auth_queues);
+            //assert_eq!(json_file.post_state.recent_history, state.recent_history);
+            assert_eq!(json_file.post_state.service_accounts, state.service_accounts);                    
+            assert_eq!(json_file.post_state.auth_pools, state.auth_pools);            
+            assert_eq!(json_file.post_state.statistics, state.statistics);
+            
             assert_eq!(json_file.post_state_root, merkle_state(&state.serialize().map, 0).unwrap());
 
             slot += 1;

@@ -1,4 +1,5 @@
 use once_cell::sync::Lazy;
+use services::process_services;
 use sp_core::blake2_256;
 use std::sync::Mutex;
 use crate::types::{
@@ -17,7 +18,8 @@ use reporting_assurance::{process_assurances, process_guarantees};
 use statistics::process_statistics;
 use safrole::process_safrole;
 use authorization::process_authorizations;
-use recent_history::process_recent_history;
+use recent_history::{process_recent_history, finalize_recent_history};
+use accumulation::process_accumulation;
 
 pub mod accumulation;
 pub mod authorization;
@@ -45,6 +47,17 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
     let mut new_state = get_global_state().lock().unwrap().clone();
     
+    let mut reported_work_packages = ReportedWorkPackages::default();
+    for report in &block.extrinsic.guarantees.report_guarantee {
+        reported_work_packages.map.insert(report.report.package_spec.hash, report.report.package_spec.exports_root);
+    }
+
+    process_recent_history(
+        &mut new_state.recent_history,
+        &blake2_256(&block.header.encode()), 
+        &block.header.unsigned.parent_state_root,
+        &reported_work_packages);
+
     process_safrole(
         &mut new_state.safrole,
         &mut new_state.entropy,
@@ -68,16 +81,27 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &block.header.unsigned.slot
     )?; 
 
-    let reported: ReportedWorkPackages = ReportedWorkPackages::default();
+    process_accumulation(
+        &mut new_state.accumulation_history,
+        &mut new_state.ready_queue,
+        &new_state.entropy,
+        &new_state.privileges,
+        &new_state.service_accounts,
+        &block.header.unsigned.slot,
+        &new_available_workreports.reported)?;
 
-    // Process recent history
-    process_recent_history(
-        &mut new_state.recent_history, 
-        &blake2_256(&block.header.encode()), 
-        &block.header.unsigned.parent_state_root, 
-        &[0u8; 32], 
-        &reported);
-        
+    finalize_recent_history(
+        &mut new_state.recent_history,
+        &blake2_256(&block.header.encode()),
+        //&input.accumulate_root, 
+        &[0u8; 32],
+        &reported_work_packages);
+
+    process_services(
+        &mut new_state.service_accounts, 
+        &block.header.unsigned.slot,  
+        &block.extrinsic.preimages)?;
+    
     // Process Authorization
     process_authorizations(
         &mut new_state.auth_pools, 

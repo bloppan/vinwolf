@@ -321,97 +321,111 @@ mod tests {
     fn run_refine_context_test() {
         let test_content = read_test_file(&format!("{}/refine_context.bin", TEST_DIR));
         let test_body: Vec<TestBody> = vec![TestBody::RefineContext];
-        let _ = encode_decode_test(&test_content, &test_body);
+        let result = encode_decode_test(&test_content, &test_body);
+        assert_eq!(result.is_ok(), true);
     }
 
     #[test]
     fn run_work_item_test() {
         let test_content = read_test_file(&format!("{}/work_item.bin", TEST_DIR));
         let test_body: Vec<TestBody> = vec![TestBody::WorkItem];
-        let _ = encode_decode_test(&test_content, &test_body);
+        let result = encode_decode_test(&test_content, &test_body);
+        assert_eq!(result.is_ok(), true);
     }
     
     #[test]
     fn run_work_package_test() {
         let test_content = read_test_file(&format!("{}/work_package.bin", TEST_DIR));
         let test_body: Vec<TestBody> = vec![TestBody::WorkPackage];
-        let _ = encode_decode_test(&test_content, &test_body);
+        let result = encode_decode_test(&test_content, &test_body);
+        assert_eq!(result.is_ok(), true);
     }
     
     #[test]
     fn run_work_result_0() {
         let test_content = read_test_file(&format!("{}/work_result_0.bin", TEST_DIR));
         let test_body: Vec<TestBody> = vec![TestBody::WorkResult];
-        let _ = encode_decode_test(&test_content, &test_body);
+        let result = encode_decode_test(&test_content, &test_body);
+        assert_eq!(result.is_ok(), true);
     }
     
     #[test]
     fn run_work_result_1() {
         let test_content = read_test_file(&format!("{}/work_result_1.bin", TEST_DIR));
         let test_body: Vec<TestBody> = vec![TestBody::WorkResult];
-        let _ = encode_decode_test(&test_content, &test_body);
+        let result = encode_decode_test(&test_content, &test_body);
+        assert_eq!(result.is_ok(), true);
     }
     
     #[test]
     fn run_work_report() {
         let test_content = read_test_file(&format!("{}/work_report.bin", TEST_DIR));
         let test_body: Vec<TestBody> = vec![TestBody::WorkReport];
-        let _ = encode_decode_test(&test_content, &test_body);
+        let result = encode_decode_test(&test_content, &test_body);
+        assert_eq!(result.is_ok(), true);
     }
     
     #[test]
     fn run_tickets_extrinsic() {
         let test_content = read_test_file(&format!("{}/tickets_extrinsic.bin", TEST_DIR));
         let test_body: Vec<TestBody> = vec![TestBody::TicketsExtrinsic];
-        let _ = encode_decode_test(&test_content, &test_body);
+        let result = encode_decode_test(&test_content, &test_body);
+        assert_eq!(result.is_ok(), true);
     }
     
     #[test]
     fn run_disputes_extrinsic() {
         let test_content = read_test_file(&format!("{}/disputes_extrinsic.bin", TEST_DIR));
         let test_body: Vec<TestBody> = vec![TestBody::DisputesExtrinsic];
-        let _ = encode_decode_test(&test_content, &test_body);
+        let result = encode_decode_test(&test_content, &test_body);
+        assert_eq!(result.is_ok(), true);
     }
     
     #[test]
     fn run_preimages_extrinsic() {
         let test_content = read_test_file(&format!("{}/preimages_extrinsic.bin", TEST_DIR));
         let test_body: Vec<TestBody> = vec![TestBody::PreimagesExtrinsic];
-        let _ = encode_decode_test(&test_content, &test_body);
+        let result = encode_decode_test(&test_content, &test_body);
+        assert_eq!(result.is_ok(), true);
     }
     
     #[test]
     fn run_assurances_extrinsic() {
         let test_content = read_test_file(&format!("{}/assurances_extrinsic.bin", TEST_DIR));
         let test_body: Vec<TestBody> = vec![TestBody::AssurancesExtrinsic];
-        let _ = encode_decode_test(&test_content, &test_body);
+        let result = encode_decode_test(&test_content, &test_body);
+        assert_eq!(result.is_ok(), true);
     }
     
     #[test]
     fn run_guarantees_extrinsic() {
         let test_content = read_test_file(&format!("{}/guarantees_extrinsic.bin", TEST_DIR));
         let test_body: Vec<TestBody> = vec![TestBody::GuaranteesExtrinsic];
-        let _ = encode_decode_test(&test_content, &test_body);
+        let result = encode_decode_test(&test_content, &test_body);
+        assert_eq!(result.is_ok(), true);
     }
     
     #[test]
     fn run_header_0() {
         let test_content = read_test_file(&format!("{}/header_0.bin", TEST_DIR));
         let test_body: Vec<TestBody> = vec![TestBody::Header];
-        let _ = encode_decode_test(&test_content, &test_body);
+        let result = encode_decode_test(&test_content, &test_body);
+        assert_eq!(result.is_ok(), true);
     }
     
     #[test]
     fn run_header_1() {
         let test_content = read_test_file(&format!("{}/header_1.bin", TEST_DIR));
         let test_body: Vec<TestBody> = vec![TestBody::Header];
-        let _ = encode_decode_test(&test_content, &test_body);
+        let result = encode_decode_test(&test_content, &test_body);
+        assert_eq!(result.is_ok(), true);
     }
     
     #[test]
     fn run_block() {
         let test_content = read_test_file(&format!("{}/block.bin", TEST_DIR));
         let test_body: Vec<TestBody> = vec![TestBody::Block];
-        let _ = encode_decode_test(&test_content, &test_body);
+        let result = encode_decode_test(&test_content, &test_body);
+        assert_eq!(result.is_ok(), true);
     }
 }

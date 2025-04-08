@@ -110,6 +110,37 @@ pub fn parse_account_preimage(input: &str) -> ParsedAccountPreimage {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct ParsedAccountStorage {
+    pub s: ServiceId,
+    pub h: Vec<u8>,
+}
+
+pub fn parse_account_storage(input: &str) -> ParsedAccountStorage {
+    let mut map = HashMap::new();
+    for part in input.split(' ') {
+        if part.contains("s=") {
+            let mut service = part.split('|')
+                                             .next()
+                                             .and_then(|s_part| s_part.strip_prefix("s="))
+                                             .unwrap_or("0");
+            map.insert("s", service);
+            continue;
+        }
+        if part.contains("k=") {
+            let mut iter = part.split('=');
+            if let (Some(key), Some(value)) = (iter.next(), iter.next()) {
+                map.insert(key.trim(), value.trim());
+            }
+        }
+    }
+
+    ParsedAccountStorage {
+        s: map.get("s").unwrap_or(&"0").parse::<u32>().unwrap(),
+        h: hex::decode(map.get("k").unwrap().trim_start_matches("0x")).unwrap(),
+    }
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ParsedAccountLookup {
     pub s: ServiceId,
     pub h: Vec<u8>, 
@@ -176,6 +207,7 @@ pub fn deserialize_state_transition_file(dir: &str, filename: &str) -> Result<Pa
     //let filename = format!("tests/jamtestnet/data/{}/state_transitions/{}", dir, filename);
     //let filename = format!("tests/javajam-trace/stf/state_transitions/{}", filename);
     let filename = format!("{}/{}", dir, filename);
+    //println!("filename: {}", filename);
     //let state_content = read_test(&format!("tests/jamtestnet/data/fallback/state_transitions/{}", filename));
     let mut file = std::fs::File::open(&filename).expect("Failed to open JSON file");
     let mut contents = String::new();
@@ -259,14 +291,17 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
                     "Statistics"
                 }
                 "14" => {
-                    global_state.accumulation_history = AccumulatedHistory::decode(&mut BytesReader::new(&value)).expect("Error decoding AccumulatedHistory");
-                    "AccumulatedHistory"
-                }
-                "15" => {
                     global_state.ready_queue = ReadyQueue::decode(&mut BytesReader::new(&value)).expect("Error decoding ReadyQueue");
                     "ReadyQueue"
                 }
-                _ => "Unknown",
+                "15" => {
+                    global_state.accumulation_history = AccumulatedHistory::decode(&mut BytesReader::new(&value)).expect("Error decoding AccumulatedHistory");
+                    "AccumulatedHistory"
+                }
+                _ => {
+                    println!("Unknown key type: {}", key_type);
+                    "Unknown"
+                }
             };
             //println!("key_type: {}", key_type);
         } else if keyval.2 == "account_lookup" {
@@ -313,8 +348,19 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
             global_state.service_accounts.service_accounts.get_mut(&service).unwrap().preimages.insert(hash, blob);
 
            // println!("key_type: Account preimage: {:?}", parsed_account_preimage);
+        } else if keyval.2 == "account_storage" {
+            let parsed_account_storage = parse_account_storage(&keyval.3);
+            let service = parsed_account_storage.s;
+            if global_state.service_accounts.service_accounts.get(&parsed_account_storage.s).is_none() {
+                let account = Account::default();
+                global_state.service_accounts.service_accounts.insert(service, account);
+            }
+            let mut hash = [0u8; 32];
+            hash.copy_from_slice(&parsed_account_storage.h);
+            let blob = hex::decode(&keyval.1[2..]).unwrap();
+            global_state.service_accounts.service_accounts.get_mut(&service).unwrap().storage.insert(hash, blob);
         } else {
-            println!("Unknown key type");
+            println!("Unknown key type: {}", keyval.2);
         }
     }
 

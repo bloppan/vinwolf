@@ -186,7 +186,8 @@ pub struct WorkItem {
     pub service: ServiceId,
     pub code_hash: OpaqueHash,
     pub payload: Vec<u8>,
-    pub gas_limit: Gas,
+    pub refine_gas_limit: Gas,
+    pub accumulate_gas_limit: Gas,
     pub import_segments: Vec<ImportSpec>,
     pub extrinsic: Vec<ExtrinsicSpec>,
     pub export_count: u16,
@@ -343,12 +344,14 @@ pub struct Mmr{
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ReportedWorkPackage {
-    pub hash: Hash,
-    pub exports_root: Hash,
+    pub hash: OpaqueHash,
+    pub exports_root: OpaqueHash,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ReportedWorkPackages(pub Vec<ReportedWorkPackage>);
+pub struct ReportedWorkPackages {
+    pub map: HashMap<OpaqueHash, OpaqueHash>,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockInfo {

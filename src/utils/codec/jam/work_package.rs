@@ -1,4 +1,6 @@
-use crate::types::{ServiceId, RefineContext, WorkPackage, Authorizer, WorkItem, ReportedWorkPackage, ReportedWorkPackages, Hash};
+use std::collections::HashMap;
+
+use crate::types::{Authorizer, Hash, OpaqueHash, RefineContext, ReportedWorkPackage, ReportedWorkPackages, ServiceId, WorkItem, WorkPackage};
 use crate::utils::codec::{Encode, EncodeSize, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
@@ -64,16 +66,53 @@ impl Decode for ReportedWorkPackage {
     }
 }
 
+impl Encode for Vec<ReportedWorkPackage> {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let len = self.len();
+        let mut work_packages = Vec::with_capacity(len * std::mem::size_of::<ReportedWorkPackage>());
+        encode_unsigned(len).encode_to(&mut work_packages); 
+
+        for work_package in self.iter() {
+            work_package.encode_to(&mut work_packages);
+        }
+
+        return work_packages;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for Vec<ReportedWorkPackage> {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+        
+        let len = decode_unsigned(blob)?;
+        let mut work_packages = Vec::with_capacity(len as usize);
+
+        for _ in 0..len {
+            let work_package = ReportedWorkPackage::decode(blob)?;
+            work_packages.push(work_package);
+        }
+
+        Ok(work_packages)
+    }
+}
+
 impl Encode for ReportedWorkPackages {
 
     fn encode(&self) -> Vec<u8> {
 
-        let len = self.0.len();
-        let mut reported_work_packages = Vec::with_capacity(std::mem::size_of::<ReportedWorkPackage>() * len);
+        let len = self.map.len();
+        let mut reported_work_packages = Vec::with_capacity(len * std::mem::size_of::<Hash>() * 2);
         encode_unsigned(len).encode_to(&mut reported_work_packages); 
-        
-        for item in self.0.iter() {
-            item.encode_to(&mut reported_work_packages);
+
+        for (hash, exports_root) in self.map.iter() {
+            hash.encode_to(&mut reported_work_packages);
+            exports_root.encode_to(&mut reported_work_packages);
         }
 
         return reported_work_packages;
@@ -89,14 +128,16 @@ impl Decode for ReportedWorkPackages {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
         
         let len = decode_unsigned(blob)?;
-        let mut reported_work_packages = Vec::with_capacity(len);
+        let mut reported_work_packages = HashMap::with_capacity(len as usize);
 
         for _ in 0..len {
-            reported_work_packages.push(ReportedWorkPackage::decode(blob)?);
+            let hash = OpaqueHash::decode(blob)?;
+            let exports_root = OpaqueHash::decode(blob)?;
+            reported_work_packages.insert(hash, exports_root);
         }
 
-        Ok(ReportedWorkPackages {
-            0: reported_work_packages,
+        Ok(ReportedWorkPackages{
+            map: reported_work_packages
         })
     }
 }

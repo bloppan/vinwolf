@@ -1,4 +1,4 @@
-use vinwolf::types::{Hash, ReportedWorkPackages};
+use vinwolf::types::{Hash, ReportedWorkPackage};
 use vinwolf::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
 #[derive(Debug)]
@@ -6,7 +6,7 @@ pub struct InputHistory {
     pub header_hash: Hash,
     pub parent_state_root: Hash,
     pub accumulate_root: Hash,
-    pub work_packages: ReportedWorkPackages,
+    pub work_packages: Vec<ReportedWorkPackage>,
 }
 
 impl Encode for InputHistory {
@@ -36,7 +36,7 @@ impl Decode for InputHistory {
             header_hash: Hash::decode(input_blob)?,
             parent_state_root: Hash::decode(input_blob)?,
             accumulate_root: Hash::decode(input_blob)?,
-            work_packages: ReportedWorkPackages::decode(input_blob)?,
+            work_packages: Vec::<ReportedWorkPackage>::decode(input_blob)?,
         })
     }
 }

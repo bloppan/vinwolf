@@ -11,7 +11,8 @@ impl Encode for WorkItem {
         self.service.encode_size(4).encode_to(&mut work_item_blob);
         self.code_hash.encode_to(&mut work_item_blob);
         self.payload.as_slice().encode_len().encode_to(&mut work_item_blob);
-        self.gas_limit.encode_size(8).encode_to(&mut work_item_blob);
+        self.refine_gas_limit.encode_size(8).encode_to(&mut work_item_blob);
+        self.accumulate_gas_limit.encode_size(8).encode_to(&mut work_item_blob);
         self.import_segments.encode_to(&mut work_item_blob);
         self.extrinsic.encode_to(&mut work_item_blob);
         self.export_count.encode_size(2).encode_to(&mut work_item_blob);
@@ -32,7 +33,8 @@ impl Decode for WorkItem {
             service: ServiceId::decode(work_item_blob)?,
             code_hash: OpaqueHash::decode(work_item_blob)?,
             payload: Vec::<u8>::decode_len(work_item_blob)?,
-            gas_limit: Gas::decode(work_item_blob)?,
+            refine_gas_limit: Gas::decode(work_item_blob)?,
+            accumulate_gas_limit: Gas::decode(work_item_blob)?,
             import_segments: Vec::<ImportSpec>::decode(work_item_blob)?,
             extrinsic: Vec::<ExtrinsicSpec>::decode(work_item_blob)?,
             export_count: u16::decode(work_item_blob)?,

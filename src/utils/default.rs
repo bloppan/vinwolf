@@ -3,13 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::array::from_fn;
 use crate::constants::{CORES_COUNT, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_POOL, NUM_PAGES, NUM_REG, PAGE_SIZE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT};
 use crate::types::{
-    Account, AccumulatedHistory, ActivityRecord, ActivityRecords, AuthPool, AuthPools, AuthQueue, AuthQueues, AuthorizerHash, AvailabilityAssignments, 
-    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, Context, CoreActivityRecord, CoresStatistics, 
-    DisputesRecords, Ed25519Public, Entropy, EntropyPool, Extrinsic, GlobalState, GuaranteesExtrinsic, MemoryChunk, Metadata, OpaqueHash, Page, 
-    PageFlags, PageMap, PageTable, Privileges, Program, RamMemory, ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportGuarantee, ReportedWorkPackages, 
-    Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, 
-    TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorData, ValidatorsData, WorkPackageHash, WorkPackageSpec, WorkReport, 
-    WorkResult, DisputesExtrinsic, PreimagesExtrinsic, AssurancesExtrinsic
+    Account, AccumulatedHistory, ActivityRecord, ActivityRecords, AssurancesExtrinsic, AuthPool, AuthPools, AuthQueue, AuthQueues, AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, Context, CoreActivityRecord, CoresStatistics, DisputesExtrinsic, DisputesRecords, Ed25519Public, Entropy, EntropyPool, Extrinsic, GlobalState, GuaranteesExtrinsic, Hash, MemoryChunk, Metadata, OpaqueHash, Page, PageFlags, PageMap, PageTable, PreimagesExtrinsic, Privileges, Program, RamMemory, ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportGuarantee, ReportedWorkPackages, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorData, ValidatorsData, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult
 };
 // ----------------------------------------------------------------------------------------------------------
 // Jam Types
@@ -167,7 +161,7 @@ impl Default for TicketsMark {
 impl Default for ReportedWorkPackages {
     fn default() -> Self {
         ReportedWorkPackages {
-            0: Vec::new(),
+            map: HashMap::new(),
         }
     }
 }

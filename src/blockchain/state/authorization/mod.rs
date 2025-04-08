@@ -40,10 +40,13 @@ pub fn process_authorizations(
 
     // We utilize the code_authorizers (from guarantees extrinsic) to remove the oldest authorizer which has 
     // been used to justify a guaranteed work-package in the current block.
-    for report in guarantees_extrinsic.report_guarantee.iter() {
-        if auth_pool_state.auth_pools[report.report.core_index as usize].auth_pool.contains(&report.report.authorizer_hash) {
-            auth_pool_state.auth_pools[report.report.core_index as usize].auth_pool.retain(|&x| x != report.report.authorizer_hash);
-        }
+    'next_report: for report in guarantees_extrinsic.report_guarantee.iter() {
+                        for i in 0..auth_pool_state.auth_pools[report.report.core_index as usize].auth_pool.len() {
+                            if auth_pool_state.auth_pools[report.report.core_index as usize].auth_pool[i] == report.report.authorizer_hash {
+                                auth_pool_state.auth_pools[report.report.core_index as usize].auth_pool.remove(i);
+                                continue 'next_report;
+                            }
+                        }
     }
     // Since AUTH_POOL_STATE is dependent on AUTH_QUEUE_STATE, practically speaking, this step must be computed 
     // after accumulation, the stage in which AUTH_QUEUE_STATE is defined.
