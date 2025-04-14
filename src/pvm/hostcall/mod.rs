@@ -10,12 +10,12 @@ use crate::utils::codec::{Decode, BytesReader};
 use crate::utils::codec::generic::decode_unsigned;
 use crate::pvm::hostcall::program_init::init_std_program;
 
-mod accumulate;
-mod refine;
-mod on_transfer;
-mod is_authorized;
+pub mod accumulate;
+pub mod refine;
+pub mod on_transfer;
+pub mod is_authorized;
 pub mod general_functions;
-mod program_init;
+pub mod program_init;
 
 use accumulate::dispatch_accumulate;
 

@@ -835,6 +835,11 @@ pub enum ProcessError {
     ReportError(ReportErrorCode),
     AssurancesError(AssurancesErrorCode),
     PreimagesError(PreimagesErrorCode),
+    AccumulateError(AccumulateErrorCode),
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum AccumulateErrorCode {
+    ServiceConflict = 0,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Polkadot Virtual Machine
@@ -989,12 +994,12 @@ pub struct AccumulationContext {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccumulationOperand {
-    code_hash: OpaqueHash,
-    exports_root: OpaqueHash,
-    authorizer_hash: OpaqueHash,
-    auth_output: Vec<u8>,
-    payload_hash: OpaqueHash,
-    result: Vec<u8>,
+    pub code_hash: OpaqueHash,
+    pub exports_root: OpaqueHash,
+    pub authorizer_hash: OpaqueHash,
+    pub auth_output: Vec<u8>,
+    pub payload_hash: OpaqueHash,
+    pub result: Vec<u8>,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct RefineMemory {
