@@ -586,6 +586,11 @@ pub struct Account {
     pub items: u32,
     pub bytes: u64,
 }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreimageData {
+    pub metadata: Vec<u8>,
+    pub code: Vec<u8>,
+}
 pub type ServiceId = u32;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -916,13 +921,13 @@ pub enum ExitReason {
     #[serde(rename = "page-fault")]
     page_fault,
     PageFault(u32),     
-    HostCall(HostCallType),      
+    HostCall(HostCallFn),      
 }
 // ----------------------------------------------------------------------------------------------------------
 // Host Call
 // ----------------------------------------------------------------------------------------------------------
 #[derive(Deserialize, Eq, Debug, Clone, PartialEq)]
-pub enum HostCallType {
+pub enum HostCallFn {
     Gas = 0,
     Lookup = 1,
     Read = 2,
@@ -950,6 +955,12 @@ pub enum HostCallType {
     Void = 24,
     Invoke = 25,
     Expugne = 26,
+}
+
+#[derive(Deserialize, Eq, Debug, Clone, PartialEq)]
+pub enum HostCallError {
+    InvalidContext,
+    InvalidHostCall,
 }
 
 pub type Registers = [RegSize; NUM_REG as usize];

@@ -21,12 +21,13 @@ enum RamSection {
     Zone7,
 }
 
-fn init_ram_section(ram: &mut RamMemory,
-                    params: &ProgramFormat, 
-                    arg: &[u8],
-                    start: RamAddress, 
-                    end: RamAddress, 
-                    section: RamSection) 
+fn init_ram_section(
+    ram: &mut RamMemory,
+    params: &ProgramFormat, 
+    arg: &[u8],
+    start: RamAddress, 
+    end: RamAddress, 
+    section: RamSection) 
 {
     let start_page = start / PAGE_SIZE;
     let end_page = (end - 1) / PAGE_SIZE;

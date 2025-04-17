@@ -1,21 +1,9 @@
 use sp_core::blake2_256;
-use once_cell::sync::Lazy;
-use std::sync::Mutex;
 
-use crate::types::{OutputPreimages, PreimagesErrorCode, PreimagesExtrinsic, ServiceAccounts, Services, TimeSlot};
+use crate::types::{OpaqueHash, OutputPreimages, PreimagesErrorCode, PreimagesExtrinsic, ServiceAccounts, Account, TimeSlot, PreimageData};
 use crate::blockchain::state::ProcessError;
-
-static SERVICES_STATE: Lazy<Mutex<Services>> = Lazy::new(|| Mutex::new(Services{0: Vec::new()}));
-
-/*pub fn set_services_state(post_state: &Services) {
-    let mut state = SERVICES_STATE.lock().unwrap();
-    *state = post_state.clone();
-}
-
-pub fn get_services_state() -> Services {
-    let state = SERVICES_STATE.lock().unwrap(); 
-    return state.clone();
-}*/
+use crate::utils::codec::{BytesReader, ReadError};
+use crate::utils::codec::generic::decode_unsigned;
 
 pub fn process_services(
     services: &mut ServiceAccounts, 
@@ -55,4 +43,51 @@ pub fn process_services(
     Ok(OutputPreimages::Ok())
 }
 
+pub fn decode_preimage(preimage: &[u8]) -> Result<PreimageData, ReadError> {
+    
+    let mut preimage_reader = BytesReader::new(preimage);
+    let metadata_len = decode_unsigned(&mut preimage_reader)?;
+    let metadata = preimage_reader.read_bytes(metadata_len as usize)?.to_vec();
+    let preimage_len = preimage_reader.data.len(); 
+    let code = preimage_reader.read_bytes(preimage_len - metadata_len as usize - 1)?.to_vec();
 
+    Ok(PreimageData {
+        metadata,
+        code,
+    })
+}
+
+pub fn historical_preimage_lookup(account: &Account, slot: &TimeSlot, hash: &OpaqueHash) -> Option<Vec<u8>> {
+
+    if let Some(preimage) = account.preimages.get(hash) {
+        let length = preimage.len() as u32;
+        if let Some(timeslot_record) = account.lookup.get(&(*hash, length)) {
+            if check_preimage_availability(timeslot_record, slot) {
+                return Some(preimage.clone());
+            }
+        }
+    }
+
+    return None;
+}
+
+fn check_preimage_availability(timeslot_record: &[TimeSlot], slot: &TimeSlot) -> bool {
+ 
+    if timeslot_record.len() == 0 {
+        return false;
+    } else if timeslot_record.len() == 1 {
+        if timeslot_record[0] <= *slot {
+            return true;
+        }
+    } else if timeslot_record.len() == 2 {
+        if timeslot_record[0] <= *slot && *slot < timeslot_record[1] {
+            return true;
+        }
+    } else if timeslot_record.len() == 3 {
+        if (timeslot_record[0] <= *slot && *slot < timeslot_record[1]) || (timeslot_record[2] <= *slot) {
+            return true;
+        }
+    }
+ 
+    return false;
+}

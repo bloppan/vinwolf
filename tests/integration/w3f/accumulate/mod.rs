@@ -75,9 +75,9 @@ mod tests {
         let output_accumulation = process_accumulation(
             &mut state.accumulation_history,
             &mut state.ready_queue,
-            &state.entropy,
+            /*&state.entropy,
             &state.privileges,
-            &state.service_accounts,
+            &state.service_accounts,*/
             &input.slot,
             &input.reports);
 

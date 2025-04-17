@@ -1,6 +1,13 @@
 use sp_core::blake2_256;
+use std::sync::Mutex;
+use once_cell::sync::Lazy;
 
-use crate::types::{Entropy, EntropyPool};
+use crate::types::{Entropy, EntropyPool, OpaqueHash};
+
+// eta0
+static RECENT_ENTROPY: Lazy<Mutex<OpaqueHash>> = Lazy::new(|| {
+    Mutex::new(OpaqueHash::default())
+});
 
 pub fn rotate_entropy_pool(entropy_pool: &mut EntropyPool) {
     // In addition to the entropy accumulator eta0, we retain three additional historical values of the accumulator at the point of 
@@ -17,4 +24,16 @@ pub fn update_recent_entropy(entropy_pool: &mut EntropyPool, entropy_source: [u8
     // some unbiasable input, is combined each block. eta1 and eta2 meanwhile retain the state of this accumulator at the end 
     // of the two most recently ended epochs in order.
     entropy_pool.buf[0] = Entropy { entropy: blake2_256(&[entropy_pool.buf[0].entropy, entropy_source].concat())};
+    set_recent_entropy(entropy_pool.buf[0].entropy);
+}
+
+pub fn get_recent_entropy() -> Entropy {
+    let recent_entropy = RECENT_ENTROPY.lock().unwrap();
+    let entropy = recent_entropy.clone();
+    Entropy { entropy }
+}
+
+pub fn set_recent_entropy(entropy: OpaqueHash) {
+    let mut recent_entropy = RECENT_ENTROPY.lock().unwrap();
+    *recent_entropy = entropy;
 }

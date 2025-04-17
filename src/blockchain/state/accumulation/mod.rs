@@ -12,13 +12,14 @@
 */
 
 use std::collections::{HashSet, HashMap};
-use crate::constants::EPOCH_LENGTH;
+use crate::constants::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT, CORES_COUNT};
 use crate::types::{
     AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, EntropyPool, OpaqueHash, 
     OutputAccumulation, Privileges, ReadyQueue, ReadyRecord, ServiceAccounts, TimeSlot, ValidatorsData, WorkPackageHash, 
-    WorkReport, ServiceId, Gas, Account, AccumulateErrorCode
+    WorkReport, ServiceId, Gas, Account, AccumulateErrorCode, ValidatorSet
 };
-use super::{get_time, services, ProcessError};
+use super::{get_authqueues, get_privileges, get_service_accounts, get_time, get_validators, services, ProcessError};
+use crate::blockchain::state::time::get_current_slot;
 use crate::utils::common::{dict_subtract, keys_to_set};
 use crate::pvm::hostcall::accumulate::invoke_accumulation;
 
@@ -33,24 +34,50 @@ use crate::pvm::hostcall::accumulate::invoke_accumulation;
 pub fn process_accumulation(
     accumulated_history: &mut AccumulatedHistory,
     ready_queue: &mut ReadyQueue,
-    entropy_pool: &EntropyPool,
+   /*entropy_pool: &EntropyPool,
     privileges: &Privileges,
-    services_accounts: &ServiceAccounts,
+    services_accounts: &ServiceAccounts,*/
     post_tau: &TimeSlot,
-    reports: &[WorkReport],
+    new_available_reports: &[WorkReport],
 ) -> Result<OutputAccumulation, ProcessError> {
 
     // The newly available work-reports, are partitioned into two sequences based on the condition of having zero prerequisite work-reports.
     // Those meeting the condition are accumulated immediately. Those not, (reports_for_queue) are for queued execution.
-    let reports_for_queue = get_reports_for_queued(reports, &accumulated_history);
+    let reports_for_queue = get_reports_for_queue(new_available_reports, &accumulated_history);
     
     // We define the final state of the ready queue and the accumulated map by integrating those work-reports which were accumulated in this 
     // block and shifting any from the prior state with the oldest such items being dropped entirely:
-    let current_block_accumulatable = get_current_block_accumulatable(reports, ready_queue, accumulated_history, post_tau);
+    let current_block_accumulatable = get_current_block_accumulatable(new_available_reports, ready_queue, accumulated_history, post_tau);
+    
+    let partial_state = AccumulationPartialState {
+        services_accounts: get_service_accounts(),
+        next_validators: get_validators(ValidatorSet::Next),
+        queues_auth: get_authqueues(),
+        privileges: get_privileges(),
+    };
+
+    let (n, post_partial_state, deferred_transfers, service_gas_pairs, gas_used) = outer_accumulation(
+        &get_gas_limit(&partial_state.privileges),
+        &current_block_accumulatable,
+        &partial_state,
+        &partial_state.privileges.always_acc,
+    )?;
+
     accumulated_history.update(map_workreports(&current_block_accumulatable));
     ready_queue.update(accumulated_history, post_tau, reports_for_queue);
 
     Ok(OutputAccumulation::Ok([0; 32]))
+}
+
+fn get_gas_limit(privileges: &Privileges) -> Gas {
+    
+    let mut gas_privilege_services = 0;
+    
+    for gas in privileges.always_acc.iter() {
+        gas_privilege_services += gas.1;
+    }
+
+    return std::cmp::max(TOTAL_GAS_ALLOCATED, (WORK_REPORT_GAS_LIMIT * CORES_COUNT as Gas) + gas_privilege_services);
 }
 
 // The newly available work-reports, are partitioned into two sequences based on the condition of having zero prerequisite work-reports.
@@ -66,7 +93,7 @@ fn get_reports_imm_accumulable(reports: &[WorkReport]) -> Vec<WorkReport> {
 }
 
 // These reports are for queued execution.
-fn get_reports_for_queued(reports: &[WorkReport], accumulated_history: &AccumulatedHistory) -> Vec<ReadyRecord> {
+fn get_reports_for_queue(reports: &[WorkReport], accumulated_history: &AccumulatedHistory) -> Vec<ReadyRecord> {
 
     let new_ready_records: Vec<ReadyRecord> = D(reports);
     let mut records_with_dependencies = vec![];
@@ -111,7 +138,7 @@ fn get_current_block_accumulatable(
         ready_records.extend_from_slice(&ready.queue[i]);
     }
     // WQ
-    let for_queue = get_reports_for_queued(reports, accumulated_history);
+    let for_queue = get_reports_for_queue(reports, accumulated_history);
     // ready_records + for_queue
     ready_records.extend_from_slice(&for_queue);
 
@@ -189,7 +216,7 @@ fn queue_edit(ready_reports: &[ReadyRecord], hashes_to_remove: &[WorkPackageHash
             }
             dependencies.push(*dep);
         }
-        edited_records.push(ReadyRecord{report: ready.report.clone(), dependencies: dependencies});
+        edited_records.push(ReadyRecord{report: ready.report.clone(), dependencies});
     }
 
     return edited_records;
@@ -202,7 +229,7 @@ fn map_workreports(reports: &[WorkReport]) -> Vec<WorkPackageHash> {
 }
 
 fn single_service_accumulation(
-    partial_state: &mut AccumulationPartialState,
+    partial_state: &AccumulationPartialState,
     reports: &[WorkReport],
     service_gas_dict: &HashMap<ServiceId, Gas>,
     service_id: &ServiceId,
@@ -226,7 +253,6 @@ fn single_service_accumulation(
                 });
             }
         }
-
     }
 
     if let Some(gas) = service_gas_dict.get(service_id) {
@@ -234,8 +260,8 @@ fn single_service_accumulation(
     } 
 
     invoke_accumulation(
-        partial_state.clone(),
-        &get_time(),
+        partial_state,
+        &get_current_slot(),
         service_id,
         total_gas,
         &accumulation_operands,
@@ -243,9 +269,10 @@ fn single_service_accumulation(
 
 }
 
-fn parallelized_accumulation(partial_state: &mut AccumulationPartialState,
-                             reports: &[WorkReport],
-                             service_gas_dict: &HashMap<ServiceId, Gas>,
+fn parallelized_accumulation(
+    partial_state: &AccumulationPartialState,
+    reports: &[WorkReport],
+    service_gas_dict: &HashMap<ServiceId, Gas>,
 ) -> Result<(AccumulationPartialState, Vec<DeferredTransfer>, Vec<(ServiceId, OpaqueHash)>, Vec<(ServiceId, Gas)>), ProcessError>
 {
     let mut s_services: HashSet<ServiceId> = HashSet::new();
@@ -341,10 +368,11 @@ fn parallelized_accumulation(partial_state: &mut AccumulationPartialState,
     return Ok((result_partial_state, t_deferred_transfers, b_service_gas_pairs, u_gas_used));
 }
 
-fn outer_accumulation(gas_limit: &Gas,
-                      reports: &[WorkReport],
-                      partial_state: &mut AccumulationPartialState,
-                      service_gas_dict: &HashMap<ServiceId, Gas>
+fn outer_accumulation(
+    gas_limit: &Gas,
+    reports: &[WorkReport],
+    partial_state: &AccumulationPartialState,
+    service_gas_dict: &HashMap<ServiceId, Gas>
 ) -> Result<(u32, AccumulationPartialState, Vec<DeferredTransfer>, Vec<(ServiceId, OpaqueHash)>, Vec<(ServiceId, Gas)>), ProcessError>
 {
     let mut i: u32 = 0;
@@ -364,7 +392,7 @@ fn outer_accumulation(gas_limit: &Gas,
         return Ok((0, partial_state.clone(), vec![], vec![], vec![]));
     }
 
-    let (mut star_partial_state,
+    let (star_partial_state,
          star_deferred_transfers, 
          star_service_gas_pairs, 
          star_gas_used) = parallelized_accumulation(partial_state, &reports[..i as usize], &service_gas_dict)?;
@@ -377,7 +405,7 @@ fn outer_accumulation(gas_limit: &Gas,
         b_service_gas_pairs,
         u_gas_used) = outer_accumulation(&(*gas_limit - total_gas_used), 
                                                             &reports[i as usize..], 
-                                                            &mut star_partial_state, 
+                                                            &star_partial_state, 
                                                             &HashMap::<ServiceId, Gas>::new())?;
 
     return Ok((i + j, 
@@ -387,6 +415,20 @@ fn outer_accumulation(gas_limit: &Gas,
                [star_gas_used, u_gas_used].concat()));
 }
 
+fn select_deferred_transfers(deferred_transfers: &[DeferredTransfer], to_service: &ServiceId) -> Vec<DeferredTransfer> {
+
+    let mut selected_transfers: Vec<DeferredTransfer> = vec![];
+
+    for transfer in deferred_transfers.iter() {
+        if transfer.to == *to_service {
+            selected_transfers.push(transfer.clone());
+        }
+    }
+
+    selected_transfers.sort_by_key(|transfer| transfer.from);
+
+    return selected_transfers;
+}
 
 impl ReadyQueue {
  
@@ -423,3 +465,37 @@ impl AccumulatedHistory {
     }
 }
 
+mod test {
+    use super::*;
+
+    #[test]
+    fn select_deferred_transfers_test() {
+        let mut transfer1 = DeferredTransfer::default();
+        transfer1.from = 2;
+        transfer1.to = 2;
+        transfer1.amount = 100;
+
+        let mut transfer2 = DeferredTransfer::default();
+        transfer2.from = 3;
+        transfer2.to = 4;
+        
+        let mut transfer3 = DeferredTransfer::default();
+        transfer3.from = 1;
+        transfer3.to = 2;
+        transfer3.amount = 300;
+
+        let mut transfer4 = DeferredTransfer::default();
+        transfer4.from = 1;
+        transfer4.to = 2;
+        transfer4.amount = 400;
+
+        let transfers = [transfer1, transfer2, transfer3, transfer4].to_vec();
+        let selected_transfers = select_deferred_transfers(&transfers, &2);
+
+        println!("selected transfers: {:?}", selected_transfers);
+        // selected transfers: 
+        // [DeferredTransfer { from: 1, to: 2, amount: 300, memo: 0, gas_limit: 0 }, 
+        //  DeferredTransfer { from: 1, to: 2, amount: 400, memo: 0, gas_limit: 0 }, 
+        //  DeferredTransfer { from: 2, to: 2, amount: 100, memo: 0, gas_limit: 0 }]
+    }
+}

@@ -47,6 +47,8 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
     let mut new_state = get_global_state().lock().unwrap().clone();
     
+    time::set_current_slot(&block.header.unsigned.slot);
+
     let mut reported_work_packages = ReportedWorkPackages::default();
     for report in &block.extrinsic.guarantees.report_guarantee {
         reported_work_packages.map.insert(report.report.package_spec.hash, report.report.package_spec.exports_root);
@@ -84,9 +86,9 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     process_accumulation(
         &mut new_state.accumulation_history,
         &mut new_state.ready_queue,
-        &new_state.entropy,
+        /*&new_state.entropy,
         &new_state.privileges,
-        &new_state.service_accounts,
+        &new_state.service_accounts,*/
         &block.header.unsigned.slot,
         &new_available_workreports.reported)?;
 

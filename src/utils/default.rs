@@ -3,7 +3,13 @@ use std::collections::{HashMap, HashSet};
 use std::array::from_fn;
 use crate::constants::{CORES_COUNT, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_POOL, NUM_PAGES, NUM_REG, PAGE_SIZE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT};
 use crate::types::{
-    Account, AccumulatedHistory, ActivityRecord, ActivityRecords, AssurancesExtrinsic, AuthPool, AuthPools, AuthQueue, AuthQueues, AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, Context, CoreActivityRecord, CoresStatistics, DisputesExtrinsic, DisputesRecords, Ed25519Public, Entropy, EntropyPool, Extrinsic, GlobalState, GuaranteesExtrinsic, Hash, MemoryChunk, Metadata, OpaqueHash, Page, PageFlags, PageMap, PageTable, PreimagesExtrinsic, Privileges, Program, RamMemory, ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportGuarantee, ReportedWorkPackages, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorData, ValidatorsData, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult
+    Account, AccumulatedHistory, ActivityRecord, ActivityRecords, AssurancesExtrinsic, AuthPool, AuthPools, AuthQueue, AuthQueues, AuthorizerHash, 
+    AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, Context, CoreActivityRecord, 
+    CoresStatistics, DeferredTransfer, DisputesExtrinsic, DisputesRecords, Ed25519Public, Entropy, EntropyPool, Extrinsic, GlobalState, GuaranteesExtrinsic, 
+    Hash, MemoryChunk, Metadata, OpaqueHash, Page, PageFlags, PageMap, PageTable, PreimagesExtrinsic, Privileges, Program, RamMemory, ReadyQueue, ReadyRecord, 
+    RefineContext, RefineLoad, ReportGuarantee, ReportedWorkPackages, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServicesStatistics, 
+    ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorData, 
+    ValidatorsData, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, AccumulationPartialState
 };
 // ----------------------------------------------------------------------------------------------------------
 // Jam Types
@@ -219,6 +225,17 @@ impl Default for AccumulatedHistory {
     }
 }
 
+impl Default for AccumulationPartialState {
+    fn default() -> Self {
+        AccumulationPartialState {
+            services_accounts: ServiceAccounts::default(),
+            next_validators: ValidatorsData::default(),
+            queues_auth: AuthQueues::default(),
+            privileges: Privileges::default(),
+        }
+    }
+}
+
 impl Default for ReadyQueue {
     fn default() -> Self {
         ReadyQueue {
@@ -232,6 +249,17 @@ impl Default for ReadyRecord {
         ReadyRecord {
             report: WorkReport::default(),
             dependencies: Vec::new(),
+        }
+    }
+}
+impl Default for DeferredTransfer {
+    fn default() -> Self {
+        DeferredTransfer {
+            from: 0,
+            to: 0,
+            amount: 0,
+            memo: 0,
+            gas_limit: 0,
         }
     }
 }
