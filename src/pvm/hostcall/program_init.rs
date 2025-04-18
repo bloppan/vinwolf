@@ -1,4 +1,4 @@
-use crate::types::{Page, PageTable, ProgramFormat, RamAccess, RamAddress, RamMemory, StandardProgram};
+use crate::types::{Page, PageTable, ProgramFormat, RamAccess, RamAddress, RamMemory, Registers, StandardProgram};
 use crate::constants::{NUM_REG, PAGE_SIZE, PVM_INIT_INPUT_DATA_SIZE, PVM_INIT_ZONE_SIZE, RAM_SIZE, Zz, Zi};
 use crate::constants::{NONE, WHAT, OOB, WHO, FULL, CORE, CASH, LOW, HUH, OK};
 use crate::utils::codec::{Decode, BytesReader, ReadError};
@@ -131,8 +131,8 @@ pub fn init_ram(params: &ProgramFormat, arg: &[u8]) -> RamMemory {
 
 pub fn init_registers(params: &ProgramFormat, arg: &[u8]) -> [u64; NUM_REG] {
 
-    let mut reg = [0; NUM_REG];
-    println!("init registers");
+    let mut reg = Registers::default();
+
     for i in 0..NUM_REG {
 
         if i == 0 {
@@ -147,7 +147,7 @@ pub fn init_registers(params: &ProgramFormat, arg: &[u8]) -> [u64; NUM_REG] {
             reg[i] = 0;
         }
     }
-    println!("registers init done");
+
     return reg;
 }
 

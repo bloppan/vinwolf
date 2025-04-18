@@ -123,7 +123,7 @@ mod tests {
             assert_eq!(json_file.post_state.privileges, state.privileges);
             assert_eq!(json_file.post_state.next_validators, state.next_validators);
             assert_eq!(json_file.post_state.auth_queues, state.auth_queues);
-            //assert_eq!(json_file.post_state.recent_history, state.recent_history);
+            assert_eq!(json_file.post_state.recent_history, state.recent_history);
             assert_eq!(json_file.post_state.service_accounts, state.service_accounts);                    
             assert_eq!(json_file.post_state.auth_pools, state.auth_pools);            
             assert_eq!(json_file.post_state.statistics, state.statistics);
