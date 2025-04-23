@@ -5,7 +5,7 @@ use serde::Deserialize;
 use crate::utils::codec::ReadError;
 use crate::constants::{
     ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH,
-    NUM_REG, PAGE_SIZE, SEGMENT_SIZE
+    NUM_REG, PAGE_SIZE, SEGMENT_SIZE, TRANSFER_MEMO_SIZE
 };
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
@@ -44,6 +44,8 @@ pub type PageAddress = RamAddress;
 pub type PageNumber = u32;
 pub type RegSize = u64;
 pub type RegSigned = i64;
+
+pub type Balance = u64;
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct Entropy {
@@ -955,6 +957,7 @@ pub enum HostCallFn {
     Void = 24,
     Invoke = 25,
     Expugne = 26,
+    Unknown,
 }
 
 #[derive(Deserialize, Eq, Debug, Clone, PartialEq)]
@@ -992,7 +995,7 @@ pub struct DeferredTransfer {
     pub from: ServiceId,
     pub to: ServiceId,
     pub amount: u64,
-    pub memo: u128,
+    pub memo: Vec<u8>,
     pub gas_limit: Gas,
 }
 #[derive(Debug, Clone, PartialEq)]

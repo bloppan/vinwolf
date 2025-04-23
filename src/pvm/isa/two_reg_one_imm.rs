@@ -19,7 +19,7 @@ fn get_x_length(pc: &RegSize, program: &Program) -> RegSize {
 
 fn get_reg(pc: &RegSize, code: &[u8]) -> (u8, u8) {
     let reg_a: u8 = min(12, code[*pc as usize + 1] % 16);
-    let reg_b: u8 = min(12, code[*pc as usize + 1] >> 4);
+    let reg_b: u8 = min(12, code[*pc as usize + 1] / 16);
     (reg_a, reg_b)
 }
 

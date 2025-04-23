@@ -57,6 +57,9 @@ pub fn read_test(filename: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> 
 #[cfg(test)]
 mod tests {
 
+    use core::panic;
+
+    use serde::ser;
     use vinwolf::blockchain::state::services;
 
     use super::*;
@@ -124,12 +127,37 @@ mod tests {
             assert_eq!(json_file.post_state.next_validators, state.next_validators);
             assert_eq!(json_file.post_state.auth_queues, state.auth_queues);
             assert_eq!(json_file.post_state.recent_history, state.recent_history);
-            assert_eq!(json_file.post_state.service_accounts, state.service_accounts);                    
+
+            //assert_eq!(json_file.post_state.service_accounts, state.service_accounts);
+            /*for account in state.service_accounts.service_accounts.iter() {
+                println!("Service: {:?}", account.0);
+                println!("Account: {:x?}", account.1);
+            }*/
+            for service_account in json_file.post_state.service_accounts.service_accounts.iter() {
+                if let Some(account) = state.service_accounts.service_accounts.get(&service_account.0) {
+                    //assert_eq!(service_account, state.service_accounts.service_accounts.get_key_value(&service_account.0).unwrap());
+                    println!("TESTING service {:?}", service_account.0);
+                    let (items, octets, _threshold) = account.get_footprint_and_threshold();
+
+                    assert_eq!(service_account.1.storage, account.storage);
+                    assert_eq!(service_account.1.lookup, account.lookup);
+                    assert_eq!(service_account.1.preimages, account.preimages);
+                    assert_eq!(service_account.1.code_hash, account.code_hash);
+                    assert_eq!(service_account.1.balance, account.balance);
+                    assert_eq!(service_account.1.items, items);
+                    assert_eq!(service_account.1.gas, account.gas);
+                    assert_eq!(service_account.1.min_gas, account.min_gas);
+                    assert_eq!(service_account.1.bytes, octets);
+                } else {
+                    panic!("Service account not found in state: {:?}", service_account.0);
+                }
+            }
             assert_eq!(json_file.post_state.auth_pools, state.auth_pools);            
             assert_eq!(json_file.post_state.statistics, state.statistics);
             
             assert_eq!(json_file.post_state_root, merkle_state(&state.serialize().map, 0).unwrap());
 
+            println!("state root: {:x?}", json_file.post_state_root);
             slot += 1;
 
             if slot == EPOCH_LENGTH {

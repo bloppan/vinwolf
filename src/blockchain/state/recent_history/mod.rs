@@ -44,7 +44,7 @@ pub fn finalize_recent_history(recent_history_state: &mut BlockHistory,
                                accumulate_root: &Hash, 
                                work_packages: &ReportedWorkPackages
 ) {
-
+    
     let history_len = recent_history_state.blocks.len();
 
     if history_len == 1 && recent_history_state.blocks[0].state_root == [0u8; std::mem::size_of::<Hash>()] {

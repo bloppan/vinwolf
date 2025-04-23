@@ -1,4 +1,4 @@
-use crate::types::{Gas, RamAddress};
+use crate::types::{Gas, RamAddress, Balance};
 
 // The size of the on-chain entropy pool
 pub const ENTROPY_POOL_SIZE: usize = 4;
@@ -38,6 +38,16 @@ pub const VALIDATORS_SUPER_MAJORITY: usize = (VALIDATORS_COUNT * 2) / 3 + 1;
 pub const ONE_THIRD_VALIDATORS: usize = VALIDATORS_COUNT / 3;
 
 pub const AVAIL_BITFIELD_BYTES: usize = (CORES_COUNT + 7) / 8;
+
+
+// The additional minimum balance required per item of elective service state
+pub const MIN_BALANCE_PER_ITEM: Balance = 10;
+
+// The additional minimum balance required per octet of elective service state.
+pub const MIN_BALANCE_PER_OCTET: Balance = 1;
+
+// The basic minimum balance which all services require.
+pub const MIN_BALANCE: Balance = 100;
 
 // The size of recent history in blocks
 pub const RECENT_HISTORY_SIZE: usize = 8;
@@ -108,6 +118,9 @@ pub const PIECE_SIZE: usize = 684;
 
 // The size of a segment in octets.
 pub const SEGMENT_SIZE: usize = PIECE_SIZE * SEGMENT_PIECES;
+
+// The size of a transfer memo in octets
+pub const TRANSFER_MEMO_SIZE: usize = 128;
 
 // Host Call result constants
 pub const NONE: u64 = u64::MAX;

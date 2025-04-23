@@ -1,6 +1,7 @@
 use sp_core::blake2_256;
 
-use crate::types::{OpaqueHash, OutputPreimages, PreimagesErrorCode, PreimagesExtrinsic, ServiceAccounts, Account, TimeSlot, PreimageData};
+use crate::types::{OpaqueHash, OutputPreimages, PreimagesErrorCode, PreimagesExtrinsic, ServiceAccounts, Account, TimeSlot, PreimageData, Balance};
+use crate::constants::{MIN_BALANCE, MIN_BALANCE_PER_ITEM, MIN_BALANCE_PER_OCTET};
 use crate::blockchain::state::ProcessError;
 use crate::utils::codec::{BytesReader, ReadError};
 use crate::utils::codec::generic::decode_unsigned;
@@ -41,6 +42,25 @@ pub fn process_services(
     }
 
     Ok(OutputPreimages::Ok())
+}
+
+impl Account {
+    pub fn get_footprint_and_threshold(&self) -> (u32, u64, Balance) {
+
+        let items: u32 = 2 * self.lookup.len() as u32 + self.storage.len() as u32;
+
+        let mut octets: u64 = 0;
+        for ((_hash, length), _timeslot) in self.lookup.iter() {
+            octets += 81 + *length as u64;
+        }
+        for (_hash, storage_data) in self.storage.iter() {
+            octets += 32 + storage_data.len() as u64;
+        }
+
+        let threshold = MIN_BALANCE + items as Balance * MIN_BALANCE_PER_ITEM + octets as Balance * MIN_BALANCE_PER_OCTET;
+
+        return (items, octets, threshold);
+    }   
 }
 
 pub fn decode_preimage(preimage: &[u8]) -> Result<PreimageData, ReadError> {

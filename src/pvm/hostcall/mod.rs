@@ -8,7 +8,7 @@ use crate::types::{
 use crate::constants::PAGE_SIZE;
 use crate::blockchain::state::services::decode_preimage;
 use crate::pvm::invoke_pvm;
-use crate::utils::codec::{Decode, BytesReader};
+use crate::utils::codec::{Decode, BytesReader, ReadError};
 use crate::utils::codec::generic::decode_unsigned;
 use crate::pvm::hostcall::program_init::init_std_program;
 
@@ -68,6 +68,7 @@ fn hostcall<F>(program_code: &[u8], pc: RegSize, gas: Gas, reg: Registers, ram: 
 where 
     F: Fn(HostCallFn, Gas, Registers, RamMemory, HostCallContext) -> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
 {
+    println!("Hostcall");
     let mut pvm_ctx = Context::default();
     pvm_ctx.pc = pc;
     pvm_ctx.gas = gas;
@@ -75,7 +76,7 @@ where
     pvm_ctx.ram = ram;
 
     let exit_reason = invoke_pvm(&mut pvm_ctx, program_code);
-
+    println!("Exit reason: {:?}", exit_reason);
     if exit_reason == ExitReason::Halt 
         || exit_reason == ExitReason::panic 
         || exit_reason == ExitReason::OutOfGas  
@@ -86,28 +87,34 @@ where
     
     if let ExitReason::HostCall(n) = exit_reason {
 
-        let (hostcall_exit_reason, gas, reg, ram, ctx) = f(n, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram.clone(), ctx);
+        let (hostcall_exit_reason, 
+             post_gas, 
+             post_reg, 
+             post_ram, 
+             post_ctx) = f(n, pvm_ctx.gas.clone(), pvm_ctx.reg.clone(), pvm_ctx.ram.clone(), ctx.clone());
 
         match hostcall_exit_reason {
             ExitReason::PageFault(hostcall_page_fault) => {
                 return (ExitReason::PageFault(hostcall_page_fault), pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram, ctx);
             },
             ExitReason::Continue => {
-                return hostcall(program_code, pvm_ctx.pc, gas, reg, ram, f, ctx);
+                return hostcall(program_code, pvm_ctx.pc, post_gas, post_reg, post_ram, f, post_ctx);
             },
             ExitReason::panic 
             | ExitReason::Halt
+            | ExitReason::halt
             | ExitReason::OutOfGas => {
-                return (hostcall_exit_reason, pvm_ctx.pc, gas, reg, ram, ctx);
+                println!("Hostcall exit reason: {:?}", hostcall_exit_reason);
+                return (hostcall_exit_reason, pvm_ctx.pc, post_gas, post_reg, post_ram, post_ctx);
             },
             _ => {
                 println!("Incorrect Hostcall exit reason: {:?}", hostcall_exit_reason);
-                return (hostcall_exit_reason, pvm_ctx.pc, gas, reg, ram, ctx);
+                return (hostcall_exit_reason, pvm_ctx.pc, post_gas, post_reg, post_ram, post_ctx);
             }
         }
     }
-    
-    println!("Unknown exit reason: {:?}", exit_reason);
+
+    println!("Hostcall exit: {:?}", exit_reason);
     return (exit_reason, pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram, ctx);
 }
 
@@ -116,6 +123,7 @@ fn hostcall_argument<F>(program_code: &[u8], pc: RegSize, gas: Gas, arg: &[u8], 
 where 
     F: Fn(HostCallFn, Gas, Registers, RamMemory, HostCallContext) -> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
 {
+    println!("Hostcall argument");
     let std_program_decoded = match init_std_program(&program_code, &arg) {
         Ok(program) => {
             if program.is_none() {
@@ -141,32 +149,57 @@ fn R(gas: Gas, hostcall_result: (ExitReason, RegSize, Gas, Registers, RamMemory,
         return (gas_consumed, WorkExecResult::Error(WorkExecError::OutOfGas), post_ctx);
     }
 
-    let start_page = post_reg[7] as RamAddress / PAGE_SIZE;
-    let end_page = (post_reg[7] + post_reg[8]) as RamAddress / PAGE_SIZE;
+    let start_address = post_reg[7] as RamAddress;
+    let end_address = (post_reg[7] + post_reg[8]) as RamAddress;
 
-    if exit_reason == ExitReason::Halt {
-        match is_readable(&post_ram, &start_page, &end_page) {
-            Ok(readable) => {
-                if readable {
-                    let mut data = vec![];
-                    for page_number in start_page..=end_page {
-                        let page = post_ram.pages[page_number as usize].as_ref().unwrap();
-                        data.extend_from_slice(page.data.as_slice());
-                    }
-                    return (gas_consumed, WorkExecResult::Ok(data), post_ctx);
-                } 
-
-                return (gas_consumed, WorkExecResult::Ok(vec![]), post_ctx);
-            },
-            Err(error) => {
-                //TODO que hago aqui?
-                println!("run_hostcall Error: {:?}", error);
-                return (gas_consumed, WorkExecResult::Ok(vec![]), post_ctx);
-            }
+    if exit_reason == ExitReason::Halt || exit_reason == ExitReason::halt { // TODO cambiar esto
+        if post_ram.is_readable(start_address, end_address) {
+            let data = post_ram.read(start_address, post_reg[8] as u32);
+            return (gas_consumed, WorkExecResult::Ok(data), post_ctx);
+        } else {
+            return (gas_consumed, WorkExecResult::Ok(vec![]), post_ctx);
         }
     }   
 
     return (gas_consumed, WorkExecResult::Error(WorkExecError::Panic), post_ctx);
+}
+
+use std::convert::TryFrom;
+impl TryFrom<u8> for HostCallFn {
+    type Error = ReadError;
+
+    fn try_from(v: u8) -> Result<Self, Self::Error> {
+        match v {
+            0  => Ok(HostCallFn::Gas),
+            1  => Ok(HostCallFn::Lookup),
+            2  => Ok(HostCallFn::Read),
+            3  => Ok(HostCallFn::Write),
+            4  => Ok(HostCallFn::Info),
+            5  => Ok(HostCallFn::Bless),
+            6  => Ok(HostCallFn::Assign),
+            7  => Ok(HostCallFn::Designate),
+            8  => Ok(HostCallFn::Checkpoint),
+            9  => Ok(HostCallFn::New),
+            10 => Ok(HostCallFn::Upgrade),
+            11 => Ok(HostCallFn::Transfer),
+            12 => Ok(HostCallFn::Eject),
+            13 => Ok(HostCallFn::Query),
+            14 => Ok(HostCallFn::Solicit),
+            15 => Ok(HostCallFn::Forget),
+            16 => Ok(HostCallFn::Yield),
+            17 => Ok(HostCallFn::HistoricalLookup),
+            18 => Ok(HostCallFn::Fetch),
+            19 => Ok(HostCallFn::Export),
+            20 => Ok(HostCallFn::Machine),
+            21 => Ok(HostCallFn::Peek),
+            22 => Ok(HostCallFn::Poke),
+            23 => Ok(HostCallFn::Zero),
+            24 => Ok(HostCallFn::Void),
+            25 => Ok(HostCallFn::Invoke),
+            26 => Ok(HostCallFn::Expugne),
+            _  => Err(ReadError::InvalidData),
+        }
+    }
 }
 
 

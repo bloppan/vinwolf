@@ -1,7 +1,8 @@
 use std::collections::VecDeque;
 use std::collections::{HashMap, HashSet};
 use std::array::from_fn;
-use crate::constants::{CORES_COUNT, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_POOL, NUM_PAGES, NUM_REG, PAGE_SIZE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT};
+use crate::constants::{CORES_COUNT, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_POOL, NUM_PAGES, NUM_REG, PAGE_SIZE, RECENT_HISTORY_SIZE, 
+    VALIDATORS_COUNT, TRANSFER_MEMO_SIZE};
 use crate::types::{
     Account, AccumulatedHistory, ActivityRecord, ActivityRecords, AssurancesExtrinsic, AuthPool, AuthPools, AuthQueue, AuthQueues, AuthorizerHash, 
     AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, Context, CoreActivityRecord, 
@@ -258,7 +259,7 @@ impl Default for DeferredTransfer {
             from: 0,
             to: 0,
             amount: 0,
-            memo: 0,
+            memo: Vec::new(),
             gas_limit: 0,
         }
     }

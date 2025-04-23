@@ -1,6 +1,6 @@
 use once_cell::sync::Lazy;
 use services::process_services;
-use sp_core::blake2_256;
+use sp_core::{blake2_256, keccak_256};
 use std::sync::Mutex;
 use crate::types::{
     AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesRecords, EntropyPool, GlobalState, 
@@ -13,6 +13,7 @@ use crate::constants::{
 };
 use crate::utils::codec::{Encode, EncodeLen};
 use crate::utils::codec::jam::global_state::{construct_preimage_key, construct_lookup_key, construct_storage_key, StateKeyTrait};
+use crate::utils::trie;
 
 use reporting_assurance::{process_assurances, process_guarantees};
 use statistics::process_statistics;
@@ -83,20 +84,29 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &block.header.unsigned.slot
     )?; 
 
-    process_accumulation(
-        &mut new_state.accumulation_history,
-        &mut new_state.ready_queue,
-        /*&new_state.entropy,
-        &new_state.privileges,
-        &new_state.service_accounts,*/
-        &block.header.unsigned.slot,
-        &new_available_workreports.reported)?;
+    let (accumulation_root, 
+         service_accounts, 
+         next_validators, 
+         queue_auth, 
+         privileges) = process_accumulation(
+            &mut new_state.accumulation_history,
+            &mut new_state.ready_queue,
+            new_state.service_accounts,
+            new_state.next_validators,
+            new_state.auth_queues,
+            new_state.privileges,
+            &block.header.unsigned.slot,
+            &new_available_workreports.reported)?;
 
+    new_state.service_accounts = service_accounts;
+    new_state.next_validators = next_validators;
+    new_state.auth_queues = queue_auth;
+    new_state.privileges = privileges;
+    
     finalize_recent_history(
         &mut new_state.recent_history,
         &blake2_256(&block.header.encode()),
-        //&input.accumulate_root, 
-        &[0u8; 32],
+        &accumulation_root,
         &reported_work_packages);
 
     process_services(
@@ -119,7 +129,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     );
     
     set_global_state(new_state);    
-        
+
     Ok(())
 }
 
@@ -152,7 +162,7 @@ impl GlobalState {
                 code_hash: service.1.code_hash,
                 min_item_gas: service.1.gas,
                 min_memo_gas: service.1.min_gas,
-                bytes: service.1.bytes,
+                bytes: service.1.bytes, // TODO bytes y items se calcula con la eq de threshold account (9.3)
                 items: service.1.items,
             };
             // TODO revisar esto y ver si se puede hacer con encode account

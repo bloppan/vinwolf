@@ -136,7 +136,7 @@ pub fn merkle(kvs: &[(Vec<u8>, Vec<u8>)], i: usize) -> Result<Hash, MerkleError>
     Ok(hash(&branch_value))
 }
 
-fn node<T>(v: &[u8], hash_fn: fn(&[u8]) -> Hash) -> T
+fn node<T>(v: Vec<Vec<u8>>, hash_fn: fn(&[u8]) -> Hash) -> T
 where
     T: From<Vec<u8>> + From<Hash>,
 {
@@ -145,11 +145,11 @@ where
     if len == 0 {
         return T::from([0u8; 32]);
     } else if len == 1 {
-        return T::from(v.to_vec());
+        return T::from(v[0].clone());
     } else {
         let prefix  = Vec::from("node");
-        let left    = node::<Vec<u8>>(&v[..(len / 2)], hash_fn); 
-        let right   = node::<Vec<u8>>(&v[(len / 2)..], hash_fn); 
+        let left    = node::<Vec<u8>>(v[..(len / 2)].to_vec(), hash_fn); 
+        let right   = node::<Vec<u8>>(v[(len / 2)..].to_vec(), hash_fn); 
         
         let mut combined = prefix.clone();
         combined.extend_from_slice(&left);
@@ -159,10 +159,10 @@ where
     }
 }
 
-pub fn merkle_b(v: &[u8], hash_fn: fn(&[u8]) -> Hash) -> Hash {
+pub fn merkle_balanced(v: Vec<Vec<u8>>, hash_fn: fn(&[u8]) -> Hash) -> Hash {
 
     if v.len() == 1 {
-        return hash_fn(&[v[0]]);
+        return hash_fn(&v[0]);
     }
 
     let mut hash = [0u8; 32];
@@ -272,3 +272,4 @@ mod tests {
         assert_eq!(expected_2.peaks, result_2.peaks);
     }
 }
+

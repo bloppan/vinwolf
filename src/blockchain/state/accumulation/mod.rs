@@ -20,9 +20,11 @@ use crate::types::{
 };
 use super::{get_authqueues, get_privileges, get_service_accounts, get_time, get_validators, services, ProcessError};
 use crate::blockchain::state::time::get_current_slot;
+use crate::utils::codec::{Encode, EncodeLen, Decode, BytesReader, ReadError};
 use crate::utils::common::{dict_subtract, keys_to_set};
+use crate::utils::trie;
 use crate::pvm::hostcall::accumulate::invoke_accumulation;
-
+use crate::pvm::hostcall::on_transfer::invoke_on_transfer;
 // Accumulation of a work-package/work-report is deferred in the case that it has a not-yet-fulfilled dependency and is 
 // cancelled entirely in the case of an invalid dependency. Dependencies are specified  as work-package hashes and in order 
 // to know which work-packages have been accumulated already, we maintain a history of what has been accumulated. This history 
@@ -34,12 +36,13 @@ use crate::pvm::hostcall::accumulate::invoke_accumulation;
 pub fn process_accumulation(
     accumulated_history: &mut AccumulatedHistory,
     ready_queue: &mut ReadyQueue,
-   /*entropy_pool: &EntropyPool,
-    privileges: &Privileges,
-    services_accounts: &ServiceAccounts,*/
+    service_accounts: ServiceAccounts,
+    next_validators: ValidatorsData,
+    queues_auth: AuthQueues,
+    privileges: Privileges,
     post_tau: &TimeSlot,
     new_available_reports: &[WorkReport],
-) -> Result<OutputAccumulation, ProcessError> {
+) -> Result<(OpaqueHash, ServiceAccounts, ValidatorsData, AuthQueues, Privileges), ProcessError> {
 
     // The newly available work-reports, are partitioned into two sequences based on the condition of having zero prerequisite work-reports.
     // Those meeting the condition are accumulated immediately. Those not, (reports_for_queue) are for queued execution.
@@ -50,23 +53,64 @@ pub fn process_accumulation(
     let current_block_accumulatable = get_current_block_accumulatable(new_available_reports, ready_queue, accumulated_history, post_tau);
     
     let partial_state = AccumulationPartialState {
-        services_accounts: get_service_accounts(),
-        next_validators: get_validators(ValidatorSet::Next),
-        queues_auth: get_authqueues(),
-        privileges: get_privileges(),
+        services_accounts: service_accounts,
+        next_validators,
+        queues_auth,
+        privileges,
     };
 
-    let (n, post_partial_state, deferred_transfers, service_gas_pairs, gas_used) = outer_accumulation(
+    let (_n, 
+         mut post_partial_state, 
+         transfers, 
+         mut service_hash_pairs, 
+         _service_gas_pairs) = outer_accumulation(
         &get_gas_limit(&partial_state.privileges),
         &current_block_accumulatable,
         &partial_state,
         &partial_state.privileges.always_acc,
     )?;
+    /*println!("Deferred transfers: {:x?}", transfers);
+    println!("ACCUMULATTION: ");
+    println!("service_hash_pairs: {:x?}", service_hash_pairs);*/
+    service_hash_pairs.sort_by_key(|(service_id, _)| *service_id);
+    let mut pairs_blob: Vec<Vec<u8>> = Vec::new();
+    for (service_id, hash) in service_hash_pairs.iter() {
+        pairs_blob.push([service_id.encode(), hash.encode()].concat());
+    }
+    let accumulation_root = trie::merkle_balanced(pairs_blob, sp_core::keccak_256);
+    //println!("accumulation_root: {:x?}", accumulation_root);
+
+    let mut xfer_stats: HashMap<ServiceId, (Account, Gas)> = HashMap::new();
+    println!("SERVICE ACCOUNTS: ");
+    println!("post_partial_state: {:x?}", post_partial_state.services_accounts);
+    for service in post_partial_state.services_accounts.service_accounts.iter() {
+        let service_id = service.0;
+        let selected_transfers = select_deferred_transfers(&transfers, &service_id);
+        println!("*** service {:?} transfers: {:?}", service_id, selected_transfers);
+        let xfer_result = invoke_on_transfer(
+            &post_partial_state.services_accounts,
+            &get_current_slot(),
+            service_id,
+            selected_transfers,
+        );
+    
+        xfer_stats.insert(*service_id,xfer_result);
+    }
+    //println!("xfer_stats: {:x?}", xfer_stats);
+    for service in xfer_stats.iter() {
+        println!("xfer stats service {:?}", service.0);
+        println!("xfer balance {:?}", service.1.0.balance);
+        post_partial_state.services_accounts.service_accounts.insert(*service.0, service.1.0.clone());
+    }
 
     accumulated_history.update(map_workreports(&current_block_accumulatable));
     ready_queue.update(accumulated_history, post_tau, reports_for_queue);
 
-    Ok(OutputAccumulation::Ok([0; 32]))
+    Ok((accumulation_root, 
+        post_partial_state.services_accounts, 
+        post_partial_state.next_validators, 
+        post_partial_state.queues_auth, 
+        post_partial_state.privileges))
 }
 
 fn get_gas_limit(privileges: &Privileges) -> Gas {
@@ -259,6 +303,8 @@ fn single_service_accumulation(
         total_gas += *gas;
     } 
 
+    println!("Operands: {:x?}", accumulation_operands);
+
     invoke_accumulation(
         partial_state,
         &get_current_slot(),
@@ -275,6 +321,7 @@ fn parallelized_accumulation(
     service_gas_dict: &HashMap<ServiceId, Gas>,
 ) -> Result<(AccumulationPartialState, Vec<DeferredTransfer>, Vec<(ServiceId, OpaqueHash)>, Vec<(ServiceId, Gas)>), ProcessError>
 {
+    println!("Parallelized accumulation");
     let mut s_services: HashSet<ServiceId> = HashSet::new();
     for report in reports.iter() {
         for result in report.results.iter() {
@@ -287,7 +334,7 @@ fn parallelized_accumulation(
     }
 
     let mut u_gas_used: Vec<(ServiceId, Gas)> = vec![];
-    let mut b_service_gas_pairs: Vec<(ServiceId, OpaqueHash)> = vec![];
+    let mut b_service_hash_pairs: Vec<(ServiceId, OpaqueHash)> = vec![];
     let mut t_deferred_transfers: Vec<DeferredTransfer> = vec![];
     let mut n_service_accounts: ServiceAccounts = ServiceAccounts::default();
     let mut m_service_accounts = HashSet::new();
@@ -299,9 +346,12 @@ fn parallelized_accumulation(
             transfers, 
             service_hash, 
             gas) = single_service_accumulation(partial_state, reports, service_gas_dict, service);
+        println!("for service: {:?}", service);
+        println!("balance: {:?}", d_services.service_accounts.get(service).unwrap().balance);
+        println!("transfers: {:?}", transfers);
         u_gas_used.push((*service, gas));
         if let Some(hash) = service_hash {
-            b_service_gas_pairs.push((*service, hash));
+            b_service_hash_pairs.push((*service, hash));
         }
         t_deferred_transfers.extend(transfers);
         
@@ -365,7 +415,7 @@ fn parallelized_accumulation(
         privileges: post_privileges,
     };
 
-    return Ok((result_partial_state, t_deferred_transfers, b_service_gas_pairs, u_gas_used));
+    return Ok((result_partial_state, t_deferred_transfers, b_service_hash_pairs, u_gas_used));
 }
 
 fn outer_accumulation(
@@ -373,8 +423,10 @@ fn outer_accumulation(
     reports: &[WorkReport],
     partial_state: &AccumulationPartialState,
     service_gas_dict: &HashMap<ServiceId, Gas>
+
 ) -> Result<(u32, AccumulationPartialState, Vec<DeferredTransfer>, Vec<(ServiceId, OpaqueHash)>, Vec<(ServiceId, Gas)>), ProcessError>
 {
+    println!("Outer accumulation");
     let mut i: u32 = 0;
     let mut gas_to_use = 0;
 
@@ -402,7 +454,7 @@ fn outer_accumulation(
     let (j, 
         prime_partial_state, 
         t_deferred_transfers,
-        b_service_gas_pairs,
+        b_service_hash_pairs,
         u_gas_used) = outer_accumulation(&(*gas_limit - total_gas_used), 
                                                             &reports[i as usize..], 
                                                             &star_partial_state, 
@@ -411,7 +463,7 @@ fn outer_accumulation(
     return Ok((i + j, 
                prime_partial_state, 
                [star_deferred_transfers, t_deferred_transfers].concat(), 
-               [star_service_gas_pairs, b_service_gas_pairs].concat(), 
+               [star_service_gas_pairs, b_service_hash_pairs].concat(), 
                [star_gas_used, u_gas_used].concat()));
 }
 
