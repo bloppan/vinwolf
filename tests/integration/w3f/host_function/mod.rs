@@ -6,7 +6,6 @@ use std::collections::HashMap;
 
 extern crate vinwolf;
 
-use vinwolf::pvm::hostcall::general_functions::info;
 use vinwolf::types::{GlobalState, Gas};
 
 mod parser;
@@ -100,9 +99,9 @@ mod tests {
 
         let json_data: HostCallTestFile = serde_json::from_str(&data).expect("Error deserializing  JSON");
 
-        let mut context = parse_context(&json_data, TestPart::Initial);
-        let service_id: u32 = json_data.initial_service_index;
-        let mut account = parse_account(&json_data.initial_service_account);
+        let context = parse_context(&json_data, TestPart::Initial);
+        let _service_id: u32 = json_data.initial_service_index;
+        let _account = parse_account(&json_data.initial_service_account);
         
         let mut global_state = GlobalState::default();
         let initial_service_accounts = parse_service_accounts(&json_data.initial_delta);

@@ -1,27 +1,24 @@
 /*
-    The Jam chain does not explicitly issue rewards —we leave this as a job to be done by the staking 
-    subsystem (in Polkadot’s case envisioned as a system parachain hosted without fees— in the current 
-    imagining of a public Jam network). However, much as with validator punishment information, it is 
-    important for the Jam chain to facilitate the arrival of information on validator activity in to the 
-    staking subsystem so that it may be acted upon.
+    The Jam chain does not explicitly issue rewards —we leave this as a job to be done by the staking subsystem (in Polkadot’s case 
+    envisioned as a system parachain hosted without fees— in the current imagining of a public Jam network). However, much as with 
+    validator punishment information, it is important for the Jam chain to facilitate the arrival of information on validator activity 
+    in to the staking subsystem so that it may be acted upon.
 
-    Such performance information cannot directly cover all aspects of validator activity; whereas block 
-    production, guarantor reports and availability assurance can easily be tracked on-chain, Grandpa, Beefy 
-    and auditing activity cannot. In the latter case, this is instead tracked with validator voting activity: 
-    validators vote on their impression of each other’s efforts and a median may be accepted as the truth for 
-    any given validator. With an assumption of 50% honest validators, this gives an adequate means of oraclizing 
+    Such performance information cannot directly cover all aspects of validator activity; whereas block production, guarantor reports 
+    and availability assurance can easily be tracked on-chain, Grandpa, Beefy and auditing activity cannot. In the latter case, this is 
+    instead tracked with validator voting activity: validators vote on their impression of each other’s efforts and a median may be 
+    accepted as the truth for any given validator. With an assumption of 50% honest validators, this gives an adequate means of oraclizing 
     this information.
 
-    The validator statistics are made on a per-epoch basis and we retain one record of completed statistics together
-    with one record which serves as an accumulator for the present epoch. Both are tracked in π, which is thus a
-    sequence of two elements, with the first being the accumulator and the second the previous epoch’s statistics.
-
-    For each epoch we track a performance record for each validator.
+    The validator statistics are made on a per-epoch basis and we retain one record of completed statistics together with one record which 
+    serves as an accumulator for the present epoch. Both are tracked in π, which is thus a sequence of two elements, with the first being 
+    the accumulator and the second the previous epoch’s statistics. For each epoch we track a performance record for each validator.
 */
+
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use std::collections::{HashMap, HashSet};
-use crate::blockchain::block::extrinsic::guarantees;
+
 use crate::types::{
     ActivityRecords, CoresStatistics, Extrinsic, ServicesStatistics, SeviceActivityRecord, Statistics, TimeSlot, ValidatorIndex, 
     WorkReport, Gas, ServiceId
@@ -53,7 +50,7 @@ pub fn get_xfer_stats() -> HashMap<ServiceId, (u32, Gas)> {
     XFER_STATS.lock().unwrap().clone()
 }
 
-pub fn process_statistics(
+pub fn process(
     statistics: &mut Statistics,
     post_tau: &TimeSlot,
     author_index: &ValidatorIndex,

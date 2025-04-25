@@ -1,5 +1,3 @@
-use hex::decode;
-
 use crate::types::{
     ActivityRecord, ActivityRecords, CoreActivityRecord, Statistics, CoresStatistics, SeviceActivityRecord, ServicesStatisticsMapEntry,
     ServicesStatistics, ServiceId

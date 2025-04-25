@@ -12,7 +12,7 @@ use crate::types::{Hash, BlockHistory, BlockInfo, ReportedWorkPackages, Mmr};
 use crate::constants::RECENT_HISTORY_SIZE;
 use crate::utils::trie::append;
 
-pub fn process_recent_history(
+pub fn process(
     recent_history_state: &mut BlockHistory,
     header_hash: &Hash, 
     parent_state_root: &Hash, 
@@ -39,7 +39,7 @@ pub fn process_recent_history(
     return recent_history_state.clone();
 }
 
-pub fn finalize_recent_history(recent_history_state: &mut BlockHistory,
+pub fn finalize(recent_history_state: &mut BlockHistory,
                                header_hash: &Hash, 
                                accumulate_root: &Hash, 
                                work_packages: &ReportedWorkPackages

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 extern crate vinwolf;
 use vinwolf::constants::{NUM_REG, PAGE_SIZE};
-use vinwolf::types::{Account, Context, OpaqueHash, Page, PageFlags, PageTable, RamAccess, RamMemory, ServiceAccounts};
+use vinwolf::types::{Account, Context, OpaqueHash, Page, PageFlags, RamAccess, RamMemory, ServiceAccounts};
 
 use super::{DeltaEntry, InitialMemory, HostCallTestFile};
 
@@ -72,8 +72,7 @@ pub fn parse_service_accounts(json_data: &HashMap<String, DeltaEntry>) -> Servic
     let mut service_accounts: ServiceAccounts = ServiceAccounts::default();
 
     for service in json_data.iter() {
-        let mut account = Account::default();
-        account = parse_account(service.1);
+        let account = parse_account(service.1);
         service_accounts.service_accounts.insert(service.0.parse::<u32>().unwrap(), account);
     }
 
@@ -89,7 +88,7 @@ pub fn parse_regs(json_data: &HashMap<String, u64>) -> [u64; NUM_REG] {
 }
 // TODO arreglar esto
 pub fn parse_memory(json_data: &InitialMemory) -> RamMemory {
-    let mut ram: RamMemory = RamMemory::default();
+    let ram: RamMemory = RamMemory::default();
     for page in json_data.pages.iter() {
         let mut flags = PageFlags::default();
         if page.1.access.writable {
@@ -97,7 +96,7 @@ pub fn parse_memory(json_data: &InitialMemory) -> RamMemory {
         } else  {
             flags.access.insert(RamAccess::Read);
         }
-        let new_page = Page {
+        let _new_page = Page {
             flags,
             data: {
                 let mut data = Box::new([0; PAGE_SIZE as usize]);

@@ -7,13 +7,13 @@ use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 pub mod codec;
 pub mod parser;
-use parser::{deserialize_state_transition_file, read_state_snapshot};
+use parser::deserialize_state_transition_file;
 
 extern crate vinwolf;
 
 use vinwolf::types::{Block, GlobalState, OpaqueHash};
 use vinwolf::constants::{*};
-use vinwolf::blockchain::state::{get_global_state, state_transition_function, set_state_root};
+use vinwolf::blockchain::state::{get_global_state, state_transition_function};
 use vinwolf::blockchain::state::set_global_state;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
@@ -31,6 +31,7 @@ struct TestData {
     pub post_state: TestnetState,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct ParsedTransitionFile {
     pub pre_state_root: OpaqueHash,
@@ -53,14 +54,8 @@ pub fn read_test(filename: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> 
     Ok(test_content)
 }
 
-
 #[cfg(test)]
 mod tests {
-
-    use core::panic;
-
-    use serde::ser;
-    use vinwolf::blockchain::state::services;
 
     use super::*;
 
@@ -73,6 +68,7 @@ mod tests {
         //run_javajam_blocks("tests/test_vectors/testnet/javajam-trace/stf");
     }
 
+    #[allow(dead_code)]
     fn run_jamduna_blocks(dir: &str) {
 
         println!("Running blocks in {} mode", dir);
@@ -176,6 +172,7 @@ mod tests {
         }
     }
 
+    #[allow(dead_code)]
     fn run_javajam_blocks(dir: &str) {
 
         let body_block: Vec<TestBody> = vec![TestBody::Block];

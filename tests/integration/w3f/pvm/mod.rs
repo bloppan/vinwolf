@@ -6,12 +6,9 @@ use std::collections::HashSet;
 
 extern crate vinwolf;
 
-
 use vinwolf::constants::{NUM_REG, PAGE_SIZE};
 use vinwolf::pvm::invoke_pvm;
-use vinwolf::types::{
-    Context, ExitReason, MemoryChunk, PageMap, PageFlags, RamAddress, RamAccess, Gas, Page, PageTable
-};
+use vinwolf::types::{Context, ExitReason, MemoryChunk, PageMap, PageFlags, RamAddress, RamAccess, Gas, Page};
 
 #[derive(Deserialize, Debug, PartialEq)]
 struct Testcase {

@@ -35,6 +35,8 @@ fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usiz
         })
 }
 
+#[allow(dead_code)]
+#[allow(non_snake_case)]
 #[derive(Debug)]
 pub enum TestBody {
     RefineContext,
@@ -75,7 +77,6 @@ pub enum TestBody {
     GlobalStateTest,
     AuthQueues,
     AuthPools,
-    //BlockHistory,
     Safrole,
     DisputesRecords,
     EntropyPool,

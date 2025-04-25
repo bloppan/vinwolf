@@ -1,13 +1,7 @@
 
-use ark_vrf::reexports::{
-    ark_ec::AffineRepr,
-    ark_serialize::{self, CanonicalDeserialize, CanonicalSerialize},
-};
-use ark_vrf::{pedersen::PedersenSuite, ring::RingSuite, suites::bandersnatch};
-use bandersnatch::{
-    AffinePoint, BandersnatchSha512Ell2, IetfProof, Input, Output, Public, RingProof,
-    RingProofParams, Secret,
-};
+use ark_vrf::reexports::ark_serialize::{self, CanonicalDeserialize, CanonicalSerialize};
+use ark_vrf::suites::bandersnatch;
+use bandersnatch::{BandersnatchSha512Ell2, IetfProof, Input, Output, Public, RingProof, RingProofParams, Secret};
 
 use crate::constants::VALIDATORS_COUNT;
 const RING_SIZE: usize = VALIDATORS_COUNT;
@@ -52,6 +46,7 @@ fn vrf_input_point(vrf_input_data: &[u8]) -> Input {
     Input::new(vrf_input_data).unwrap()
 }
 
+#[allow(dead_code)]
 // Prover actor.
 struct Prover {
     pub prover_idx: usize,
@@ -60,6 +55,7 @@ struct Prover {
 }
 
 impl Prover {
+    #[allow(dead_code)]
     pub fn new(ring: Vec<Public>, prover_idx: usize) -> Self {
         Self {
             prover_idx,
@@ -69,6 +65,7 @@ impl Prover {
     }
 
     /// VRF output hash.
+    #[allow(dead_code)]
     pub fn vrf_output(&self, vrf_input_data: &[u8]) -> Vec<u8> {
         let input = vrf_input_point(vrf_input_data);
         let output = self.secret.output(input);
@@ -78,6 +75,7 @@ impl Prover {
     /// Anonymous VRF signature.
     ///
     /// Used for tickets submission.
+    #[allow(dead_code)]
     pub fn ring_vrf_sign(&self, vrf_input_data: &[u8], aux_data: &[u8]) -> Vec<u8> {
         use ark_vrf::ring::Prover as _;
 
@@ -104,6 +102,7 @@ impl Prover {
     ///
     /// Used for ticket claiming during block production.
     /// Not used with Safrole test vectors.
+    #[allow(dead_code)]
     pub fn ietf_vrf_sign(&self, vrf_input_data: &[u8], aux_data: &[u8]) -> Vec<u8> {
         use ark_vrf::ietf::Prover as _;
 
@@ -215,6 +214,7 @@ impl Verifier {
     }
 }
 
+#[allow(unused_macros)]
 macro_rules! measure_time {
     ($func_name:expr, $func_call:expr) => {{
         let start = std::time::Instant::now();

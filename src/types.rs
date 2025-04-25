@@ -5,7 +5,7 @@ use serde::Deserialize;
 use crate::utils::codec::ReadError;
 use crate::constants::{
     ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH,
-    NUM_REG, PAGE_SIZE, SEGMENT_SIZE, TRANSFER_MEMO_SIZE
+    NUM_REG, PAGE_SIZE, SEGMENT_SIZE, 
 };
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
@@ -909,17 +909,22 @@ pub struct MemoryChunk {
     pub contents: Vec<u8>,
 }
 
-#[warn(non_camel_case_types)]
+#[allow(unreachable_patterns)]
+#[allow(non_snake_case)]
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 pub enum ExitReason {
+    #[allow(non_camel_case_types)]
     trap,
+    #[allow(non_camel_case_types)]
     halt,
     Continue,
     Branch,
     #[serde(rename = "halt")]
     Halt,
+    #[allow(non_camel_case_types)]
     panic,
     OutOfGas,
+    #[allow(non_camel_case_types)]
     #[serde(rename = "page-fault")]
     page_fault,
     PageFault(u32),     

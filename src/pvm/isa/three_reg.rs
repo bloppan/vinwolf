@@ -441,7 +441,6 @@ pub fn min_u(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::pvm::isa::skip;
 
     #[cfg(test)]
     mod test {

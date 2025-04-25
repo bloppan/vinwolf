@@ -1,6 +1,5 @@
 use crate::types::{Context, ExitReason, Program};
 use crate::utils::codec::{BytesReader, Decode};
-use crate::pvm::isa::skip;
 
 use isa::one_offset::*;
 use isa::no_arg::*;

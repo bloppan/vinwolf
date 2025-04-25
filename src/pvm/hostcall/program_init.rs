@@ -1,13 +1,12 @@
-use crate::types::{Page, PageTable, ProgramFormat, RamAccess, RamAddress, RamMemory, Registers, StandardProgram};
-use crate::constants::{NUM_REG, PAGE_SIZE, PVM_INIT_INPUT_DATA_SIZE, PVM_INIT_ZONE_SIZE, RAM_SIZE, Zz, Zi};
-use crate::constants::{NONE, WHAT, OOB, WHO, FULL, CORE, CASH, LOW, HUH, OK};
+use crate::types::{Page, ProgramFormat, RamAccess, RamAddress, RamMemory, Registers, StandardProgram};
+use crate::constants::{NUM_REG, PAGE_SIZE, PVM_INIT_ZONE_SIZE, Zz, Zi};
 use crate::utils::codec::{Decode, BytesReader, ReadError};
 
-fn Page(x: usize) -> u64 {
+fn page(x: usize) -> u64 {
     x.div_ceil(PAGE_SIZE as usize) as u64 * PAGE_SIZE as u64
 }
 
-fn Zone(x: usize) -> u64 {
+fn zone(x: usize) -> u64 {
     x.div_ceil(PVM_INIT_ZONE_SIZE as usize) as u64 * PVM_INIT_ZONE_SIZE as u64
 }
 
@@ -59,7 +58,7 @@ fn init_ram_section(
                 let offset = i % PAGE_SIZE;
                 ram.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Write);
                 ram.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Read);
-                ram.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.w[i as usize - (2 * Zz + Zone(params.o.len()) as u64) as usize];
+                ram.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.w[i as usize - (2 * Zz + zone(params.o.len()) as u64) as usize];
             }
         },
         RamSection::Zone4 => {
@@ -89,9 +88,9 @@ fn init_ram_section(
         },
     }
 
-    for i in start_page..=end_page {
-        //println!("Page {}: {:x?}", i, ram.pages[i as usize].as_ref().unwrap().data);
-    }
+    /*for i in start_page..=end_page {
+        println!("Page {}: {:x?}", i, ram.pages[i as usize].as_ref().unwrap().data);
+    }*/
 
 }
 
@@ -105,18 +104,18 @@ pub fn init_ram(params: &ProgramFormat, arg: &[u8]) -> RamMemory {
     init_ram_section(&mut ram, params, arg, start_zone_1 as RamAddress, end_zone_1 as RamAddress, RamSection::Zone1);
 
     let start_zone_2 = Zz + params.o.len() as u64;
-    let end_zone_2 = Zz + Page(params.o.len()) as u64;
+    let end_zone_2 = Zz + page(params.o.len()) as u64;
     init_ram_section(&mut ram, params, arg, start_zone_2 as RamAddress, end_zone_2 as RamAddress, RamSection::Zone2);
 
-    let start_zone_3 = 2 * Zz + Zone(params.o.len()) as u64;
-    let end_zone_3 = 2 * Zz + Zone(params.o.len()) as u64 + params.w.len() as u64;
+    let start_zone_3 = 2 * Zz + zone(params.o.len()) as u64;
+    let end_zone_3 = 2 * Zz + zone(params.o.len()) as u64 + params.w.len() as u64;
     init_ram_section(&mut ram, params, arg, start_zone_3 as RamAddress, end_zone_3 as RamAddress, RamSection::Zone3);
 
-    let start_zone_4 = 2 * Zz + Zone(params.o.len()) as u64 + params.w.len() as u64;
-    let end_zone_4 = 2 * Zz + Zone(params.o.len()) as u64 + Page(params.w.len()) as u64 + (params.z as u64 * PAGE_SIZE as u64);
+    let start_zone_4 = 2 * Zz + zone(params.o.len()) as u64 + params.w.len() as u64;
+    let end_zone_4 = 2 * Zz + zone(params.o.len()) as u64 + page(params.w.len()) as u64 + (params.z as u64 * PAGE_SIZE as u64);
     init_ram_section(&mut ram, params, arg, start_zone_4 as RamAddress, end_zone_4 as RamAddress, RamSection::Zone4);
 
-    let start_zone_5 = (1 << 32) - 2 * Zz - Zi - Page(params.s as usize) as u64;
+    let start_zone_5 = (1 << 32) - 2 * Zz - Zi - page(params.s as usize) as u64;
     let end_zone_5 = (1 << 32) - 2 * Zz - Zi;
     init_ram_section(&mut ram, params, arg, start_zone_5 as RamAddress, end_zone_5 as RamAddress, RamSection::Zone5);
 
@@ -125,14 +124,14 @@ pub fn init_ram(params: &ProgramFormat, arg: &[u8]) -> RamMemory {
     init_ram_section(&mut ram, params, arg, start_zone_6 as RamAddress, end_zone_6 as RamAddress, RamSection::Zone6);
 
     let start_zone_7 = (1 << 32) - Zz - Zi + arg.len() as u64;
-    let end_zone_7 = (1 << 32) - Zz - Zi + Page(arg.len() as usize) as u64;
+    let end_zone_7 = (1 << 32) - Zz - Zi + page(arg.len() as usize) as u64;
     init_ram_section(&mut ram, params, arg, start_zone_7 as RamAddress, end_zone_7 as RamAddress, RamSection::Zone7);
 
     return ram;
 
 }
 
-pub fn init_registers(params: &ProgramFormat, arg: &[u8]) -> [u64; NUM_REG] {
+pub fn init_registers(_params: &ProgramFormat, arg: &[u8]) -> [u64; NUM_REG] {
 
     let mut reg = Registers::default();
 
@@ -159,7 +158,7 @@ pub fn init_std_program(program: &[u8], arg: &[u8]) -> Result<Option<StandardPro
     let mut blob = BytesReader::new(program);
     let params = ProgramFormat::decode(&mut blob)?;
 
-    if 5 * Zz + Zone(params.o.len()) + Zone(params.w.len() + params.z as usize * PAGE_SIZE as usize) + Zone(params.s as usize) + Zi > (1 << 32) {
+    if 5 * Zz + zone(params.o.len()) + zone(params.w.len() + params.z as usize * PAGE_SIZE as usize) + zone(params.s as usize) + Zi > (1 << 32) {
         return Ok(None);
     }
 
@@ -188,9 +187,9 @@ mod tests {
 
     #[test]
     fn zone_page_test() {
-        assert_eq!(4096, Page(2000));
-        assert_eq!(8192, Page(5000));
-        assert_eq!(131072, Zone(100000));
+        assert_eq!(4096, page(2000));
+        assert_eq!(8192, page(5000));
+        assert_eq!(131072, zone(100000));
     }
 
     fn read_test_file(filename: &str) -> Vec<u8> {

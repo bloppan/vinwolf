@@ -1,19 +1,14 @@
-use std::collections::{HashMap, HashSet};
-
+use std::collections::HashSet;
 use sp_core::blake2_256;
-use sp_core::ecdsa::PUBLIC_KEY_SERIALIZED_SIZE;
 
-use crate::blockchain::state::entropy::get_recent_entropy;
-use crate::blockchain::state::{get_entropy, get_time};
 use crate::types::{
-    Account, AccumulationContext, AccumulationOperand, AccumulationPartialState, DeferredTransfer, ExitReason, Gas, Hash, 
-    HostCallFn, OpaqueHash, RamAddress, RamMemory, RegSize, Registers, ServiceId, TimeSlot, WorkExecResult, 
+    Account, AccumulationContext, AccumulationOperand, AccumulationPartialState, DeferredTransfer, ExitReason, Gas, HostCallFn, OpaqueHash, 
+    RamAddress, RamMemory, RegSize, Registers, ServiceId, TimeSlot, WorkExecResult, 
 };
-use crate::constants::{CASH, CORE, FULL, HUH, LOW, NONE, OK, OOB, PAGE_SIZE, VALIDATORS_COUNT, WHAT, WHO, TRANSFER_MEMO_SIZE};
+use crate::constants::{CASH, FULL, LOW, NONE, OK, WHAT, WHO, TRANSFER_MEMO_SIZE};
 use crate::utils::codec::{Encode, DecodeSize, BytesReader};
-use crate::pvm::hostcall::{hostcall_argument, is_readable, HostCallContext};
-use crate::pvm::hostcall::general_functions::info;
-use crate::blockchain::state::services::{decode_preimage, historical_preimage_lookup};
+use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
+use crate::blockchain::state::services::decode_preimage;
 use crate::utils::common;
 
 pub fn invoke_accumulation(
@@ -52,7 +47,7 @@ pub fn invoke_accumulation(
 
 // F: Fn(&[u8], RegSize, Gas, Registers, RamMemory, HostCallContext) -> (ExitReason, RegSize, Gas, Registers, RamMemory, HostCallContext)
 // F: Fn(HostCallFn, Gas, Registers, RamMemory, HostCallContext) -> (ExitReason, RegSize, Gas, Registers, RamMemory, HostCallContext)
-pub fn accumulation_dispatcher(n: HostCallFn, mut gas: Gas, mut reg: Registers, mut ram: RamMemory, mut ctx: HostCallContext) 
+pub fn accumulation_dispatcher(n: HostCallFn, mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext) 
 
 -> (ExitReason, Gas, Registers, RamMemory, HostCallContext) {
 
@@ -68,7 +63,7 @@ pub fn accumulation_dispatcher(n: HostCallFn, mut gas: Gas, mut reg: Registers, 
             let g = reg[9];
             let m = reg[10];
 
-            let HostCallContext::Accumulate(mut ctx_x, mut ctx_y) = ctx else {
+            let HostCallContext::Accumulate(mut ctx_x, ctx_y) = ctx else {
                 unreachable!("Dispatch accumulate: Invalid context");
             };
 
@@ -111,7 +106,7 @@ pub fn accumulation_dispatcher(n: HostCallFn, mut gas: Gas, mut reg: Registers, 
         }
         HostCallFn::Write => {
             
-            let HostCallContext::Accumulate(mut ctx_x, mut ctx_y) = ctx else {
+            let HostCallContext::Accumulate(ctx_x, ctx_y) = ctx else {
                 unreachable!("Dispatch accumulate: Invalid context");
             };
             let account = get_accumulating_service_account(&ctx_x.partial_state, &ctx_x.service_id).unwrap();
@@ -125,7 +120,7 @@ pub fn accumulation_dispatcher(n: HostCallFn, mut gas: Gas, mut reg: Registers, 
             return HostCallResult::Ok(exit_reason, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y)); 
         }*/
         _ => {
-            let HostCallContext::Accumulate(mut ctx_x, mut ctx_y) = ctx else {
+            let HostCallContext::Accumulate(ctx_x, ctx_y) = ctx else {
                 unreachable!("Dispatch accumulate: Invalid context");
             };
             gas -= 10;
@@ -306,7 +301,7 @@ fn collapse(gas: Gas, output: WorkExecResult, context: HostCallContext)
     return (ctx_x.partial_state, ctx_x.deferred_transfers, ctx_x.y, gas);
 }
 
-
+#[allow(non_snake_case)]
 fn I(partial_state: &AccumulationPartialState, service_id: &ServiceId) -> AccumulationContext {
 
     let mut encoded = Vec::from(service_id.encode());
@@ -325,7 +320,6 @@ fn I(partial_state: &AccumulationPartialState, service_id: &ServiceId) -> Accumu
         y: None,
     };
 }
-
 
 fn check(partial_state: &AccumulationPartialState, i: &ServiceId) -> ServiceId {
 

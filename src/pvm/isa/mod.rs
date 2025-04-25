@@ -219,6 +219,7 @@ pub fn djump(a: &RegSize, pc: &mut RegSize, program: &Program) -> ExitReason {
     }    
 }
 
+#[allow(dead_code)]
 fn smod(a: i64, b: i64) -> i64 {
     
     if b == 0 {

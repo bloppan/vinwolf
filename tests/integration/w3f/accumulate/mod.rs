@@ -10,7 +10,7 @@ use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH};
 use vinwolf::blockchain::state::{
     set_service_accounts, set_entropy, set_time, get_global_state, set_accumulation_history, set_privileges, set_ready_queue
 };
-use vinwolf::blockchain::state::accumulation::process_accumulation;
+use vinwolf::blockchain::state::accumulation::process;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
 extern crate vinwolf;
@@ -44,7 +44,7 @@ mod tests {
         let mut reader = BytesReader::new(&test_content);
         let input = InputAccumulate::decode(&mut reader).expect("Error decoding InputAccumulate");
         let pre_state = StateAccumulate::decode(&mut reader).expect("Error decoding Accumulate PreState");
-        let expected_output = OutputAccumulation::decode(&mut reader).expect("Error decoding OutputAccumulate");
+        let _expected_output = OutputAccumulation::decode(&mut reader).expect("Error decoding OutputAccumulate");
         let expected_state = StateAccumulate::decode(&mut reader).expect("Error decoding Accumulate PostState");
         
         let mut entropy = EntropyPool::default();
@@ -72,14 +72,15 @@ mod tests {
 
         let mut state = get_global_state().lock().unwrap().clone();
 
-        /*let output_accumulation = process_accumulation(
-            &mut state.accumulation_history,
-            &mut state.ready_queue,
-            /*&state.entropy,
-            &state.privileges,
-            &state.service_accounts,*/
-            &input.slot,
-            &input.reports);
+        let output_accumulation = process(
+                                                        &mut state.accumulation_history,
+                                                        &mut state.ready_queue,
+                                                        state.service_accounts,
+                                                        state.next_validators,
+                                                        state.auth_queues,
+                                                        state.privileges,
+                                                        &input.slot,
+                                                        &input.reports);
 
         match output_accumulation {
             Ok(_) => { 
@@ -87,7 +88,7 @@ mod tests {
                 set_ready_queue(state.ready_queue.clone());
             },
             Err(_) => { },
-        }*/
+        }
         
         let result_state = get_global_state().lock().unwrap().clone();
 
@@ -108,14 +109,14 @@ mod tests {
             }
         }
 
-        /*match output_accumulation { // TODO arreglar esto
-            Ok(accumulation_root) => {
-                assert_eq!(expected_output, OutputAccumulation([0u8; 32]));
+        match output_accumulation { 
+            Ok((_accumulation_root, _a, _b, _c, _d)) => {
+                //assert_eq!(expected_output, accumulation_root); // TODO arreglar esto
             },
             Err(_) => {
                 
             },
-        }*/
+        }
 
     }
 

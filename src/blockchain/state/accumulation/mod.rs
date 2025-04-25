@@ -14,27 +14,28 @@
 use std::collections::{HashSet, HashMap};
 use crate::constants::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT, CORES_COUNT};
 use crate::types::{
-    AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, EntropyPool, OpaqueHash, 
-    OutputAccumulation, Privileges, ReadyQueue, ReadyRecord, ServiceAccounts, TimeSlot, ValidatorsData, WorkPackageHash, 
-    WorkReport, ServiceId, Gas, Account, AccumulateErrorCode, ValidatorSet
+    AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, OpaqueHash, Privileges, 
+    ReadyQueue, ReadyRecord, ServiceAccounts, TimeSlot, ValidatorsData, WorkPackageHash, WorkReport, ServiceId, Gas, Account, 
+    AccumulateErrorCode, 
 };
-use super::statistics;
-use super::{get_authqueues, get_privileges, get_service_accounts, get_time, get_validators, services, ProcessError};
+use crate::blockchain::state::statistics;
+use crate::blockchain::state::{get_time, ProcessError};
 use crate::blockchain::state::time::get_current_slot;
-use crate::utils::codec::{Encode, EncodeLen, Decode, BytesReader, ReadError};
+use crate::utils::codec::Encode;
 use crate::utils::common::{dict_subtract, keys_to_set};
 use crate::utils::trie;
 use crate::pvm::hostcall::accumulate::invoke_accumulation;
 use crate::pvm::hostcall::on_transfer::invoke_on_transfer;
+
 // Accumulation of a work-package/work-report is deferred in the case that it has a not-yet-fulfilled dependency and is 
 // cancelled entirely in the case of an invalid dependency. Dependencies are specified  as work-package hashes and in order 
 // to know which work-packages have been accumulated already, we maintain a history of what has been accumulated. This history 
 // (AccumulatedHistory), is sufficiently large for an epoch worth of work-reports.
-// 
+
 // We also maintain knowledge of ready (i.e. available and/or audited) but not-yet-accumulated work-reports in the state ReadyQueue.
 // Each of these were made available at most one epoch ago but have or had unfulfilled dependencies. Alongside the work-report itself, 
 // we retain its unaccumulated dependencies, a set of work-package hashes.
-pub fn process_accumulation(
+pub fn process(
     accumulated_history: &mut AccumulatedHistory,
     ready_queue: &mut ReadyQueue,
     service_accounts: ServiceAccounts,
@@ -88,16 +89,12 @@ pub fn process_accumulation(
 
     statistics::set_acc_stats(acc_stats);
 
-    /*println!("Deferred transfers: {:x?}", transfers);
-    println!("ACCUMULATTION: ");
-    println!("service_hash_pairs: {:x?}", service_hash_pairs);*/
     service_hash_pairs.sort_by_key(|(service_id, _)| *service_id);
     let mut pairs_blob: Vec<Vec<u8>> = Vec::new();
     for (service_id, hash) in service_hash_pairs.iter() {
         pairs_blob.push([service_id.encode(), hash.encode()].concat());
     }
     let accumulation_root = trie::merkle_balanced(pairs_blob, sp_core::keccak_256);
-    //println!("accumulation_root: {:x?}", accumulation_root);
 
     let mut xfers_info: HashMap<ServiceId, (Account, Gas)> = HashMap::new();
     let mut xfers_stats: HashMap<ServiceId, (u32, Gas)> = HashMap::new();
@@ -219,6 +216,7 @@ fn get_current_block_accumulatable(
 
 // We further define the accumulation priority queue function Q, which provides the sequence of work-reports which
 // are accumulatable given a set of not-yet-accumulated work-reports and their dependencies.
+#[allow(non_snake_case)]
 fn Q(ready_reports: &[ReadyRecord]) -> Vec<WorkReport> {
 
     let mut g: Vec<WorkReport> = vec![];
@@ -236,7 +234,7 @@ fn Q(ready_reports: &[ReadyRecord]) -> Vec<WorkReport> {
 
     return g;  
 }
-
+#[allow(non_snake_case)]
 fn D(reports: &[WorkReport]) -> Vec<ReadyRecord> {
 
     let mut ready_records: Vec<ReadyRecord> = vec![];
@@ -326,8 +324,6 @@ fn single_service_accumulation(
         total_gas += *gas;
     } 
 
-    println!("Operands: {:x?}", accumulation_operands);
-
     invoke_accumulation(
         partial_state,
         &get_current_slot(),
@@ -344,7 +340,6 @@ fn parallelized_accumulation(
     service_gas_dict: &HashMap<ServiceId, Gas>,
 ) -> Result<(AccumulationPartialState, Vec<DeferredTransfer>, Vec<(ServiceId, OpaqueHash)>, Vec<(ServiceId, Gas)>), ProcessError>
 {
-    println!("Parallelized accumulation");
     let mut s_services: HashSet<ServiceId> = HashSet::new();
     for report in reports.iter() {
         for result in report.results.iter() {
@@ -369,9 +364,7 @@ fn parallelized_accumulation(
             transfers, 
             service_hash, 
             gas) = single_service_accumulation(partial_state, reports, service_gas_dict, service);
-        println!("for service: {:?}", service);
-        println!("balance: {:?}", d_services.service_accounts.get(service).unwrap().balance);
-        println!("transfers: {:?}", transfers);
+
         u_gas_used.push((*service, gas));
         if let Some(hash) = service_hash {
             b_service_hash_pairs.push((*service, hash));
@@ -400,12 +393,12 @@ fn parallelized_accumulation(
         }
     }
 
-    let i_next_validatos = partial_state.next_validators.clone();
-    let q_queues_auth = partial_state.queues_auth.clone();
+    //let i_next_validatos = partial_state.next_validators.clone();
+    //let q_queues_auth = partial_state.queues_auth.clone();
     let m_bless = partial_state.privileges.bless.clone();
     let a_assign = partial_state.privileges.assign.clone();
     let v_designate = partial_state.privileges.designate.clone();
-    let z_always_acc = partial_state.privileges.always_acc.clone();
+    //let z_always_acc = partial_state.privileges.always_acc.clone();
 
     let (partial_state_result, 
         _transfers, 
@@ -541,31 +534,30 @@ impl AccumulatedHistory {
 }
 
 mod test {
-    use super::*;
-
+    
     #[test]
     fn select_deferred_transfers_test() {
-        let mut transfer1 = DeferredTransfer::default();
+        let mut transfer1 = super::DeferredTransfer::default();
         transfer1.from = 2;
         transfer1.to = 2;
         transfer1.amount = 100;
 
-        let mut transfer2 = DeferredTransfer::default();
+        let mut transfer2 = super::DeferredTransfer::default();
         transfer2.from = 3;
         transfer2.to = 4;
         
-        let mut transfer3 = DeferredTransfer::default();
+        let mut transfer3 = super::DeferredTransfer::default();
         transfer3.from = 1;
         transfer3.to = 2;
         transfer3.amount = 300;
 
-        let mut transfer4 = DeferredTransfer::default();
+        let mut transfer4 = super::DeferredTransfer::default();
         transfer4.from = 1;
         transfer4.to = 2;
         transfer4.amount = 400;
 
         let transfers = [transfer1, transfer2, transfer3, transfer4].to_vec();
-        let selected_transfers = select_deferred_transfers(&transfers, &2);
+        let selected_transfers = super::select_deferred_transfers(&transfers, &2);
 
         println!("selected transfers: {:?}", selected_transfers);
         // selected transfers: 

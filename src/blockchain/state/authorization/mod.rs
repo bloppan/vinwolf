@@ -27,7 +27,7 @@ use crate::constants::{CORES_COUNT, MAX_ITEMS_AUTHORIZATION_POOL, MAX_ITEMS_AUTH
 use crate::types::{AuthPools, GuaranteesExtrinsic, TimeSlot};
 use crate::blockchain::state::get_authqueues;
 
-pub fn process_authorizations(
+pub fn process(
     auth_pool_state: &mut AuthPools, 
     slot: &TimeSlot, 
     guarantees_extrinsic: &GuaranteesExtrinsic) {

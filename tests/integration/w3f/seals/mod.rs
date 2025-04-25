@@ -19,6 +19,8 @@ use vinwolf::blockchain::state::safrole::{create_ring_set, create_root_epoch};
 
 use ark_vrf::suites::bandersnatch::Public;
 
+#[allow(dead_code)]
+#[allow(non_snake_case)]
 #[derive(Deserialize, Debug, PartialEq)]
 struct Testcase {
     bandersnatch_pub: String,
@@ -36,6 +38,8 @@ struct Testcase {
     header_bytes: String,
 }
 
+#[allow(dead_code)]
+#[allow(non_snake_case)]
 struct TestDecoded {
     bandersnatch_pub: [u8; 32],
     bandersnatch_priv: [u8; 32],

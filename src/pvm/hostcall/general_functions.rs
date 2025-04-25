@@ -1,8 +1,6 @@
-use crate::types::{
-    Account, ExitReason, Gas, PageTable, RamAddress, RamMemory, Registers, ServiceAccounts, ServiceId, ServiceInfo 
-};
+use crate::types::{Account, ExitReason, Gas, RamAddress, RamMemory, Registers, ServiceAccounts, ServiceId, ServiceInfo};
 use crate::constants::PAGE_SIZE;
-use crate::constants::{NONE, WHAT, OOB, WHO, FULL, CORE, CASH, LOW, HUH, OK};
+use crate::constants::{NONE, OK};
 use crate::utils::codec::Encode;
 use crate::pvm::hostcall::is_writable;
 

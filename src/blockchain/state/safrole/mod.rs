@@ -29,11 +29,8 @@
 /// output is a ticket and validators' tickets with the best score define the new sealing keys allowing the chosen validators 
 /// to exercise their privilege and create a new block at the appropriate time.
 
-use ark_vrf::reexports::{
-    ark_ec::AffineRepr,
-    ark_serialize::{self, CanonicalDeserialize, CanonicalSerialize},
-};
-use ark_vrf::{pedersen::PedersenSuite, ring::RingSuite, suites::bandersnatch::Public};
+use ark_vrf::reexports::ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_vrf::suites::bandersnatch::Public;
 use crate::blockchain::state::safrole::bandersnatch::Verifier;
 use ark_vrf::suites::bandersnatch::RingProofParams;
 
@@ -42,7 +39,8 @@ use std::sync::Mutex;
 use sp_core::blake2_256;
 
 use crate::types::{
-    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, Entropy, EntropyPool, EpochMark, Header, OutputDataSafrole, Safrole, SafroleErrorCode, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorsData
+    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, Entropy, EntropyPool, EpochMark, Header, 
+    OutputDataSafrole, Safrole, SafroleErrorCode, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorsData
 };
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 use crate::blockchain::state::ProcessError;
@@ -65,7 +63,7 @@ fn get_ring_set() -> Vec<Public> {
 }
 
 // Process Safrole state
-pub fn process_safrole(
+pub fn process(
     safrole_state: &mut Safrole,
     entropy_pool: &mut EntropyPool,
     curr_validators: &mut ValidatorsData,

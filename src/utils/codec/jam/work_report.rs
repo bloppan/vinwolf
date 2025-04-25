@@ -1,6 +1,6 @@
 use crate::types::{
-    CoreIndex, OpaqueHash, Ed25519Public, WorkPackageHash, RefineContext, WorkResult, SegmentRootLookupItem, 
-    WorkReport, WorkPackageSpec, Offenders, ReportedPackage, OutputDataReports, Gas
+    OpaqueHash, Ed25519Public, WorkPackageHash, RefineContext, WorkResult, SegmentRootLookupItem, WorkReport, WorkPackageSpec, 
+    Offenders, ReportedPackage, OutputDataReports, Gas
 };
 use crate::utils::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};

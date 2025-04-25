@@ -1,12 +1,10 @@
-use std::collections::HashMap;
-
 use crate::integration::w3f::read_test_file;
-use crate::integration::w3f::codec::{TestBody, encode_decode_test};
+//use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 use vinwolf::utils::codec::{Decode, BytesReader};
 use vinwolf::types::{BlockHistory, ReportedWorkPackages};
 use vinwolf::blockchain::state::{set_recent_history, get_recent_history};
-use vinwolf::blockchain::state::recent_history::{process_recent_history, finalize_recent_history};
+use vinwolf::blockchain::state::recent_history::{process, finalize};
 use codec::InputHistory;
 
 pub mod codec;
@@ -35,12 +33,12 @@ fn run_test(filename: &str) {
     let mut recent_history_state = get_recent_history();
     assert_eq!(expected_pre_state, recent_history_state);
 
-    process_recent_history(&mut recent_history_state,
+    process(&mut recent_history_state,
                            &input.header_hash, 
                            &input.parent_state_root, 
                            &reported_work_packages);
 
-    finalize_recent_history(&mut recent_history_state,
+    finalize(&mut recent_history_state,
                             &input.header_hash, 
                             &input.accumulate_root, 
                             &reported_work_packages);

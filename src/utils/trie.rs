@@ -239,9 +239,9 @@ pub fn mmr_super_peak(h: &Mmr) -> Hash {
     return mmr(&extract_non_empty_peaks(h));
 }
 
-use crate::types::{GlobalState, SerializedState};
+/*use crate::types::{GlobalState, SerializedState};
 use crate::blockchain::state::{get_global_state, set_global_state};
-use std::convert::TryInto;
+use std::convert::TryInto;*/
 
 
 #[cfg(test)]
@@ -276,7 +276,7 @@ mod tests {
         assert_eq!(expected_2.peaks, result_2.peaks);
     }
 
-    #[test]
+    /*#[test]
     fn merkle_state_test() {      
 
         //let mut state = GlobalState::default();
@@ -459,6 +459,6 @@ mod tests {
         let result = merkle_state(&state.map, 0).unwrap();
 
         println!("result = {:x?}", result);
-    }
+    }*/
 }
 

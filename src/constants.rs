@@ -93,10 +93,12 @@ pub const PAGE_SIZE: RamAddress = 1 << 12;
 
 // The standard pvm program initialization input data size. (Zi)
 pub const PVM_INIT_INPUT_DATA_SIZE: RamAddress = 1 << 24;
+#[allow(non_upper_case_globals)]
 pub const Zi: u64 = 1 << 24;
 
 // The standard pvm program initialization zone size (Zz)
 pub const PVM_INIT_ZONE_SIZE: RamAddress = 1 << 16;
+#[allow(non_upper_case_globals)]
 pub const Zz: u64 = 1 << 16;
 
 // The size of ram

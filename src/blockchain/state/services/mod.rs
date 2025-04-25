@@ -6,7 +6,7 @@ use crate::blockchain::state::ProcessError;
 use crate::utils::codec::{BytesReader, ReadError};
 use crate::utils::codec::generic::decode_unsigned;
 
-pub fn process_services(
+pub fn process(
     services: &mut ServiceAccounts, 
     post_tau: &TimeSlot, 
     preimages_extrinsic: &PreimagesExtrinsic

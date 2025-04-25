@@ -3,20 +3,18 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use serde_json;
 use std::io::Read;
-use std::path::PathBuf;
 use hex;
-use crate::integration::w3f::codec::{TestBody, encode_decode_test};
-
 
 use vinwolf::types::{
     Account, AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, BlockHistory, DisputesRecords, EntropyPool, 
     GlobalState, Privileges, ReadyQueue, Safrole, ServiceId, Statistics, TimeSlot, ValidatorsData, Gas
 };
 
+use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 use vinwolf::utils::codec::{Decode, BytesReader};
-
 use super::{read_test, TestnetState, TestData, ParsedTransitionFile};
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct ParsedServiceAccount {
     pub s: ServiceId,
@@ -74,6 +72,7 @@ pub fn parse_service_account(input: &str) -> ParsedServiceAccount {
 
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct ParsedAccountPreimage {
     pub s: ServiceId,
@@ -119,7 +118,7 @@ pub fn parse_account_storage(input: &str) -> ParsedAccountStorage {
     let mut map = HashMap::new();
     for part in input.split(' ') {
         if part.contains("s=") {
-            let mut service = part.split('|')
+            let service = part.split('|')
                                              .next()
                                              .and_then(|s_part| s_part.strip_prefix("s="))
                                              .unwrap_or("0");
@@ -140,6 +139,7 @@ pub fn parse_account_storage(input: &str) -> ParsedAccountStorage {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct ParsedAccountLookup {
     pub s: ServiceId,
@@ -622,7 +622,7 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
     Ok(serialized_state)
 }*/
 
-
+#[allow(dead_code)]
 pub fn read_state_snapshot(filename: &str) -> GlobalState {
 
     let body_state: Vec<TestBody> = vec![TestBody::AuthPools,
