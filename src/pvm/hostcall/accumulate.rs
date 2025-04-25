@@ -60,6 +60,9 @@ pub fn accumulation_dispatcher(n: HostCallFn, mut gas: Gas, mut reg: Registers, 
     
     match n {
         HostCallFn::New => {
+
+            gas -= 10;
+
             let o = reg[7];
             let l = reg[8];
             let g = reg[9];
@@ -133,7 +136,7 @@ pub fn accumulation_dispatcher(n: HostCallFn, mut gas: Gas, mut reg: Registers, 
 }
 
 fn transfer(
-    gas: Gas, 
+    mut gas: Gas, 
     mut reg: Registers, 
     ram: RamMemory, 
     ctx: HostCallContext)
@@ -148,6 +151,8 @@ fn transfer(
     let a = reg[8];
     let l = reg[9];
     let o = reg[10];
+
+    gas -= 10 + reg[9] as Gas;
 
     if !ram.is_readable(o as RamAddress, o as RamAddress + TRANSFER_MEMO_SIZE as RamAddress) {
         return (ExitReason::panic, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
@@ -196,7 +201,7 @@ fn transfer(
 }
 
 fn write(
-    gas: Gas, 
+    mut gas: Gas, 
     mut reg: Registers, 
     ram: RamMemory, 
     account: Account, 
@@ -204,6 +209,8 @@ fn write(
 
 -> (ExitReason, Gas, Registers, RamMemory, Account)
 {
+    gas -= 10;
+
     let k_o = reg[7];
     let k_z = reg[8];
     let v_o = reg[9];

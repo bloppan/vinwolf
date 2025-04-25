@@ -137,6 +137,7 @@ mod tests {
                 if let Some(account) = state.service_accounts.service_accounts.get(&service_account.0) {
                     //assert_eq!(service_account, state.service_accounts.service_accounts.get_key_value(&service_account.0).unwrap());
                     println!("TESTING service {:?}", service_account.0);
+                    println!("Account: {:x?}", account);
                     let (items, octets, _threshold) = account.get_footprint_and_threshold();
 
                     assert_eq!(service_account.1.storage, account.storage);
@@ -152,9 +153,17 @@ mod tests {
                     panic!("Service account not found in state: {:?}", service_account.0);
                 }
             }
-            assert_eq!(json_file.post_state.auth_pools, state.auth_pools);            
-            assert_eq!(json_file.post_state.statistics, state.statistics);
-            
+            assert_eq!(json_file.post_state.auth_pools, state.auth_pools);
+
+            assert_eq!(json_file.post_state.statistics.curr, state.statistics.curr);
+            assert_eq!(json_file.post_state.statistics.prev, state.statistics.prev);
+            assert_eq!(json_file.post_state.statistics.cores, state.statistics.cores);
+            assert_eq!(json_file.post_state.statistics.services, state.statistics.services);
+            /*println!("Statistics curr: {:?}", state.statistics.curr);
+            println!("Statistics prev: {:?}", state.statistics.prev);
+            println!("Statistics cores: {:?}", state.statistics.cores);
+            println!("Statistics services: {:?}", state.statistics.services);*/
+
             assert_eq!(json_file.post_state_root, merkle_state(&state.serialize().map, 0).unwrap());
 
             println!("state root: {:x?}", json_file.post_state_root);

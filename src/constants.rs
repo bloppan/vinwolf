@@ -155,7 +155,7 @@ pub const AVAILABILITY: u8 = 10;
 pub const TIME: u8 = 11;
 pub const PRIVILEGES: u8 = 12;
 pub const STATISTICS: u8 = 13;
-pub const ACCUMULATION_HISTORY: u8 = 14;
-pub const READY_QUEUE: u8 = 15;
+pub const READY_QUEUE: u8 = 14;
+pub const ACCUMULATION_HISTORY: u8 = 15;
 
 

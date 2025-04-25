@@ -18,6 +18,7 @@ use crate::types::{
     OutputAccumulation, Privileges, ReadyQueue, ReadyRecord, ServiceAccounts, TimeSlot, ValidatorsData, WorkPackageHash, 
     WorkReport, ServiceId, Gas, Account, AccumulateErrorCode, ValidatorSet
 };
+use super::statistics;
 use super::{get_authqueues, get_privileges, get_service_accounts, get_time, get_validators, services, ProcessError};
 use crate::blockchain::state::time::get_current_slot;
 use crate::utils::codec::{Encode, EncodeLen, Decode, BytesReader, ReadError};
@@ -59,16 +60,34 @@ pub fn process_accumulation(
         privileges,
     };
 
-    let (_n, 
+    let (num_wi_accumulated, 
          mut post_partial_state, 
          transfers, 
          mut service_hash_pairs, 
-         _service_gas_pairs) = outer_accumulation(
+         service_gas_pairs) = outer_accumulation(
         &get_gas_limit(&partial_state.privileges),
         &current_block_accumulatable,
         &partial_state,
         &partial_state.privileges.always_acc,
     )?;
+
+    let mut acc_stats: HashMap<ServiceId, (Gas, u32)> = HashMap::new();
+    for (service_id, gas) in service_gas_pairs.iter() {
+        let mut acc_curr_block_reports: Vec<WorkReport> = vec![];
+        for report in current_block_accumulatable[..num_wi_accumulated as usize].iter() {
+            for result in report.results.iter() {
+                if *service_id == result.service {
+                    acc_curr_block_reports.push(report.clone());
+                }
+            }
+        }
+        if acc_curr_block_reports.len() > 0 {
+            acc_stats.insert(*service_id, (*gas, acc_curr_block_reports.len() as u32));
+        }
+    }
+
+    statistics::set_acc_stats(acc_stats);
+
     /*println!("Deferred transfers: {:x?}", transfers);
     println!("ACCUMULATTION: ");
     println!("service_hash_pairs: {:x?}", service_hash_pairs);*/
@@ -80,26 +99,30 @@ pub fn process_accumulation(
     let accumulation_root = trie::merkle_balanced(pairs_blob, sp_core::keccak_256);
     //println!("accumulation_root: {:x?}", accumulation_root);
 
-    let mut xfer_stats: HashMap<ServiceId, (Account, Gas)> = HashMap::new();
-    println!("SERVICE ACCOUNTS: ");
-    println!("post_partial_state: {:x?}", post_partial_state.services_accounts);
+    let mut xfers_info: HashMap<ServiceId, (Account, Gas)> = HashMap::new();
+    let mut xfers_stats: HashMap<ServiceId, (u32, Gas)> = HashMap::new();
+
     for service in post_partial_state.services_accounts.service_accounts.iter() {
         let service_id = service.0;
         let selected_transfers = select_deferred_transfers(&transfers, &service_id);
-        println!("*** service {:?} transfers: {:?}", service_id, selected_transfers);
+        let num_tranfers = selected_transfers.len();
         let xfer_result = invoke_on_transfer(
             &post_partial_state.services_accounts,
             &get_current_slot(),
             service_id,
             selected_transfers,
         );
-    
-        xfer_stats.insert(*service_id,xfer_result);
+
+        xfers_info.insert(*service_id,xfer_result.clone());
+
+        if num_tranfers > 0 && xfers_info.get(service_id).is_some(){
+            xfers_stats.insert(*service_id, (num_tranfers as u32, xfer_result.1));
+        }
     }
-    //println!("xfer_stats: {:x?}", xfer_stats);
-    for service in xfer_stats.iter() {
-        println!("xfer stats service {:?}", service.0);
-        println!("xfer balance {:?}", service.1.0.balance);
+    
+    statistics::set_xfer_stats(xfers_stats);
+    
+    for service in xfers_info.iter() {
         post_partial_state.services_accounts.service_accounts.insert(*service.0, service.1.0.clone());
     }
 

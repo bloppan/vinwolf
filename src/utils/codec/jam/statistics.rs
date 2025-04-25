@@ -226,7 +226,10 @@ impl Encode for ServicesStatistics {
 
         encode_unsigned(self.records.len()).encode_to(&mut blob);
 
-        for (id, record) in self.records.iter() {
+        let mut services_stats: Vec<(ServiceId, SeviceActivityRecord)> = self.records.iter().map(|(id, record)| (*id, record.clone())).collect();
+        services_stats.sort_by_key(|(id, _)| *id);
+        
+        for (id, record) in services_stats.iter() {
             encode_unsigned(*id as usize).encode_to(&mut blob);
             record.encode_to(&mut blob);
         }

@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use crate::types::{
     AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesRecords, EntropyPool, GlobalState, 
     OpaqueHash, Privileges, ProcessError, ReadyQueue, ReportedWorkPackages, Safrole, SerializedState, ServiceAccounts, ServiceInfo, StateKey, 
-    Statistics, TimeSlot, ValidatorSet, ValidatorsData
+    Statistics, TimeSlot, ValidatorSet, ValidatorsData, ServiceId, Account
 };
 use crate::constants::{
     ACCUMULATION_HISTORY, AUTH_POOLS, AUTH_QUEUE, AVAILABILITY, CURR_VALIDATORS, DISPUTES, ENTROPY, NEXT_VALIDATORS, PREV_VALIDATORS, PRIVILEGES, 
@@ -152,38 +152,56 @@ impl GlobalState {
         state.map.insert(StateKey::U8(TIME).construct(), self.time.encode());
         state.map.insert(StateKey::U8(PRIVILEGES).construct(), self.privileges.encode());
         state.map.insert(StateKey::U8(STATISTICS).construct(), self.statistics.encode());
-        state.map.insert(StateKey::U8(ACCUMULATION_HISTORY).construct(), self.accumulation_history.encode());
         state.map.insert(StateKey::U8(READY_QUEUE).construct(), self.ready_queue.encode());
+        state.map.insert(StateKey::U8(ACCUMULATION_HISTORY).construct(), self.accumulation_history.encode());
+        
+        println!("state 1 0x{}", hex::encode(&self.auth_pools.encode()));
+        println!("state 13 0x{}", hex::encode(&self.statistics.encode()));
+        println!("state 14 0x{}", hex::encode(&self.accumulation_history.encode()));
+        println!("state 15 0x{}", hex::encode(&self.ready_queue.encode()));
+        /*let mut services_vec: Vec<(ServiceId, Account)> = Vec::new();
+        for (id, account) in self.service_accounts.service_accounts.iter() {
+            services_vec.push((*id, account.clone()));
+        }*/
+        //services_vec.sort_by_key(|id| id.0);
 
-        for service in self.service_accounts.service_accounts.iter() {
-            let key = StateKey::Service(255, *service.0).construct();       
+        for (service_id, account) in self.service_accounts.service_accounts.iter() {
+            let key = StateKey::Service(255, *service_id).construct();       
             let service_info = ServiceInfo {
-                balance: service.1.balance,
-                code_hash: service.1.code_hash,
-                min_item_gas: service.1.gas,
-                min_memo_gas: service.1.min_gas,
-                bytes: service.1.bytes, // TODO bytes y items se calcula con la eq de threshold account (9.3)
-                items: service.1.items,
+                balance: account.balance,
+                code_hash: account.code_hash,
+                min_item_gas: account.gas,
+                min_memo_gas: account.min_gas,
+                bytes: account.get_footprint_and_threshold().1, // TODO bytes y items se calcula con la eq de threshold account (9.3)
+                items: account.get_footprint_and_threshold().0,
             };
+            println!("state service {} 0x{}", *service_id, hex::encode(&service_info.encode()));
             // TODO revisar esto y ver si se puede hacer con encode account
             state.map.insert(key, service_info.encode());
 
-            for preimage in service.1.preimages.iter() {
-                let key = StateKey::Account(*service.0, construct_preimage_key(preimage.0).to_vec()).construct();
+            for preimage in account.preimages.iter() {
+                let key = StateKey::Account(*service_id, construct_preimage_key(preimage.0).to_vec()).construct();
                 state.map.insert(key, preimage.1.encode());
+                println!("preimage state service {} 0x{}", *service_id, hex::encode(&preimage.1.encode()));
             }
             
-            for lookup in service.1.lookup.iter() {
-                let key = StateKey::Account(*service.0, construct_lookup_key(&lookup.0.0, lookup.0.1).to_vec()).construct();
+            for lookup in account.lookup.iter() {
+                let key = StateKey::Account(*service_id, construct_lookup_key(&lookup.0.0, lookup.0.1).to_vec()).construct();
                 state.map.insert(key, lookup.1.as_slice().encode_len());
+                println!("lookup state service {} 0x{}", *service_id, hex::encode(&lookup.1.as_slice().encode_len()));
             }
 
-            for item in service.1.storage.iter() {
-                let key = StateKey::Account(*service.0, construct_storage_key(item.0).to_vec()).construct();
+            for item in account.storage.iter() {
+                let key = StateKey::Account(*service_id, construct_storage_key(item.0).to_vec()).construct();
                 state.map.insert(key, item.1.encode());
+                println!("storage state service {} 0x{}", *service_id, hex::encode(&item.1.encode()));
             }
         }
-
+        for key in state.map.iter() {
+            
+            println!("\nKey: {:x?}", key.0);
+            //println!("Value: {:x?}\n", key.1);
+        }
         return state;
     }
 }
