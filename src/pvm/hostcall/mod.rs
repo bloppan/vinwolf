@@ -5,37 +5,13 @@ use crate::types::{
     RegSize, Registers, WorkExecResult, WorkExecError
 };
 
-use crate::pvm::invoke_pvm;
-use crate::pvm::hostcall::program_init::init_std_program;
+use crate::pvm::{invoke_pvm, hostcall::program_init::init_std_program};
 use crate::utils::codec::ReadError;
 
-pub mod accumulate; pub mod refine; pub mod on_transfer; pub mod is_authorized; pub mod general_functions; pub mod program_init;
+pub mod accumulate; pub mod refine; pub mod on_transfer; pub mod is_authorized; pub mod general_fn; pub mod program_init;
 
-pub fn is_writable(ram: &RamMemory, start_page: &RamAddress, end_page: &RamAddress) -> Result<bool, ExitReason> {
-    
-    for i in *start_page..=*end_page {
-
-        if let Some(page) = ram.pages[i as usize].as_ref() {
-            if page.flags.access.get(&RamAccess::Write).is_none() {
-                return Err(ExitReason::panic);
-            }
-        } else {
-            return Err(ExitReason::PageFault(i));
-        }
-    }
-
-    return Ok(true);
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum HostCallContext {
-    Accumulate(AccumulationContext, AccumulationContext),
-    Refine(HashMap<usize, RefineMemory>, Vec<DataSegment>),
-    OnTransfer(Account),
-    IsAuthorized(),
-}
-
-
+/// An extended version of the pvm invocation which is able to progress an inner host-call
+/// state-machine in the case of a host-call halt condition is defined as:
 fn hostcall<F>(program_code: &[u8], pc: RegSize, gas: Gas, reg: Registers, ram: RamMemory, f: F, ctx: HostCallContext) 
 
 -> (ExitReason, RegSize, Gas, Registers, RamMemory, HostCallContext)
@@ -49,7 +25,12 @@ where
     pvm_ctx.reg = reg;
     pvm_ctx.ram = ram;
 
+    // On exit, the instruction counter references the instruction which caused the exit. Should the machine be invoked
+    // again using this instruction counter and code, then the same instruction which caused the exit would be executed. This
+    // is sensible when the instruction is one which necessarily needs re-executing such as in the case of an out-of-gas or page
+    // fault reason.
     let exit_reason = invoke_pvm(&mut pvm_ctx, program_code);
+
     println!("Exit reason: {:?}", exit_reason);
     if exit_reason == ExitReason::Halt 
         || exit_reason == ExitReason::panic 
@@ -60,7 +41,14 @@ where
     } 
     
     if let ExitReason::HostCall(n) = exit_reason {
-
+        // However, when the exit reason to hostcall is a hostcall, then the resultant instruction-counter has a value of the hostcall 
+        // instruction and resuming with this state would immediately exit with the same result. Re-invoking would therefore require 
+        // both the post-host-call machine state and the instruction counter value for the instruction following the one which resulted 
+        // in the host-call exit reason. This is always one greater plus the relevant argument skip distance. Resuming the machine with 
+        // this instruction counter will continue beyond the host-call instruction.
+        // We use both values of instruction-counter for the definition of ΨH since if the host-call results in a page fault we need
+        // to allow the outer environment to resolve the fault and re-try the host-call. Conversely, if we successfully transition state
+        // according to the host-call, then on resumption we wish to begin with the instruction directly following the host-call.
         let (hostcall_exit_reason, 
              post_gas, 
              post_reg, 
@@ -92,8 +80,11 @@ where
     return (exit_reason, pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram, ctx);
 }
 
-fn hostcall_argument<F>(program_code: &[u8], pc: RegSize, gas: Gas, arg: &[u8], f: F, ctx: HostCallContext) -> (Gas, WorkExecResult, HostCallContext) 
+/// The four instances where the pvm is utilized each expect to be able to pass argument data in and receive some return data back. 
+/// We thus define the common pvm program-argument invocation function
+fn hostcall_argument<F>(program_code: &[u8], pc: RegSize, gas: Gas, arg: &[u8], f: F, ctx: HostCallContext) 
 
+-> (Gas, WorkExecResult, HostCallContext) 
 where 
     F: Fn(HostCallFn, Gas, Registers, RamMemory, HostCallContext) -> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
 {
@@ -176,6 +167,29 @@ impl TryFrom<u8> for HostCallFn {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum HostCallContext {
+    Accumulate(AccumulationContext, AccumulationContext),
+    Refine(HashMap<usize, RefineMemory>, Vec<DataSegment>),
+    OnTransfer(Account),
+    IsAuthorized(),
+}
+
+pub fn is_writable(ram: &RamMemory, start_page: &RamAddress, end_page: &RamAddress) -> Result<bool, ExitReason> {
+    
+    for i in *start_page..=*end_page {
+
+        if let Some(page) = ram.pages[i as usize].as_ref() {
+            if page.flags.access.get(&RamAccess::Write).is_none() {
+                return Err(ExitReason::panic);
+            }
+        } else {
+            return Err(ExitReason::PageFault(i));
+        }
+    }
+
+    return Ok(true);
+}
 
 mod tests {
     
