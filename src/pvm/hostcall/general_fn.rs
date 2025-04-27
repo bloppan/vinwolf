@@ -2,13 +2,87 @@ use std::collections::HashSet;
 use crate::types::{Account, ExitReason, Gas, RamAddress, RamMemory, Registers, ServiceAccounts, ServiceId, ServiceInfo, RegSize};
 use crate::constants::{PAGE_SIZE, NONE, OK, FULL};
 use crate::utils::{codec::Encode, common};
-use crate::pvm::hostcall::is_writable;
+
+use super::HostCallContext;
+
+pub fn gas(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
+
+-> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
+{
+    gas -= 10;
+
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, ctx);
+    } 
+ 
+    reg[7] = gas as RegSize;
+    
+    return (ExitReason::Continue, gas, reg, ram, ctx);
+}
+
+pub fn read(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Account, service_id: ServiceId, services: ServiceAccounts) 
+
+-> (ExitReason, Gas, Registers, RamMemory, Account)
+{
+    gas -= 10;
+
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, account);
+    }   
+
+    let id = if reg[7] == u64::MAX {
+        service_id
+    } else {
+        reg[7] as ServiceId
+    };
+
+    let target_account: Option<Account> = if service_id == id {
+        Some(account.clone())
+    } else if services.service_accounts.contains_key(&id) {
+        services.service_accounts.get(&id).cloned()
+    } else {
+        None
+    };
+
+    let start_read_address = reg[8] as RamAddress;
+    let bytes_to_read = reg[9] as RamAddress;
+    let start_write_address = reg[10] as RamAddress;
+
+    if !ram.is_readable(start_read_address, start_read_address + bytes_to_read) {
+        return (ExitReason::panic, gas, reg, ram, account);
+    }
+
+    let key = sp_core::blake2_256(&[id.encode(), ram.read(start_read_address, bytes_to_read).encode()].concat());
+
+    let value: Vec<u8> = if target_account.is_some() && target_account.as_ref().unwrap().storage.contains_key(&key) {
+        target_account.unwrap().storage.get(&key).unwrap().clone()
+    } else {
+        reg[7] = NONE;
+        return (ExitReason::Continue, gas, reg, ram, account);
+    };
+    // TODO revisar el orden de los return, no estoy seguro de si estan
+    let f = std::cmp::min(reg[11], value.len() as RegSize);
+    let l = std::cmp::min(reg[12], value.len() as RegSize - f);
+
+    if !ram.is_writable(start_write_address, start_write_address + l as RamAddress) {
+        return (ExitReason::panic, gas, reg, ram, account);
+    }
+
+    reg[7] = value.len() as RegSize;
+    ram.write(start_write_address, value[f as usize..(f + l) as usize].to_vec());
+
+    return (ExitReason::Continue, gas, reg, ram, account);
+}
 
 pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account, service_id: ServiceId) 
 
 -> (ExitReason, Gas, Registers, RamMemory, Account)
 {
     gas -= 10;
+
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, account);
+    }   
 
     let k_o = reg[7];
     let k_z = reg[8];
@@ -54,78 +128,52 @@ pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account,
     
 }
 
-pub fn info(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, service_id: &ServiceId, accounts: &ServiceAccounts)
+pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: ServiceId, accounts: ServiceAccounts)
 
--> ExitReason {
+-> (ExitReason, Gas, Registers, RamMemory, Account) {
 
-    if *gas < 10 {
-        return ExitReason::OutOfGas;
-    }
+    gas -= 10;
 
-    *gas -= 10;
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, Account::default());
+    }   
 
-    let t: Option<&Account> = if reg[7] == u64::MAX {
-        if let Some(account) = accounts.service_accounts.get(&service_id) {
+    let account: Option<Account> = if reg[7] == u64::MAX {
+        if let Some(account) = accounts.service_accounts.get(&service_id).cloned() {
             Some(account)
         } else {
             None
         }
     } else {
-        if let Some(account) = accounts.service_accounts.get(&(reg[7] as ServiceId)) {
+        if let Some(account) = accounts.service_accounts.get(&(reg[7] as ServiceId)).cloned() {
             Some(account)
         } else {
             None
         }
     };
 
-    let o = reg[8].clone();
+    let metadata = if let Some(account) = account.as_ref() {
 
-    let m = if t.is_some() {
-        let account = t.unwrap();
-        let mut num_bytes: u64 = 0;
-        let mut num_items: u32 = 0;
-        for item in account.storage.iter() {
-            num_bytes += item.1.len() as u64;
-            num_items += 1;
-        }
-        let service_info = ServiceInfo {
-            code_hash: account.code_hash,
-            balance: account.balance,
-            min_item_gas: account.gas,
-            min_memo_gas: account.min_gas,
-            bytes: num_bytes,
-            items: num_items,
-        };
-        Some(service_info.encode())
+        [account.code_hash.encode(), 
+         account.balance.encode(),
+         account.get_footprint_and_threshold().2.encode(),
+         account.gas.encode(),
+         account.min_gas.encode(),
+         account.get_footprint_and_threshold().1.encode(),
+         account.get_footprint_and_threshold().0.encode()].concat()
     } else {
-        None
-    };
-
-    if m.is_none() {
         reg[7] = NONE;
-        return ExitReason::Continue;
+        return (ExitReason::Continue, gas, reg, ram, Account::default());
+    };
+
+    let start_address = reg[8] as RamAddress;
+
+    if !ram.is_writable(start_address, start_address + metadata.len() as RamAddress) {
+        return (ExitReason::panic, gas, reg, ram, Account::default());
     }
 
-    let start_page = o as RamAddress / PAGE_SIZE;
-    let end_page = (o + m.as_ref().unwrap().len() as u64) as RamAddress / PAGE_SIZE;
-    let mut offset = (o % PAGE_SIZE as u64) as usize;
-
-    if let Err(error) = is_writable(&ram, &start_page, &end_page) {
-        return error;
-    }
-
-    for page_number in start_page..=end_page {
-        let page = ram.pages[page_number as usize].as_mut().unwrap();
-        let mut i = 0;
-        if page_number != start_page {
-            offset = 0;
-        }
-        while i < (PAGE_SIZE as usize - offset) && i < m.as_ref().unwrap().len() {
-            page.data[i + offset] = m.as_ref().unwrap()[i];
-            i += 1;
-        }
-    }
-
+    ram.write(start_address, metadata);
     reg[7] = OK;
-    ExitReason::Continue
+
+    return (ExitReason::Continue, gas, reg, ram, account.unwrap());
 }

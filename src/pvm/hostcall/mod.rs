@@ -162,6 +162,8 @@ impl TryFrom<u8> for HostCallFn {
             24 => Ok(HostCallFn::Void),
             25 => Ok(HostCallFn::Invoke),
             26 => Ok(HostCallFn::Expugne),
+            27 => Ok(HostCallFn::Provide),
+            100 => Ok(HostCallFn::Log),
             _  => Err(ReadError::InvalidData),
         }
     }

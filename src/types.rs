@@ -962,6 +962,8 @@ pub enum HostCallFn {
     Void = 24,
     Invoke = 25,
     Expugne = 26,
+    Provide = 27,
+    Log = 100,
     Unknown,
 }
 

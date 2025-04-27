@@ -46,6 +46,15 @@ pub fn cmov_iz_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     ExitReason::Continue
 }
 
+pub fn cmov_nz_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, value_imm, _value_reg_b) = get_data(pvm_ctx, program);
+    if pvm_ctx.reg[reg_b as usize] as RegSize != 0 {
+        pvm_ctx.reg[reg_a as usize] = value_imm;
+    }
+    pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
+    ExitReason::Continue
+}
+
 fn load<T>(pvm_ctx: &mut Context, program: &Program, signed: bool) -> ExitReason {
     let (reg_a, _reg_b, value_imm, value_reg_b) = get_data(pvm_ctx, program);
     let address: RamAddress = (value_reg_b as RamAddress).wrapping_add(value_imm as RamAddress);

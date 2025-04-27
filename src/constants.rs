@@ -104,6 +104,9 @@ pub const Zz: u64 = 1 << 16;
 // The size of ram
 pub const RAM_SIZE: u64 = 1 << 32;
 
+// The hightest address of ram
+pub const RAM_HIGHEST_ADDRESS: u32 = u32::MAX;
+
 // The number of pages in ram
 pub const NUM_PAGES: RamAddress = (RAM_SIZE / PAGE_SIZE as u64) as RamAddress;
 

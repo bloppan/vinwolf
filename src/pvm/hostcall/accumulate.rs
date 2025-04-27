@@ -1,15 +1,17 @@
 use std::collections::HashSet;
 use sp_core::blake2_256;
 
+use crate::blockchain::state::time::get_current_block_slot;
+use crate::pvm;
 use crate::types::{
     Account, AccumulationContext, AccumulationOperand, AccumulationPartialState, DeferredTransfer, ExitReason, Gas, HostCallFn, OpaqueHash, 
-    RamAddress, RamMemory, RegSize, Registers, ServiceId, TimeSlot, WorkExecResult, 
+    RamAddress, RamMemory, RegSize, Registers, ServiceId, TimeSlot, WorkExecResult, CoreIndex
 };
-use crate::constants::{CASH, FULL, LOW, NONE, OK, WHAT, WHO, TRANSFER_MEMO_SIZE};
+use crate::constants::{CASH, CORES_COUNT, FULL, HUH, LOW, MAX_ITEMS_AUTHORIZATION_QUEUE, NONE, OK, TRANSFER_MEMO_SIZE, WHAT, WHO, CORE};
 use crate::blockchain::state::{services::decode_preimage, entropy, time};
 use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
 use crate::utils::codec::{Encode, DecodeSize, BytesReader};
-use super::general_fn::write;
+use super::general_fn::{write, gas, info, read};
 
 pub fn invoke_accumulation(
     partial_state: &AccumulationPartialState,
@@ -54,12 +56,25 @@ pub fn accumulation_dispatcher(n: HostCallFn, mut gas: Gas, mut reg: Registers, 
     //println!("Dispatch accumulate: n: {:?}, gas: {:?}, reg: {:?}", n, gas, reg);
     
     match n {
-        HostCallFn::New      => new(gas, reg, ram, ctx),
-        HostCallFn::Transfer => transfer(gas, reg, ram, ctx),
+        HostCallFn::Gas         => pvm::hostcall::general_fn::gas(gas, reg, ram, ctx),
+        HostCallFn::Assign      => assign(gas, reg, ram, ctx),
+        HostCallFn::Checkpoint  => checkpoint(gas, reg, ram, ctx),
+        HostCallFn::New         => new(gas, reg, ram, ctx),
+        HostCallFn::Transfer    => transfer(gas, reg, ram, ctx),
+        HostCallFn::Solicit     => solicit(gas, reg, ram, ctx, get_current_block_slot()),
         HostCallFn::Write => {
             let (ctx_x, ctx_y) = ctx.to_acc_ctx();
             let account = get_accumulating_service_account(&ctx_x.partial_state, &ctx_x.service_id).unwrap();
             general_fn(write(gas, reg, ram, account, ctx_x.service_id), (ctx_x, ctx_y))
+        }
+        HostCallFn::Info => {
+            let (ctx_x, ctx_y) = ctx.to_acc_ctx();
+            general_fn(info(gas, reg, ram, ctx_x.service_id, ctx_x.partial_state.services_accounts.clone()), (ctx_x, ctx_y))
+        }
+        HostCallFn::Read => {
+            let (ctx_x, ctx_y) = ctx.to_acc_ctx();
+            let account = get_accumulating_service_account(&ctx_x.partial_state, &ctx_x.service_id).unwrap();
+            general_fn(read(gas, reg, ram, account, ctx_x.service_id, ctx_x.partial_state.services_accounts.clone()), (ctx_x, ctx_y))
         }
         /*HostCallFn::Info => {
             let exit_reason = info(&mut gas, &mut reg, &mut ram, &ctx_x.service_id, &ctx_x.partial_state.services_accounts);
@@ -67,6 +82,7 @@ pub fn accumulation_dispatcher(n: HostCallFn, mut gas: Gas, mut reg: Registers, 
             general_fn(account, &mut ctx_x);
             return HostCallResult::Ok(exit_reason, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y)); 
         }*/
+        HostCallFn::Log      => { println!("ACCUMULATE: Log hostcall!"); (ExitReason::Continue, gas, reg, ram, ctx)},
         _ => {
             gas -= 10;
             reg[7] = WHAT;
@@ -107,17 +123,11 @@ fn get_accumulating_service_account(partial_state: &AccumulationPartialState, se
     return None;
 }
 
-fn collapse(gas: Gas, output: WorkExecResult, context: HostCallContext) 
+fn collapse(gas: Gas, output: WorkExecResult, ctx: HostCallContext) 
 
 -> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas) 
 {
-    let (ctx_x, ctx_y) = match context {
-        HostCallContext::Accumulate(ctx_x, ctx_y) => (ctx_x, ctx_y),
-        _ => {
-            println!("We should never be here! Collapse: Invalid context");
-            return (AccumulationPartialState::default(), vec![], None, 0);
-        }
-    };
+    let (ctx_x, ctx_y) = ctx.to_acc_ctx();
 
     if let WorkExecResult::Error(_) = output {
         println!("WorkExecResult::Error: {:?}", output);
@@ -138,7 +148,7 @@ fn collapse(gas: Gas, output: WorkExecResult, context: HostCallContext)
 #[allow(non_snake_case)]
 fn I(partial_state: &AccumulationPartialState, service_id: &ServiceId) -> AccumulationContext {
 
-    let encoded = [service_id.encode(), entropy::get_recent_entropy().encode(), time::get_current_slot().encode()].concat();
+    let encoded = [service_id.encode(), entropy::get_recent_entropy().encode(), time::get_current_block_slot().encode()].concat();
     let payload = ((OpaqueHash::decode_size(&mut BytesReader::new(&blake2_256(&encoded)), 4).unwrap() % ((1 << 32) - (1 << 9))) + (1 << 8)) as ServiceId;
     let i = check(&partial_state, &payload);
 
@@ -166,20 +176,22 @@ fn transfer(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallConte
 
 -> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
 {
-    let HostCallContext::Accumulate(mut ctx_x, ctx_y) = ctx else {
-        unreachable!("Dispatch transfer: Invalid context");
-    };
+    gas = gas - 10 - reg[9] as Gas;
+
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, ctx);
+    }
 
     let dest = reg[7];
     let amount = reg[8];
     let limit = reg[9];
     let start_address = reg[10];
-
-    gas -= 10 + reg[9] as Gas;
-
+   
     if !ram.is_readable(start_address as RamAddress, start_address as RamAddress + TRANSFER_MEMO_SIZE as RamAddress) {
-        return (ExitReason::panic, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+        return (ExitReason::panic, gas, reg, ram, ctx);
     }
+
+    let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();    
 
     let transfer = DeferredTransfer {
         from: ctx_x.service_id,
@@ -218,6 +230,10 @@ fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
 -> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
 {
     gas -= 10;
+
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, ctx);
+    }
 
     let start_address = reg[7];
     let limit = reg[8];
@@ -263,3 +279,103 @@ fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
     return (ExitReason::panic, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
 }
 
+fn solicit(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext, slot: TimeSlot)
+
+-> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
+{
+    gas -= 10;
+
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, ctx);
+    }
+
+    let start_address = reg[7] as RamAddress;
+    let preimage_size = reg[8] as u32;
+    
+    let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
+
+    if !ram.is_readable(start_address, start_address + 32){
+        return (ExitReason::panic, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
+
+    let hash: OpaqueHash = ram.read(start_address,  32).try_into().unwrap();
+
+    let mut account = ctx_x.partial_state.services_accounts.service_accounts.get(&ctx_x.service_id).unwrap().clone();
+
+    if account.lookup.contains_key(&(hash, preimage_size)) {
+        
+        let mut timeslots = account.lookup.get(&(hash, preimage_size)).unwrap().clone();
+
+        if timeslots.len() != 2 {
+            reg[7] = HUH;
+            return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+        }
+
+        timeslots.push(slot);
+
+        account.lookup.insert((hash, preimage_size), timeslots);
+    } else {
+        account.lookup.insert((hash, preimage_size), vec![]);
+    }
+
+    if account.balance < account.get_footprint_and_threshold().2 {
+        reg[7] = FULL;
+        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
+
+    reg[7] = OK;
+    ctx_x.partial_state.services_accounts.service_accounts.insert(ctx_x.service_id, account);
+
+    return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+}
+
+fn assign(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
+
+-> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
+{
+    gas -= 10;
+
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, ctx);
+    }
+
+    let core_index = reg[7] as CoreIndex;
+    
+    if core_index >= CORES_COUNT as CoreIndex {
+        reg[7] = CORE;
+        return (ExitReason::Continue, gas, reg, ram, ctx);
+    }
+
+    let start_address = reg[8] as RamAddress;
+    let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
+
+    if !ram.is_readable(start_address, start_address + 32 * MAX_ITEMS_AUTHORIZATION_QUEUE as RamAddress) {
+        return (ExitReason::panic, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
+
+    for i in 0..MAX_ITEMS_AUTHORIZATION_QUEUE {
+        ctx_x.partial_state.queues_auth.auth_queues[core_index as usize].auth_queue[i] = ram.read(start_address + 32 * i as u32, 32).try_into().unwrap();
+    }
+
+    reg[7] = OK;
+
+    return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+}
+
+fn checkpoint(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
+
+-> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
+{
+    gas -= 10;
+
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, ctx);
+    }
+
+    let (ctx_x, mut ctx_y) = ctx.to_acc_ctx();
+    
+    ctx_y = ctx_x.clone();
+    reg[7] = gas as RegSize;
+    
+    return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+}

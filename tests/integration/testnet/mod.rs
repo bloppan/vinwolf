@@ -133,7 +133,7 @@ mod tests {
                 if let Some(account) = state.service_accounts.service_accounts.get(&service_account.0) {
                     //assert_eq!(service_account, state.service_accounts.service_accounts.get_key_value(&service_account.0).unwrap());
                     println!("TESTING service {:?}", service_account.0);
-                    println!("Account: {:x?}", account);
+                    //println!("Account: {:x?}", account);
                     let (items, octets, _threshold) = account.get_footprint_and_threshold();
 
                     assert_eq!(service_account.1.storage, account.storage);

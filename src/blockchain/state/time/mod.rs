@@ -13,7 +13,7 @@ pub fn set_current_slot(slot: &TimeSlot) {
     *current_slot = *slot;
 }
 
-pub fn get_current_slot() -> TimeSlot {
+pub fn get_current_block_slot() -> TimeSlot {
     let current_slot = CURRENT_SLOT.lock().unwrap();
     current_slot.clone()
 }

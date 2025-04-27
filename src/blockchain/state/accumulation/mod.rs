@@ -20,7 +20,7 @@ use crate::types::{
 };
 use crate::blockchain::state::statistics;
 use crate::blockchain::state::{get_time, ProcessError};
-use crate::blockchain::state::time::get_current_slot;
+use crate::blockchain::state::time::get_current_block_slot;
 use crate::utils::codec::Encode;
 use crate::utils::common::{dict_subtract, keys_to_set};
 use crate::utils::trie;
@@ -105,7 +105,7 @@ pub fn process(
         let num_tranfers = selected_transfers.len();
         let xfer_result = invoke_on_transfer(
             &post_partial_state.services_accounts,
-            &get_current_slot(),
+            &get_current_block_slot(),
             service_id,
             selected_transfers,
         );
@@ -326,7 +326,7 @@ fn single_service_accumulation(
 
     invoke_accumulation(
         partial_state,
-        &get_current_slot(),
+        &get_current_block_slot(),
         service_id,
         total_gas,
         &accumulation_operands,
@@ -451,9 +451,9 @@ fn outer_accumulation(
             if result.gas + gas_to_use > *gas_limit {
                 break;
             } 
-            i += 1;
             gas_to_use += result.gas;
         }
+        i += 1;
     }
 
     if i == 0 {

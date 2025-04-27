@@ -39,12 +39,14 @@ pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
             },
             // TODO arreglar esto
             /*ExitReason::panic |*/ ExitReason::Halt => {
+                println!("step = {step}, pc = {:?}, opcode = {:?} \t, reg = {:?}", pc_copy, program.code[pc_copy as usize], pvm_ctx.reg);
                 //pvm_ctx.pc = 0; // Esto pone en el GP que deberia ser 0 (con panic tambien)
                 return ExitReason::halt;
             },
-            _ => { return exit_reason; },
+            _ => { println!("step = {step}, pc = {:?}, opcode = {:?} \t, reg = {:?}", pc_copy, program.code[pc_copy as usize], pvm_ctx.reg);
+                    return exit_reason; },
         } 
-        println!("step = {step}, pc = {:?}, opcode = {:?} \t, reg = {:?}", pc_copy, program.code[pc_copy as usize], pvm_ctx.reg);
+        //println!("step = {step}, pc = {:?}, opcode = {:?} \t, reg = {:?}", pc_copy, program.code[pc_copy as usize], pvm_ctx.reg);
         step += 1;   
     }
 }
@@ -136,6 +138,7 @@ fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
         SHLO_R_IMM_ALT_32       => { shlo_r_imm_alt_32(pvm_ctx, program) },
         SHAR_R_IMM_ALT_32       => { shar_r_imm_alt_32(pvm_ctx, program) },
         CMOV_IZ_IMM             => { cmov_iz_imm(pvm_ctx, program) },
+        CMOV_NZ_IMM             => { cmov_nz_imm(pvm_ctx, program) },
         ADD_IMM_64              => { add_imm_64(pvm_ctx, program) },
         MUL_IMM_64              => { mul_imm_64(pvm_ctx, program) },
         SHLO_L_IMM_64           => { shlo_l_imm_64(pvm_ctx, program) },
@@ -197,7 +200,7 @@ fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
         MAX_U                   => { max_u(pvm_ctx, program) },
         MIN                     => { min(pvm_ctx, program) },
         MIN_U                   => { min_u(pvm_ctx, program) },
-        _                       => { return ExitReason::panic },
+        _                       => { println!("Unknown instruction!"); return ExitReason::panic },
     };
     //println!("pc = {:?}, opcode = {:?}, reg = {:?}", pvm_ctx.pc, next_instruction, pvm_ctx.reg);
     return exit_reason;
@@ -279,6 +282,7 @@ const SHLO_L_IMM_ALT_32: u8 = 144;
 const SHLO_R_IMM_ALT_32: u8 = 145;
 const SHAR_R_IMM_ALT_32: u8 = 146;
 const CMOV_IZ_IMM: u8 = 147;
+const CMOV_NZ_IMM: u8 = 148;
 const ADD_IMM_64: u8 = 149;
 const MUL_IMM_64: u8 = 150;
 const SHLO_L_IMM_64: u8 = 151;
