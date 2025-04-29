@@ -1,4 +1,4 @@
-use crate::constants::{PAGE_SIZE, RAM_SIZE};
+use crate::constants::{PAGE_SIZE, NUM_PAGES};
 use crate::types::{RamMemory, RamAddress, RamAccess};
 
 impl RamMemory {
@@ -13,17 +13,13 @@ impl RamMemory {
         }
     }
 
-    pub fn is_readable(&self, from_address: RamAddress, to_address: RamAddress) -> bool {
-
-        if from_address == to_address {
-            return false;
-        }
+    pub fn is_readable(&self, from_address: RamAddress, num_bytes: RamAddress) -> bool {
 
         let from_page = from_address / PAGE_SIZE;
-        let to_page = (to_address - 1) / PAGE_SIZE;
+        let to_page = (from_address + num_bytes - 1) / PAGE_SIZE;
         //println!("Checking readability from {} to {}", from_address, to_address);
         for page in from_page..=to_page {
-            if let Some(page) = self.pages[page as usize].as_ref() {
+            if let Some(page) = self.pages[(page % NUM_PAGES) as usize].as_ref() {
                 if page.flags.access.get(&RamAccess::Read).is_none() {
                     return false;
                 }
@@ -31,6 +27,7 @@ impl RamMemory {
                 return false;
             }
         }
+
         return true;
     }
 
@@ -45,17 +42,13 @@ impl RamMemory {
         return bytes;
     }
 
-    pub fn is_writable(&self, from_address: RamAddress, to_address: RamAddress) -> bool {
-
-        if from_address == to_address {
-            return false;
-        }
+    pub fn is_writable(&self, from_address: RamAddress, num_bytes: RamAddress) -> bool {
 
         let from_page = from_address / PAGE_SIZE;
-        let to_page = (to_address - 1) / PAGE_SIZE;
+        let to_page = (from_address + num_bytes - 1) / PAGE_SIZE;
         
         for page in from_page..=to_page {
-            if let Some(page) = self.pages[page as usize].as_ref() {
+            if let Some(page) = self.pages[(page % NUM_PAGES) as usize].as_ref() {
                 if page.flags.access.get(&RamAccess::Write).is_none() {
                     return false;
                 }
@@ -68,7 +61,7 @@ impl RamMemory {
     }
 
     pub fn write(&mut self, start_address: RamAddress, bytes: Vec<u8>) {
-
+        
         for i in start_address..start_address + bytes.len() as RamAddress {
             let page_target = (i % RamAddress::MAX) / PAGE_SIZE;
             let offset = i % PAGE_SIZE;

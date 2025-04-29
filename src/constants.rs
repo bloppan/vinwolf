@@ -85,6 +85,10 @@ pub const TOTAL_GAS_ALLOCATED: Gas = 3_500_000_000;
 // The maximum age of a lookup anchor in timeslots.
 pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 14_400;
 
+// The period in timeslots after which an unreferenced preimage may be expunged.
+pub const MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE: u32 = 19_200;
+
+
 // The number of the registers in the PVM
 pub const NUM_REG: usize = 13;
 

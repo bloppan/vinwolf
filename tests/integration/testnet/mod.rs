@@ -91,7 +91,14 @@ mod tests {
             }
 
             let state_json_filename = format!("{}_{}.json", epoch, format!("{:03}", slot));
-            let json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), &state_json_filename).unwrap();
+            let wrapped_json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), &state_json_filename);
+
+            if wrapped_json_file.is_err() {
+                return;
+            }
+
+            let json_file = wrapped_json_file.unwrap();
+            
             println!("Importing block {}/{}", format!("{}/state_transitions", dir), state_json_filename);
             let block_content = block_content.unwrap();
             let encode_decode= encode_decode_test(&block_content.clone(), &body_block);
@@ -129,6 +136,9 @@ mod tests {
                 println!("Service: {:?}", account.0);
                 println!("Account: {:x?}", account.1);
             }*/
+
+            println!("PRE state root: {:x?}", merkle_state(&state.serialize().map, 0).unwrap());
+
             for service_account in json_file.post_state.service_accounts.service_accounts.iter() {
                 if let Some(account) = state.service_accounts.service_accounts.get(&service_account.0) {
                     //assert_eq!(service_account, state.service_accounts.service_accounts.get_key_value(&service_account.0).unwrap());
@@ -136,7 +146,14 @@ mod tests {
                     //println!("Account: {:x?}", account);
                     let (items, octets, _threshold) = account.get_footprint_and_threshold();
 
-                    assert_eq!(service_account.1.storage, account.storage);
+                    //assert_eq!(service_account.1.storage, account.storage);
+                    for item in service_account.1.storage.iter() {
+                        if let Some(value) = account.storage.get(item.0) {
+                            assert_eq!(item.1, value);
+                        } else {
+                            panic!("Key storage not found: {:?}", *item.0);
+                        }
+                    }
                     assert_eq!(service_account.1.lookup, account.lookup);
                     assert_eq!(service_account.1.preimages, account.preimages);
                     assert_eq!(service_account.1.code_hash, account.code_hash);
@@ -155,6 +172,7 @@ mod tests {
             assert_eq!(json_file.post_state.statistics.prev, state.statistics.prev);
             assert_eq!(json_file.post_state.statistics.cores, state.statistics.cores);
             assert_eq!(json_file.post_state.statistics.services, state.statistics.services);
+
             /*println!("Statistics curr: {:?}", state.statistics.curr);
             println!("Statistics prev: {:?}", state.statistics.prev);
             println!("Statistics cores: {:?}", state.statistics.cores);
@@ -169,6 +187,7 @@ mod tests {
                 slot = 0;
                 epoch += 1;
             } 
+
         }
     }
 

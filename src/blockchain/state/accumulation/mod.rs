@@ -95,7 +95,8 @@ pub fn process(
         pairs_blob.push([service_id.encode(), hash.encode()].concat());
     }
     let accumulation_root = trie::merkle_balanced(pairs_blob, sp_core::keccak_256);
-
+    println!("accumulation_root: {:x?}", accumulation_root);
+    
     let mut xfers_info: HashMap<ServiceId, (Account, Gas)> = HashMap::new();
     let mut xfers_stats: HashMap<ServiceId, (u32, Gas)> = HashMap::new();
 

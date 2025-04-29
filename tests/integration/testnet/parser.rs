@@ -149,7 +149,7 @@ pub struct ParsedAccountLookup {
     pub tlen: u8,
 }
 
-pub fn parse_account_lookup(input: &str) -> ParsedAccountLookup {
+/*pub fn parse_account_lookup(input: &str) -> ParsedAccountLookup {
 
     let mut map = HashMap::new();
 
@@ -181,15 +181,17 @@ pub fn parse_account_lookup(input: &str) -> ParsedAccountLookup {
     }
 
     let tlen_value = map.get("tlen").unwrap_or(&"0").parse::<usize>().unwrap();
-
+    println!("tlen_value: {:?}", tlen_value);
     let t_string = map.get("t").unwrap_or(&"[]").trim(); 
+    println!("t_string: {:?}", t_string);
     let t_cleaned = t_string.trim_start_matches('[').trim_end_matches(']'); 
 
+    println!("t_cleaned: {:?}", t_cleaned);
     let t_all: Vec<u32> = t_cleaned
-        .split(',')
-        .filter_map(|n| n.trim().parse::<u32>().ok())
+        .split_whitespace()
+        .filter_map(|n| n.parse().ok())
         .collect();
-
+    println!("t_all = {:?}", t_all);
     let t = t_all.into_iter().take(tlen_value).collect();
 
     ParsedAccountLookup {
@@ -200,6 +202,105 @@ pub fn parse_account_lookup(input: &str) -> ParsedAccountLookup {
         tlen: tlen_value as u8,
     }
 
+}*/
+
+pub fn parse_account_lookup(input: &str) -> ParsedAccountLookup {
+    let mut map: HashMap<String, String> = HashMap::new();
+    let mut tokens = Vec::new();
+    let mut buf = String::new();
+    let mut in_bracket = false;
+
+    // 1) Agrupar correctamente el token t=[…] aunque tenga espacios
+    for part in input.split(' ') {
+        if in_bracket {
+            buf.push(' ');
+            buf.push_str(part);
+            if part.contains(']') {
+                tokens.push(buf.clone());
+                in_bracket = false;
+            }
+        } else if part.contains("t=[") {
+            buf.clear();
+            buf.push_str(part);
+            if part.contains(']') {
+                tokens.push(buf.clone());
+            } else {
+                in_bracket = true;
+            }
+        } else {
+            tokens.push(part.to_string());
+        }
+    }
+
+    // 2) Rellenar el mapa con los pares clave=valor
+    for token in tokens {
+        if let Some(rest) = token.strip_prefix("tlen=") {
+            map.insert("tlen".to_string(), rest.to_string());
+            continue;
+        }
+        for kv in token.split('|') {
+            if let Some((k, v)) = kv.split_once('=') {
+                map.insert(k.trim().to_string(), v.trim().to_string());
+            }
+        }
+    }
+
+    // 3) Extraer valores con defaults
+    let tlen = map
+        .get("tlen")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+
+    let t_str = map
+        .get("t")
+        .map(|s| s.trim_start_matches('[').trim_end_matches(']'))
+        .unwrap_or("");
+    let t_all: Vec<u32> = t_str
+        .split_whitespace()
+        .filter_map(|n| n.parse().ok())
+        .collect();
+    let t = t_all.into_iter().take(tlen).collect();
+
+    let s = map
+        .get("s")
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
+
+    let l = map
+        .get("l")
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
+
+    let h_str = map.get("h").map(|s| s.trim_start_matches("0x")).unwrap_or("");
+    let h = hex::decode(h_str).unwrap_or_default();
+
+    ParsedAccountLookup {
+        s,
+        h,
+        l,
+        t,
+        tlen: tlen as u8,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_parse_account_lookup() {
+        let input = "s=2953942612|h=0x6a0d4a19d199505713fc65f531038e73f1d885645632c8ae503c4f0c4d5e19a7 l=3|t=[37 39] tlen=2";
+        let parsed = parse_account_lookup(input);
+        assert_eq!(parsed.s, 2953942612);
+        assert_eq!(
+            parsed.h,
+            hex::decode("6a0d4a19d199505713fc65f531038e73f1d885645632c8ae503c4f0c4d5e19a7").unwrap()
+        );
+        assert_eq!(parsed.l, 3);
+        assert_eq!(parsed.tlen, 2);
+        assert_eq!(parsed.t, vec![37, 39]);
+
+        println!("parsed timeslots: {:?}", parsed.t);
+    }
 }
 
 pub fn deserialize_state_transition_file(dir: &str, filename: &str) -> Result<ParsedTransitionFile, Box<dyn std::error::Error>> {
@@ -209,7 +310,13 @@ pub fn deserialize_state_transition_file(dir: &str, filename: &str) -> Result<Pa
     let filename = format!("{}/{}", dir, filename);
     //println!("filename: {}", filename);
     //let state_content = read_test(&format!("tests/jamtestnet/data/fallback/state_transitions/{}", filename));
-    let mut file = std::fs::File::open(&filename).expect("Failed to open JSON file");
+    //let mut wrapped_file = std::fs::File::open(&filename);
+    let mut file = match std::fs::File::open(&filename) {
+        Ok(file) => file,
+        Err(e) => {
+            return Err(Box::new(e));
+        }
+    };
     let mut contents = String::new();
     file.read_to_string(&mut contents).expect("Failed to read JSON file");
     let testcase: TestData = serde_json::from_str(&contents).expect("Failed to deserialize JSON");

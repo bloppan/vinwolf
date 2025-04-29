@@ -1,17 +1,19 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 use sp_core::blake2_256;
 
 use crate::blockchain::state::time::get_current_block_slot;
 use crate::pvm;
 use crate::types::{
-    Account, AccumulationContext, AccumulationOperand, AccumulationPartialState, DeferredTransfer, ExitReason, Gas, HostCallFn, OpaqueHash, 
-    RamAddress, RamMemory, RegSize, Registers, ServiceId, TimeSlot, WorkExecResult, CoreIndex
+    Account, AccumulationContext, AccumulationOperand, AccumulationPartialState, CoreIndex, DeferredTransfer, ExitReason, Gas, HostCallFn, OpaqueHash, RamAddress, RamMemory, RegSize, Registers, ServiceId, TimeSlot, ValidatorsData, WorkExecResult
 };
-use crate::constants::{CASH, CORES_COUNT, FULL, HUH, LOW, MAX_ITEMS_AUTHORIZATION_QUEUE, NONE, OK, TRANSFER_MEMO_SIZE, WHAT, WHO, CORE};
+use crate::constants::{
+    CASH, CORE, CORES_COUNT, FULL, HUH, LOW, MAX_ITEMS_AUTHORIZATION_QUEUE, MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE, NONE, OK, TRANSFER_MEMO_SIZE, VALIDATORS_COUNT, WHAT, WHO
+};
 use crate::blockchain::state::{services::decode_preimage, entropy, time};
 use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
-use crate::utils::codec::{Encode, DecodeSize, BytesReader};
-use super::general_fn::{write, gas, info, read};
+use crate::utils::codec::{Encode, EncodeSize, DecodeSize, BytesReader};
+use crate::utils::codec::generic::decode;
+use super::general_fn::{write, info, read, lookup};
 
 pub fn invoke_accumulation(
     partial_state: &AccumulationPartialState,
@@ -31,6 +33,7 @@ pub fn invoke_accumulation(
     } else {
         return (partial_state.clone(), vec![], None, 0);
     };
+    println!("Wrangled results: {:x?}", operands);
 
     let args = [slot.encode(), service_id.encode(), operands.encode()].concat();
 
@@ -60,8 +63,15 @@ pub fn accumulation_dispatcher(n: HostCallFn, mut gas: Gas, mut reg: Registers, 
         HostCallFn::Assign      => assign(gas, reg, ram, ctx),
         HostCallFn::Checkpoint  => checkpoint(gas, reg, ram, ctx),
         HostCallFn::New         => new(gas, reg, ram, ctx),
+        HostCallFn::Yield       => yield_(gas, reg, ram, ctx),
+        HostCallFn::Bless       => bless(gas, reg, ram, ctx),
+        HostCallFn::Designate   => designate(gas, reg, ram, ctx),
+        HostCallFn::Upgrade     => upgrade(gas, reg, ram, ctx),
         HostCallFn::Transfer    => transfer(gas, reg, ram, ctx),
+        HostCallFn::Eject       => eject(gas, reg, ram, ctx, get_current_block_slot()),
+        HostCallFn::Query       => query(gas, reg, ram, ctx),
         HostCallFn::Solicit     => solicit(gas, reg, ram, ctx, get_current_block_slot()),
+        HostCallFn::Forget      => forget(gas, reg, ram, ctx, get_current_block_slot()),
         HostCallFn::Write => {
             let (ctx_x, ctx_y) = ctx.to_acc_ctx();
             let account = get_accumulating_service_account(&ctx_x.partial_state, &ctx_x.service_id).unwrap();
@@ -75,6 +85,11 @@ pub fn accumulation_dispatcher(n: HostCallFn, mut gas: Gas, mut reg: Registers, 
             let (ctx_x, ctx_y) = ctx.to_acc_ctx();
             let account = get_accumulating_service_account(&ctx_x.partial_state, &ctx_x.service_id).unwrap();
             general_fn(read(gas, reg, ram, account, ctx_x.service_id, ctx_x.partial_state.services_accounts.clone()), (ctx_x, ctx_y))
+        }
+        HostCallFn::Lookup => {
+            let (ctx_x, ctx_y) = ctx.to_acc_ctx();
+            let account = get_accumulating_service_account(&ctx_x.partial_state, &ctx_x.service_id).unwrap();
+            general_fn(lookup(gas, reg, ram, account, ctx_x.service_id, ctx_x.partial_state.services_accounts.clone()), (ctx_x, ctx_y))
         }
         /*HostCallFn::Info => {
             let exit_reason = info(&mut gas, &mut reg, &mut ram, &ctx_x.service_id, &ctx_x.partial_state.services_accounts);
@@ -187,7 +202,7 @@ fn transfer(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallConte
     let limit = reg[9];
     let start_address = reg[10];
    
-    if !ram.is_readable(start_address as RamAddress, start_address as RamAddress + TRANSFER_MEMO_SIZE as RamAddress) {
+    if !ram.is_readable(start_address as RamAddress, TRANSFER_MEMO_SIZE as RamAddress) {
         return (ExitReason::panic, gas, reg, ram, ctx);
     }
 
@@ -225,6 +240,123 @@ fn transfer(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallConte
     return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
 }
 
+fn eject(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext, slot: TimeSlot)
+
+-> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
+{
+    gas -= 10;
+
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, ctx);
+    }
+
+    let service_id = reg[7] as ServiceId;
+    let start_address = reg[8] as RamAddress;
+
+    if !ram.is_readable(start_address, 32) {
+        return (ExitReason::panic, gas, reg, ram, ctx);
+    }
+
+    let hash: OpaqueHash = ram.read(start_address, 32).try_into().unwrap();
+
+    let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
+    
+    if service_id != ctx_x.service_id && ctx_x.partial_state.services_accounts.service_accounts.contains_key(&service_id) {
+
+        let d_account = ctx_x.partial_state.services_accounts.service_accounts.get(&service_id).unwrap().clone();
+        let length = (std::cmp::max(81, d_account.get_footprint_and_threshold().1) - 81) as u32;
+
+        let mut s_account = ctx_x.partial_state.services_accounts.service_accounts.get(&ctx_x.service_id).unwrap().clone();
+        s_account.balance += d_account.balance;
+
+        let xs_encoded: OpaqueHash = ctx_x.service_id.encode_size(32).try_into().unwrap();
+        println!("xs_encoded: {:x?}", xs_encoded);
+
+        if d_account.code_hash != xs_encoded {
+            println!("WHO: code_hash: {:x?}",d_account.code_hash);
+            reg[7] = WHO;
+            return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+        }
+
+        if d_account.get_footprint_and_threshold().0 != 2 || !d_account.lookup.contains_key(&(hash, length)) {
+            println!("HUH");
+            reg[7] = HUH;
+            return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+        }
+
+        let timeslots = d_account.lookup.get(&(hash, length)).unwrap().clone();
+
+        if timeslots.len() == 2 && (slot - timeslots[1] < MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE) {
+
+            ctx_x.partial_state.services_accounts.service_accounts.remove(&service_id);
+            ctx_x.partial_state.services_accounts.service_accounts.insert(ctx_x.service_id, s_account);
+            reg[7] = OK;
+            println!("OK");
+            return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+        }
+
+        println!("HUH");
+        reg[7] = HUH;
+        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
+
+    println!("WHO");
+    reg[7] = WHO;
+    return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+}
+
+fn query(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
+
+-> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
+{
+    gas -= 10;
+
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, ctx);
+    }
+
+    let start_address = reg[7] as RamAddress;
+    let length = reg[8] as u32;
+
+    if !ram.is_readable(start_address, 32) {
+        return (ExitReason::panic, gas, reg, ram, ctx);
+    }
+
+    let hash: OpaqueHash = ram.read(start_address, 32).try_into().unwrap();
+    println!("hash: {:x?}", hash);
+    println!("length: {:?}", hash);
+    let (ctx_x, ctx_y) = ctx.to_acc_ctx();
+
+    if !ctx_x.partial_state.services_accounts.service_accounts.get(&ctx_x.service_id).unwrap().lookup.contains_key(&(hash, length)) {
+        println!("NONE");
+        reg[7] = NONE;
+        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
+
+    let timeslots = ctx_x.partial_state.services_accounts.service_accounts.get(&ctx_x.service_id).unwrap().lookup.get(&(hash, length)).unwrap().clone();
+    let timeslots_len = timeslots.len();
+    println!("timestlots_len = {timeslots_len}");
+    println!("timeslots: {:?}", timeslots);
+
+    if timeslots_len == 0 {
+        reg[7] = 0;
+        reg[8] = 0;
+    } else if timeslots_len == 1 {
+        reg[7] = (1 + ((1_u64 << 32) as u64) * timeslots[0] as u64) as RegSize;
+        reg[8] = 0;
+    } else if timeslots_len == 2 {
+        reg[7] = (2 + ((1_u64 << 32) as u64) * timeslots[0] as u64) as RegSize;
+        reg[8] = timeslots[1] as RegSize;
+    } else if timeslots_len == 3 {
+        reg[7] = (3 + ((1_u64 << 32) as u64) * timeslots[0] as u64) as RegSize;
+        reg[8] = timeslots[1] as RegSize + (1_u64 << 32) as u64 * timeslots[2] as RegSize;
+    }
+    println!("reg_7: {:?}", reg[7]);
+    println!("reg_8: {:?}", reg[8]);
+    println!("OK");
+    return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+}
+
 fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
 
 -> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
@@ -235,7 +367,7 @@ fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
         return (ExitReason::OutOfGas, gas, reg, ram, ctx);
     }
 
-    let start_address = reg[7];
+    let start_address = reg[7] as RamAddress;
     let limit = reg[8];
     let new_account_gas = reg[9];
     let new_account_min_gas = reg[10];
@@ -244,11 +376,8 @@ fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
         unreachable!("Dispatch accumulate: Invalid context");
     };
 
-    let from_address = start_address as RamAddress;
-    let to_address = start_address as RamAddress + 32;
-
-    if ram.is_readable(from_address, to_address) && limit < (1 << 32) {
-        let c = ram.read(from_address, 32);
+    if ram.is_readable(start_address, 32) && limit < (1 << 32) {
+        let c = ram.read(start_address, 32);
         let mut new_account = Account::default();
         new_account.code_hash.copy_from_slice(&c);
         new_account.lookup.insert((new_account.code_hash, limit as u32), vec![]);
@@ -279,6 +408,37 @@ fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
     return (ExitReason::panic, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
 }
 
+fn upgrade(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
+
+-> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
+{
+    gas -= 10;
+
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, ctx);
+    }
+
+    let start_address = reg[7] as RamAddress;
+    let new_gas = reg[8] as Gas;
+    let new_min_gas = reg[9] as Gas;
+
+    if !ram.is_readable(start_address, 32) {
+        return (ExitReason::panic, gas, reg, ram, ctx);
+    }
+
+    let code_hash: OpaqueHash = ram.read(start_address, 32).try_into().unwrap();
+
+    let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
+
+    ctx_x.partial_state.services_accounts.service_accounts.get_mut(&ctx_x.service_id).unwrap().code_hash = code_hash;
+    ctx_x.partial_state.services_accounts.service_accounts.get_mut(&ctx_x.service_id).unwrap().gas = new_gas;
+    ctx_x.partial_state.services_accounts.service_accounts.get_mut(&ctx_x.service_id).unwrap().min_gas = new_min_gas;
+
+    reg[7] = OK;
+
+    return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+}
+
 fn solicit(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext, slot: TimeSlot)
 
 -> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
@@ -294,7 +454,7 @@ fn solicit(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
     
     let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
 
-    if !ram.is_readable(start_address, start_address + 32){
+    if !ram.is_readable(start_address, 32){
         return (ExitReason::panic, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
@@ -307,6 +467,7 @@ fn solicit(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
         let mut timeslots = account.lookup.get(&(hash, preimage_size)).unwrap().clone();
 
         if timeslots.len() != 2 {
+            println!("HUH");
             reg[7] = HUH;
             return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
         }
@@ -319,12 +480,99 @@ fn solicit(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
     }
 
     if account.balance < account.get_footprint_and_threshold().2 {
+        println!("FULL");
         reg[7] = FULL;
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
+    println!("hash: {:x?}", hash);
+    println!("timeslots: {:?}", account.lookup.get(&(hash, preimage_size)).unwrap());
+    println!("size: {:?}", preimage_size);
+    println!("OK");
     reg[7] = OK;
     ctx_x.partial_state.services_accounts.service_accounts.insert(ctx_x.service_id, account);
+
+    return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+}
+
+fn bless(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
+
+-> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
+{
+    gas -= 10;
+
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, ctx);
+    }
+
+    let manager = reg[7] as ServiceId;
+    let assign = reg[8] as ServiceId;
+    let validator = reg[9] as ServiceId;
+    let start_address = reg[10] as RamAddress;
+    let n_pairs = reg[11] as RamAddress;
+
+    if !ram.is_readable(start_address, 12 * n_pairs) {
+        return (ExitReason::panic, gas, reg, ram, ctx);    
+    }
+
+    let mut service_gas_pairs: HashMap<ServiceId, Gas> = HashMap::new();
+
+    for i in 0..n_pairs {
+        let pair = ram.read(start_address + 12 * i, 12);
+        let service = decode::<ServiceId>(&pair, 4);
+        let gas = decode::<Gas>(&pair[4..], 8);
+        println!("Service: {service}, Gas: {gas}");
+        service_gas_pairs.insert(service, gas);
+    }
+
+    let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
+
+    if !ctx_x.partial_state.services_accounts.service_accounts.contains_key(&manager)
+    || !ctx_x.partial_state.services_accounts.service_accounts.contains_key(&assign)
+    || !ctx_x.partial_state.services_accounts.service_accounts.contains_key(&validator) {
+        println!("WHO");
+        reg[7] = WHO;
+        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
+
+    println!("OK");
+    ctx_x.partial_state.privileges.bless = manager;
+    ctx_x.partial_state.privileges.assign = assign;
+    ctx_x.partial_state.privileges.designate = validator;
+
+    return (ExitReason::OutOfGas, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+}
+
+fn designate(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
+
+-> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
+{
+    gas -= 10;
+
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, ctx);
+    }
+
+    let start_address = reg[7] as RamAddress;
+
+    if !ram.is_readable(start_address, 336 * VALIDATORS_COUNT as RamAddress) {
+        return (ExitReason::panic, gas, reg, ram, ctx);    
+    }
+
+    let mut validators: ValidatorsData = ValidatorsData::default();
+
+    for i in 0..VALIDATORS_COUNT {
+        let validators_data = ram.read(start_address + 336 * i as RamAddress, 336);
+        validators.0[i].bandersnatch = validators_data[..32].try_into().unwrap();
+        validators.0[i].ed25519 = validators_data[32..64].try_into().unwrap();
+        validators.0[i].bls = validators_data[64..208].try_into().unwrap();
+        validators.0[i].metadata = validators_data[208..].try_into().unwrap();
+    }
+
+    let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
+
+    ctx_x.partial_state.next_validators = validators;
+    reg[7] = OK;
 
     return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
 }
@@ -349,14 +597,15 @@ fn assign(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
     let start_address = reg[8] as RamAddress;
     let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
 
-    if !ram.is_readable(start_address, start_address + 32 * MAX_ITEMS_AUTHORIZATION_QUEUE as RamAddress) {
+    if !ram.is_readable(start_address, 32 * MAX_ITEMS_AUTHORIZATION_QUEUE as RamAddress) {
         return (ExitReason::panic, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
+    println!("core_index = {core_index}");
     for i in 0..MAX_ITEMS_AUTHORIZATION_QUEUE {
         ctx_x.partial_state.queues_auth.auth_queues[core_index as usize].auth_queue[i] = ram.read(start_address + 32 * i as u32, 32).try_into().unwrap();
     }
-
+    println!("OK");
     reg[7] = OK;
 
     return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
@@ -372,10 +621,94 @@ fn checkpoint(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallCon
         return (ExitReason::OutOfGas, gas, reg, ram, ctx);
     }
 
-    let (ctx_x, mut ctx_y) = ctx.to_acc_ctx();
+    let (ctx_x, _ctx_y) = ctx.to_acc_ctx();
     
-    ctx_y = ctx_x.clone();
+    let ctx_y = ctx_x.clone();
     reg[7] = gas as RegSize;
     
+    return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+}
+
+fn forget(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext, slot: TimeSlot)
+
+-> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
+{
+    gas -= 10;
+
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, ctx);
+    }
+
+    let start_address = reg[7] as RamAddress;
+    let length = reg[8] as RamAddress;
+
+    if !ram.is_readable(start_address, 32) {
+        return (ExitReason::panic, gas, reg, ram, ctx);
+    }
+
+    let hash = ram.read(start_address, 32).try_into().unwrap();
+    let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
+
+    if !ctx_x.partial_state.services_accounts.service_accounts.contains_key(&ctx_x.service_id) {
+        println!("HUH");
+        reg[7] = HUH;
+        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
+
+    let mut account = ctx_x.partial_state.services_accounts.service_accounts.get(&ctx_x.service_id).unwrap().clone();
+
+    if let Some(mut timeslot) = account.lookup.get(&(hash, length)).cloned() {
+        println!("slot: {slot}");
+        println!("timeslot len: {:?}, timeslot: {:?}", timeslot.len(), timeslot);
+        println!("account timeslot before: {:?}", account.lookup.get(&(hash, length)).unwrap().clone());
+        if timeslot.len() == 0 || (timeslot.len() == 2 && (slot - timeslot[1] < MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE)) {
+            account.lookup.remove(&(hash, length));
+            account.preimages.remove(&hash);
+        } else if timeslot.len() == 1 {
+            timeslot.push(slot);
+            account.lookup.insert((hash, length), timeslot);
+        } else if timeslot.len() == 3 && (slot - timeslot[1] < MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE) {
+            account.lookup.insert((hash, length), vec![timeslot[2], slot]);
+        } else {
+            println!("HUH");
+            reg[7] = HUH;
+            return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+        }
+    } else {
+        println!("HUH");
+        reg[7] = HUH;
+        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
+    println!("account timeslot after: {:?}", account.lookup.get(&(hash, length)).unwrap().clone());
+    println!("OK");
+    reg[7] = OK;
+    ctx_x.partial_state.services_accounts.service_accounts.insert(ctx_x.service_id, account);
+
+    return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+}
+
+
+
+fn yield_(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
+
+-> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
+{
+    gas -= 10;
+
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, ctx);
+    }
+
+    let start_address = reg[7] as RamAddress;
+
+    if !ram.is_readable(start_address, 32) {
+        return (ExitReason::panic, gas, reg, ram, ctx);
+    }
+
+    let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
+
+    ctx_x.y = Some(ram.read(start_address, 32).try_into().unwrap());
+    reg[7] = OK;
+
     return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
 }

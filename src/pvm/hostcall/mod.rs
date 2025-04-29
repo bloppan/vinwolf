@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::types::{
-    Account, AccumulationContext, Context, DataSegment, ExitReason, Gas, HostCallFn, RamAccess, RamAddress, RamMemory, RefineMemory, 
+    Account, AccumulationContext, Context, DataSegment, ExitReason, Gas, HostCallFn, RamAddress, RamMemory, RefineMemory, 
     RegSize, Registers, WorkExecResult, WorkExecError
 };
 
@@ -115,10 +115,11 @@ fn R(gas: Gas, hostcall_result: (ExitReason, RegSize, Gas, Registers, RamMemory,
     }
 
     let start_address = post_reg[7] as RamAddress;
-    let end_address = (post_reg[7] + post_reg[8]) as RamAddress;
+    //let end_address = (post_reg[7] + post_reg[8]) as RamAddress;
+    let bytes_to_read = post_reg[8] as RamAddress;
 
     if exit_reason == ExitReason::Halt || exit_reason == ExitReason::halt { // TODO cambiar esto
-        if post_ram.is_readable(start_address, end_address) {
+        if post_ram.is_readable(start_address, bytes_to_read) {
             let data = post_ram.read(start_address, post_reg[8] as u32);
             return (gas_consumed, WorkExecResult::Ok(data), post_ctx);
         } else {
@@ -177,7 +178,7 @@ pub enum HostCallContext {
     IsAuthorized(),
 }
 
-pub fn is_writable(ram: &RamMemory, start_page: &RamAddress, end_page: &RamAddress) -> Result<bool, ExitReason> {
+/*pub fn is_writable(ram: &RamMemory, start_page: &RamAddress, end_page: &RamAddress) -> Result<bool, ExitReason> {
     
     for i in *start_page..=*end_page {
 
@@ -191,7 +192,7 @@ pub fn is_writable(ram: &RamMemory, start_page: &RamAddress, end_page: &RamAddre
     }
 
     return Ok(true);
-}
+}*/
 
 mod tests {
     
