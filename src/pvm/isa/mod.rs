@@ -60,7 +60,7 @@ pub fn begin_basic_block(program: &Program, pc: &RegSize, next_instr: usize) -> 
 pub fn skip(i: &u64, k: &[bool]) -> u64 {
     let mut j = *i + 1;
     //println!("k = {:?}", k);
-    while j < k.len() as u64 && k[j as usize] == false {
+    while k[j as usize] == false && j < k.len() as u64 {
         j += 1;
         //println!("j = {}", j);
     }
@@ -176,15 +176,18 @@ pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, 
 pub fn check_memory_access<T>(pvm_ctx: &mut Context, address: RamAddress, access: RamAccess) -> Result<(), ExitReason> {
     
     for i in 0..std::mem::size_of::<T>() {
+        //println!("address = {:?}", address);
         let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE;
         // Check if the page is in the range of the highest inaccessible page (0xFFFF0000)
         if page_target < LOWEST_ACCESIBLE_PAGE {
+            println!("Panic: page target out of bounds");
             return Err(ExitReason::panic);
         }
         // Check if the page is in the page table
         if let Some(page) = pvm_ctx.ram.pages[page_target as usize].as_ref() {
             // Check the access flags
             if page.flags.access.get(&access).is_none() {
+                println!("Panic: page {page_target} access violation");
                 return Err(ExitReason::panic);
             }
         } else {
@@ -216,6 +219,7 @@ pub fn djump(a: &RegSize, pc: &mut RegSize, program: &Program) -> ExitReason {
     }    
 }
 
+#[allow(dead_code)]
 fn smod(a: i64, b: i64) -> i64 {
     
     if b == 0 {

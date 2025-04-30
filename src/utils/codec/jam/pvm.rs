@@ -17,12 +17,12 @@ impl Decode for Program {
         }
         
         let program_code_slice = blob.read_bytes(program_code_size as usize)?;
-        let program_code: Vec<u8> = program_code_slice.to_vec().into_iter().chain(std::iter::repeat(0).take(25)).collect();
+        let code: Vec<u8> = program_code_slice.to_vec().into_iter().chain(std::iter::repeat(0).take(25)).collect();
 
         let num_bitmask_bytes = (program_code_size + 7) / 8;
         let mut bitmask = decode_to_bits(blob, num_bitmask_bytes as usize)?;
         bitmask.truncate(program_code_size);
-        bitmask.extend(std::iter::repeat(true).take(program_code.len() - bitmask.len()));
+        bitmask.extend(std::iter::repeat(true).take(code.len() - bitmask.len()));
 
         /*println!("\nProgram code len  = {} | Bitmask len = {}", program_code.len(), bitmask.len());
         println!("Jump table = {:?} \n", jump_table);
@@ -30,9 +30,9 @@ impl Decode for Program {
         println!("Bitmask = {:?}", bitmask);*/
 
         return Ok(Program {
-            code: program_code,
-            bitmask: bitmask,
-            jump_table: jump_table,
+            code,
+            bitmask,
+            jump_table,
         });
     }
 }
@@ -43,21 +43,27 @@ impl Decode for ProgramFormat {
         
         let o_len = Vec::<u8>::decode_size(blob, 3)?;
         let w_len = Vec::<u8>::decode_size(blob, 3)?;
-        let z = Vec::<u8>::decode_size(blob, 2)?;
+        let z = u16::decode(blob)?;
         let s = Vec::<u8>::decode_size(blob, 3)?;
         let o = blob.read_bytes(o_len as usize)?.to_vec();
         let w = blob.read_bytes(w_len as usize)?.to_vec();
         let c_len = u32::decode(blob)?;
         let c = blob.read_bytes(c_len as usize)?.to_vec();
         
-        /*println!("o_len = {}", o_len);
+        /*println!("\no_len = {}", o_len);
         println!("w_len = {}", w_len);
-        println!("z = {:x?}", z);
-        println!("s = {:x?}", s);
-        println!("o = {:x?}", o);
-        println!("w = {:x?}", w);
-        println!("c_len = {}", c_len);
-        //println!("c = {:x?}", c);*/
+        println!("z = {:?}", z);
+        println!("s = {:?}", s);
+        println!("o = {:?}", o);
+        println!("w = {:?}", w);
+        println!("c_len = {}\n", c_len);*/
+
+        //println!("c = {:x?}", c);
+        /*println!("Remaining bytes = {:?}", blob.get_position() - blob.data.len());
+        println!("Program: ");
+        for i in 0..20 {
+            println!("{}", c[i]);
+        }*/
 
         return Ok(ProgramFormat {
             c: c.to_vec(),

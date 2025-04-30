@@ -1,10 +1,10 @@
 use crate::integration::w3f::read_test_file;
-use crate::integration::w3f::codec::{TestBody, encode_decode_test};
+//use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::types::BlockHistory;
+use vinwolf::types::{BlockHistory, ReportedWorkPackages};
 use vinwolf::blockchain::state::{set_recent_history, get_recent_history};
-use vinwolf::blockchain::state::recent_history::process_recent_history;
+use vinwolf::blockchain::state::recent_history::{process, finalize};
 use codec::InputHistory;
 
 pub mod codec;
@@ -12,26 +12,36 @@ pub mod codec;
 fn run_test(filename: &str) {
   
     let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/history/data/{}", filename));
-    let test_body: Vec<TestBody> = vec![TestBody::InputHistory, TestBody::BlockHistory, TestBody::BlockHistory];
+    /*let test_body: Vec<TestBody> = vec![TestBody::InputHistory, TestBody::BlockHistory, TestBody::BlockHistory];
 
-    let _ = encode_decode_test(&test_content, &test_body);
+    if encode_decode_test(&test_content, &test_body).is_err() {
+        panic!("Error encoding/decoding test file: {}", filename);
+    }*/
     
     let mut reader = BytesReader::new(&test_content);
     let input = InputHistory::decode(&mut reader).expect("Error decoding InputHistory");
     let expected_pre_state = BlockHistory::decode(&mut reader).expect("Error decoding pre BlockHistory");
     let expected_post_state = BlockHistory::decode(&mut reader).expect("Error decoding post BlockHistory");
     
+    let mut reported_work_packages = ReportedWorkPackages::default();
+    for wp in &input.work_packages {
+        reported_work_packages.map.insert(wp.hash, wp.exports_root);
+    }
+
     set_recent_history(expected_pre_state.clone());
 
     let mut recent_history_state = get_recent_history();
     assert_eq!(expected_pre_state, recent_history_state);
 
-    process_recent_history(
-                    &mut recent_history_state,
-                    &input.header_hash, 
-                    &input.parent_state_root, 
-                    &input.accumulate_root, 
-                    &input.work_packages);
+    process(&mut recent_history_state,
+                           &input.header_hash, 
+                           &input.parent_state_root, 
+                           &reported_work_packages);
+
+    finalize(&mut recent_history_state,
+                            &input.header_hash, 
+                            &input.accumulate_root, 
+                            &reported_work_packages);
 
     assert_eq!(expected_post_state, recent_history_state);
 

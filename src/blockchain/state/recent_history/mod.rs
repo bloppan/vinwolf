@@ -12,13 +12,13 @@ use crate::types::{Hash, BlockHistory, BlockInfo, ReportedWorkPackages, Mmr};
 use crate::constants::RECENT_HISTORY_SIZE;
 use crate::utils::trie::append;
 
-pub fn process_recent_history(
+pub fn process(
     recent_history_state: &mut BlockHistory,
     header_hash: &Hash, 
     parent_state_root: &Hash, 
-    accumulate_root: &Hash, 
     work_packages: &ReportedWorkPackages
-) {
+) -> BlockHistory {
+
     let history_len = recent_history_state.blocks.len();
 
     if history_len == 0 {
@@ -26,17 +26,36 @@ pub fn process_recent_history(
             recent_history_state,
             header_hash,
             &Mmr { peaks: Vec::new() },
-            accumulate_root,
+            &[0u8; std::mem::size_of::<Hash>()],
             &[0u8; std::mem::size_of::<Hash>()],
             work_packages,
         );
+        
+        return recent_history_state.clone();
+    }
+    
+    recent_history_state.blocks[history_len - 1].state_root = *parent_state_root;
+
+    return recent_history_state.clone();
+}
+
+pub fn finalize(recent_history_state: &mut BlockHistory,
+                               header_hash: &Hash, 
+                               accumulate_root: &Hash, 
+                               work_packages: &ReportedWorkPackages
+) {
+    
+    let history_len = recent_history_state.blocks.len();
+
+    if history_len == 1 && recent_history_state.blocks[0].state_root == [0u8; std::mem::size_of::<Hash>()] {
+        recent_history_state.blocks[0].mmr = append(&Mmr { peaks: Vec::new() }, *accumulate_root, keccak_256);
         return;
     }
 
     let last_mmr = Mmr {
         peaks: recent_history_state.blocks[history_len - 1].mmr.peaks.clone(),
     };
-    recent_history_state.blocks[history_len - 1].state_root = *parent_state_root;
+    
     add_new_block(
         recent_history_state,
         header_hash,

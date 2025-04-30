@@ -7,7 +7,7 @@ use codec::{InputAuthorizations, StateAuthorizations};
 
 use vinwolf::constants::CORES_COUNT;
 use vinwolf::blockchain::state::{get_global_state, set_authpools, set_authqueues, get_authqueues};
-use vinwolf::blockchain::state::authorization::process_authorizations;
+use vinwolf::blockchain::state::authorization::process;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
@@ -58,7 +58,7 @@ mod tests {
         }      
 
         let mut auth_pool_state = get_global_state().lock().unwrap().auth_pools.clone();
-        process_authorizations(&mut auth_pool_state, &input.slot, &guarantees_extrinsic);
+        process(&mut auth_pool_state, &input.slot, &guarantees_extrinsic);
         
         let result_auth_queues = get_authqueues();
 

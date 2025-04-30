@@ -3,20 +3,18 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use serde_json;
 use std::io::Read;
-use std::path::PathBuf;
 use hex;
-use crate::integration::w3f::codec::{TestBody, encode_decode_test};
-
 
 use vinwolf::types::{
     Account, AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, BlockHistory, DisputesRecords, EntropyPool, 
     GlobalState, Privileges, ReadyQueue, Safrole, ServiceId, Statistics, TimeSlot, ValidatorsData, Gas
 };
 
+use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 use vinwolf::utils::codec::{Decode, BytesReader};
-
 use super::{read_test, TestnetState, TestData, ParsedTransitionFile};
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct ParsedServiceAccount {
     pub s: ServiceId,
@@ -74,6 +72,7 @@ pub fn parse_service_account(input: &str) -> ParsedServiceAccount {
 
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct ParsedAccountPreimage {
     pub s: ServiceId,
@@ -110,6 +109,38 @@ pub fn parse_account_preimage(input: &str) -> ParsedAccountPreimage {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct ParsedAccountStorage {
+    pub s: ServiceId,
+    pub h: Vec<u8>,
+}
+
+pub fn parse_account_storage(input: &str) -> ParsedAccountStorage {
+    let mut map = HashMap::new();
+    for part in input.split(' ') {
+        if part.contains("s=") {
+            let service = part.split('|')
+                                             .next()
+                                             .and_then(|s_part| s_part.strip_prefix("s="))
+                                             .unwrap_or("0");
+            map.insert("s", service);
+            continue;
+        }
+        if part.contains("k=") {
+            let mut iter = part.split('=');
+            if let (Some(key), Some(value)) = (iter.next(), iter.next()) {
+                map.insert(key.trim(), value.trim());
+            }
+        }
+    }
+
+    ParsedAccountStorage {
+        s: map.get("s").unwrap_or(&"0").parse::<u32>().unwrap(),
+        h: hex::decode(map.get("k").unwrap().trim_start_matches("0x")).unwrap(),
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
 pub struct ParsedAccountLookup {
     pub s: ServiceId,
     pub h: Vec<u8>, 
@@ -118,7 +149,7 @@ pub struct ParsedAccountLookup {
     pub tlen: u8,
 }
 
-pub fn parse_account_lookup(input: &str) -> ParsedAccountLookup {
+/*pub fn parse_account_lookup(input: &str) -> ParsedAccountLookup {
 
     let mut map = HashMap::new();
 
@@ -150,15 +181,17 @@ pub fn parse_account_lookup(input: &str) -> ParsedAccountLookup {
     }
 
     let tlen_value = map.get("tlen").unwrap_or(&"0").parse::<usize>().unwrap();
-
+    println!("tlen_value: {:?}", tlen_value);
     let t_string = map.get("t").unwrap_or(&"[]").trim(); 
+    println!("t_string: {:?}", t_string);
     let t_cleaned = t_string.trim_start_matches('[').trim_end_matches(']'); 
 
+    println!("t_cleaned: {:?}", t_cleaned);
     let t_all: Vec<u32> = t_cleaned
-        .split(',')
-        .filter_map(|n| n.trim().parse::<u32>().ok())
+        .split_whitespace()
+        .filter_map(|n| n.parse().ok())
         .collect();
-
+    println!("t_all = {:?}", t_all);
     let t = t_all.into_iter().take(tlen_value).collect();
 
     ParsedAccountLookup {
@@ -169,6 +202,105 @@ pub fn parse_account_lookup(input: &str) -> ParsedAccountLookup {
         tlen: tlen_value as u8,
     }
 
+}*/
+
+pub fn parse_account_lookup(input: &str) -> ParsedAccountLookup {
+    let mut map: HashMap<String, String> = HashMap::new();
+    let mut tokens = Vec::new();
+    let mut buf = String::new();
+    let mut in_bracket = false;
+
+    // 1) Agrupar correctamente el token t=[…] aunque tenga espacios
+    for part in input.split(' ') {
+        if in_bracket {
+            buf.push(' ');
+            buf.push_str(part);
+            if part.contains(']') {
+                tokens.push(buf.clone());
+                in_bracket = false;
+            }
+        } else if part.contains("t=[") {
+            buf.clear();
+            buf.push_str(part);
+            if part.contains(']') {
+                tokens.push(buf.clone());
+            } else {
+                in_bracket = true;
+            }
+        } else {
+            tokens.push(part.to_string());
+        }
+    }
+
+    // 2) Rellenar el mapa con los pares clave=valor
+    for token in tokens {
+        if let Some(rest) = token.strip_prefix("tlen=") {
+            map.insert("tlen".to_string(), rest.to_string());
+            continue;
+        }
+        for kv in token.split('|') {
+            if let Some((k, v)) = kv.split_once('=') {
+                map.insert(k.trim().to_string(), v.trim().to_string());
+            }
+        }
+    }
+
+    // 3) Extraer valores con defaults
+    let tlen = map
+        .get("tlen")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+
+    let t_str = map
+        .get("t")
+        .map(|s| s.trim_start_matches('[').trim_end_matches(']'))
+        .unwrap_or("");
+    let t_all: Vec<u32> = t_str
+        .split_whitespace()
+        .filter_map(|n| n.parse().ok())
+        .collect();
+    let t = t_all.into_iter().take(tlen).collect();
+
+    let s = map
+        .get("s")
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
+
+    let l = map
+        .get("l")
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
+
+    let h_str = map.get("h").map(|s| s.trim_start_matches("0x")).unwrap_or("");
+    let h = hex::decode(h_str).unwrap_or_default();
+
+    ParsedAccountLookup {
+        s,
+        h,
+        l,
+        t,
+        tlen: tlen as u8,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_parse_account_lookup() {
+        let input = "s=2953942612|h=0x6a0d4a19d199505713fc65f531038e73f1d885645632c8ae503c4f0c4d5e19a7 l=3|t=[37 39] tlen=2";
+        let parsed = parse_account_lookup(input);
+        assert_eq!(parsed.s, 2953942612);
+        assert_eq!(
+            parsed.h,
+            hex::decode("6a0d4a19d199505713fc65f531038e73f1d885645632c8ae503c4f0c4d5e19a7").unwrap()
+        );
+        assert_eq!(parsed.l, 3);
+        assert_eq!(parsed.tlen, 2);
+        assert_eq!(parsed.t, vec![37, 39]);
+
+        println!("parsed timeslots: {:?}", parsed.t);
+    }
 }
 
 pub fn deserialize_state_transition_file(dir: &str, filename: &str) -> Result<ParsedTransitionFile, Box<dyn std::error::Error>> {
@@ -176,8 +308,15 @@ pub fn deserialize_state_transition_file(dir: &str, filename: &str) -> Result<Pa
     //let filename = format!("tests/jamtestnet/data/{}/state_transitions/{}", dir, filename);
     //let filename = format!("tests/javajam-trace/stf/state_transitions/{}", filename);
     let filename = format!("{}/{}", dir, filename);
+    //println!("filename: {}", filename);
     //let state_content = read_test(&format!("tests/jamtestnet/data/fallback/state_transitions/{}", filename));
-    let mut file = std::fs::File::open(&filename).expect("Failed to open JSON file");
+    //let mut wrapped_file = std::fs::File::open(&filename);
+    let mut file = match std::fs::File::open(&filename) {
+        Ok(file) => file,
+        Err(e) => {
+            return Err(Box::new(e));
+        }
+    };
     let mut contents = String::new();
     file.read_to_string(&mut contents).expect("Failed to read JSON file");
     let testcase: TestData = serde_json::from_str(&contents).expect("Failed to deserialize JSON");
@@ -259,14 +398,17 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
                     "Statistics"
                 }
                 "14" => {
-                    global_state.accumulation_history = AccumulatedHistory::decode(&mut BytesReader::new(&value)).expect("Error decoding AccumulatedHistory");
-                    "AccumulatedHistory"
-                }
-                "15" => {
                     global_state.ready_queue = ReadyQueue::decode(&mut BytesReader::new(&value)).expect("Error decoding ReadyQueue");
                     "ReadyQueue"
                 }
-                _ => "Unknown",
+                "15" => {
+                    global_state.accumulation_history = AccumulatedHistory::decode(&mut BytesReader::new(&value)).expect("Error decoding AccumulatedHistory");
+                    "AccumulatedHistory"
+                }
+                _ => {
+                    println!("Unknown key type: {}", key_type);
+                    "Unknown"
+                }
             };
             //println!("key_type: {}", key_type);
         } else if keyval.2 == "account_lookup" {
@@ -313,8 +455,19 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
             global_state.service_accounts.service_accounts.get_mut(&service).unwrap().preimages.insert(hash, blob);
 
            // println!("key_type: Account preimage: {:?}", parsed_account_preimage);
+        } else if keyval.2 == "account_storage" {
+            let parsed_account_storage = parse_account_storage(&keyval.3);
+            let service = parsed_account_storage.s;
+            if global_state.service_accounts.service_accounts.get(&parsed_account_storage.s).is_none() {
+                let account = Account::default();
+                global_state.service_accounts.service_accounts.insert(service, account);
+            }
+            let mut hash = [0u8; 32];
+            hash.copy_from_slice(&parsed_account_storage.h);
+            let blob = hex::decode(&keyval.1[2..]).unwrap();
+            global_state.service_accounts.service_accounts.get_mut(&service).unwrap().storage.insert(hash, blob);
         } else {
-            println!("Unknown key type");
+            println!("Unknown key type: {}", keyval.2);
         }
     }
 
@@ -576,7 +729,7 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
     Ok(serialized_state)
 }*/
 
-
+#[allow(dead_code)]
 pub fn read_state_snapshot(filename: &str) -> GlobalState {
 
     let body_state: Vec<TestBody> = vec![TestBody::AuthPools,

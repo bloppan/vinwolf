@@ -19,7 +19,7 @@ fn get_x_length(pc: &RegSize, program: &Program) -> RegSize {
 
 fn get_reg(pc: &RegSize, code: &[u8]) -> (u8, u8) {
     let reg_a: u8 = min(12, code[*pc as usize + 1] % 16);
-    let reg_b: u8 = min(12, code[*pc as usize + 1] >> 4);
+    let reg_b: u8 = min(12, code[*pc as usize + 1] / 16);
     (reg_a, reg_b)
 }
 
@@ -40,6 +40,15 @@ pub fn shar_r_imm_alt_32(pvm_ctx: &mut Context, program: &Program) -> ExitReason
 pub fn cmov_iz_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let (reg_a, reg_b, value_imm, _value_reg_b) = get_data(pvm_ctx, program);
     if pvm_ctx.reg[reg_b as usize] as RegSize == 0 {
+        pvm_ctx.reg[reg_a as usize] = value_imm;
+    }
+    pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
+    ExitReason::Continue
+}
+
+pub fn cmov_nz_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_b, value_imm, _value_reg_b) = get_data(pvm_ctx, program);
+    if pvm_ctx.reg[reg_b as usize] as RegSize != 0 {
         pvm_ctx.reg[reg_a as usize] = value_imm;
     }
     pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;

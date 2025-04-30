@@ -1,7 +1,75 @@
-use crate::constants::EPOCH_LENGTH;
-use crate::types::{AccumulateRoot, AccumulatedHistory, OutputAccumulation, ReadyQueue, ReadyRecord, WorkPackageHash, WorkReport};
-use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
+use crate::constants::{EPOCH_LENGTH, TRANSFER_MEMO_SIZE};
+use crate::types::{
+    AccumulateRoot, AccumulatedHistory, OutputAccumulation, ReadyQueue, ReadyRecord, WorkPackageHash, WorkReport, AccumulationOperand, DeferredTransfer,
+    ServiceId, Balance, Gas
+};
+use crate::utils::codec::{Encode, EncodeLen, Decode, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
+
+impl Encode for DeferredTransfer {
+
+    fn encode(&self) -> Vec<u8> {
+        
+        let mut blob = Vec::new();
+        
+        self.from.encode_to(&mut blob);
+        self.to.encode_to(&mut blob);
+        self.amount.encode_to(&mut blob);
+        self.memo.encode_to(&mut blob);
+        self.gas_limit.encode_to(&mut blob);
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for DeferredTransfer {
+
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+        
+        Ok(DeferredTransfer {
+            from: ServiceId::decode(blob)?,
+            to: ServiceId::decode(blob)?,
+            amount: Balance::decode(blob)?,
+            memo: blob.read_bytes(TRANSFER_MEMO_SIZE)?.to_vec(),
+            gas_limit: Gas::decode(blob)?,
+        })
+    }
+}
+
+impl Encode for Vec<DeferredTransfer> {
+
+    fn encode(&self) -> Vec<u8> {
+        
+        let mut blob = Vec::new();
+
+        encode_unsigned(self.len()).encode_to(&mut blob);
+        for item in self.iter() {
+            item.encode_to(&mut blob);
+        }
+
+        return blob;
+    }
+    
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for Vec<DeferredTransfer> {
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+        
+        let len = decode_unsigned(blob)?;
+        let mut transfers = Vec::with_capacity(len);
+        for _ in 0..len {
+            transfers.push(DeferredTransfer::decode(blob)?);
+        }
+        Ok(transfers)
+    }
+}
 
 impl Encode for ReadyRecord {
     fn encode(&self) -> Vec<u8> {
@@ -108,36 +176,37 @@ impl Decode for AccumulatedHistory {
     }
 }
 
-/*impl Encode for AlwaysAccumulateMapItem {
+impl Encode for AccumulationOperand {
+    
     fn encode(&self) -> Vec<u8> {
-
+        
         let mut blob = Vec::new();
 
-        self.id.encode_to(&mut blob);
-        self.gas.encode_to(&mut blob);
+        self.code_hash.encode_to(&mut blob);
+        self.exports_root.encode_to(&mut blob);
+        self.authorizer_hash.encode_to(&mut blob);
+        self.auth_output.as_slice().encode_len().encode_to(&mut blob);
+        self.payload_hash.encode_to(&mut blob);
+        //self.result.encode_to(&mut blob);
+        self.result[0].encode_to(&mut blob);
+
+        if self.result[0] == 0 {
+            let result_len = encode_unsigned(self.result.len() - 1);
+            result_len.encode_to(&mut blob);
+            self.result[result_len.len()..].encode_to(&mut blob);
+        } 
 
         return blob;
     }
-
     fn encode_to(&self, into: &mut Vec<u8>) {
         into.extend_from_slice(&self.encode());
     }
 }
 
-impl Decode for AlwaysAccumulateMapItem {
-
-    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
-        
-        Ok(AlwaysAccumulateMapItem {
-            id: ServiceId::decode(blob)?,
-            gas: Gas::decode(blob)?,
-        })
-    }
-}
-
-impl Encode for Vec<AlwaysAccumulateMapItem> {
+impl Encode for &[AccumulationOperand] {
+    
     fn encode(&self) -> Vec<u8> {
-
+        
         let mut blob = Vec::new();
 
         encode_unsigned(self.len()).encode_to(&mut blob);
@@ -147,26 +216,10 @@ impl Encode for Vec<AlwaysAccumulateMapItem> {
 
         return blob;
     }
-
     fn encode_to(&self, into: &mut Vec<u8>) {
         into.extend_from_slice(&self.encode());
     }
 }
-
-impl Decode for Vec<AlwaysAccumulateMapItem> {
-    
-    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
-        
-        let len = decode_unsigned(blob)?;
-        let mut items = Vec::with_capacity(len);
-
-        for _ in 0..len {
-            items.push(AlwaysAccumulateMapItem::decode(blob)?);
-        }
-
-        Ok(items)
-    }
-}*/
 
 impl Encode for OutputAccumulation {
     fn encode(&self) -> Vec<u8> {

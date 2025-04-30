@@ -5,7 +5,7 @@ use serde::Deserialize;
 use crate::utils::codec::ReadError;
 use crate::constants::{
     ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH,
-    NUM_REG, PAGE_SIZE, SEGMENT_SIZE
+    NUM_REG, PAGE_SIZE, SEGMENT_SIZE, 
 };
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
@@ -44,6 +44,8 @@ pub type PageAddress = RamAddress;
 pub type PageNumber = u32;
 pub type RegSize = u64;
 pub type RegSigned = i64;
+
+pub type Balance = u64;
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct Entropy {
@@ -186,7 +188,8 @@ pub struct WorkItem {
     pub service: ServiceId,
     pub code_hash: OpaqueHash,
     pub payload: Vec<u8>,
-    pub gas_limit: Gas,
+    pub refine_gas_limit: Gas,
+    pub accumulate_gas_limit: Gas,
     pub import_segments: Vec<ImportSpec>,
     pub extrinsic: Vec<ExtrinsicSpec>,
     pub export_count: u16,
@@ -343,12 +346,14 @@ pub struct Mmr{
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ReportedWorkPackage {
-    pub hash: Hash,
-    pub exports_root: Hash,
+    pub hash: OpaqueHash,
+    pub exports_root: OpaqueHash,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ReportedWorkPackages(pub Vec<ReportedWorkPackage>);
+pub struct ReportedWorkPackages {
+    pub map: HashMap<OpaqueHash, OpaqueHash>,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockInfo {
@@ -381,11 +386,11 @@ pub struct ActivityRecords {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CoreActivityRecord {
-    pub gas_used: u64,        // Total gas consumed by core for reported work. Includes all refinement and authorizations.
     pub imports: u16,         // Number of segments imported from DA made by core for reported work.
     pub extrinsic_count: u16, // Total number of extrinsics used by core for reported work.
     pub extrinsic_size: u32,  // Total size of extrinsics used by core for reported work.
     pub exports: u16,         // Number of segments exported into DA made by core for reported work.
+    pub gas_used: u64,        // Total gas consumed by core for reported work. Includes all refinement and authorizations.   
     pub bundle_size: u32,     // The work-bundle size. This is the size of data being placed into Audits DA by the core.
     pub da_load: u32,         // Amount of bytes which are placed into either Audits or Segments DA. This includes the work-bundle (including all extrinsics and imports) as well as all (exported) segments
     pub popularity: u16,      // Number of validators which formed super-majority for assurance.
@@ -396,14 +401,14 @@ pub struct CoresStatistics {
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct SeviceActivityRecord {
-    pub provided_count: u16,        // Number of preimages provided to this service
-    pub provided_size: u32,         // Total size of preimages provided to this service.
-    pub refinement_count: u32,      // Number of work-items refined by service for reported work.
-    pub refinement_gas_used: u64,   // Amount of gas used for refinement by service for reported work.
     pub imports: u32,               // Number of segments imported from the DL by service for reported work.
     pub extrinsic_count: u32,       // Total number of extrinsics used by service for reported work.
     pub extrinsic_size: u32,        // Total size of extrinsics used by service for reported work.
     pub exports: u32,               // Number of segments exported into the DL by service for reported work.
+    pub refinement_count: u32,      // Number of work-items refined by service for reported work.
+    pub refinement_gas_used: u64,   // Amount of gas used for refinement by service for reported work.
+    pub provided_count: u16,        // Number of preimages provided to this service
+    pub provided_size: u32,         // Total size of preimages provided to this service.    
     pub accumulate_count: u32,      // Number of work-items accumulated by service.
     pub accumulate_gas_used: u64,   // Amount of gas used for accumulation by service.
     pub on_transfers_count: u32,    // Number of transfers processed by service.
@@ -582,6 +587,11 @@ pub struct Account {
     pub min_gas: Gas,
     pub items: u32,
     pub bytes: u64,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreimageData {
+    pub metadata: Vec<u8>,
+    pub code: Vec<u8>,
 }
 pub type ServiceId = u32;
 
@@ -832,6 +842,11 @@ pub enum ProcessError {
     ReportError(ReportErrorCode),
     AssurancesError(AssurancesErrorCode),
     PreimagesError(PreimagesErrorCode),
+    AccumulateError(AccumulateErrorCode),
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum AccumulateErrorCode {
+    ServiceConflict = 0,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Polkadot Virtual Machine
@@ -894,27 +909,32 @@ pub struct MemoryChunk {
     pub contents: Vec<u8>,
 }
 
-#[warn(non_camel_case_types)]
+#[allow(unreachable_patterns)]
+#[allow(non_snake_case)]
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 pub enum ExitReason {
+    #[allow(non_camel_case_types)]
     trap,
+    #[allow(non_camel_case_types)]
     halt,
     Continue,
     Branch,
     #[serde(rename = "halt")]
     Halt,
+    #[allow(non_camel_case_types)]
     panic,
     OutOfGas,
+    #[allow(non_camel_case_types)]
     #[serde(rename = "page-fault")]
     page_fault,
     PageFault(u32),     
-    HostCall(HostCallType),      
+    HostCall(HostCallFn),      
 }
 // ----------------------------------------------------------------------------------------------------------
 // Host Call
 // ----------------------------------------------------------------------------------------------------------
 #[derive(Deserialize, Eq, Debug, Clone, PartialEq)]
-pub enum HostCallType {
+pub enum HostCallFn {
     Gas = 0,
     Lookup = 1,
     Read = 2,
@@ -942,6 +962,15 @@ pub enum HostCallType {
     Void = 24,
     Invoke = 25,
     Expugne = 26,
+    Provide = 27,
+    Log = 100,
+    Unknown,
+}
+
+#[derive(Deserialize, Eq, Debug, Clone, PartialEq)]
+pub enum HostCallError {
+    InvalidContext,
+    InvalidHostCall,
 }
 
 pub type Registers = [RegSize; NUM_REG as usize];
@@ -973,7 +1002,7 @@ pub struct DeferredTransfer {
     pub from: ServiceId,
     pub to: ServiceId,
     pub amount: u64,
-    pub memo: u128,
+    pub memo: Vec<u8>,
     pub gas_limit: Gas,
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -986,12 +1015,12 @@ pub struct AccumulationContext {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccumulationOperand {
-    code_hash: OpaqueHash,
-    exports_root: OpaqueHash,
-    authorizer_hash: OpaqueHash,
-    auth_output: Vec<u8>,
-    payload_hash: OpaqueHash,
-    result: Vec<u8>,
+    pub code_hash: OpaqueHash,
+    pub exports_root: OpaqueHash,
+    pub authorizer_hash: OpaqueHash,
+    pub auth_output: Vec<u8>,
+    pub payload_hash: OpaqueHash,
+    pub result: Vec<u8>,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct RefineMemory {

@@ -1,5 +1,3 @@
-use hex::decode;
-
 use crate::types::{
     ActivityRecord, ActivityRecords, CoreActivityRecord, Statistics, CoresStatistics, SeviceActivityRecord, ServicesStatisticsMapEntry,
     ServicesStatistics, ServiceId
@@ -79,14 +77,14 @@ impl Encode for CoreActivityRecord {
     fn encode(&self) -> Vec<u8> {
         let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
 
-        encode_unsigned(self.gas_used as usize).encode_to(&mut blob);
-        encode_unsigned(self.imports as usize).encode_to(&mut blob);
-        encode_unsigned(self.extrinsic_count as usize).encode_to(&mut blob);
-        encode_unsigned(self.extrinsic_size as usize).encode_to(&mut blob);
-        encode_unsigned(self.exports as usize).encode_to(&mut blob);
-        encode_unsigned(self.bundle_size as usize).encode_to(&mut blob);
         encode_unsigned(self.da_load as usize).encode_to(&mut blob);
         encode_unsigned(self.popularity as usize).encode_to(&mut blob);
+        encode_unsigned(self.imports as usize).encode_to(&mut blob);
+        encode_unsigned(self.exports as usize).encode_to(&mut blob);
+        encode_unsigned(self.extrinsic_size as usize).encode_to(&mut blob);
+        encode_unsigned(self.extrinsic_count as usize).encode_to(&mut blob);
+        encode_unsigned(self.bundle_size as usize).encode_to(&mut blob);
+        encode_unsigned(self.gas_used as usize).encode_to(&mut blob);
 
         return blob;
     }
@@ -101,14 +99,14 @@ impl Decode for CoreActivityRecord {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
         Ok(CoreActivityRecord {
-            gas_used: decode_unsigned(blob)? as u64,
-            imports: decode_unsigned(blob)? as u16,
-            extrinsic_count: decode_unsigned(blob)? as u16,
-            extrinsic_size: decode_unsigned(blob)? as u32,
-            exports: decode_unsigned(blob)? as u16,
-            bundle_size: decode_unsigned(blob)? as u32,
             da_load: decode_unsigned(blob)? as u32,
             popularity: decode_unsigned(blob)? as u16,
+            imports: decode_unsigned(blob)? as u16,
+            exports: decode_unsigned(blob)? as u16,
+            extrinsic_size: decode_unsigned(blob)? as u32,
+            extrinsic_count: decode_unsigned(blob)? as u16,
+            bundle_size: decode_unsigned(blob)? as u32,
+            gas_used: decode_unsigned(blob)? as u64,
         })
     }
 }
@@ -154,9 +152,9 @@ impl Encode for SeviceActivityRecord {
         encode_unsigned(self.refinement_count as usize).encode_to(&mut blob);
         encode_unsigned(self.refinement_gas_used as usize).encode_to(&mut blob);
         encode_unsigned(self.imports as usize).encode_to(&mut blob);
-        encode_unsigned(self.extrinsic_count as usize).encode_to(&mut blob);
-        encode_unsigned(self.extrinsic_size as usize).encode_to(&mut blob);
         encode_unsigned(self.exports as usize).encode_to(&mut blob);
+        encode_unsigned(self.extrinsic_size as usize).encode_to(&mut blob);
+        encode_unsigned(self.extrinsic_count as usize).encode_to(&mut blob);
         encode_unsigned(self.accumulate_count as usize).encode_to(&mut blob);
         encode_unsigned(self.accumulate_gas_used as usize).encode_to(&mut blob);
         encode_unsigned(self.on_transfers_count as usize).encode_to(&mut blob);
@@ -176,13 +174,13 @@ impl Decode for SeviceActivityRecord {
         
         Ok(SeviceActivityRecord {
                 provided_count: decode_unsigned(reader)? as u16,
-                provided_size: decode_unsigned(reader)? as u32,
+                provided_size:  decode_unsigned(reader)? as u32,
                 refinement_count: decode_unsigned(reader)? as u32,
                 refinement_gas_used: decode_unsigned(reader)? as u64,
                 imports: decode_unsigned(reader)? as u32,
-                extrinsic_count: decode_unsigned(reader)? as u32,
-                extrinsic_size: decode_unsigned(reader)? as u32,
                 exports: decode_unsigned(reader)? as u32,
+                extrinsic_size: decode_unsigned(reader)? as u32,
+                extrinsic_count: decode_unsigned(reader)? as u32,
                 accumulate_count: decode_unsigned(reader)? as u32,
                 accumulate_gas_used: decode_unsigned(reader)? as u64,
                 on_transfers_count: decode_unsigned(reader)? as u32,
@@ -197,7 +195,7 @@ impl Encode for ServicesStatisticsMapEntry {
     fn encode(&self) -> Vec<u8> {
         let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
 
-        self.id.encode_to(&mut blob);
+        encode_unsigned(self.id as usize).encode_to(&mut blob);
         self.record.encode_to(&mut blob);
 
         return blob;
@@ -213,7 +211,7 @@ impl Decode for ServicesStatisticsMapEntry {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
         
         Ok(ServicesStatisticsMapEntry {
-            id: ServiceId::decode(blob)?,
+            id: decode_unsigned(blob)? as ServiceId,
             record: SeviceActivityRecord::decode(blob)?,
         })
     }
@@ -226,8 +224,11 @@ impl Encode for ServicesStatistics {
 
         encode_unsigned(self.records.len()).encode_to(&mut blob);
 
-        for (id, record) in self.records.iter() {
-            id.encode_to(&mut blob);
+        let mut services_stats: Vec<(ServiceId, SeviceActivityRecord)> = self.records.iter().map(|(id, record)| (*id, record.clone())).collect();
+        services_stats.sort_by_key(|(id, _)| *id);
+        
+        for (id, record) in services_stats.iter() {
+            encode_unsigned(*id as usize).encode_to(&mut blob);
             record.encode_to(&mut blob);
         }
 
@@ -245,9 +246,9 @@ impl Decode for ServicesStatistics {
         
         let len = decode_unsigned(blob)?;
         let mut map = ServicesStatistics::default();
-
+        
         for _ in 0..len {
-            let id = ServiceId::decode(blob)?;
+            let id = decode_unsigned(blob)? as ServiceId;
             let record = SeviceActivityRecord::decode(blob)?;
             map.records.insert(id, record);
         }

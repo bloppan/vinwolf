@@ -1,22 +1,14 @@
-// Tickets Extrinsic is a sequence of proofs of valid tickets; a ticket implies an entry in our epochal “contest” 
-// to determine which validators are privileged to author a block for each timeslot in the following epoch. 
-// Tickets specify an entry index together with a proof of ticket’s validity. The proof implies a ticket identifier, 
-// a high-entropy unbiasable 32-octet sequence, which is used both as a score in the aforementioned contest and as 
-// input to the on-chain vrf. 
-// Towards the end of the epoch (i.e. Y slots from the start) this contest is closed implying successive blocks 
-// within the same epoch must have an empty tickets extrinsic. At this point, the following epoch’s seal key sequence 
-// becomes fixed. 
-// We define the extrinsic as a sequence of proofs of valid tickets, each of which is a tuple of an entry index 
-// (a natural number less than N) and a proof of ticket validity.
-use ark_vrf::reexports::{
-    ark_ec::AffineRepr,
-    ark_serialize::{self, CanonicalDeserialize, CanonicalSerialize},
-};
-use ark_vrf::{pedersen::PedersenSuite, ring::RingSuite, suites::bandersnatch};
-use bandersnatch::{
-    AffinePoint, BandersnatchSha512Ell2, IetfProof, Input, Output, Public, RingProof,
-    RingProofParams, Secret,
-};
+/*
+    Tickets Extrinsic is a sequence of proofs of valid tickets; a ticket implies an entry in our epochal “contest” to determine 
+    which validators are privileged to author a block for each timeslot in the following epoch. Tickets specify an entry index 
+    together with a proof of ticket’s validity. The proof implies a ticket identifier, a high-entropy unbiasable 32-octet sequence, 
+    which is used both as a score in the aforementioned contest and as input to the on-chain vrf. Towards the end of the epoch 
+    (i.e. Y slots from the start) this contest is closed implying successive blocks within the same epoch must have an empty tickets 
+    extrinsic. At this point, the following epoch’s seal key sequence becomes fixed. We define the extrinsic as a sequence of proofs 
+    of valid tickets, each of which is a tuple of an entry index (a natural number less than N) and a proof of ticket validity.
+*/
+
+use ark_vrf::{reexports::ark_serialize::CanonicalDeserialize, suites::bandersnatch::Public};
 
 use crate::blockchain::state::safrole::bandersnatch::Verifier;
 
@@ -36,7 +28,7 @@ pub fn verify_seal(
         current_validators: &ValidatorsData,
         ring_set: Vec<Public>,
         header: &Header
-) -> Result<[u8; 32], ProcessError> {
+) -> Result<OpaqueHash, ProcessError> {
     // The header must contain a valid seal and valid vrf output. These are two signatures both using the current slot’s 
     // seal key; the message data of the former is the header’s serialization omitting the seal component Hs, whereas the 
     // latter is used as a bias-resistant entropy source and thus its message must already have been fixed: we use the entropy

@@ -7,7 +7,7 @@ use codec::{InputPreimages, PreimagesState};
 
 use vinwolf::types::{Account, OutputPreimages, ServiceAccounts, ProcessError};
 use vinwolf::blockchain::state::{set_service_accounts, get_service_accounts, set_time, get_global_state};
-use vinwolf::blockchain::state::services::process_services;
+use vinwolf::blockchain::state::services::process;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
 #[cfg(test)]
@@ -71,7 +71,7 @@ mod tests {
 
         let mut state = get_global_state().lock().unwrap().clone();
 
-        let output_result = process_services(&mut state.service_accounts, &input.slot, &input.preimages);
+        let output_result = process(&mut state.service_accounts, &input.slot, &input.preimages);
 
         match output_result {
             Ok(_) => { set_service_accounts(state.service_accounts);},

@@ -1,6 +1,6 @@
 use once_cell::sync::Lazy;
 use crate::integration::w3f::{read_test_file, FromProcessError};
-use crate::integration::w3f::codec::{TestBody, encode_decode_test};
+//use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
 use vinwolf::types::{DisputesRecords, OutputDataReports, ValidatorSet, ProcessError, Statistics, Extrinsic, ServiceAccounts, Account};
@@ -10,7 +10,7 @@ use vinwolf::blockchain::state::{
     set_disputes, get_disputes, set_statistics, get_statistics, set_service_accounts, get_service_accounts
 };
 use vinwolf::blockchain::state::reporting_assurance::process_guarantees;
-//use vinwolf::blockchain::state::services::{set_services_state, get_services_state};
+use vinwolf::blockchain::state::statistics::process;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
 use codec::{InputWorkReport, WorkReportState, OutputWorkReport};
@@ -38,10 +38,6 @@ mod tests {
             }
         }
     }
-
-    use std::result;
-
-    use vinwolf::blockchain::state::{set_service_accounts, statistics::process_statistics};
 
     use super::*;
 
@@ -107,7 +103,7 @@ mod tests {
                 let mut extrinsic = Extrinsic::default();
                 extrinsic.guarantees = input.guarantees.clone();
                 let reports = input.guarantees.report_guarantee.iter().map(|guarantee| guarantee.report.clone()).collect::<Vec<_>>();
-                process_statistics(&mut statistics_state, &input.slot, &0, &extrinsic, &reports);
+                process(&mut statistics_state, &input.slot, &0, &extrinsic, &reports);
                 set_statistics(statistics_state.clone());
             },
             Err(_) => { /*println!("Error processing guarantees: {:?}", output_result)*/ },

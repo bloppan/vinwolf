@@ -51,6 +51,7 @@ impl<'a> BytesReader<'a> {
     pub fn read_bytes(&mut self, length: usize) -> Result<&[u8], ReadError> {
 
         if self.position + length > self.data.len() {
+            println!("Not enough data at position: {}, length {}", self.position, length);
             return Err(ReadError::NotEnoughData);   
         }
 
@@ -63,6 +64,7 @@ impl<'a> BytesReader<'a> {
     pub fn read_byte(&mut self) -> Result<u8, ReadError> {
 
         if self.position + 1 > self.data.len() {
+            println!("Not enough data at position: {}", self.position);
             return Err(ReadError::NotEnoughData);
         }
 

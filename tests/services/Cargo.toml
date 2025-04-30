@@ -1,0 +1,31 @@
+[profile.release]
+lto = "fat"
+panic = "abort"
+opt-level = 3
+codegen-units = 1
+debug = true
+
+[profile.no-lto]
+inherits = "release"
+lto = false
+
+[workspace]
+resolver = "2"
+members = [
+    "fib",
+    "bootstrap",
+    "tribonacci",
+    "megatron",
+    "transfer",
+    "balances",
+    "delay",
+    "null_authorizer",
+    "auth_copy",
+    "blake2b",
+    "corevm",
+    "corevm_child",
+    "game_of_life",
+    "game_of_life_child",
+    "game_of_life_parent_only",
+    "utils"
+]

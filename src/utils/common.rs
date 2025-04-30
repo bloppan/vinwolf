@@ -1,8 +1,24 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use std::hash::Hash;
 use sp_core::{ed25519, Pair};
 
 use crate::types::{BandersnatchPublic, BlsPublic, Ed25519Public, Ed25519Signature, Metadata, ValidatorsData};
+
+pub fn dict_subtract<K: Eq + std::hash::Hash + Clone, V: Clone>(
+    d: &HashMap<K, V>,
+    s: &HashSet<K>,
+) -> HashMap<K, V> {
+    d.iter()
+        .filter(|(k, _)| !s.contains(k))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect()
+}
+
+pub fn keys_to_set<K: Eq + std::hash::Hash + Clone, V>(
+    map: &HashMap<K, V>,
+) -> HashSet<K> {
+    map.keys().cloned().collect()
+}
 
 pub fn is_sorted_and_unique<T: PartialOrd + Hash + Eq>(vec: &[T]) -> bool {
     let mut seen = HashSet::new();
@@ -107,5 +123,47 @@ mod tests {
         assert_eq!(true, is_sorted_and_unique(&vector3));
         assert_eq!(false, is_sorted_and_unique(&vector4));
         assert_eq!(false, is_sorted_and_unique(&vector5));
+    }
+
+    #[test]
+    fn dict_subtract_test() {
+        let mut d = HashMap::new();
+        d.insert("a", 1);
+        d.insert("b", 2);
+        d.insert("c", 3);
+    
+        let mut s = HashSet::new();
+        s.insert("b");
+        s.insert("c");
+    
+        let result = dict_subtract(&d, &s);
+        println!("{:?}", result); // Must print {"a": 1}
+    }
+
+    #[test]
+    fn keys_to_set_test() {
+        let mut map = HashMap::new();
+        map.insert("a", 10);
+        map.insert("b", 20);
+        map.insert("c", 30);
+    
+        let key_set: HashSet<_> = keys_to_set(&map);
+    
+        println!("{:?}", key_set); // {"a", "b", "c"}
+    }
+
+    #[test]
+    fn hashmap_extend_test() {
+        let mut map1 = HashMap::new();
+        map1.insert("a", 1);
+        map1.insert("b", 2);
+    
+        let mut map2 = HashMap::new();
+        map2.insert("c", 3);
+        map2.insert("d", 4);
+        map2.insert("a", 5); // This will overwrite the value for "a" in map1
+        map1.extend(map2);
+    
+        println!("{:?}", map1); // {"a": 5, "b": 2, "c": 3, "d": 4}
     }
 }

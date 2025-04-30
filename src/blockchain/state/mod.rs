@@ -1,6 +1,30 @@
-use once_cell::sync::Lazy;
-use sp_core::blake2_256;
-use std::sync::Mutex;
+/*
+    Our state may be logically partitioned into several largely independent segments which can both help avoid visual clutter 
+    within our protocol description and provide formality over elements of computation which may be simultaneously calculated 
+    (i.e. parallelized). We therefore pronounce an equivalence between σ (some complete state) and a tuple of partitioned 
+    segments of that state:
+
+    σ ≡ (α, β, γ, δ, η, ι, κ, λ, ρ, τ, φ, χ, ψ, π, ϑ, ξ)
+
+    In summary, δ is the portion of state dealing with services, analogous in Jam to the Yellow Paper’s (smart contract) accounts, 
+    the only state of the YP’s Ethereum. The identities of services which hold some privileged status are tracked in χ.
+
+    Validators, who are the set of economic actors uniquely privileged to help build and maintain the Jam chain, are identified 
+    within κ, archived in λ and enqueued from ι. All other state concerning the determination of these keys is held within γ. 
+    Note this is a departure from the YP proofof-work definitions which were mostly stateless, and this set was not enumerated 
+    but rather limited to those with sufficient compute power to find a partial hash-collision in the sha2-256 cryptographic hash 
+    function. An on-chain entropy pool is retained in η.
+
+    Our state also tracks two aspects of each core: α, the authorization requirement which work done on that core must satisfy at 
+    the time of being reported on-chain, together with the queue which fills this, φ; and ρ, each of the cores currently assigned 
+    report, the availability of whose work-package must yet be assured by a super-majority of validators.
+
+    Finally, details of the most recent blocks and timeslot index are tracked in β and τ respectively, work-reports which are 
+    ready to be accumulated and work-packages which were recently accumulated are tracked in ϑ and ξ respectively and, judgments 
+    are tracked in ψ and validator statistics are tracked in π.
+*/
+use {once_cell::sync::Lazy, sp_core::blake2_256, std::sync::Mutex};
+
 use crate::types::{
     AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesRecords, EntropyPool, GlobalState, 
     OpaqueHash, Privileges, ProcessError, ReadyQueue, ReportedWorkPackages, Safrole, SerializedState, ServiceAccounts, ServiceInfo, StateKey, 
@@ -13,24 +37,8 @@ use crate::constants::{
 use crate::utils::codec::{Encode, EncodeLen};
 use crate::utils::codec::jam::global_state::{construct_preimage_key, construct_lookup_key, construct_storage_key, StateKeyTrait};
 
-use reporting_assurance::{process_assurances, process_guarantees};
-use statistics::process_statistics;
-use safrole::process_safrole;
-use authorization::process_authorizations;
-use recent_history::process_recent_history;
-
-pub mod accumulation;
-pub mod authorization;
-pub mod disputes;
-pub mod entropy;
-pub mod recent_history;
-pub mod reporting_assurance;
-pub mod safrole;
-pub mod services;
-pub mod time;
-pub mod statistics;
-pub mod validators;
-pub mod privileges;
+pub mod accumulation; pub mod authorization; pub mod disputes; pub mod entropy; pub mod safrole; pub mod recent_history; pub mod reporting_assurance;
+pub mod services; pub mod time; pub mod statistics; pub mod validators; pub mod privileges;
 
 static GLOBAL_STATE: Lazy<Mutex<GlobalState>> = Lazy::new(|| {
     Mutex::new(GlobalState::default())
@@ -40,12 +48,27 @@ static STATE_ROOT: Lazy<Mutex<OpaqueHash>> = Lazy::new(|| {
     Mutex::new(OpaqueHash::default())
 });
 
-
+// We specify the state transition function as the implication of formulating all items of posterior state in terms of the prior
+// state and block. To aid the architecting of implementations which parallelize this computation, we minimize the depth of the
+// dependency graph where possible. 
 pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
     let mut new_state = get_global_state().lock().unwrap().clone();
     
-    process_safrole(
+    time::set_current_slot(&block.header.unsigned.slot);
+
+    let mut reported_work_packages = ReportedWorkPackages::default();
+    for report in &block.extrinsic.guarantees.report_guarantee {
+        reported_work_packages.map.insert(report.report.package_spec.hash, report.report.package_spec.exports_root);
+    }
+
+    recent_history::process(
+        &mut new_state.recent_history,
+        &blake2_256(&block.header.encode()), 
+        &block.header.unsigned.parent_state_root,
+        &reported_work_packages);
+
+    safrole::process(
         &mut new_state.safrole,
         &mut new_state.entropy,
         &mut new_state.curr_validators,
@@ -54,37 +77,55 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &block.header,
         &block.extrinsic.tickets)?;
 
-    // Process report and assurance
-    let new_available_workreports = process_assurances(
+    let new_available_workreports = reporting_assurance::process_assurances(
         &mut new_state.availability,
         &block.extrinsic.assurances,
         &block.header.unsigned.slot,
         &block.header.unsigned.parent,
     )?;
 
-    let _ = process_guarantees(
+    let _ = reporting_assurance::process_guarantees(
         &mut new_state.availability, 
         &block.extrinsic.guarantees,
         &block.header.unsigned.slot
     )?; 
 
-    let reported: ReportedWorkPackages = ReportedWorkPackages::default();
+    let (accumulation_root, 
+         service_accounts, 
+         next_validators, 
+         queue_auth, 
+         privileges) = accumulation::process(
+            &mut new_state.accumulation_history,
+            &mut new_state.ready_queue,
+            new_state.service_accounts,
+            new_state.next_validators,
+            new_state.auth_queues,
+            new_state.privileges,
+            &block.header.unsigned.slot,
+            &new_available_workreports.reported)?;
 
-    // Process recent history
-    process_recent_history(
-        &mut new_state.recent_history, 
-        &blake2_256(&block.header.encode()), 
-        &block.header.unsigned.parent_state_root, 
-        &[0u8; 32], 
-        &reported);
-        
-    // Process Authorization
-    process_authorizations(
+    new_state.service_accounts = service_accounts;
+    new_state.next_validators = next_validators;
+    new_state.auth_queues = queue_auth;
+    new_state.privileges = privileges;
+    
+    recent_history::finalize(
+        &mut new_state.recent_history,
+        &blake2_256(&block.header.encode()),
+        &accumulation_root,
+        &reported_work_packages);
+
+    services::process(
+        &mut new_state.service_accounts, 
+        &block.header.unsigned.slot,  
+        &block.extrinsic.preimages)?;
+    
+    authorization::process(
         &mut new_state.auth_pools, 
         &block.header.unsigned.slot, 
         &block.extrinsic.guarantees);
 
-    process_statistics(
+    statistics::process(
         &mut new_state.statistics, 
         &block.header.unsigned.slot, 
         &block.header.unsigned.author_index, 
@@ -93,7 +134,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     );
     
     set_global_state(new_state);    
-        
+
     Ok(())
 }
 
@@ -116,34 +157,35 @@ impl GlobalState {
         state.map.insert(StateKey::U8(TIME).construct(), self.time.encode());
         state.map.insert(StateKey::U8(PRIVILEGES).construct(), self.privileges.encode());
         state.map.insert(StateKey::U8(STATISTICS).construct(), self.statistics.encode());
-        state.map.insert(StateKey::U8(ACCUMULATION_HISTORY).construct(), self.accumulation_history.encode());
         state.map.insert(StateKey::U8(READY_QUEUE).construct(), self.ready_queue.encode());
+        state.map.insert(StateKey::U8(ACCUMULATION_HISTORY).construct(), self.accumulation_history.encode());
+        
 
-        for service in self.service_accounts.service_accounts.iter() {
-            let key = StateKey::Service(255, *service.0).construct();       
+        for (service_id, account) in self.service_accounts.service_accounts.iter() {
+            let key = StateKey::Service(255, *service_id).construct();       
             let service_info = ServiceInfo {
-                balance: service.1.balance,
-                code_hash: service.1.code_hash,
-                min_item_gas: service.1.gas,
-                min_memo_gas: service.1.min_gas,
-                bytes: service.1.bytes,
-                items: service.1.items,
+                balance: account.balance,
+                code_hash: account.code_hash,
+                min_item_gas: account.gas,
+                min_memo_gas: account.min_gas,
+                bytes: account.get_footprint_and_threshold().1, // TODO bytes y items se calcula con la eq de threshold account (9.3)
+                items: account.get_footprint_and_threshold().0,
             };
             // TODO revisar esto y ver si se puede hacer con encode account
             state.map.insert(key, service_info.encode());
 
-            for preimage in service.1.preimages.iter() {
-                let key = StateKey::Account(*service.0, construct_preimage_key(preimage.0).to_vec()).construct();
+            for preimage in account.preimages.iter() {
+                let key = StateKey::Account(*service_id, construct_preimage_key(preimage.0).to_vec()).construct();
                 state.map.insert(key, preimage.1.encode());
             }
             
-            for lookup in service.1.lookup.iter() {
-                let key = StateKey::Account(*service.0, construct_lookup_key(&lookup.0.0, lookup.0.1).to_vec()).construct();
+            for lookup in account.lookup.iter() {
+                let key = StateKey::Account(*service_id, construct_lookup_key(&lookup.0.0, lookup.0.1).to_vec()).construct();
                 state.map.insert(key, lookup.1.as_slice().encode_len());
             }
 
-            for item in service.1.storage.iter() {
-                let key = StateKey::Account(*service.0, construct_storage_key(item.0).to_vec()).construct();
+            for item in account.storage.iter() {
+                let key = StateKey::Account(*service_id, construct_storage_key(item.0).to_vec()).construct();
                 state.map.insert(key, item.1.encode());
             }
         }

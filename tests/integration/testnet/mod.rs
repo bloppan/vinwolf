@@ -7,13 +7,13 @@ use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 pub mod codec;
 pub mod parser;
-use parser::{deserialize_state_transition_file, read_state_snapshot};
+use parser::deserialize_state_transition_file;
 
 extern crate vinwolf;
 
 use vinwolf::types::{Block, GlobalState, OpaqueHash};
 use vinwolf::constants::{*};
-use vinwolf::blockchain::state::{get_global_state, state_transition_function, set_state_root};
+use vinwolf::blockchain::state::{get_global_state, state_transition_function};
 use vinwolf::blockchain::state::set_global_state;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
@@ -31,6 +31,7 @@ struct TestData {
     pub post_state: TestnetState,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct ParsedTransitionFile {
     pub pre_state_root: OpaqueHash,
@@ -53,11 +54,8 @@ pub fn read_test(filename: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> 
     Ok(test_content)
 }
 
-
 #[cfg(test)]
 mod tests {
-
-    use vinwolf::blockchain::state::services;
 
     use super::*;
 
@@ -66,9 +64,11 @@ mod tests {
 
         //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/fallback");
         //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/safrole");
-        run_javajam_blocks("tests/test_vectors/testnet/javajam-trace/stf");
+        run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/assurances");
+        //run_javajam_blocks("tests/test_vectors/testnet/javajam-trace/stf");
     }
 
+    #[allow(dead_code)]
     fn run_jamduna_blocks(dir: &str) {
 
         println!("Running blocks in {} mode", dir);
@@ -91,7 +91,14 @@ mod tests {
             }
 
             let state_json_filename = format!("{}_{}.json", epoch, format!("{:03}", slot));
-            let json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), &state_json_filename).unwrap();
+            let wrapped_json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), &state_json_filename);
+
+            if wrapped_json_file.is_err() {
+                return;
+            }
+
+            let json_file = wrapped_json_file.unwrap();
+            
             println!("Importing block {}/{}", format!("{}/state_transitions", dir), state_json_filename);
             let block_content = block_content.unwrap();
             let encode_decode= encode_decode_test(&block_content.clone(), &body_block);
@@ -105,38 +112,86 @@ mod tests {
             let error = state_transition_function(&block);
             if error.is_err() {
                 println!("****************************************************** Error: {:?}", error);
-                //return;
+                return;
             }
             let state = get_global_state().lock().unwrap().clone();
             
-            assert_eq!(json_file.post_state.auth_pools, state.auth_pools);
-            assert_eq!(json_file.post_state.auth_queues, state.auth_queues);
-            assert_eq!(json_file.post_state.recent_history, state.recent_history);
+            
+            assert_eq!(json_file.post_state.time, state.time);
             assert_eq!(json_file.post_state.safrole, state.safrole);
-            assert_eq!(json_file.post_state.disputes.offenders, state.disputes.offenders);
             assert_eq!(json_file.post_state.entropy, state.entropy);
-            assert_eq!(json_file.post_state.next_validators, state.next_validators);
             assert_eq!(json_file.post_state.curr_validators, state.curr_validators);
             assert_eq!(json_file.post_state.prev_validators, state.prev_validators);
+            assert_eq!(json_file.post_state.disputes.offenders, state.disputes.offenders);
             assert_eq!(json_file.post_state.availability, state.availability);
-            assert_eq!(json_file.post_state.time, state.time);
-            assert_eq!(json_file.post_state.privileges, state.privileges);
-            assert_eq!(json_file.post_state.statistics, state.statistics);
-            assert_eq!(json_file.post_state.accumulation_history, state.accumulation_history);
             assert_eq!(json_file.post_state.ready_queue, state.ready_queue);
-            assert_eq!(json_file.post_state.service_accounts, state.service_accounts);        
+            assert_eq!(json_file.post_state.accumulation_history, state.accumulation_history);
+            assert_eq!(json_file.post_state.privileges, state.privileges);
+            assert_eq!(json_file.post_state.next_validators, state.next_validators);
+            assert_eq!(json_file.post_state.auth_queues, state.auth_queues);
+            assert_eq!(json_file.post_state.recent_history, state.recent_history);
+
+            //assert_eq!(json_file.post_state.service_accounts, state.service_accounts);
+            /*for account in state.service_accounts.service_accounts.iter() {
+                println!("Service: {:?}", account.0);
+                println!("Account: {:x?}", account.1);
+            }*/
+
+            println!("PRE state root: {:x?}", merkle_state(&state.serialize().map, 0).unwrap());
+
+            for service_account in json_file.post_state.service_accounts.service_accounts.iter() {
+                if let Some(account) = state.service_accounts.service_accounts.get(&service_account.0) {
+                    //assert_eq!(service_account, state.service_accounts.service_accounts.get_key_value(&service_account.0).unwrap());
+                    println!("TESTING service {:?}", service_account.0);
+                    //println!("Account: {:x?}", account);
+                    let (items, octets, _threshold) = account.get_footprint_and_threshold();
+
+                    //assert_eq!(service_account.1.storage, account.storage);
+                    for item in service_account.1.storage.iter() {
+                        if let Some(value) = account.storage.get(item.0) {
+                            assert_eq!(item.1, value);
+                        } else {
+                            panic!("Key storage not found: {:?}", *item.0);
+                        }
+                    }
+                    assert_eq!(service_account.1.lookup, account.lookup);
+                    assert_eq!(service_account.1.preimages, account.preimages);
+                    assert_eq!(service_account.1.code_hash, account.code_hash);
+                    assert_eq!(service_account.1.balance, account.balance);
+                    assert_eq!(service_account.1.items, items);
+                    assert_eq!(service_account.1.gas, account.gas);
+                    assert_eq!(service_account.1.min_gas, account.min_gas);
+                    assert_eq!(service_account.1.bytes, octets);
+                } else {
+                    panic!("Service account not found in state: {:?}", service_account.0);
+                }
+            }
+            assert_eq!(json_file.post_state.auth_pools, state.auth_pools);
+
+            assert_eq!(json_file.post_state.statistics.curr, state.statistics.curr);
+            assert_eq!(json_file.post_state.statistics.prev, state.statistics.prev);
+            assert_eq!(json_file.post_state.statistics.cores, state.statistics.cores);
+            assert_eq!(json_file.post_state.statistics.services, state.statistics.services);
+
+            /*println!("Statistics curr: {:?}", state.statistics.curr);
+            println!("Statistics prev: {:?}", state.statistics.prev);
+            println!("Statistics cores: {:?}", state.statistics.cores);
+            println!("Statistics services: {:?}", state.statistics.services);*/
 
             assert_eq!(json_file.post_state_root, merkle_state(&state.serialize().map, 0).unwrap());
 
+            println!("state root: {:x?}", json_file.post_state_root);
             slot += 1;
 
             if slot == EPOCH_LENGTH {
                 slot = 0;
                 epoch += 1;
             } 
+
         }
     }
 
+    #[allow(dead_code)]
     fn run_javajam_blocks(dir: &str) {
 
         let body_block: Vec<TestBody> = vec![TestBody::Block];

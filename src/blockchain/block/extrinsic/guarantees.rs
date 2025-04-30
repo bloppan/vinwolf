@@ -1,3 +1,10 @@
+/*    
+    The guarantees extrinsic is a series of guarantees, at most one for each core, each of which is a tuple of a work-report, 
+    a credential and its corresponding timeslot. The core index of each guarantee must be unique and guarantees must be in 
+    ascending order of this. They are reports of newly completed workloads whose accuracy is guaranteed by specific validators. 
+    A work-package, which comprises several work items, is transformed by validators acting as guarantors into its corresponding 
+    workreport, which similarly comprises several work outputs and then presented on-chain within the guarantees extrinsic.
+*/
 use crate::constants::{CORES_COUNT, MAX_DEPENDENCY_ITEMS};
 use crate::types::{
     TimeSlot, ValidatorIndex, CoreIndex, Hash, GuaranteesExtrinsic, AvailabilityAssignments, ReportErrorCode, OutputDataReports, ProcessError
@@ -6,13 +13,7 @@ use crate::blockchain::state::get_recent_history;
 use crate::utils::common::is_sorted_and_unique;
 
 impl GuaranteesExtrinsic {
-    // The guarantees extrinsic is a series of guarantees, at most one for each core, each of which is 
-    // a tuple of a work-report, a credential and its corresponding timeslot. The core index of each 
-    // guarantee must be unique and guarantees must be in ascending order of this.
-    // They are reports of newly completed workloads whose accuracy is guaranteed by specific validators. 
-    // A work-package, which comprises several work items, is transformed by validators acting as guarantors 
-    // into its corresponding workreport, which similarly comprises several work outputs and then presented 
-    // on-chain within the guarantees extrinsic.
+
     pub fn process(
         &self, 
         assurances_state: &mut AvailabilityAssignments, 
@@ -58,10 +59,10 @@ impl GuaranteesExtrinsic {
         
         let recent_history_map: std::collections::HashMap<_, _> = recent_history.blocks
             .iter()
-            .flat_map(|blocks| blocks.reported.0.iter())
-            .map(|report| (report.hash, report.exports_root))
+            .flat_map(|blocks| blocks.reported.map.iter())
+            .map(|report| (*report.0, *report.1))
             .collect();
-
+        
         for guarantee in &self.report_guarantee {
        
             // The core index of each guarantee must be unique and guarantees must be in ascending order of this

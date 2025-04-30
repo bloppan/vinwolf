@@ -441,7 +441,6 @@ pub fn min_u(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::pvm::isa::skip;
 
     #[cfg(test)]
     mod test {
@@ -454,7 +453,7 @@ mod test {
             pvm_ctx.reg[7] = 0x2;
             let mut program = Program::default();
             program.code = vec![191, 0x78, 0x9, 191, 0x78, 0x9];
-            program.bitmask = vec![true, false, false, true, false, false];
+            program.bitmask = vec![true, false, false, true, false, false, true];
             
             sub_32(&mut pvm_ctx, &program);
             assert_eq!(pvm_ctx.reg[9], 0xFFFFFFFFFFFFFFFD);
@@ -474,7 +473,7 @@ mod test {
             pvm_ctx.reg[7] = 0x2;
             let mut program = Program::default();
             program.code = vec![201, 0x78, 0x9, 201, 0x78, 0x9];
-            program.bitmask = vec![true, false, false, true, false, false];
+            program.bitmask = vec![true, false, false, true, false, false, true];
             
             sub_64(&mut pvm_ctx, &program);
             assert_eq!(pvm_ctx.reg[9], 0xFFFFFFFFFFFFFFFD);

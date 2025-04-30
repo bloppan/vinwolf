@@ -4,10 +4,10 @@ use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 use vinwolf::types::{Safrole, OutputSafrole, DisputesRecords, ValidatorSet, ProcessError};
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, TICKET_ENTRIES_PER_VALIDATOR};
-use vinwolf::blockchain::state::{get_global_state, set_time, set_entropy, set_validators, set_safrole,set_disputes};
+use vinwolf::blockchain::state::{set_time, set_entropy, set_validators, set_safrole,set_disputes};
 use vinwolf::utils::codec::{Decode, BytesReader};
 
-use crate::integration::w3f::safrole::codec::{InputSafrole, SafroleState};
+use crate::integration::w3f::safrole::codec::SafroleState;
 
 pub mod codec;
 
@@ -47,10 +47,10 @@ mod tests {
         let _ = encode_decode_test(&test_content, &test_body);
 
         let mut reader = BytesReader::new(&test_content);
-        let input = InputSafrole::decode(&mut reader).expect("Error decoding InputSafrole");
+        //let input = InputSafrole::decode(&mut reader).expect("Error decoding InputSafrole");
         let pre_state = SafroleState::decode(&mut reader).expect("Error decoding pre_state Safrole");
-        let expected_output = OutputSafrole::decode(&mut reader).expect("Error decoding OutputSafrole");       
-        let expected_state = SafroleState::decode(&mut reader).expect("Error decoding expected_state Safrole");
+        //let expected_output = OutputSafrole::decode(&mut reader).expect("Error decoding OutputSafrole");       
+        //let expected_state = SafroleState::decode(&mut reader).expect("Error decoding expected_state Safrole");
 
         let pre_state_safrole = Safrole {
             pending_validators: pre_state.gamma_k,
@@ -73,7 +73,7 @@ mod tests {
         set_safrole(pre_state_safrole);
         set_disputes(disputes);
 
-        let mut state = get_global_state().lock().unwrap().clone();
+        //let mut state = get_global_state().lock().unwrap().clone();
 
         /*let output_result = process_safrole(&mut state.safrole
                                                                         , &mut state.entropy
