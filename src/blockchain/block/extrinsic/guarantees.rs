@@ -60,7 +60,7 @@ impl GuaranteesExtrinsic {
         let recent_history_map: std::collections::HashMap<_, _> = recent_history.blocks
             .iter()
             .flat_map(|blocks| blocks.reported.map.iter())
-            .map(|report| (*report.0, *report.1))
+            .map(|report| (report.0, report.1))
             .collect();
         
         for guarantee in &self.report_guarantee {

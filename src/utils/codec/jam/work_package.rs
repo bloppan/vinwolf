@@ -128,12 +128,12 @@ impl Decode for ReportedWorkPackages {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
         
         let len = decode_unsigned(blob)?;
-        let mut reported_work_packages = HashMap::with_capacity(len as usize);
+        let mut reported_work_packages = Vec::with_capacity(len as usize);
 
         for _ in 0..len {
             let hash = OpaqueHash::decode(blob)?;
             let exports_root = OpaqueHash::decode(blob)?;
-            reported_work_packages.insert(hash, exports_root);
+            reported_work_packages.push((hash, exports_root));
         }
 
         Ok(ReportedWorkPackages{

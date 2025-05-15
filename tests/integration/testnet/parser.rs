@@ -438,8 +438,8 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
             service.code_hash = code_hash;
             service.gas = parsed_service_account.g;
             service.min_gas = parsed_service_account.m;
-            service.bytes = parsed_service_account.l;
-            service.items = parsed_service_account.i;
+            //service.bytes = parsed_service_account.l;
+            //service.items = parsed_service_account.i;
 
             //println!("key_type: Service account: {:?}", parsed_service_account);
         } else if keyval.2 == "account_preimage" {

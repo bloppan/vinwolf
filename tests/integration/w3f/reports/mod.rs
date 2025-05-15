@@ -80,8 +80,8 @@ mod tests {
             account.balance = acc.info.balance.clone();
             account.gas = acc.info.min_item_gas.clone();
             account.min_gas = acc.info.min_memo_gas.clone();
-            account.items = acc.info.items.clone();
-            account.bytes = acc.info.bytes.clone();
+            //account.items = acc.info.items.clone();
+            //account.bytes = acc.info.bytes.clone();
             services_accounts.service_accounts.insert(acc.id.clone(), account.clone());
         }
         set_service_accounts(services_accounts);
@@ -136,8 +136,8 @@ mod tests {
             account.balance = acc.info.balance.clone();
             account.gas = acc.info.min_item_gas.clone();
             account.min_gas = acc.info.min_memo_gas.clone();
-            account.items = acc.info.items.clone();
-            account.bytes = acc.info.bytes.clone();
+            //account.items = acc.info.items.clone();
+            //account.bytes = acc.info.bytes.clone();
             expected_services_accounts.service_accounts.insert(acc.id.clone(), account.clone());
         }
         assert_eq!(expected_services_accounts.service_accounts, result_services.service_accounts);

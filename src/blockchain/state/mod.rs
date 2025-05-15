@@ -59,8 +59,9 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
 
     let mut reported_work_packages = ReportedWorkPackages::default();
     for report in &block.extrinsic.guarantees.report_guarantee {
-        reported_work_packages.map.insert(report.report.package_spec.hash, report.report.package_spec.exports_root);
+        reported_work_packages.map.push((report.report.package_spec.hash, report.report.package_spec.exports_root));
     }
+    reported_work_packages.map.sort_by_key(|(hash, _)| *hash);
 
     recent_history::process(
         &mut new_state.recent_history,
@@ -95,14 +96,14 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
          next_validators, 
          queue_auth, 
          privileges) = accumulation::process(
-            &mut new_state.accumulation_history,
-            &mut new_state.ready_queue,
-            new_state.service_accounts,
-            new_state.next_validators,
-            new_state.auth_queues,
-            new_state.privileges,
-            &block.header.unsigned.slot,
-            &new_available_workreports.reported)?;
+                                        &mut new_state.accumulation_history,
+                                        &mut new_state.ready_queue,
+                                        new_state.service_accounts,
+                                        new_state.next_validators,
+                                        new_state.auth_queues,
+                                        new_state.privileges,
+                                        &block.header.unsigned.slot,
+                                        &new_available_workreports.reported)?;
 
     new_state.service_accounts = service_accounts;
     new_state.next_validators = next_validators;
@@ -171,6 +172,7 @@ impl GlobalState {
                 bytes: account.get_footprint_and_threshold().1, // TODO bytes y items se calcula con la eq de threshold account (9.3)
                 items: account.get_footprint_and_threshold().0,
             };
+            println!("service: {} items: {} bytes: {}", service_id, service_info.items, service_info.bytes);
             // TODO revisar esto y ver si se puede hacer con encode account
             state.map.insert(key, service_info.encode());
 
@@ -190,6 +192,12 @@ impl GlobalState {
             }
         }
 
+        /*for item in state.map.iter() {
+            println!("0x{}", item.0.iter().map(|b| format!("{:02x}", b)).collect::<String>());
+            println!("0x{}", item.1.iter().map(|b| format!("{:02x}", b)).collect::<String>());
+            println!("\n");
+        }*/
+        
         return state;
     }
 }

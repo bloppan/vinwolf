@@ -202,7 +202,7 @@ fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
         MIN_U                   => { min_u(pvm_ctx, program) },
         _                       => { println!("Unknown instruction!"); return ExitReason::panic },
     };
-    //println!("pc = {:?}, opcode = {:?}, reg = {:?}", pvm_ctx.pc, next_instruction, pvm_ctx.reg);
+    //println!("pc = {:?}, opcode = {:?}, reg = {:?}", pvm_ctx.pc, program.code[pvm_ctx.pc as usize], pvm_ctx.reg);
     return exit_reason;
 }
 

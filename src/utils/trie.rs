@@ -148,8 +148,8 @@ where
         return T::from(v[0].clone());
     } else {
         let prefix  = Vec::from("node");
-        let left    = node::<Vec<u8>>(v[..(len / 2)].to_vec(), hash_fn); 
-        let right   = node::<Vec<u8>>(v[(len / 2)..].to_vec(), hash_fn); 
+        let left    = node::<Vec<u8>>(v[..(len.div_ceil(2))].to_vec(), hash_fn); 
+        let right   = node::<Vec<u8>>(v[(len.div_ceil(2))..].to_vec(), hash_fn); 
         
         let mut combined = prefix.clone();
         combined.extend_from_slice(&left);
@@ -239,15 +239,49 @@ pub fn mmr_super_peak(h: &Mmr) -> Hash {
     return mmr(&extract_non_empty_peaks(h));
 }
 
-/*use crate::types::{GlobalState, SerializedState};
+use crate::types::{GlobalState, SerializedState};
 use crate::blockchain::state::{get_global_state, set_global_state};
-use std::convert::TryInto;*/
+use std::convert::TryInto;
 
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
+
+    #[test]
+    fn test_merkle_balanced() {
+
+        let encoded_str = "0x00000000d15f17c300000000000000000000000000000000000000000000000000000000";
+        let encoded: Vec<u8> = hex::decode(&encoded_str[2..]).unwrap().try_into().unwrap();
+        let mut pairs: Vec<Vec<u8>> = Vec::new();
+        pairs.push(encoded.to_vec());
+        let accumulation_root = merkle_balanced(pairs, sp_core::keccak_256);
+        let expected = "0x7bf4ce93bf991081ff8960532d65c5f4fdc77a3de7e65957afb2fdea675d73e2";
+        println!("accumulation_root: {:x?}", accumulation_root);
+        println!("expected accumula: {:x?}", expected);
+
+        let encoded_str1 = "0x03f9883f0100000001000000000000000000000000000000000000000000000000000000";
+        let encoded_str2 = "0xe9ac0c500100000001000000000000000000000000000000000000000000000000000000";
+        let encoded_str3 = "0xd15f17c30100000002000000000000000000000000000000000000000000000000000000";
+        let encoded1: Vec<u8> = hex::decode(&encoded_str1[2..]).unwrap().try_into().unwrap();
+        let encoded2: Vec<u8> = hex::decode(&encoded_str2[2..]).unwrap().try_into().unwrap();
+        let encoded3: Vec<u8> = hex::decode(&encoded_str3[2..]).unwrap().try_into().unwrap();
+
+        let mut pairs: Vec<Vec<u8>> = Vec::new();
+        pairs.push(encoded1.to_vec());
+        pairs.push(encoded2.to_vec());
+        pairs.push(encoded3.to_vec());
+
+        let accumulation_root = merkle_balanced(pairs, sp_core::keccak_256);
+        let malo = "[52, 5d, 68, 9b, ad, 50, 46, c8, e5, be, 80, b9, a3, 4d, 6a, c8, b0, c9, 99, ef, 41, 33, bf, 8a, 76, 27, 59, bf, 5f, 31, 76, e2]";
+        let bueno = "0xe385f9492b4ce06e31ca2d985da3fbf2f7c2415eec64a2ec0e88bf50a4801b4b";
+        println!("\naccumulation_root: {:x?}", accumulation_root);
+        println!("expected el bueno: {:x?}", bueno);
+        println!("expected el malo : {:x?}", malo);
+        
+
+    }
 
     #[test]
     fn test_replace_func() {

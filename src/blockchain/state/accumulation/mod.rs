@@ -54,7 +54,15 @@ pub fn process(
     // block and shifting any from the prior state with the oldest such items being dropped entirely:
     let current_block_accumulatable = get_current_block_accumulatable(new_available_reports, ready_queue, accumulated_history, post_tau);
     
-    let partial_state = AccumulationPartialState {
+    for wr in reports_for_queue.iter() {
+        println!("report: {:x?}", wr.report.package_spec.hash);
+        println!("dependencies: {:x?}", wr.dependencies);
+    }
+    for wr in current_block_accumulatable.iter() {
+        println!("core: {}, hash: {:x?}", wr.core_index, wr.package_spec.hash);
+    }
+
+    let mut partial_state = AccumulationPartialState {
         services_accounts: service_accounts,
         next_validators,
         queues_auth,
@@ -68,7 +76,7 @@ pub fn process(
          service_gas_pairs) = outer_accumulation(
         &get_gas_limit(&partial_state.privileges),
         &current_block_accumulatable,
-        &partial_state,
+        partial_state.clone(),
         &partial_state.privileges.always_acc,
     )?;
 
@@ -93,6 +101,10 @@ pub fn process(
     let mut pairs_blob: Vec<Vec<u8>> = Vec::new();
     for (service_id, hash) in service_hash_pairs.iter() {
         pairs_blob.push([service_id.encode(), hash.encode()].concat());
+        println!("hash: {:x?} encode: {:x?}", hash.encode(), service_id.encode());
+    }
+    for pair in pairs_blob.iter() {
+        println!("encoded: {:x?}", pair);
     }
     let accumulation_root = trie::merkle_balanced(pairs_blob, sp_core::keccak_256);
     println!("accumulation_root: {:x?}", accumulation_root);
@@ -295,13 +307,14 @@ fn map_workreports(reports: &[WorkReport]) -> Vec<WorkPackageHash> {
 }
 
 fn single_service_accumulation(
-    partial_state: &AccumulationPartialState,
+    mut partial_state: AccumulationPartialState,
     reports: &[WorkReport],
     service_gas_dict: &HashMap<ServiceId, Gas>,
     service_id: &ServiceId,
 ) -> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas)
 {
-
+    println!("\nsingle accumulation, service id: {}", *service_id);
+    
     let mut total_gas = 0;
     let mut accumulation_operands: Vec<AccumulationOperand> = vec![];
     for report in reports.iter() {
@@ -320,6 +333,11 @@ fn single_service_accumulation(
             }
         }
     }
+    
+    /*for operand in accumulation_operands.iter() {
+        println!("auth hash: {:x?}", operand.authorizer_hash);
+        println!("code hash: {:x?}", operand.code_hash);
+    }*/
 
     if let Some(gas) = service_gas_dict.get(service_id) {
         total_gas += *gas;
@@ -336,20 +354,24 @@ fn single_service_accumulation(
 }
 
 fn parallelized_accumulation(
-    partial_state: &AccumulationPartialState,
+    mut partial_state: AccumulationPartialState,
     reports: &[WorkReport],
     service_gas_dict: &HashMap<ServiceId, Gas>,
 ) -> Result<(AccumulationPartialState, Vec<DeferredTransfer>, Vec<(ServiceId, OpaqueHash)>, Vec<(ServiceId, Gas)>), ProcessError>
 {
-    let mut s_services: HashSet<ServiceId> = HashSet::new();
+    println!("\nParallelized accumulation");
+
+    let mut s_services: Vec<ServiceId> = Vec::new();
     for report in reports.iter() {
         for result in report.results.iter() {
-            s_services.insert(result.service);
+            println!("service: {}", result.service);
+            s_services.push(result.service);
         }
     }
 
     for service_gas_dict in service_gas_dict.iter() {
-        s_services.insert(service_gas_dict.0.clone());
+        println!("service gas dict: {}", service_gas_dict.0);
+        s_services.push(service_gas_dict.0.clone());
     }
 
     let mut u_gas_used: Vec<(ServiceId, Gas)> = vec![];
@@ -359,12 +381,17 @@ fn parallelized_accumulation(
     let mut m_service_accounts = HashSet::new();
 
     let mut d_services = partial_state.services_accounts.clone();
-
+    
     for service in s_services.iter() {
-        let (o_d_services, 
+        
+        println!("Service: {}", *service);
+        let (post_partial_state, 
             transfers, 
             service_hash, 
             gas) = single_service_accumulation(partial_state, reports, service_gas_dict, service);
+
+        partial_state = post_partial_state.clone();
+        d_services = partial_state.services_accounts.clone();
 
         u_gas_used.push((*service, gas));
         if let Some(hash) = service_hash {
@@ -374,11 +401,11 @@ fn parallelized_accumulation(
         
         let d_services_excluding_s = dict_subtract(&d_services.service_accounts, &HashSet::from([*service]));
         let d_keys_excluding_s = keys_to_set(&d_services_excluding_s);
-        let n = dict_subtract(&o_d_services.services_accounts.service_accounts, &d_keys_excluding_s);
+        let n = dict_subtract(&partial_state.services_accounts.service_accounts, &d_keys_excluding_s);
         // New and modified services
         n_service_accounts.service_accounts.extend(n);
 
-        let o_d_services_keys = keys_to_set(&o_d_services.services_accounts.service_accounts);
+        let o_d_services_keys = keys_to_set(&partial_state.services_accounts.service_accounts);
         let m = keys_to_set(&dict_subtract(&d_services.service_accounts, &o_d_services_keys));
         // Removed services
         m_service_accounts.extend(m);
@@ -401,26 +428,26 @@ fn parallelized_accumulation(
     let v_designate = partial_state.privileges.designate.clone();
     //let z_always_acc = partial_state.privileges.always_acc.clone();
 
-    let (partial_state_result, 
+    let (partial_state, 
         _transfers, 
         _service_hash, 
-        _gas) = single_service_accumulation(partial_state, reports, service_gas_dict, &m_bless);
+        _gas) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &m_bless);
 
-    let post_privileges = partial_state_result.privileges.clone();
+    let post_privileges = partial_state.privileges.clone();
     
-    let (partial_state_result, 
+    let (partial_state, 
         _transfers, 
         _service_hash, 
-        _gas) = single_service_accumulation(partial_state, reports, service_gas_dict, &v_designate);
+        _gas) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &v_designate);
 
-    let post_next_validators = partial_state_result.next_validators.clone();
+    let post_next_validators = partial_state.next_validators.clone();
 
-    let (partial_state_result, 
+    let (partial_state, 
         _transfers, 
         _service_hash, 
-        _gas) = single_service_accumulation(partial_state, reports, service_gas_dict, &a_assign);
+        _gas) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &a_assign);
     
-    let post_queues_auth = partial_state_result.queues_auth.clone();
+    let post_queues_auth = partial_state.queues_auth.clone();
 
     d_services.service_accounts.extend(n_service_accounts.service_accounts);
     let result_services = dict_subtract(&d_services.service_accounts, &m_service_accounts);
@@ -438,12 +465,17 @@ fn parallelized_accumulation(
 fn outer_accumulation(
     gas_limit: &Gas,
     reports: &[WorkReport],
-    partial_state: &AccumulationPartialState,
+    mut partial_state: AccumulationPartialState,
     service_gas_dict: &HashMap<ServiceId, Gas>
 
 ) -> Result<(u32, AccumulationPartialState, Vec<DeferredTransfer>, Vec<(ServiceId, OpaqueHash)>, Vec<(ServiceId, Gas)>), ProcessError>
 {
     println!("Outer accumulation");
+    /*println!("Reports:");
+    for wp in reports.iter() {
+        println!("code_hash: {:x?}", wp.package_spec.hash);
+    }*/
+
     let mut i: u32 = 0;
     let mut gas_to_use = 0;
 
@@ -474,7 +506,7 @@ fn outer_accumulation(
         b_service_hash_pairs,
         u_gas_used) = outer_accumulation(&(*gas_limit - total_gas_used), 
                                                             &reports[i as usize..], 
-                                                            &star_partial_state, 
+                                                            star_partial_state, 
                                                             &HashMap::<ServiceId, Gas>::new())?;
 
     return Ok((i + j, 

@@ -167,7 +167,7 @@ impl Default for TicketsMark {
 impl Default for ReportedWorkPackages {
     fn default() -> Self {
         ReportedWorkPackages {
-            map: HashMap::new(),
+            map: Vec::new(),
         }
     }
 }
@@ -399,8 +399,6 @@ impl Default for Account {
             balance: 0,
             gas: 0,
             min_gas: 0,
-            items: 0,
-            bytes: 0,
         }
     }
 }

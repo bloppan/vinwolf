@@ -74,7 +74,7 @@ DEBUG[04-04|22:15:07.547] BETA computation                         n=2 accumulat
 INFO [04-04|22:15:07.628] [N2] proposeBlock safrole                p=1b94..4702 h=ed9c..1e7b e'=2 m'=0  "len(γ_a')"=3  blk="H_t=24 H_r=693f..a3c3  EpochMarker(η1'=767a..23ae, η2'=6f6a..af2a) |E_T|=3"
 INFO [04-04|22:15:10.738] Builder storing TestService              serviceName=megatron   codeHash=0x4d7b69b83da811b2a115b599badb8c24c56e380678f4ae52191cc7b7cb301194
 DEBUG[04-04|22:15:12.941] BETA computation                         n=5 accumulationRoot=0x0000000000000000000000000000000000000000000000000000000000000000 mmr=[nil,0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5,0xa7c13cd0c0c9efda44a53b70d7205d95e367e4d370a34db25407ab193c683201,0x8961aad554ffe0cc296c757d4113fd552b2eebffda4c0506a69335a63e97cea9]
-INFO [04-04|22:15:13.019] [N5] proposeBlock safrole                p=ed9c..1e7b h=7d4d..fa13 e'=2 m'=1  "len(γ_a')"=6  blk="H_t=25 H_r=d40d..5102  |E_T|=3 |E_G|=1 |E_P|=1"
+INFO [04-04|22:15:13.019] [N5] proposeBlock safrole      2_002     p=ed9c..1e7b h=7d4d..fa13 e'=2 m'=1  "len(γ_a')"=6  blk="H_t=25 H_r=d40d..5102  |E_T|=3 |E_G|=1 |E_P|=1"
 DEBUG[04-04|22:15:19.014] SINGLE ACCUMULATE                        s=0 wrangledResults='{"H":"0xeb7dad16da338cd493a8bdfcd849d012f5ebab0d22fc2b7a8dc497558a885bc0","E":"0x0000000000000000000000000000000000000000000000000000000000000000","A":"0x0b27478648cd19b4f812f897a26976ecf312eac28508b4368d0c63ea949c7cb0","O":"","Y":"0x2c4012b8c69c2b4f89cc6863a53359d07e5d1ac9d13a712285850a93c5af5e72","D":"0x00244d7b69b83da811b2a115b599badb8c24c56e380678f4ae52191cc7b7cb301194c3230000"}'
 DEBUG[04-04|22:15:19.015] bootstrap_accumulate: NEW                reg="[8 4278058832 0 0 0 4278124683 1 4278124684 9155 100 100 0 0]" gasCharged=10  beforeGas=9876 afterGas=9866
 DEBUG[04-04|22:15:19.015] bootstrap_accumulate: NEW OK             SERVICE=3273088977 code_hash_ptr=feff008c code_hash_ptr=4d7b69b83da811b2a115b599badb8c24c56e380678f4ae52191cc7b7cb301194 code_len=9155 min_item_gas=100 min_memo_gas=100
@@ -87,12 +87,12 @@ DEBUG[04-04|22:15:19.017] BEEFY OK-HALT with 32byte @SINGLE ACCUMULATE s=0 B=0xd
 INFO [04-04|22:15:19.017] writeAccount SET                         service_idx=0 rawkey=0x81e47a19e6b29b0a65b9591762ce5143ed30d0261e5d24a3201752506b20f15c value="[209 95 23 195]"
 INFO [04-04|22:15:19.018] BEEFY-C                                  s=0 h=0xd15f17c300000000000000000000000000000000000000000000000000000000 encoded=00000000d15f17c300000000000000000000000000000000000000000000000000000000
 INFO [04-04|22:15:19.018] BEEFY accumulation root                  r=0x7bf4ce93bf991081ff8960532d65c5f4fdc77a3de7e65957afb2fdea675d73e2
-DEBUG[04-04|22:15:19.018] BETA computation                         n=4 accumulationRoot=0x7bf4ce93bf991081ff8960532d65c5f4fdc77a3de7e65957afb2fdea675d73e2 mmr=[0x7bf4ce93bf991081ff8960532d65c5f4fdc77a3de7e65957afb2fdea675d73e2,0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5,0xa7c13cd0c0c9efda44a53b70d7205d95e367e4d370a34db25407ab193c683201,0x8961aad554ffe0cc296c757d4113fd552b2eebffda4c0506a69335a63e97cea9]
+DEBUG[04-04|22:15:19.018] BETA computation                    n=4 accumulationRoot=0x7bf4ce93bf991081ff8960532d65c5f4fdc77a3de7e65957afb2fdea675d73e2 mmr=[0x7bf4ce93bf991081ff8960532d65c5f4fdc77a3de7e65957afb2fdea675d73e2,0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5,0xa7c13cd0c0c9efda44a53b70d7205d95e367e4d370a34db25407ab193c683201,0x8961aad554ffe0cc296c757d4113fd552b2eebffda4c0506a69335a63e97cea9]
 INFO [04-04|22:15:19.096] [N4] proposeBlock safrole                p=7d4d..fa13 h=8f15..8c04 e'=2 m'=2  "len(γ_a')"=9  blk="H_t=26 H_r=0af6..c800  |E_T|=3 |E_A|=6"
 DEBUG[04-04|22:15:24.972] BETA computation                         n=3 accumulationRoot=0x0000000000000000000000000000000000000000000000000000000000000000 mmr=[nil,nil,nil,nil,0x892ac11eecb358dc30e7b419a93824fad9c9dc8f6572529c9175adc3fb3fa559]
 INFO [04-04|22:15:25.050] [N3] proposeBlock safrole                p=8f15..8c04 h=0f38..2fc5 e'=2 m'=3  "len(γ_a')"=12 blk="H_t=27 H_r=1274..bc68  |E_T|=3"
 DEBUG[04-04|22:15:30.282] BETA computation                         n=5 accumulationRoot=0x0000000000000000000000000000000000000000000000000000000000000000 mmr=[0x0000000000000000000000000000000000000000000000000000000000000000,nil,nil,nil,0x892ac11eecb358dc30e7b419a93824fad9c9dc8f6572529c9175adc3fb3fa559]
-INFO [04-04|22:15:30.360] [N5] proposeBlock safrole                p=0f38..2fc5 h=9c78..9489 e'=2 m'=4  "len(γ_a')"=12 blk="H_t=28 H_r=6ea2..bd9b  |E_P|=1"
+INFO [04-04|22:15:30.360] [N5] proposeBlock safrole       2_005    p=0f38..2fc5 h=9c78..9489 e'=2 m'=4  "len(γ_a')"=12 blk="H_t=28 H_r=6ea2..bd9b  |E_P|=1"
 INFO [04-04|22:15:30.776] Service Loaded                           jam=megatron targetN=8
 INFO [04-04|22:15:30.776] Service Loaded                           jam=megatron testServices="map[auth_copy:0xc003584100 fib:0xc0034c3f00 megatron:0xc003584080 tribonacci:0xc003584000]"
 Start Fib_Trib
@@ -117,8 +117,8 @@ Found pending work package 0x23a38d2adb60c10b6377405fb768daf8e4b0f0c00125429ad29
 Found pending work package 0x01a01a2b94b39dde5f18513dba3fd678d6fadcf57645f8b5e25ed86f8589646f at core 0!
 Meg 0 = []
 Fib 0 = []
-DEBUG[04-04|22:15:42.241] BETA computation                         n=3 accumulationRoot=0x0000000000000000000000000000000000000000000000000000000000000000 mmr=[0x0000000000000000000000000000000000000000000000000000000000000000,0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5,nil,nil,0x892ac11eecb358dc30e7b419a93824fad9c9dc8f6572529c9175adc3fb3fa559]
-INFO [04-04|22:15:42.321] [N3] proposeBlock safrole                p=e9c9..8c24 h=defd..5926 e'=2 m'=6  "len(γ_a')"=12 blk="H_t=30 H_r=72a6..5230  |E_A|=6"
+DEBUG[04-04|22:15:42.241] BETA computation              2_006      n=3 accumulationRoot=0x0000000000000000000000000000000000000000000000000000000000000000 mmr=[0x0000000000000000000000000000000000000000000000000000000000000000,0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5,nil,nil,0x892ac11eecb358dc30e7b419a93824fad9c9dc8f6572529c9175adc3fb3fa559]
+INFO [04-04|22:15:42.321] [N3] proposeBlock safrole     2_007      p=e9c9..8c24 h=defd..5926 e'=2 m'=6  "len(γ_a')"=12 blk="H_t=30 H_r=72a6..5230  |E_A|=6"
 DEBUG[04-04|22:15:48.232] ORDERED ACCUMULATION                     "W^! (wphs accumulated immediately)"=[0x23a38d2adb60c10b6377405fb768daf8e4b0f0c00125429ad299d61bfd18b4f2] q=[[]] "Q(q)-priority queue result"=[0x01a01a2b94b39dde5f18513dba3fd678d6fadcf57645f8b5e25ed86f8589646f] "W^*-wphs of accumulatable work reports)"="[0x23a38d2adb60c10b6377405fb768daf8e4b0f0c00125429ad299d61bfd18b4f2 0x01a01a2b94b39dde5f18513dba3fd678d6fadcf57645f8b5e25ed86f8589646f]"
 DEBUG[04-04|22:15:48.232] SINGLE ACCUMULATE                        s=1065941251 wrangledResults='{"H":"0x23a38d2adb60c10b6377405fb768daf8e4b0f0c00125429ad299d61bfd18b4f2","E":"0x1df9f0675dae767abeddafdf7b82f00b6d3cecbe09ee2a09bc41839c5abf6c60","A":"0x0b27478648cd19b4f812f897a26976ecf312eac28508b4368d0c63ea949c7cb0","O":"","Y":"0xe12c22d4f162d9a012c9319233da5d3e923cc5e1029b8f90e47249c9ab256b35","D":"0x000c010000000100000000000000"}'
 DEBUG[04-04|22:15:48.235] fib_accumulate: WRITE                    reg="[22 4278058968 0 0 0 12 4278124684 4278058982 1 4278124684 12 0 0]" gasCharged=10  beforeGas=1000 afterGas=990
@@ -170,13 +170,13 @@ INFO [04-04|22:15:48.406] [N2] proposeBlock safrole                p=defd..5926 
 
 **  MEGATRON 1  workPackage: b1fb..1990 **
 DEBUG[04-04|22:15:54.192] BETA computation                         n=0 accumulationRoot=0x0000000000000000000000000000000000000000000000000000000000000000 mmr=[0x0000000000000000000000000000000000000000000000000000000000000000,nil,0x8555dc05c134b7cb96bb59143056968c1c7b87f727ea04df385e92ee2a81dca3,nil,0x892ac11eecb358dc30e7b419a93824fad9c9dc8f6572529c9175adc3fb3fa559]
-INFO [04-04|22:15:54.271] [N0] proposeBlock safrole                p=a1bf..ca85 h=59a1..e3f5 e'=2 m'=8  "len(γ_a')"=12 blk="H_t=32 H_r=4693..e783  |E_G|=2"
+INFO [04-04|22:15:54.271] [N0] proposeBlock safrole        2_008   p=a1bf..ca85 h=59a1..e3f5 e'=2 m'=8  "len(γ_a')"=12 blk="H_t=32 H_r=4693..e783  |E_G|=2"
 Found pending work package 0xb1fbfd5ab2d0509071b0df9fbb6837d5bbc1e55e6e0c6e1c66ffbcc5e7281990 at core 0!
 Found pending work package 0xc2809417abdaa5024cf9645cbc8088c830dc36bdaaa10831203dbba7f1999435 at core 1!
 Fib 1 = [1 0 0 0 1 0 0 0 0 0 0 0]
 Tri 1 = [1 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0]
 Meg 1 = [1 0 0 0 2 0 0 0 0 0 0 0]
-DEBUG[04-04|22:16:00.163] ORDERED ACCUMULATION                     "W^! (wphs accumulated immediately)"=[] q="[[0xc2809417abdaa5024cf9645cbc8088c830dc36bdaaa10831203dbba7f1999435] []]" "Q(q)-priority queue result"="[0xc2809417abdaa5024cf9645cbc8088c830dc36bdaaa10831203dbba7f1999435 0xb1fbfd5ab2d0509071b0df9fbb6837d5bbc1e55e6e0c6e1c66ffbcc5e7281990]" "W^*-wphs of accumulatable work reports)"="[0xc2809417abdaa5024cf9645cbc8088c830dc36bdaaa10831203dbba7f1999435 0xb1fbfd5ab2d0509071b0df9fbb6837d5bbc1e55e6e0c6e1c66ffbcc5e7281990]"
+DEBUG[04-04|22:16:00.163] ORDERED ACCUMULATION             2_009  "W^! (wphs accumulated immediately)"=[] q="[[0xc2809417abdaa5024cf9645cbc8088c830dc36bdaaa10831203dbba7f1999435] []]" "Q(q)-priority queue result"="[0xc2809417abdaa5024cf9645cbc8088c830dc36bdaaa10831203dbba7f1999435 0xb1fbfd5ab2d0509071b0df9fbb6837d5bbc1e55e6e0c6e1c66ffbcc5e7281990]" "W^*-wphs of accumulatable work reports)"="[0xc2809417abdaa5024cf9645cbc8088c830dc36bdaaa10831203dbba7f1999435 0xb1fbfd5ab2d0509071b0df9fbb6837d5bbc1e55e6e0c6e1c66ffbcc5e7281990]"
 DEBUG[04-04|22:16:00.163] SINGLE ACCUMULATE                        s=1065941251 wrangledResults='{"H":"0xc2809417abdaa5024cf9645cbc8088c830dc36bdaaa10831203dbba7f1999435","E":"0x5762cd9e2114823afa1dc15291febbc0b564d5f8ee962427a6bd9df57844aa22","A":"0x0b27478648cd19b4f812f897a26976ecf312eac28508b4368d0c63ea949c7cb0","O":"","Y":"0x7b0aa1735e5ba58d3236316c671fe4f00ed366ee72417c9ed02a53a8019e85b8","D":"0x000c020000000100000001000000"}'
 DEBUG[04-04|22:16:00.166] fib_accumulate: WRITE                    reg="[22 4278058968 0 0 0 12 4278124684 4278058982 1 4278124684 12 0 0]" gasCharged=10  beforeGas=1000    afterGas=990
 DEBUG[04-04|22:16:00.166] fib_accumulate: WRITE OK                 numStorageItems=3 StorageSize=8321 l=12 s=1065941251 mu_k=00       k=0xbabf3aefad528a545568c79995303036352215df7c130c4a1b6e9ea838b1f7b1 v=020000000100000001000000         vlen=12
@@ -241,20 +241,20 @@ INFO [04-04|22:16:00.440] BEEFY-C                                  s=2953942612 
 INFO [04-04|22:16:00.440] BEEFY-C                                  s=3273088977 h=0x0200000002000000020000000000000000000000000000000000000000000000 encoded=d15f17c30200000002000000020000000000000000000000000000000000000000000000
 INFO [04-04|22:16:00.440] BEEFY accumulation root                  r=0xd913f6b2e4a28d13fc248ba3b90b3192d6f965f8db1bd0442ca377b00652254d
 DEBUG[04-04|22:16:00.440] BETA computation                         n=1 accumulationRoot=0xd913f6b2e4a28d13fc248ba3b90b3192d6f965f8db1bd0442ca377b00652254d mmr=[nil,0x2e72306c207953a99383877958ddae0c7396289dd64c9bc8b4c548833fe1ab7d,0x8555dc05c134b7cb96bb59143056968c1c7b87f727ea04df385e92ee2a81dca3,nil,0x892ac11eecb358dc30e7b419a93824fad9c9dc8f6572529c9175adc3fb3fa559]
-INFO [04-04|22:16:00.521] [N1] proposeBlock safrole                p=59a1..e3f5 h=ea72..8270 e'=2 m'=9  "len(γ_a')"=12 blk="H_t=33 H_r=50c2..3d31  |E_A|=6"
+INFO [04-04|22:16:00.521] [N1] proposeBlock safrole         2_010  p=59a1..e3f5 h=ea72..8270 e'=2 m'=9  "len(γ_a')"=12 blk="H_t=33 H_r=50c2..3d31  |E_A|=6"
 **  16:01.090  Preparing Fib_Tri#2 7554..9bcd Meg#2 2262..7984 **
 
 **  Fib_Tri 2  workPackage: 7554..cd3b **
 
 **  MEGATRON 2  workPackage: b8bf..6661 **
 DEBUG[04-04|22:16:06.025] BETA computation                         n=5 accumulationRoot=0x0000000000000000000000000000000000000000000000000000000000000000 mmr=[0x0000000000000000000000000000000000000000000000000000000000000000,0x2e72306c207953a99383877958ddae0c7396289dd64c9bc8b4c548833fe1ab7d,0x8555dc05c134b7cb96bb59143056968c1c7b87f727ea04df385e92ee2a81dca3,nil,0x892ac11eecb358dc30e7b419a93824fad9c9dc8f6572529c9175adc3fb3fa559]
-INFO [04-04|22:16:06.103] [N5] proposeBlock safrole                p=ea72..8270 h=d641..13aa e'=2 m'=10 "len(γ_a')"=12 blk="H_t=34 H_r=0412..5c37   WinningTickets(12) |E_G|=2"
+INFO [04-04|22:16:06.103] [N5] proposeBlock safrole         2_011  p=ea72..8270 h=d641..13aa e'=2 m'=10 "len(γ_a')"=12 blk="H_t=34 H_r=0412..5c37   WinningTickets(12) |E_G|=2"
 Found pending work package 0x682dbd5e57ba5b5662541857b16c02a2deee4bc8cc40943de0801545b130a3b7 at core 1!
 Found pending work package 0xb8bfda787f60391682620af0c7945155e04843f6c5ef6c02b93327b0c2226661 at core 0!
 Meg 2 = [2 0 0 0 2 0 0 0 2 0 0 0]
 Fib 2 = [2 0 0 0 1 0 0 0 1 0 0 0]
 Tri 2 = [2 0 0 0 1 0 0 0 1 0 0 0 0 0 0 0]
-DEBUG[04-04|22:16:14.171] ORDERED ACCUMULATION                     "W^! (wphs accumulated immediately)"=[] q="[[0x682dbd5e57ba5b5662541857b16c02a2deee4bc8cc40943de0801545b130a3b7] []]" "Q(q)-priority queue result"="[0x682dbd5e57ba5b5662541857b16c02a2deee4bc8cc40943de0801545b130a3b7 0xb8bfda787f60391682620af0c7945155e04843f6c5ef6c02b93327b0c2226661]" "W^*-wphs of accumulatable work reports)"="[0x682dbd5e57ba5b5662541857b16c02a2deee4bc8cc40943de0801545b130a3b7 0xb8bfda787f60391682620af0c7945155e04843f6c5ef6c02b93327b0c2226661]"
+DEBUG[04-04|22:16:14.171] ORDERED ACCUMULATION                    "W^! (wphs accumulated immediately)"=[] q="[[0x682dbd5e57ba5b5662541857b16c02a2deee4bc8cc40943de0801545b130a3b7] []]" "Q(q)-priority queue result"="[0x682dbd5e57ba5b5662541857b16c02a2deee4bc8cc40943de0801545b130a3b7 0xb8bfda787f60391682620af0c7945155e04843f6c5ef6c02b93327b0c2226661]" "W^*-wphs of accumulatable work reports)"="[0x682dbd5e57ba5b5662541857b16c02a2deee4bc8cc40943de0801545b130a3b7 0xb8bfda787f60391682620af0c7945155e04843f6c5ef6c02b93327b0c2226661]"
 DEBUG[04-04|22:16:14.171] SINGLE ACCUMULATE                        s=1065941251 wrangledResults='{"H":"0x682dbd5e57ba5b5662541857b16c02a2deee4bc8cc40943de0801545b130a3b7","E":"0x95f6aa9782b6e20fe952856dad8b37ae930936a0c8f571b53198512f712c4409","A":"0x0b27478648cd19b4f812f897a26976ecf312eac28508b4368d0c63ea949c7cb0","O":"","Y":"0x8c039ff7caa17ccebfcadc44bd9fce6a4b6699c4d03de2e3349aa1dc11193cd7","D":"0x000c030000000200000001000000"}'
 DEBUG[04-04|22:16:14.174] fib_accumulate: WRITE                    reg="[22 4278058968 0 0 0 12 4278124684 4278058982 1 4278124684 12 0 0]" gasCharged=10  beforeGas=1000    afterGas=990
 DEBUG[04-04|22:16:14.174] fib_accumulate: WRITE OK                 numStorageItems=5 StorageSize=8521 l=12 s=1065941251 mu_k=00       k=0xbabf3aefad528a545568c79995303036352215df7c130c4a1b6e9ea838b1f7b1 v=030000000200000001000000         vlen=12
@@ -313,14 +313,14 @@ INFO [04-04|22:16:14.643] BEEFY-C                                  s=2953942612 
 INFO [04-04|22:16:14.643] BEEFY-C                                  s=3273088977 h=0x0300000004000000020000000000000000000000000000000000000000000000 encoded=d15f17c30300000004000000020000000000000000000000000000000000000000000000
 INFO [04-04|22:16:14.643] BEEFY accumulation root                  r=0x3cd14f0bcd5858a2bd3c1136c060f6de2199d939717cc8655e7b09a9d30b5e70
 DEBUG[04-04|22:16:14.643] BETA computation                         n=3 accumulationRoot=0x3cd14f0bcd5858a2bd3c1136c060f6de2199d939717cc8655e7b09a9d30b5e70 mmr=[nil,nil,nil,0xdd4bbe79a9e230da4f08bfc3407945a458bdaeafcda21efd4e9b628e7e7285d6,0x892ac11eecb358dc30e7b419a93824fad9c9dc8f6572529c9175adc3fb3fa559]
-INFO [04-04|22:16:14.799] [N3] proposeBlock safrole                p=d641..13aa h=f556..f0d2 e'=2 m'=11 "len(γ_a')"=12 blk="H_t=35 H_r=bb47..8750  |E_A|=6"
+INFO [04-04|22:16:14.799] [N3] proposeBlock safrole        3_000   p=d641..13aa h=f556..f0d2 e'=2 m'=11 "len(γ_a')"=12 blk="H_t=35 H_r=bb47..8750  |E_A|=6"
 **  16:15.912  Preparing Fib_Tri#3 3a45..e0a1 Meg#3 e69d..89ee **
 
 **  Fib_Tri 3  workPackage: 3a45..a1cd **
 
 **  MEGATRON 3  workPackage: 5d1a..03c5 **
 DEBUG[04-04|22:16:19.827] BETA computation                         n=0 accumulationRoot=0x0000000000000000000000000000000000000000000000000000000000000000 mmr=[0x0000000000000000000000000000000000000000000000000000000000000000,nil,nil,0xdd4bbe79a9e230da4f08bfc3407945a458bdaeafcda21efd4e9b628e7e7285d6,0x892ac11eecb358dc30e7b419a93824fad9c9dc8f6572529c9175adc3fb3fa559]
-INFO [04-04|22:16:19.972] [N0] proposeBlock safrole                p=f556..f0d2 h=1cee..1b3b e'=3 m'=0  "len(γ_a')"=3  blk="H_t=36 H_r=b355..1eff  EpochMarker(η1'=7e4f..8ff9, η2'=767a..23ae) |E_T|=3 |E_G|=2"
+INFO [04-04|22:16:19.972] [N0] proposeBlock safrole        3_001   p=f556..f0d2 h=1cee..1b3b e'=3 m'=0  "len(γ_a')"=3  blk="H_t=36 H_r=b355..1eff  EpochMarker(η1'=7e4f..8ff9, η2'=767a..23ae) |E_T|=3 |E_G|=2"
 Found pending work package 0x5d1abee4c41e4abf7b17da4f396ff68ab3041455589de43a32c81a3702a203c5 at core 0!
 Meg 3 = [3 0 0 0 4 0 0 0 2 0 0 0]
 Found pending work package 0x91cf3762477cceec77b84b7bfe82b4bd3282ac429276fb3aa42b5ad85acf52b6 at core 1!
@@ -389,14 +389,14 @@ INFO [04-04|22:16:25.201] BEEFY-C                                  s=2953942612 
 INFO [04-04|22:16:25.201] BEEFY-C                                  s=3273088977 h=0x0400000007000000040000000000000000000000000000000000000000000000 encoded=d15f17c30400000007000000040000000000000000000000000000000000000000000000
 INFO [04-04|22:16:25.201] BEEFY accumulation root                  r=0x1620b0ae732f76522da6034c8a306e8dcb8a1c9eee3c7b82d56b02634e8578ba
 DEBUG[04-04|22:16:25.202] BETA computation                         n=0 accumulationRoot=0x1620b0ae732f76522da6034c8a306e8dcb8a1c9eee3c7b82d56b02634e8578ba mmr=[nil,0x6a9e133a388354fe65ca7e52c6fda8bce5a7a4dc0612a37c9989e78375d052cd,nil,0xdd4bbe79a9e230da4f08bfc3407945a458bdaeafcda21efd4e9b628e7e7285d6,0x892ac11eecb358dc30e7b419a93824fad9c9dc8f6572529c9175adc3fb3fa559]
-INFO [04-04|22:16:25.278] [N0] proposeBlock safrole                p=1cee..1b3b h=2389..701f e'=3 m'=1  "len(γ_a')"=6  blk="H_t=37 H_r=76cd..c9d6  |E_T|=3 |E_A|=6"
+INFO [04-04|22:16:25.278] [N0] proposeBlock safrole        3_002   p=1cee..1b3b h=2389..701f e'=3 m'=1  "len(γ_a')"=6  blk="H_t=37 H_r=76cd..c9d6  |E_T|=3 |E_A|=6"
 **  16:25.405  Preparing Fib_Tri#4 0ace..fe6e Meg#4 1d26..ce1d **
 
 **  Fib_Tri 4  workPackage: 0ace..6e57 **
 
 **  MEGATRON 4  workPackage: c949..4c77 **
 DEBUG[04-04|22:16:30.776] BETA computation                         n=5 accumulationRoot=0x0000000000000000000000000000000000000000000000000000000000000000 mmr=[0x0000000000000000000000000000000000000000000000000000000000000000,0x6a9e133a388354fe65ca7e52c6fda8bce5a7a4dc0612a37c9989e78375d052cd,nil,0xdd4bbe79a9e230da4f08bfc3407945a458bdaeafcda21efd4e9b628e7e7285d6,0x892ac11eecb358dc30e7b419a93824fad9c9dc8f6572529c9175adc3fb3fa559]
-INFO [04-04|22:16:30.862] [N5] proposeBlock safrole                p=2389..701f h=d1ca..663c e'=3 m'=2  "len(γ_a')"=9  blk="H_t=38 H_r=2c76..5f0b  |E_T|=3 |E_G|=2"
+INFO [04-04|22:16:30.862] [N5] proposeBlock safrole       2_014    p=2389..701f h=d1ca..663c e'=3 m'=2  "len(γ_a')"=9  blk="H_t=38 H_r=2c76..5f0b  |E_T|=3 |E_G|=2"
 Found pending work package 0xc949a90ad23747dab43f14ca3fd0a3c20de4c4aae9586333bedfc1d7e0cb4c77 at core 0!
 Found pending work package 0x62bd94949a165a78eeabce8e07462c37a004ec58bd34fad7f3f025f584d86df9 at core 1!
 Meg 4 = [4 0 0 0 7 0 0 0 4 0 0 0]

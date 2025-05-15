@@ -25,7 +25,7 @@ fn run_test(filename: &str) {
     
     let mut reported_work_packages = ReportedWorkPackages::default();
     for wp in &input.work_packages {
-        reported_work_packages.map.insert(wp.hash, wp.exports_root);
+        reported_work_packages.map.push((wp.hash, wp.exports_root));
     }
 
     set_recent_history(expected_pre_state.clone());

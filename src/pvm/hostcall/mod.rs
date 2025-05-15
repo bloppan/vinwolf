@@ -30,8 +30,7 @@ where
     // is sensible when the instruction is one which necessarily needs re-executing such as in the case of an out-of-gas or page
     // fault reason.
     let exit_reason = invoke_pvm(&mut pvm_ctx, program_code);
-
-    println!("Exit reason: {:?}", exit_reason);
+    
     if exit_reason == ExitReason::Halt 
         || exit_reason == ExitReason::panic 
         || exit_reason == ExitReason::OutOfGas  
@@ -77,6 +76,7 @@ where
     }
 
     println!("Hostcall exit: {:?}", exit_reason);
+    
     return (exit_reason, pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram, ctx);
 }
 
@@ -111,6 +111,7 @@ fn R(gas: Gas, hostcall_result: (ExitReason, RegSize, Gas, Registers, RamMemory,
     let gas_consumed = gas - std::cmp::max(post_gas, 0);
 
     if exit_reason == ExitReason::OutOfGas {
+        println!("R: Out of gas!!!");
         return (gas_consumed, WorkExecResult::Error(WorkExecError::OutOfGas), post_ctx);
     }
 

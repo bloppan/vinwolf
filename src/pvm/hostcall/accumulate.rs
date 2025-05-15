@@ -16,7 +16,7 @@ use crate::utils::codec::generic::decode;
 use super::general_fn::{write, info, read, lookup};
 
 pub fn invoke_accumulation(
-    partial_state: &AccumulationPartialState,
+    mut partial_state: AccumulationPartialState,
     slot: &TimeSlot,
     service_id: &ServiceId,
     gas: Gas,
@@ -45,7 +45,7 @@ pub fn invoke_accumulation(
                                 gas, 
                                 &args, 
                                 accumulation_dispatcher, 
-                                HostCallContext::Accumulate(I(partial_state, service_id), I(partial_state, service_id)));
+                                HostCallContext::Accumulate(I(&partial_state, service_id), I(&partial_state, service_id)));
     
     let (gas, exec_result, ctx) = hostcall_arg_result;
 
@@ -91,12 +91,6 @@ pub fn accumulation_dispatcher(n: HostCallFn, mut gas: Gas, mut reg: Registers, 
             let account = get_accumulating_service_account(&ctx_x.partial_state, &ctx_x.service_id).unwrap();
             general_fn(lookup(gas, reg, ram, account, ctx_x.service_id, ctx_x.partial_state.services_accounts.clone()), (ctx_x, ctx_y))
         }
-        /*HostCallFn::Info => {
-            let exit_reason = info(&mut gas, &mut reg, &mut ram, &ctx_x.service_id, &ctx_x.partial_state.services_accounts);
-            let account = get_accumulating_service_account(&ctx_x.partial_state, &ctx_x.service_id).unwrap();
-            general_fn(account, &mut ctx_x);
-            return HostCallResult::Ok(exit_reason, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y)); 
-        }*/
         HostCallFn::Log      => { println!("ACCUMULATE: Log hostcall!"); (ExitReason::Continue, gas, reg, ram, ctx)},
         _ => {
             gas -= 10;
@@ -203,6 +197,7 @@ fn transfer(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallConte
     let start_address = reg[10];
    
     if !ram.is_readable(start_address as RamAddress, TRANSFER_MEMO_SIZE as RamAddress) {
+        println!("TRANSFER panic");
         return (ExitReason::panic, gas, reg, ram, ctx);
     }
 
@@ -222,20 +217,23 @@ fn transfer(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallConte
     if let Some(account) = context_services.service_accounts.get(&(dest as ServiceId)) {
         
         if limit < account.min_gas as u64 {
+            println!("TRANSFER LOW");
             reg[7] = LOW;
             return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
         }
         if balance < account.get_footprint_and_threshold().2 {
+            println!("TRANSFER CASH");
             reg[7] = CASH;
             return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
         }
-
+        println!("TRANSFER OK");
         reg[7] = OK;
         ctx_x.deferred_transfers.push(transfer);
         ctx_x.partial_state.services_accounts.service_accounts.get_mut(&ctx_x.service_id).unwrap().balance = balance;
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     } 
-
+    
+    println!("TRANSFER WHO");
     reg[7] = WHO;
     return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
 }

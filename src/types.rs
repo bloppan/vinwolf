@@ -352,7 +352,7 @@ pub struct ReportedWorkPackage {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ReportedWorkPackages {
-    pub map: HashMap<OpaqueHash, OpaqueHash>,
+    pub map: Vec<(OpaqueHash, OpaqueHash)>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -585,8 +585,6 @@ pub struct Account {
     pub balance: u64,
     pub gas: Gas,
     pub min_gas: Gas,
-    pub items: u32,
-    pub bytes: u64,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PreimageData {

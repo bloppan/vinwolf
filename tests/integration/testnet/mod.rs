@@ -64,7 +64,8 @@ mod tests {
 
         //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/fallback");
         //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/safrole");
-        run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/assurances");
+        //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/assurances");
+        run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/orderedaccumulation");
         //run_javajam_blocks("tests/test_vectors/testnet/javajam-trace/stf");
     }
 
@@ -129,15 +130,38 @@ mod tests {
             assert_eq!(json_file.post_state.privileges, state.privileges);
             assert_eq!(json_file.post_state.next_validators, state.next_validators);
             assert_eq!(json_file.post_state.auth_queues, state.auth_queues);
-            assert_eq!(json_file.post_state.recent_history, state.recent_history);
+
+            for (i, block) in json_file.post_state.recent_history.blocks.iter().enumerate() {
+                //assert_eq!(*block, state.recent_history.blocks[i]);
+                assert_eq!(block.header_hash, state.recent_history.blocks[i].header_hash);
+                assert_eq!(block.mmr, state.recent_history.blocks[i].mmr);
+                assert_eq!(block.reported, state.recent_history.blocks[i].reported);
+                assert_eq!(block.state_root, state.recent_history.blocks[i].state_root);
+            }
+            assert_eq!(json_file.post_state.recent_history.blocks, state.recent_history.blocks);           
 
             //assert_eq!(json_file.post_state.service_accounts, state.service_accounts);
             /*for account in state.service_accounts.service_accounts.iter() {
                 println!("Service: {:?}", account.0);
-                println!("Account: {:x?}", account.1);
+                println!("lookup: {:x?}", account.1.lookup);
+                println!("preimages: {:x?}", account.1.preimages);
+                println!("code_hash: {:x?}", account.1.code_hash);
+                println!("balance: {:x?}", account.1.balance);
+                println!("items: {:x?}", account.1.items);
+                println!("items: {:x?}", account.1.items);
+                println!("items: {:x?}", account.1.items);
+                println!("items: {:x?}", account.1.items);
             }*/
 
-            println!("PRE state root: {:x?}", merkle_state(&state.serialize().map, 0).unwrap());
+            /*pub storage: HashMap<OpaqueHash, Vec<u8>>,
+            pub preimages: HashMap<OpaqueHash, Vec<u8>>,
+            pub lookup: HashMap<(OpaqueHash, u32), Vec<TimeSlot>>,
+            pub code_hash: OpaqueHash,
+            pub balance: u64,
+            pub gas: Gas,
+            pub min_gas: Gas,
+            pub items: u32,
+            pub bytes: u64,*/
 
             for service_account in json_file.post_state.service_accounts.service_accounts.iter() {
                 if let Some(account) = state.service_accounts.service_accounts.get(&service_account.0) {
@@ -146,26 +170,31 @@ mod tests {
                     //println!("Account: {:x?}", account);
                     let (items, octets, _threshold) = account.get_footprint_and_threshold();
 
-                    //assert_eq!(service_account.1.storage, account.storage);
                     for item in service_account.1.storage.iter() {
                         if let Some(value) = account.storage.get(item.0) {
                             assert_eq!(item.1, value);
+                            //println!("Comparing {:x?} with {:x?}", item.1, value);
                         } else {
                             panic!("Key storage not found: {:?}", *item.0);
                         }
                     }
+                    
+                    println!("items: {items}, octets: {octets}");
+                    assert_eq!(service_account.1.storage, account.storage);
                     assert_eq!(service_account.1.lookup, account.lookup);
                     assert_eq!(service_account.1.preimages, account.preimages);
                     assert_eq!(service_account.1.code_hash, account.code_hash);
                     assert_eq!(service_account.1.balance, account.balance);
-                    assert_eq!(service_account.1.items, items);
+                    //assert_eq!(service_account.1.items, items);
                     assert_eq!(service_account.1.gas, account.gas);
                     assert_eq!(service_account.1.min_gas, account.min_gas);
-                    assert_eq!(service_account.1.bytes, octets);
+                    //assert_eq!(service_account.1.bytes, octets);
+
                 } else {
                     panic!("Service account not found in state: {:?}", service_account.0);
                 }
             }
+            assert_eq!(json_file.post_state.service_accounts.service_accounts, state.service_accounts.service_accounts);
             assert_eq!(json_file.post_state.auth_pools, state.auth_pools);
 
             assert_eq!(json_file.post_state.statistics.curr, state.statistics.curr);
@@ -180,7 +209,7 @@ mod tests {
 
             assert_eq!(json_file.post_state_root, merkle_state(&state.serialize().map, 0).unwrap());
 
-            println!("state root: {:x?}", json_file.post_state_root);
+            println!("state root: {:x?}", merkle_state(&state.serialize().map, 0).unwrap());
             slot += 1;
 
             if slot == EPOCH_LENGTH {
