@@ -117,7 +117,6 @@ mod tests {
             }
             let state = get_global_state().lock().unwrap().clone();
             
-            
             assert_eq!(json_file.post_state.time, state.time);
             assert_eq!(json_file.post_state.safrole, state.safrole);
             assert_eq!(json_file.post_state.entropy, state.entropy);
@@ -135,36 +134,13 @@ mod tests {
                 //assert_eq!(*block, state.recent_history.blocks[i]);
                 assert_eq!(block.header_hash, state.recent_history.blocks[i].header_hash);
                 assert_eq!(block.mmr, state.recent_history.blocks[i].mmr);
-                assert_eq!(block.reported, state.recent_history.blocks[i].reported);
+                assert_eq!(block.reported_wp, state.recent_history.blocks[i].reported_wp);
                 assert_eq!(block.state_root, state.recent_history.blocks[i].state_root);
             }
             assert_eq!(json_file.post_state.recent_history.blocks, state.recent_history.blocks);           
 
-            //assert_eq!(json_file.post_state.service_accounts, state.service_accounts);
-            /*for account in state.service_accounts.service_accounts.iter() {
-                println!("Service: {:?}", account.0);
-                println!("lookup: {:x?}", account.1.lookup);
-                println!("preimages: {:x?}", account.1.preimages);
-                println!("code_hash: {:x?}", account.1.code_hash);
-                println!("balance: {:x?}", account.1.balance);
-                println!("items: {:x?}", account.1.items);
-                println!("items: {:x?}", account.1.items);
-                println!("items: {:x?}", account.1.items);
-                println!("items: {:x?}", account.1.items);
-            }*/
-
-            /*pub storage: HashMap<OpaqueHash, Vec<u8>>,
-            pub preimages: HashMap<OpaqueHash, Vec<u8>>,
-            pub lookup: HashMap<(OpaqueHash, u32), Vec<TimeSlot>>,
-            pub code_hash: OpaqueHash,
-            pub balance: u64,
-            pub gas: Gas,
-            pub min_gas: Gas,
-            pub items: u32,
-            pub bytes: u64,*/
-
-            for service_account in json_file.post_state.service_accounts.service_accounts.iter() {
-                if let Some(account) = state.service_accounts.service_accounts.get(&service_account.0) {
+            for service_account in json_file.post_state.service_accounts.iter() {
+                if let Some(account) = state.service_accounts.get(&service_account.0) {
                     //assert_eq!(service_account, state.service_accounts.service_accounts.get_key_value(&service_account.0).unwrap());
                     println!("TESTING service {:?}", service_account.0);
                     //println!("Account: {:x?}", account);
@@ -186,15 +162,15 @@ mod tests {
                     assert_eq!(service_account.1.code_hash, account.code_hash);
                     assert_eq!(service_account.1.balance, account.balance);
                     //assert_eq!(service_account.1.items, items);
-                    assert_eq!(service_account.1.gas, account.gas);
-                    assert_eq!(service_account.1.min_gas, account.min_gas);
+                    assert_eq!(service_account.1.acc_min_gas, account.acc_min_gas);
+                    assert_eq!(service_account.1.xfer_min_gas, account.xfer_min_gas);
                     //assert_eq!(service_account.1.bytes, octets);
 
                 } else {
                     panic!("Service account not found in state: {:?}", service_account.0);
                 }
             }
-            assert_eq!(json_file.post_state.service_accounts.service_accounts, state.service_accounts.service_accounts);
+            assert_eq!(json_file.post_state.service_accounts, state.service_accounts);
             assert_eq!(json_file.post_state.auth_pools, state.auth_pools);
 
             assert_eq!(json_file.post_state.statistics.curr, state.statistics.curr);

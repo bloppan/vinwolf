@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::types::{Authorizer, Hash, OpaqueHash, RefineContext, ReportedWorkPackage, ReportedWorkPackages, ServiceId, WorkItem, WorkPackage};
+use crate::types::{Authorizer, Hash, OpaqueHash, RefineContext, ReportedWorkPackage, ServiceId, WorkItem, WorkPackage};
 use crate::utils::codec::{Encode, EncodeSize, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
@@ -102,7 +102,7 @@ impl Decode for Vec<ReportedWorkPackage> {
     }
 }
 
-impl Encode for ReportedWorkPackages {
+/*impl Encode for ReportedWorkPackages {
 
     fn encode(&self) -> Vec<u8> {
 
@@ -140,4 +140,4 @@ impl Decode for ReportedWorkPackages {
             map: reported_work_packages
         })
     }
-}
+}*/

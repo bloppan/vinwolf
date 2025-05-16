@@ -63,7 +63,7 @@ mod tests {
             let mut new_account = Account::default();
             new_account.preimages = preimages_map.clone();
             new_account.lookup = lookup_map.clone();
-            service_accounts.service_accounts.insert(account.id.clone(), new_account);
+            service_accounts.insert(account.id.clone(), new_account);
         }
 
         set_time(input.slot.clone());
@@ -80,7 +80,7 @@ mod tests {
 
         let result_service_accounts = get_service_accounts();
         for account in expected_state.accounts.iter() {
-            let result_account = result_service_accounts.service_accounts.get(&account.id).unwrap();
+            let result_account = result_service_accounts.get(&account.id).unwrap();
             for preimage in account.data.preimages.iter() {
                 if let Some(_) = result_account.preimages.get(&preimage.hash) {
                     assert_eq!(preimage.blob, *result_account.preimages.get(&preimage.hash).unwrap());

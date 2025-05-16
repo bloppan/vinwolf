@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::types::{Hash, MmrPeak, Mmr, ReportedWorkPackages, BlockInfo, BlockHistory};
+use crate::types::{BlockHistory, BlockInfo, Hash, Mmr, MmrPeak, ReportedWorkPackages};
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
@@ -105,7 +105,7 @@ impl Encode for BlockInfo {
         self.header_hash.encode_to(&mut block_info);
         self.mmr.encode_to(&mut block_info);
         self.state_root.encode_to(&mut block_info);
-        self.reported.encode_to(&mut block_info);
+        self.reported_wp.encode_to(&mut block_info);
 
         return block_info;
     }
@@ -123,7 +123,7 @@ impl Decode for BlockInfo {
             header_hash: Hash::decode(block_info)?,
             mmr: Mmr::decode(block_info)?,
             state_root: Hash::decode(block_info)?,
-            reported: ReportedWorkPackages::decode(block_info)?,
+            reported_wp: ReportedWorkPackages::decode(block_info)?,
         })
     }
 }

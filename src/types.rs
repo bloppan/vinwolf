@@ -56,29 +56,27 @@ pub struct EntropyPool {
     pub buf: Box<[Entropy; ENTROPY_POOL_SIZE]>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Offenders(pub Vec<Ed25519Public>);
+pub type Offenders = Vec<Ed25519Public>;
+
 /// This is a combination of a set of cryptographic public keys and metadata which is an opaque octet sequence, 
 /// but utilized to specify practical identifiers for the validator, not least a hardware address. The set of 
-/// validator keys itself is equivalent to the set of 336-octet sequences. However, for clarity, we divide the
-/// sequence into four easily denoted components. For any validator key k, the Bandersnatch key is is equivalent 
-/// to the first 32-octets; the Ed25519 key, ke, is the second 32 octets; the bls key denoted bls is equivalent 
-/// to the following 144 octets, and finally the metadata km is the last 128 octets.
-#[derive(Debug, Clone, PartialEq)]
+/// validator keys itself is equivalent to the set of 336-octet sequences.
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct ValidatorData {
+    // The Bandersnatch key is equivalent to the first 32 octets
     pub bandersnatch: BandersnatchPublic,
+    // The Ed25519 is the second 32 octets
     pub ed25519: Ed25519Public,
+    // The bls key is equivalent to the following 144 octets
     pub bls: BlsPublic,
+    // The metadata is the last 128 octets
     pub metadata: Metadata,
 }
+pub type ValidatorsData = Box<[ValidatorData; VALIDATORS_COUNT]>;
+
 pub type BandersnatchKeys = Box<[BandersnatchPublic; VALIDATORS_COUNT]>;
-//pub type BandersnatchEpoch = Box<[BandersnatchPublic; EPOCH_LENGTH]>;
+pub type BandersnatchEpoch = Box<[BandersnatchPublic; EPOCH_LENGTH]>;
 
-#[derive(Clone, PartialEq, Debug)]
-pub struct BandersnatchEpoch(pub Box<[BandersnatchPublic; EPOCH_LENGTH]>);
-
-#[derive(Clone, PartialEq, Debug)]
-pub struct ValidatorsData(pub Box<[ValidatorData; VALIDATORS_COUNT]>);
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValidatorSet {
     Previous,
@@ -91,60 +89,48 @@ pub enum ValidatorSet {
 #[derive(Debug, Clone, PartialEq)]
 pub struct AvailabilityAssignment {
     pub report: WorkReport,
-    pub timeout: u32,
+    pub timeout: TimeSlot,
 }
 
 pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct AvailabilityAssignments(pub Box<[AvailabilityAssignmentsItem; CORES_COUNT]>);
+pub type AvailabilityAssignments = Box<[AvailabilityAssignmentsItem; CORES_COUNT]>;
 // ----------------------------------------------------------------------------------------------------------
 // Refine Context
 // ----------------------------------------------------------------------------------------------------------
 // A refinement context, denoted by the set X, describes the context of the chain at the point 
-// that the report’s corresponding work-package was evaluated. It identifies two historical blocks, 
-// the anchor, header hash a along with its associated posterior state-root s and posterior Beefy root b; 
-// and the lookupanchor, header hash l and of timeslot t. Finally, it identifies the hash of an optional 
-// prerequisite work-package p.
+// that the report’s corresponding work-package was evaluated. 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RefineContext {
+    // Anchor block header hash
     pub anchor: OpaqueHash,
+    // Posterior block state root
     pub state_root: OpaqueHash,
+    // Posterior BEEFY root
     pub beefy_root: OpaqueHash,
+    // Lookup anchor header hash
     pub lookup_anchor: OpaqueHash,
+    // Lookup anchor timeslot
     pub lookup_anchor_slot: TimeSlot,
+    // Sequence of hashes of any prerequisite work packages
     pub prerequisites: Vec<OpaqueHash>,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Authorizations
 // ----------------------------------------------------------------------------------------------------------
+pub type AuthorizerHash = OpaqueHash;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Authorizer {
     pub code_hash: OpaqueHash,
     pub params: Vec<u8>,
 }
-
-pub type AuthorizerHash = OpaqueHash;
+#[derive(Debug, Clone, PartialEq)]
+pub struct AuthPools(pub Box<[AuthPool; CORES_COUNT]>);
+pub type AuthPool = VecDeque<OpaqueHash>;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AuthPool {
-    pub auth_pool: VecDeque<OpaqueHash>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct AuthPools {
-    pub auth_pools: Box<[AuthPool; CORES_COUNT]>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct AuthQueue {
-    pub auth_queue: Box<[AuthorizerHash; MAX_ITEMS_AUTHORIZATION_QUEUE]>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct AuthQueues {
-    pub auth_queues: Box<[AuthQueue; CORES_COUNT]>,
-}
+pub struct AuthQueues(pub Box<[AuthQueue; CORES_COUNT]>);
+pub type AuthQueue = Box<[AuthorizerHash; MAX_ITEMS_AUTHORIZATION_QUEUE]>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CodeAuthorizers {
@@ -156,7 +142,6 @@ pub struct CodeAuthorizer {
     pub core: CoreIndex,
     pub auth_hash: OpaqueHash,
 }
-
 // ----------------------------------------------------------------------------------------------------------
 // Work Package
 // ----------------------------------------------------------------------------------------------------------
@@ -177,52 +162,59 @@ pub struct ExtrinsicSpec {
     pub len: u32,
 }
 
-// A Work Item includes: the identifier of the service to which it relates, the code hash of the service at 
-// the time of reporting (whose preimage must be available from the perspective of the lookup anchor block), 
-// a payload blob, a gas limit, and the three elements of its manifest, a sequence of imported data segments, 
-// which identify a prior exported segment through an index and the identity of an exporting work-package, 
-// a sequence of blob hashes and lengths to be introduced in this block (and which we assume the validator knows) 
-// and the number of data segments exported by this work item.
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorkItem {
+    // Identifier of the service to which it relates
     pub service: ServiceId,
+    // Code hash of the service at the time of reporting (whose preimage must be available from the perspective of the lookup achor block)
     pub code_hash: OpaqueHash,
+    // Payload blob
     pub payload: Vec<u8>,
+    // Gas limit for refine
     pub refine_gas_limit: Gas,
+    // Gas limit for accumulate
     pub accumulate_gas_limit: Gas,
+    // Sequence of imported segments which identify a prior exported segment through an index
     pub import_segments: Vec<ImportSpec>,
+    // Sequence of blob hashes and lengths (which we assume the validators knows)
     pub extrinsic: Vec<ExtrinsicSpec>,
+    // Number of data segments exported by this work item
     pub export_count: u16,
 }
 
-// A work-package includes a simple blob acting as an authorization token, the index of the service which
-// hosts the authorization code, an authorization code hash and a parameterization blob, a context and a 
-// sequence of work items:
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorkPackage {
+    // Simple blob acting as an authorization token
     pub authorization: Vec<u8>,
+    // Index of the service which hosts the authorization code
     pub auth_code_host: ServiceId,
+    // Authorization code hash and configuration blob
     pub authorizer: Authorizer,
+    // Refine context
     pub context: RefineContext,
+    // Sequence of work items
     pub items: Vec<WorkItem>,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Work Report
 // ----------------------------------------------------------------------------------------------------------
-// A work-report, of the set W, is defined as a tuple of the work-package specification, the
-// refinement context, and the core-index (i.e. on which the work is done) as well as the 
-// authorizer hash and output, a segment-root lookup dictionary, and finally the results of 
-// the evaluation of each of the items in the package, which is always at least one item and 
-// may be no more than I items.
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorkReport {
+    // Work package specification
     pub package_spec: WorkPackageSpec,
+    // Refine context
     pub context: RefineContext,
+    // Core index
     pub core_index: CoreIndex,
+    // Authorizer hash
     pub authorizer_hash: OpaqueHash,
+    // Authorization output
     pub auth_output: Vec<u8>,
-    pub segment_root_lookup: Vec<SegmentRootLookupItem>,
+    // Segment root lookup dictionary
+    pub segment_root_lookup: Vec<SegmentRootLookupItem>, // TODO mejor con un hashmap?
+    // Sequence of work results of the evaluation of each of the items in the package together with some associated data
     pub results: Vec<WorkResult>,
+    // Gas used
     pub auth_gas_used: Gas,
 }
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -270,42 +262,41 @@ pub enum ReportErrorCode {
     NoResults = 30,
     TooManyResults = 31,
 }
-// The Work Result is the data conduit by which services states may be altered through 
-// the computation done within a work-package. 
 
-// Work results are a tuple comprising several items. Firstly, the index of the service whose state 
-// is to be altered and thus whose refine code was already executed. We include the hash of the code 
-// of the service at the time of being reported, which must be accurately predicted within the 
-// work-report; Next, the hash of the payload within the work item which was executed in the refine 
-// stage to give this result. This has no immediate relevance, but is something provided to the 
-// accumulation logic of the service. We follow with the gas prioritization ratio used when determining 
-// how much gas should be allocated to execute of this item’s accumulate. Finally, there is the output 
-// or error of the execution of the code, which may be either an octet sequence in case it was successful, 
-// or a member of the set J (set of possible errors), if not. 
-// Possible errors are:
-//      Out-of-gas
-//      Unexpected program termination
-//      The code was not available for lookup in state at the posterior state of the lookup-anchor block.
-//      The code was available but was beyond the maximun size allowed Wc.
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct RefineLoad {
-    pub gas_used: u64,
-    pub imports: u16,
-    pub extrinsic_count: u16,
-    pub extrinsic_size: u32,
-    pub exports: u16,
-}
+// The Work Result is the data conduit by which services states may be altered through the computation done within a work-package. 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorkResult {
+    // Index of the service whose state is to be altered and thus whose refine code was already executed
     pub service: ServiceId,
+    // Hash of the code service at the time of being reported, which must be accurately predicted within the work report
     pub code_hash: OpaqueHash,
+    // Hash of the payload within the work item which was executed in the refine stage to give this result
     pub payload_hash: OpaqueHash,
+    // Gas limit for executing this item's accumulate
     pub gas: Gas,
+    // Output blob of error of the execution of the code which may be either an octed sequence in case it was successfull or a member of J (possible errors) if not
+    // Possible errors are:
+    //      Out-of-gas
+    //      Unexpected program termination
+    //      The code was not available for lookup in state at the posterior state of the lookup-anchor block.
+    //      The code was available but was beyond the maximun size allowed Wc.
     pub result: Vec<u8>,
+    // Level of activity which this workload imposed on the core in bringing the result to bear
     pub refine_load: RefineLoad,
 }
-
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefineLoad {
+    // Gas used during refinement
+    pub gas_used: u64,
+    // Number of segments imported from DA
+    pub imports: u16,
+    // Number of the extrinsics used in computing the workload
+    pub extrinsic_count: u16,
+    // Total size in octets of the extrinsics used in computing the workload
+    pub extrinsic_size: u32,
+    // Number of segments exported into DA
+    pub exports: u16,
+}
 #[derive(Debug, Clone, PartialEq)]
 pub enum WorkExecResult {
     Ok(Vec<u8>),
@@ -322,10 +313,15 @@ pub enum WorkExecError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorkPackageSpec {
+    // Work package hash
     pub hash: OpaqueHash,
+    // Work bundle length
     pub length: u32,
+    // Erasure root
     pub erasure_root: OpaqueHash,
+    // Segment root
     pub exports_root: OpaqueHash,
+    // Segment count
     pub exports_count: u16,
 }
 
@@ -350,17 +346,18 @@ pub struct ReportedWorkPackage {
     pub exports_root: OpaqueHash,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct ReportedWorkPackages {
-    pub map: Vec<(OpaqueHash, OpaqueHash)>,
-}
+pub type ReportedWorkPackages = Vec<(OpaqueHash, OpaqueHash)>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockInfo {
+    // Block's header hash
     pub header_hash: Hash,
+    // Accumulation-result MMR 
     pub mmr: Mmr,
+    // Block's state root
     pub state_root: Hash,
-    pub reported: ReportedWorkPackages,
+    // Work package hashes of each item reported (which is no more than the CORES_COUNT)
+    pub reported_wp: ReportedWorkPackages,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -383,17 +380,24 @@ pub struct ActivityRecord {
 pub struct ActivityRecords {
     pub records: Box<[ActivityRecord; VALIDATORS_COUNT]>,
 }
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct CoreActivityRecord {
-    pub imports: u16,         // Number of segments imported from DA made by core for reported work.
-    pub extrinsic_count: u16, // Total number of extrinsics used by core for reported work.
-    pub extrinsic_size: u32,  // Total size of extrinsics used by core for reported work.
-    pub exports: u16,         // Number of segments exported into DA made by core for reported work.
-    pub gas_used: u64,        // Total gas consumed by core for reported work. Includes all refinement and authorizations.   
-    pub bundle_size: u32,     // The work-bundle size. This is the size of data being placed into Audits DA by the core.
-    pub da_load: u32,         // Amount of bytes which are placed into either Audits or Segments DA. This includes the work-bundle (including all extrinsics and imports) as well as all (exported) segments
-    pub popularity: u16,      // Number of validators which formed super-majority for assurance.
+    // Number of segments imported from DA made by core for reported work.
+    pub imports: u16,         
+    // Total number of extrinsics used by core for reported work.
+    pub extrinsic_count: u16, 
+    // Total size of extrinsics used by core for reported work.
+    pub extrinsic_size: u32,  
+    // Number of segments exported into DA made by core for reported work.
+    pub exports: u16,         
+    // Total gas consumed by core for reported work. Includes all refinement and authorizations.   
+    pub gas_used: u64,        
+    // The work-bundle size. This is the size of data being placed into Audits DA by the core.
+    pub bundle_size: u32,     
+    // Amount of bytes which are placed into either Audits or Segments DA. This includes the work-bundle (including all extrinsics and imports) as well as all (exported) segments
+    pub da_load: u32,         
+    // Number of validators which formed super-majority for assurance.
+    pub popularity: u16,      
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct CoresStatistics {
@@ -401,18 +405,30 @@ pub struct CoresStatistics {
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct SeviceActivityRecord {
-    pub imports: u32,               // Number of segments imported from the DL by service for reported work.
-    pub extrinsic_count: u32,       // Total number of extrinsics used by service for reported work.
-    pub extrinsic_size: u32,        // Total size of extrinsics used by service for reported work.
-    pub exports: u32,               // Number of segments exported into the DL by service for reported work.
-    pub refinement_count: u32,      // Number of work-items refined by service for reported work.
-    pub refinement_gas_used: u64,   // Amount of gas used for refinement by service for reported work.
-    pub provided_count: u16,        // Number of preimages provided to this service
-    pub provided_size: u32,         // Total size of preimages provided to this service.    
-    pub accumulate_count: u32,      // Number of work-items accumulated by service.
-    pub accumulate_gas_used: u64,   // Amount of gas used for accumulation by service.
-    pub on_transfers_count: u32,    // Number of transfers processed by service.
-    pub on_transfers_gas_used: u64, // Amount of gas used for processing transfers by service.
+    // Number of segments imported from the DL by service for reported work.
+    pub imports: u32,               
+    // Total number of extrinsics used by service for reported work.
+    pub extrinsic_count: u32,       
+    // Total size of extrinsics used by service for reported work.
+    pub extrinsic_size: u32,        
+    // Number of segments exported into the DL by service for reported work.
+    pub exports: u32,               
+    // Number of work-items refined by service for reported work.
+    pub refinement_count: u32,      
+    // Amount of gas used for refinement by service for reported work.
+    pub refinement_gas_used: u64,   
+    // Number of preimages provided to this service
+    pub provided_count: u16,        
+    // Total size of preimages provided to this service.    
+    pub provided_size: u32,         
+    // Number of work-items accumulated by service.
+    pub accumulate_count: u32,      
+    // Amount of gas used for accumulation by service.
+    pub accumulate_gas_used: u64,   
+    // Number of transfers processed by service.
+    pub on_transfers_count: u32,    
+    // Amount of gas used for processing transfers by service.
+    pub on_transfers_gas_used: u64, 
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct ServicesStatisticsMapEntry {
@@ -464,9 +480,18 @@ pub struct TicketsExtrinsic {
 // ----------------------------------------------------------------------------------------------------------
 #[derive(Debug, Clone, PartialEq)]
 pub struct Safrole {
+    // Internal to the Safrole state we retain a pending set of validators. The active set is the set of keys identifiying
+    // the nodes which are currently privileged to author blocks and carry out the validation processes, whereas the pending
+    // set, which is reset to next_validators (iota) at the beginning of each epoch, is the set of keys which will be active
+    // in the next epoch and which determine the Bandersnatch ring root which authorizes tickets into the sealing-key contest
+    // for the next epoch.
     pub pending_validators: ValidatorsData,
+    // Sequence of highest-scoring ticket identifiers to be used for the next epoch
     pub ticket_accumulator: Vec<TicketBody>,
+    // Current epoch's slot-sealer. Can be either a full complement of EPOCH_LENGTH tickers or, in the case of fallback mode,
+    // a series of EPOCH_LENGTH Bandersnatch keys 
     pub seal: TicketsOrKeys,
+    // Bandersnatch ring root composed with the one Bandersnatch key of each of the next epoch's validators
     pub epoch_root: BandersnatchRingCommitment,
 }
 
@@ -482,49 +507,51 @@ pub struct OutputDataSafrole {
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SafroleErrorCode {
-    BadSlot = 0,           // Timeslot value must be strictly monotonic.
-    UnexpectedTicket = 1,  // Received a ticket while in epoch's tail.
-    BadTicketOrder = 2,   // Tickets must be sorted.
-    BadTicketProof = 3,   // Invalid ticket ring proof.
-    BadTicketAttempt = 4, // Invalid ticket attempt value.
-    Reserved = 5,           // Reserved.
-    DuplicateTicket = 6,   // Found a ticket duplicate.
-    TooManyTickets = 7,    // Too many tickets in extrinsic.
-    InvalidTicketSeal = 8,       // Invalid seal.
-    InvalidKeySeal = 9,         // Invalid seal.
-    InvalidEntropySource = 10, // Invalid entropy source.
-    TicketsOrKeysNone = 11, // Tickets or keys is none.
-    TicketNotMatch = 12,      // Seal does not match.
-    KeyNotMatch = 13,        // Seal key does not match.
+    // Timeslot value must be strictly monotonic
+    BadSlot = 0,        
+    // Received a ticket while in epoch's tail
+    UnexpectedTicket = 1,  
+    // Tickets must be sorted
+    BadTicketOrder = 2,   
+    // Invalid ticket ring proof
+    BadTicketProof = 3,   
+    // Invalid ticket attempt value
+    BadTicketAttempt = 4, 
+    // Reserved
+    Reserved = 5,           
+    // Found a ticket duplicate
+    DuplicateTicket = 6,   
+    // Too many tickets in extrinsic
+    TooManyTickets = 7,    
+    // Invalid seal
+    InvalidTicketSeal = 8,      
+    // Invalid seal 
+    InvalidKeySeal = 9,         
+    // Invalid entropy source
+    InvalidEntropySource = 10, 
+    // Tickets or keys is none
+    TicketsOrKeysNone = 11, 
+    // Seal does not match
+    TicketNotMatch = 12,      
+    // Seal key does not match
+    KeyNotMatch = 13,        
 }
 // ----------------------------------------------------------------------------------------------------------
 // Disputes
 // ----------------------------------------------------------------------------------------------------------
+// The disputes state includes four items, three of which concern verdicts
 #[derive(Debug, Clone, PartialEq)]
-pub struct OutputDataDisputes {
-    pub offenders_mark: OffendersMark,
-}
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum DisputesErrorCode {
-    AlreadyJudged = 0,
-    BadVoteSplit = 1,
-    VerdictsNotSortedUnique = 2,
-    JudgementsNotSortedUnique = 3,
-    CulpritsNotSortedUnique = 4,
-    FaultsNotSortedUnique = 5,
-    NotEnoughCulprits = 6,
-    NotEnoughFaults = 7,
-    CulpritsVerdictNotBad = 8,
-    FaultVerdictWrong = 9,
-    OffenderAlreadyReported = 10,
-    BadJudgementAge = 11,
-    BadValidatorIndex = 12,
-    BadSignature = 13,
-    DisputeStateNotInitialized = 14,
-    NoVerdictsFound = 15,
-    AgesNotEqual = 16,
-    CulpritKeyNotFound = 17,
-    FaultKeyNotFound = 18,
+pub struct DisputesRecords {
+    // Good set
+    pub good: Vec<WorkReportHash>,
+    // Bad set
+    pub bad: Vec<WorkReportHash>,
+    // Wonky set containing the hashes of all work reports which were respectively judged to be correct, incorrect
+    // or that it appears impossible to judge
+    pub wonky: Vec<WorkReportHash>,
+    // The offenders or punish set is a set of Ed25519 keys representing validators which were found to have misjudged a 
+    // work report
+    pub offenders: Vec<Ed25519Public>,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct Judgement {
@@ -554,37 +581,60 @@ pub struct Fault {
     pub key: Ed25519Public,
     pub signature: Ed25519Signature,
 }
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct DisputesRecords {
-    pub good: Vec<WorkReportHash>,
-    pub bad: Vec<WorkReportHash>,
-    pub wonky: Vec<WorkReportHash>,
-    pub offenders: Vec<Ed25519Public>,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct DisputesExtrinsic {
     pub verdicts: Vec<Verdict>,
     pub culprits: Vec<Culprit>,
     pub faults: Vec<Fault>,
 }
+#[derive(Debug, Clone, PartialEq)]
+pub struct OutputDataDisputes {
+    pub offenders_mark: OffendersMark,
+}
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DisputesErrorCode {
+    AlreadyJudged = 0,
+    BadVoteSplit = 1,
+    VerdictsNotSortedUnique = 2,
+    JudgementsNotSortedUnique = 3,
+    CulpritsNotSortedUnique = 4,
+    FaultsNotSortedUnique = 5,
+    NotEnoughCulprits = 6,
+    NotEnoughFaults = 7,
+    CulpritsVerdictNotBad = 8,
+    FaultVerdictWrong = 9,
+    OffenderAlreadyReported = 10,
+    BadJudgementAge = 11,
+    BadValidatorIndex = 12,
+    BadSignature = 13,
+    DisputeStateNotInitialized = 14,
+    NoVerdictsFound = 15,
+    AgesNotEqual = 16,
+    CulpritKeyNotFound = 17,
+    FaultKeyNotFound = 18,
+}
 // ----------------------------------------------------------------------------------------------------------
 // Service Accounts
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Debug, PartialEq, Clone)]
-pub struct ServiceAccounts {
-    pub service_accounts: HashMap<ServiceId, Account>,
-}
+
+pub type ServiceAccounts = HashMap<ServiceId, Account>;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Account {
+    // Storage dictionary
     pub storage: HashMap<OpaqueHash, Vec<u8>>,
+    // Preimages dictionary
     pub preimages: HashMap<OpaqueHash, Vec<u8>>,
+    // Lookup dictionary
     pub lookup: HashMap<(OpaqueHash, u32), Vec<TimeSlot>>,
+    // Code hash
     pub code_hash: OpaqueHash,
+    // Account balance
     pub balance: u64,
-    pub gas: Gas,
-    pub min_gas: Gas,
+    // Minimum gas required in order to execute the accumulate entry-point of the service's code
+    pub acc_min_gas: Gas,
+    // Minimum gas required for the on transfer entry-point
+    pub xfer_min_gas: Gas,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PreimageData {
@@ -595,11 +645,17 @@ pub type ServiceId = u32;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ServiceInfo {
+    // Code hash
     pub code_hash: OpaqueHash,
+    // Account balance
     pub balance: u64,
-    pub min_item_gas: Gas,
-    pub min_memo_gas: Gas,
+    // Minimum gas required in order to execute the accumulate entry-point of the service's code
+    pub acc_min_gas: Gas,
+    // Minimum gas required for the on transfer entry-point 
+    pub xfer_min_gas: Gas,
+    // Number of octets in the storage
     pub bytes: u64,
+    // Number of items in the storage
     pub items: u32,
 }
 

@@ -414,30 +414,30 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
         } else if keyval.2 == "account_lookup" {
             let parsed_account_lookup = parse_account_lookup(&keyval.3);
             let service = parsed_account_lookup.s;
-            if global_state.service_accounts.service_accounts.get(&parsed_account_lookup.s).is_none() {
+            if global_state.service_accounts.get(&parsed_account_lookup.s).is_none() {
                 let account = Account::default();
-                global_state.service_accounts.service_accounts.insert(service, account);
+                global_state.service_accounts.insert(service, account);
             }
             let mut hash = [0u8; 32];
             hash.copy_from_slice(&parsed_account_lookup.h);
-            global_state.service_accounts.service_accounts.get_mut(&service).unwrap().lookup.insert((hash, parsed_account_lookup.l), parsed_account_lookup.t.clone());
+            global_state.service_accounts.get_mut(&service).unwrap().lookup.insert((hash, parsed_account_lookup.l), parsed_account_lookup.t.clone());
 
             //println!("key_type: Account lookup: {:?}", parsed_account_lookup);
         } else if keyval.2 == "service_account" {
             let parsed_service_account = parse_service_account(&keyval.3);
             let service = parsed_service_account.s;
-            if global_state.service_accounts.service_accounts.get(&parsed_service_account.s).is_none() {
+            if global_state.service_accounts.get(&parsed_service_account.s).is_none() {
                 let account = Account::default();
-                global_state.service_accounts.service_accounts.insert(service, account);
+                global_state.service_accounts.insert(service, account);
             }
             
-            let service = global_state.service_accounts.service_accounts.get_mut(&service).unwrap();
+            let service = global_state.service_accounts.get_mut(&service).unwrap();
             service.balance = parsed_service_account.b;
             let mut code_hash = [0u8; 32];
             code_hash.copy_from_slice(&parsed_service_account.c);
             service.code_hash = code_hash;
-            service.gas = parsed_service_account.g;
-            service.min_gas = parsed_service_account.m;
+            service.acc_min_gas = parsed_service_account.g;
+            service.xfer_min_gas = parsed_service_account.m;
             //service.bytes = parsed_service_account.l;
             //service.items = parsed_service_account.i;
 
@@ -445,27 +445,27 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
         } else if keyval.2 == "account_preimage" {
             let parsed_account_preimage = parse_account_preimage(&keyval.3);
             let service = parsed_account_preimage.s;
-            if global_state.service_accounts.service_accounts.get(&parsed_account_preimage.s).is_none() {
+            if global_state.service_accounts.get(&parsed_account_preimage.s).is_none() {
                 let account = Account::default();
-                global_state.service_accounts.service_accounts.insert(service, account);
+                global_state.service_accounts.insert(service, account);
             }
             let mut hash = [0u8; 32];
             hash.copy_from_slice(&parsed_account_preimage.h);
             let blob = hex::decode(&keyval.1[2..]).unwrap();
-            global_state.service_accounts.service_accounts.get_mut(&service).unwrap().preimages.insert(hash, blob);
+            global_state.service_accounts.get_mut(&service).unwrap().preimages.insert(hash, blob);
 
            // println!("key_type: Account preimage: {:?}", parsed_account_preimage);
         } else if keyval.2 == "account_storage" {
             let parsed_account_storage = parse_account_storage(&keyval.3);
             let service = parsed_account_storage.s;
-            if global_state.service_accounts.service_accounts.get(&parsed_account_storage.s).is_none() {
+            if global_state.service_accounts.get(&parsed_account_storage.s).is_none() {
                 let account = Account::default();
-                global_state.service_accounts.service_accounts.insert(service, account);
+                global_state.service_accounts.insert(service, account);
             }
             let mut hash = [0u8; 32];
             hash.copy_from_slice(&parsed_account_storage.h);
             let blob = hex::decode(&keyval.1[2..]).unwrap();
-            global_state.service_accounts.service_accounts.get_mut(&service).unwrap().storage.insert(hash, blob);
+            global_state.service_accounts.get_mut(&service).unwrap().storage.insert(hash, blob);
         } else {
             println!("Unknown key type: {}", keyval.2);
         }

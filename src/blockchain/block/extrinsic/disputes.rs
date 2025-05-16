@@ -155,7 +155,7 @@ impl DisputesExtrinsic {
             return Err(ProcessError::DisputesError(DisputesErrorCode::CulpritsVerdictNotBad));
         }
         if !already_reported.contains(&culprit.key) {
-            if !validator_set.0.iter().any(|v| v.ed25519 == culprit.key) {
+            if !validator_set.iter().any(|v| v.ed25519 == culprit.key) {
                 return Err(ProcessError::DisputesError(DisputesErrorCode::CulpritKeyNotFound));
             }
         }
@@ -172,7 +172,7 @@ impl DisputesExtrinsic {
         }
 
         if !already_reported.contains(&fault.key) {
-            if !validator_set.0.iter().any(|v| v.ed25519 == fault.key) {
+            if !validator_set.iter().any(|v| v.ed25519 == fault.key) {
                 return Err(ProcessError::DisputesError(DisputesErrorCode::FaultKeyNotFound));
             }
         }
@@ -198,7 +198,7 @@ impl DisputesExtrinsic {
             }
             verdict.target.encode_to(&mut message);
 
-            if !vote.signature.verify_signature(&message, &validator_set.0[vote.index as usize].ed25519) {
+            if !vote.signature.verify_signature(&message, &validator_set[vote.index as usize].ed25519) {
                 return Err(ProcessError::DisputesError(DisputesErrorCode::BadSignature));
             }
         }
@@ -227,7 +227,7 @@ impl DisputesExtrinsic {
     disputes_state.offenders.extend_from_slice(&offenders);
     
     // We clear any work-reports which we judged as uncertain or invalid from their core:
-    for assignment in availability_state.0.iter_mut() {
+    for assignment in availability_state.iter_mut() {
         if let Some(availability_assignment) = assignment {
             // Calculate target hash
             let target_hash = blake2_256(&availability_assignment.report.encode());

@@ -66,7 +66,7 @@ impl AssurancesExtrinsic {
             parent.encode_to(&mut serialization);
             assurance.bitfield.encode_to(&mut serialization);
             message.extend_from_slice(&blake2_256(&serialization));
-            let validator = &current_validators.0[assurance.validator_index as usize]; 
+            let validator = &current_validators[assurance.validator_index as usize]; 
             if !assurance.signature.verify_signature(&message, &validator.ed25519) {
                 return Err(ProcessError::AssurancesError(AssurancesErrorCode::BadSignature));
             }
@@ -78,7 +78,7 @@ impl AssurancesExtrinsic {
                 let bitfield = assurance.bitfield[core / 8] & (1 << core % 8) != 0;
                 if bitfield {
                     // A bit may only be set if the corresponding core has a report pending availability on it
-                    if assurances_state.0[core as usize].is_none() {
+                    if assurances_state[core as usize].is_none() {
                         return Err(ProcessError::AssurancesError(AssurancesErrorCode::CoreNotEngaged));
                     }
                     core_marks[core as usize] += 1;
@@ -93,7 +93,7 @@ impl AssurancesExtrinsic {
         let mut to_remove = Vec::new();
         for core in 0..CORES_COUNT {
             if core_marks[core as usize] >= VALIDATORS_SUPER_MAJORITY {
-                if let Some(assignment) = &assurances_state.0[core as usize] {
+                if let Some(assignment) = &assurances_state[core as usize] {
                     reported.push(assignment.report.clone());
                     to_remove.push(core as CoreIndex);
                 }
@@ -102,7 +102,7 @@ impl AssurancesExtrinsic {
 
         // The Availability Assignments are equivalents except for the removal of items which are now available
         for core in &to_remove {
-            if let Some(assignment) = &assurances_state.0[*core as usize] {
+            if let Some(assignment) = &assurances_state[*core as usize] {
                 add_assignment(&AvailabilityAssignment {
                     report: assignment.report.clone(),
                     timeout: post_tau.clone(),

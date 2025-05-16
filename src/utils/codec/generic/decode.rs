@@ -166,6 +166,22 @@ impl Decode for Vec<u32> {
     }
 }
 
+impl<const N: usize, const M: usize> Decode for Vec<([u8; N], [u8; M])> {
+
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        
+        let mut result = Vec::with_capacity(N * M);
+        let len = decode_unsigned(reader)?;
+        
+        for _ in 0..len {
+            result.push((<[u8; N]>::decode(reader)?, <[u8; M]>::decode(reader)?));
+        }
+
+        Ok( result )
+    }
+}
+
+
 impl<T, U> Decode for HashMap<T, U> 
 where T: Decode + Eq + std::hash::Hash, 
       U: Decode

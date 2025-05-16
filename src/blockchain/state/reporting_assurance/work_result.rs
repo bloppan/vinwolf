@@ -22,7 +22,7 @@ impl WorkResult {
         let mut results_size = 0;
 
         for result in results.iter() {
-            if let Some(service) = services.service_accounts.get(&result.service) {
+            if let Some(service) = services.get(&result.service) {
                 // We require that all work results within the extrinsic predicted the correct code hash for their 
                 // corresponding service
                 if result.code_hash != service.code_hash {
@@ -31,7 +31,7 @@ impl WorkResult {
                 // We require that the gas allotted for accumulation of each work item in each work-report respects 
                 // its service's minimum gas requirements
                 // TODO revisar esto a ver si en realidad es este gas
-                if result.gas < service.min_gas {
+                if result.gas < service.acc_min_gas {
                     return Err(ProcessError::ReportError(ReportErrorCode::ServiceItemGasTooLow));
                 }
                 total_accumulation_gas += result.gas;

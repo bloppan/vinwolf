@@ -48,7 +48,7 @@ pub fn invoke_on_transfer(
     
     println!("Invoke on transfer");
     println!("Service ID: {:?}", service_id);
-    let mut s_account = service_accounts.service_accounts.get(service_id).unwrap().clone();
+    let mut s_account = service_accounts.get(service_id).unwrap().clone();
     
     if transfers.is_empty() {
         println!("No transfers");

@@ -62,7 +62,7 @@ impl GuaranteesExtrinsic {
         
         let recent_history_map: std::collections::HashMap<_, _> = recent_history.blocks
             .iter()
-            .flat_map(|blocks| blocks.reported.map.iter())
+            .flat_map(|blocks| blocks.reported_wp.iter())
             .map(|report| (report.0, report.1))
             .collect();
         
@@ -96,7 +96,7 @@ impl GuaranteesExtrinsic {
 
             // We ensure that the work-package not appear anywhere within our pipeline.
             for i in 0..CORES_COUNT {
-                if let Some(assignment) = &assurances_state.0[i] {
+                if let Some(assignment) = &assurances_state[i] {
                     if assignment.report.package_spec.hash == guarantee.report.package_spec.hash {
                         return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
                     }

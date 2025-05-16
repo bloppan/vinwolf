@@ -214,6 +214,27 @@ impl<const N: usize, const M: usize> Encode for Vec<[[u8; N]; M]> {
     }
 }
 
+impl<const N: usize, const M: usize> Encode for Vec<([u8; N], [u8; M])> {
+
+    fn encode(&self) -> Vec<u8> {
+        
+        let mut encoded = Vec::with_capacity(N * M);
+        encode_unsigned(self.len()).encode_to(&mut encoded);
+
+        for item in self.iter() {
+            item.0.encode_to(&mut encoded);
+            item.1.encode_to(&mut encoded);
+        }
+
+        return encoded;
+    }
+
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.extend_from_slice(&self.encode());    
+    }
+}
+
+
 impl<T, U> Encode for HashMap<T, U> 
 where T: Encode + Eq + std::hash::Hash,
       U: Encode

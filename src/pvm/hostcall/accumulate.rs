@@ -4,10 +4,12 @@ use sp_core::blake2_256;
 use crate::blockchain::state::time::get_current_block_slot;
 use crate::pvm;
 use crate::types::{
-    Account, AccumulationContext, AccumulationOperand, AccumulationPartialState, CoreIndex, DeferredTransfer, ExitReason, Gas, HostCallFn, OpaqueHash, RamAddress, RamMemory, RegSize, Registers, ServiceId, TimeSlot, ValidatorsData, WorkExecResult
+    Account, AccumulationContext, AccumulationOperand, AccumulationPartialState, CoreIndex, DeferredTransfer, ExitReason, Gas, HostCallFn, OpaqueHash, 
+    RamAddress, RamMemory, RegSize, Registers, ServiceId, TimeSlot, ValidatorsData, WorkExecResult
 };
 use crate::constants::{
-    CASH, CORE, CORES_COUNT, FULL, HUH, LOW, MAX_ITEMS_AUTHORIZATION_QUEUE, MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE, NONE, OK, TRANSFER_MEMO_SIZE, VALIDATORS_COUNT, WHAT, WHO
+    CASH, CORE, CORES_COUNT, FULL, HUH, LOW, MAX_ITEMS_AUTHORIZATION_QUEUE, MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE, NONE, OK, TRANSFER_MEMO_SIZE, 
+    VALIDATORS_COUNT, WHAT, WHO
 };
 use crate::blockchain::state::{services::decode_preimage, entropy, time};
 use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
@@ -25,7 +27,6 @@ pub fn invoke_accumulation(
     
     let preimage_code = if let Some(code) = partial_state
         .services_accounts
-        .service_accounts
         .get(service_id)
         .and_then(|account| account.preimages.get(&account.code_hash).cloned())
     {
@@ -118,14 +119,14 @@ fn general_fn(results: (ExitReason, Gas, Registers, RamMemory, Account), ctx: (A
     let (exit_reason, gas, reg, ram, account) = results;
     let (mut ctx_x, ctx_y) = ctx;
 
-    ctx_x.partial_state.services_accounts.service_accounts.insert(ctx_x.service_id, account);
+    ctx_x.partial_state.services_accounts.insert(ctx_x.service_id, account);
 
     return (exit_reason, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
 }
 
 fn get_accumulating_service_account(partial_state: &AccumulationPartialState, service_id: &ServiceId) -> Option<Account> {
 
-    if let Some(account) = partial_state.services_accounts.service_accounts.get(service_id) {
+    if let Some(account) = partial_state.services_accounts.get(service_id) {
         return Some(account.clone());
     }
 
@@ -172,7 +173,7 @@ fn I(partial_state: &AccumulationPartialState, service_id: &ServiceId) -> Accumu
 
 fn check(partial_state: &AccumulationPartialState, i: &ServiceId) -> ServiceId {
 
-    if partial_state.services_accounts.service_accounts.get(i).is_none() {
+    if partial_state.services_accounts.get(i).is_none() {
         return *i;
     }
 
@@ -212,11 +213,11 @@ fn transfer(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallConte
     };
 
     let context_services = ctx_x.partial_state.services_accounts.clone();
-    let balance = context_services.service_accounts.get(&ctx_x.service_id).unwrap().balance.saturating_sub(amount as u64);
+    let balance = context_services.get(&ctx_x.service_id).unwrap().balance.saturating_sub(amount as u64);
 
-    if let Some(account) = context_services.service_accounts.get(&(dest as ServiceId)) {
+    if let Some(account) = context_services.get(&(dest as ServiceId)) {
         
-        if limit < account.min_gas as u64 {
+        if limit < account.acc_min_gas as u64 {
             println!("TRANSFER LOW");
             reg[7] = LOW;
             return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
@@ -229,7 +230,7 @@ fn transfer(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallConte
         println!("TRANSFER OK");
         reg[7] = OK;
         ctx_x.deferred_transfers.push(transfer);
-        ctx_x.partial_state.services_accounts.service_accounts.get_mut(&ctx_x.service_id).unwrap().balance = balance;
+        ctx_x.partial_state.services_accounts.get_mut(&ctx_x.service_id).unwrap().balance = balance;
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     } 
     
@@ -259,12 +260,12 @@ fn eject(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext,
 
     let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
     
-    if service_id != ctx_x.service_id && ctx_x.partial_state.services_accounts.service_accounts.contains_key(&service_id) {
+    if service_id != ctx_x.service_id && ctx_x.partial_state.services_accounts.contains_key(&service_id) {
 
-        let d_account = ctx_x.partial_state.services_accounts.service_accounts.get(&service_id).unwrap().clone();
+        let d_account = ctx_x.partial_state.services_accounts.get(&service_id).unwrap().clone();
         let length = (std::cmp::max(81, d_account.get_footprint_and_threshold().1) - 81) as u32;
 
-        let mut s_account = ctx_x.partial_state.services_accounts.service_accounts.get(&ctx_x.service_id).unwrap().clone();
+        let mut s_account = ctx_x.partial_state.services_accounts.get(&ctx_x.service_id).unwrap().clone();
         s_account.balance += d_account.balance;
 
         let xs_encoded: OpaqueHash = ctx_x.service_id.encode_size(32).try_into().unwrap();
@@ -286,8 +287,8 @@ fn eject(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext,
 
         if timeslots.len() == 2 && (slot - timeslots[1] < MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE) {
 
-            ctx_x.partial_state.services_accounts.service_accounts.remove(&service_id);
-            ctx_x.partial_state.services_accounts.service_accounts.insert(ctx_x.service_id, s_account);
+            ctx_x.partial_state.services_accounts.remove(&service_id);
+            ctx_x.partial_state.services_accounts.insert(ctx_x.service_id, s_account);
             reg[7] = OK;
             println!("OK");
             return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
@@ -325,13 +326,13 @@ fn query(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
     println!("length: {:?}", hash);
     let (ctx_x, ctx_y) = ctx.to_acc_ctx();
 
-    if !ctx_x.partial_state.services_accounts.service_accounts.get(&ctx_x.service_id).unwrap().lookup.contains_key(&(hash, length)) {
+    if !ctx_x.partial_state.services_accounts.get(&ctx_x.service_id).unwrap().lookup.contains_key(&(hash, length)) {
         println!("NONE");
         reg[7] = NONE;
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
-    let timeslots = ctx_x.partial_state.services_accounts.service_accounts.get(&ctx_x.service_id).unwrap().lookup.get(&(hash, length)).unwrap().clone();
+    let timeslots = ctx_x.partial_state.services_accounts.get(&ctx_x.service_id).unwrap().lookup.get(&(hash, length)).unwrap().clone();
     let timeslots_len = timeslots.len();
     println!("timestlots_len = {timeslots_len}");
     println!("timeslots: {:?}", timeslots);
@@ -379,15 +380,15 @@ fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
         let mut new_account = Account::default();
         new_account.code_hash.copy_from_slice(&c);
         new_account.lookup.insert((new_account.code_hash, limit as u32), vec![]);
-        new_account.gas = new_account_gas as Gas;
-        new_account.min_gas = new_account_min_gas as Gas;
+        new_account.acc_min_gas = new_account_gas as Gas;
+        new_account.xfer_min_gas = new_account_min_gas as Gas;
         let threshold_account = new_account.get_footprint_and_threshold().2;
         new_account.balance = threshold_account;
 
-        let mut service_account = ctx_x.partial_state.services_accounts.service_accounts.get(&ctx_x.service_id).unwrap().clone(); // TODO handle error
+        let mut service_account = ctx_x.partial_state.services_accounts.get(&ctx_x.service_id).unwrap().clone(); // TODO handle error
         service_account.balance = service_account.balance.saturating_sub(threshold_account);
 
-        if service_account.balance < ctx_x.partial_state.services_accounts.service_accounts.get(&ctx_x.service_id).unwrap().get_footprint_and_threshold().2 {
+        if service_account.balance < ctx_x.partial_state.services_accounts.get(&ctx_x.service_id).unwrap().get_footprint_and_threshold().2 {
             reg[7] = CASH;
             return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
         }
@@ -396,8 +397,8 @@ fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
         
         reg[7] = ctx_x.index as RegSize;
         println!("berservice: {:?} | new account: {:?}", ctx_x.index, new_account);
-        ctx_x.partial_state.services_accounts.service_accounts.insert(ctx_x.index, new_account);
-        ctx_x.partial_state.services_accounts.service_accounts.insert(ctx_x.service_id, service_account);
+        ctx_x.partial_state.services_accounts.insert(ctx_x.index, new_account);
+        ctx_x.partial_state.services_accounts.insert(ctx_x.service_id, service_account);
         ctx_x.index = check(&ctx_x.partial_state, &(i as ServiceId));
 
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
@@ -428,9 +429,9 @@ fn upgrade(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
 
     let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
 
-    ctx_x.partial_state.services_accounts.service_accounts.get_mut(&ctx_x.service_id).unwrap().code_hash = code_hash;
-    ctx_x.partial_state.services_accounts.service_accounts.get_mut(&ctx_x.service_id).unwrap().gas = new_gas;
-    ctx_x.partial_state.services_accounts.service_accounts.get_mut(&ctx_x.service_id).unwrap().min_gas = new_min_gas;
+    ctx_x.partial_state.services_accounts.get_mut(&ctx_x.service_id).unwrap().code_hash = code_hash;
+    ctx_x.partial_state.services_accounts.get_mut(&ctx_x.service_id).unwrap().acc_min_gas = new_gas;
+    ctx_x.partial_state.services_accounts.get_mut(&ctx_x.service_id).unwrap().xfer_min_gas = new_min_gas;
 
     reg[7] = OK;
 
@@ -458,7 +459,7 @@ fn solicit(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
 
     let hash: OpaqueHash = ram.read(start_address,  32).try_into().unwrap();
 
-    let mut account = ctx_x.partial_state.services_accounts.service_accounts.get(&ctx_x.service_id).unwrap().clone();
+    let mut account = ctx_x.partial_state.services_accounts.get(&ctx_x.service_id).unwrap().clone();
 
     if account.lookup.contains_key(&(hash, preimage_size)) {
         
@@ -488,7 +489,7 @@ fn solicit(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
     println!("size: {:?}", preimage_size);
     println!("OK");
     reg[7] = OK;
-    ctx_x.partial_state.services_accounts.service_accounts.insert(ctx_x.service_id, account);
+    ctx_x.partial_state.services_accounts.insert(ctx_x.service_id, account);
 
     return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
 }
@@ -525,9 +526,9 @@ fn bless(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
 
     let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
 
-    if !ctx_x.partial_state.services_accounts.service_accounts.contains_key(&manager)
-    || !ctx_x.partial_state.services_accounts.service_accounts.contains_key(&assign)
-    || !ctx_x.partial_state.services_accounts.service_accounts.contains_key(&validator) {
+    if !ctx_x.partial_state.services_accounts.contains_key(&manager)
+    || !ctx_x.partial_state.services_accounts.contains_key(&assign)
+    || !ctx_x.partial_state.services_accounts.contains_key(&validator) {
         println!("WHO");
         reg[7] = WHO;
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
@@ -561,10 +562,10 @@ fn designate(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallCont
 
     for i in 0..VALIDATORS_COUNT {
         let validators_data = ram.read(start_address + 336 * i as RamAddress, 336);
-        validators.0[i].bandersnatch = validators_data[..32].try_into().unwrap();
-        validators.0[i].ed25519 = validators_data[32..64].try_into().unwrap();
-        validators.0[i].bls = validators_data[64..208].try_into().unwrap();
-        validators.0[i].metadata = validators_data[208..].try_into().unwrap();
+        validators[i].bandersnatch = validators_data[..32].try_into().unwrap();
+        validators[i].ed25519 = validators_data[32..64].try_into().unwrap();
+        validators[i].bls = validators_data[64..208].try_into().unwrap();
+        validators[i].metadata = validators_data[208..].try_into().unwrap();
     }
 
     let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
@@ -601,7 +602,7 @@ fn assign(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
 
     println!("core_index = {core_index}");
     for i in 0..MAX_ITEMS_AUTHORIZATION_QUEUE {
-        ctx_x.partial_state.queues_auth.auth_queues[core_index as usize].auth_queue[i] = ram.read(start_address + 32 * i as u32, 32).try_into().unwrap();
+        ctx_x.partial_state.queues_auth.0[core_index as usize][i] = ram.read(start_address + 32 * i as u32, 32).try_into().unwrap();
     }
     println!("OK");
     reg[7] = OK;
@@ -647,13 +648,13 @@ fn forget(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
     let hash = ram.read(start_address, 32).try_into().unwrap();
     let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
 
-    if !ctx_x.partial_state.services_accounts.service_accounts.contains_key(&ctx_x.service_id) {
+    if !ctx_x.partial_state.services_accounts.contains_key(&ctx_x.service_id) {
         println!("HUH");
         reg[7] = HUH;
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
-    let mut account = ctx_x.partial_state.services_accounts.service_accounts.get(&ctx_x.service_id).unwrap().clone();
+    let mut account = ctx_x.partial_state.services_accounts.get(&ctx_x.service_id).unwrap().clone();
 
     if let Some(mut timeslot) = account.lookup.get(&(hash, length)).cloned() {
         println!("slot: {slot}");
@@ -680,7 +681,7 @@ fn forget(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
     println!("account timeslot after: {:?}", account.lookup.get(&(hash, length)).unwrap().clone());
     println!("OK");
     reg[7] = OK;
-    ctx_x.partial_state.services_accounts.service_accounts.insert(ctx_x.service_id, account);
+    ctx_x.partial_state.services_accounts.insert(ctx_x.service_id, account);
 
     return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
 }

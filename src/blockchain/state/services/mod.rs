@@ -21,8 +21,8 @@ pub fn process(
     for preimage in preimages_extrinsic.preimages.iter() {
         let hash = blake2_256(&preimage.blob);
         let length = preimage.blob.len() as u32;
-        if services.service_accounts.contains_key(&preimage.requester) {
-            let account = services.service_accounts.get_mut(&preimage.requester).unwrap();
+        if services.contains_key(&preimage.requester) {
+            let account = services.get_mut(&preimage.requester).unwrap();
             if account.preimages.contains_key(&hash) {
                 return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
             }

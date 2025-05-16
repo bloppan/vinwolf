@@ -112,7 +112,7 @@ pub fn process(
     let mut xfers_info: HashMap<ServiceId, (Account, Gas)> = HashMap::new();
     let mut xfers_stats: HashMap<ServiceId, (u32, Gas)> = HashMap::new();
 
-    for service in post_partial_state.services_accounts.service_accounts.iter() {
+    for service in post_partial_state.services_accounts.iter() {
         let service_id = service.0;
         let selected_transfers = select_deferred_transfers(&transfers, &service_id);
         let num_tranfers = selected_transfers.len();
@@ -133,7 +133,7 @@ pub fn process(
     statistics::set_xfer_stats(xfers_stats);
     
     for service in xfers_info.iter() {
-        post_partial_state.services_accounts.service_accounts.insert(*service.0, service.1.0.clone());
+        post_partial_state.services_accounts.insert(*service.0, service.1.0.clone());
     }
 
     accumulated_history.update(map_workreports(&current_block_accumulatable));
@@ -399,14 +399,14 @@ fn parallelized_accumulation(
         }
         t_deferred_transfers.extend(transfers);
         
-        let d_services_excluding_s = dict_subtract(&d_services.service_accounts, &HashSet::from([*service]));
+        let d_services_excluding_s = dict_subtract(&d_services, &HashSet::from([*service]));
         let d_keys_excluding_s = keys_to_set(&d_services_excluding_s);
-        let n = dict_subtract(&partial_state.services_accounts.service_accounts, &d_keys_excluding_s);
+        let n = dict_subtract(&partial_state.services_accounts, &d_keys_excluding_s);
         // New and modified services
-        n_service_accounts.service_accounts.extend(n);
+        n_service_accounts.extend(n);
 
-        let o_d_services_keys = keys_to_set(&partial_state.services_accounts.service_accounts);
-        let m = keys_to_set(&dict_subtract(&d_services.service_accounts, &o_d_services_keys));
+        let o_d_services_keys = keys_to_set(&partial_state.services_accounts);
+        let m = keys_to_set(&dict_subtract(&d_services, &o_d_services_keys));
         // Removed services
         m_service_accounts.extend(m);
     }
@@ -415,7 +415,7 @@ fn parallelized_accumulation(
     // removed and altered services since the code hash of removable services has no known preimage and thus cannot execute itself to make
     // an alteration. For new services this should also never happen since new indices are explicitly selected to avoid such conflicts.
     // In the unlikely event it does happen, the block must be considered invalid.
-    for key in n_service_accounts.service_accounts.keys() {
+    for key in n_service_accounts.keys() {
         if m_service_accounts.contains(key) {
             return Err(ProcessError::AccumulateError(AccumulateErrorCode::ServiceConflict)); // Collision
         }
@@ -449,11 +449,11 @@ fn parallelized_accumulation(
     
     let post_queues_auth = partial_state.queues_auth.clone();
 
-    d_services.service_accounts.extend(n_service_accounts.service_accounts);
-    let result_services = dict_subtract(&d_services.service_accounts, &m_service_accounts);
+    d_services.extend(n_service_accounts);
+    let result_services = dict_subtract(&d_services, &m_service_accounts);
 
     let result_partial_state = AccumulationPartialState {
-        services_accounts: ServiceAccounts { service_accounts: result_services },
+        services_accounts: result_services,
         next_validators: post_next_validators,
         queues_auth: post_queues_auth,
         privileges: post_privileges,

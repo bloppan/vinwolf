@@ -26,11 +26,11 @@ pub mod work_result;
 // with the time at which each was reported. As mentioned earlier, only one report may be assigned to a core at any given time.
 
 pub fn add_assignment(assignment: &AvailabilityAssignment, state: &mut AvailabilityAssignments) {
-    state.0[assignment.report.core_index as usize] = Some(assignment.clone());
+    state[assignment.report.core_index as usize] = Some(assignment.clone());
 }
 
 pub fn remove_assignment(core_index: &CoreIndex, state: &mut AvailabilityAssignments) {
-    state.0[*core_index as usize] = None;
+    state[*core_index as usize] = None;
 }
 
 pub fn process_assurances(

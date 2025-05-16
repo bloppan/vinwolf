@@ -77,7 +77,7 @@ impl Encode for AvailabilityAssignments {
 
         let mut blob = Vec::with_capacity(std::mem::size_of::<Self>() * CORES_COUNT);
 
-        for assigment in self.0.iter() {
+        for assigment in self.iter() {
             assigment.encode_to(&mut blob);
         }
 
@@ -93,9 +93,9 @@ impl Decode for AvailabilityAssignments {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        let mut assignments: AvailabilityAssignments = AvailabilityAssignments{0: Box::new(std::array::from_fn(|_| None))};
+        let mut assignments: AvailabilityAssignments = AvailabilityAssignments::default();
         
-        for assignment in assignments.0.iter_mut() {
+        for assignment in assignments.iter_mut() {
             *assignment = AvailabilityAssignmentsItem::decode(blob)?;
         }
 

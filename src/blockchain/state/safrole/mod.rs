@@ -39,7 +39,7 @@ use std::sync::Mutex;
 use sp_core::blake2_256;
 
 use crate::types::{
-    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, Entropy, EntropyPool, EpochMark, Header, Offenders,
+    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, Entropy, EntropyPool, EpochMark, Header, 
     OutputDataSafrole, Safrole, SafroleErrorCode, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorsData
 };
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
@@ -99,12 +99,12 @@ pub fn process(
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
         key_rotation(safrole_state, curr_validators, prev_validators, offenders);
         // Create the ring set
-        set_ring_set(create_ring_set(&curr_validators.0
+        set_ring_set(create_ring_set(&curr_validators
             .iter()
             .map(|validator| validator.bandersnatch.clone())
             .collect::<Vec<BandersnatchPublic>>()));
         // Create the epoch root
-        let next_ring_set = create_ring_set(&safrole_state.pending_validators.0
+        let next_ring_set = create_ring_set(&safrole_state.pending_validators
             .iter()
             .map(|validator| validator.bandersnatch.clone())
             .collect::<Vec<BandersnatchPublic>>());
@@ -116,7 +116,7 @@ pub fn process(
             entropy: entropy_pool.buf[1].clone(),
             tickets_entropy: entropy_pool.buf[2].clone(),
             validators: {
-                let bandersnatch_keys: Vec<BandersnatchPublic> = safrole_state.pending_validators.0
+                let bandersnatch_keys: Vec<BandersnatchPublic> = safrole_state.pending_validators
                 .iter()
                 .map(|validator| validator.bandersnatch.clone())
                 .collect();
@@ -139,7 +139,7 @@ pub fn process(
             // gamma_s' = gamma_s
         } else {
             // Otherwise, it takes the value of the fallback key sequence
-            let bandersnatch_keys: Vec<_> = curr_validators.0
+            let bandersnatch_keys: Vec<_> = curr_validators
                 .iter()
                 .map(|validator| validator.bandersnatch.clone())
                 .collect();
@@ -205,7 +205,7 @@ fn fallback(buf: &Entropy, current_keys: &[BandersnatchPublic]) -> BandersnatchE
         let hash = blake2_256(&[&buf.entropy[..], &index_le].concat());
         let hash_4 = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
         let id = (hash_4 % VALIDATORS_COUNT as u32) as usize;
-        new_epoch_keys.0[i as usize] = current_keys[id].clone();
+        new_epoch_keys[i as usize] = current_keys[id].clone();
     }
     new_epoch_keys
 }

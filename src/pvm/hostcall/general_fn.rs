@@ -31,8 +31,8 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
 
     let a_account: Option<Account> = if reg[7] as ServiceId == service_id || reg[7] == u64::MAX {
         Some(account.clone())
-    } else if services.service_accounts.contains_key(&(reg[7] as ServiceId)) {
-        services.service_accounts.get(&(reg[7] as ServiceId)).cloned()
+    } else if services.contains_key(&(reg[7] as ServiceId)) {
+        services.get(&(reg[7] as ServiceId)).cloned()
     } else {
         None    
     };
@@ -96,8 +96,8 @@ pub fn read(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Accou
     println!("READ service id: {}", id);
     let target_account: Option<Account> = if service_id == id {
         Some(account.clone())
-    } else if services.service_accounts.contains_key(&id) {
-        services.service_accounts.get(&id).cloned()
+    } else if services.contains_key(&id) {
+        services.get(&id).cloned()
     } else {
         None
     };
@@ -204,13 +204,13 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
     }   
 
     let account: Option<Account> = if reg[7] == u64::MAX {
-        if let Some(account) = accounts.service_accounts.get(&service_id).cloned() {
+        if let Some(account) = accounts.get(&service_id).cloned() {
             Some(account)
         } else {
             None
         }
     } else {
-        if let Some(account) = accounts.service_accounts.get(&(reg[7] as ServiceId)).cloned() {
+        if let Some(account) = accounts.get(&(reg[7] as ServiceId)).cloned() {
             Some(account)
         } else {
             None
@@ -222,8 +222,8 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
         [account.code_hash.encode(), 
          account.balance.encode(),
          account.get_footprint_and_threshold().2.encode(),
-         account.gas.encode(),
-         account.min_gas.encode(),
+         account.acc_min_gas.encode(),
+         account.xfer_min_gas.encode(),
          account.get_footprint_and_threshold().1.encode(),
          account.get_footprint_and_threshold().0.encode()].concat()
     } else {

@@ -12,8 +12,8 @@ impl Encode for ServiceInfo {
         
         self.code_hash.encode_to(&mut blob);
         self.balance.encode_size(8).encode_to(&mut blob);
-        self.min_item_gas.encode_size(8).encode_to(&mut blob);
-        self.min_memo_gas.encode_size(8).encode_to(&mut blob);
+        self.acc_min_gas.encode_size(8).encode_to(&mut blob);
+        self.xfer_min_gas.encode_size(8).encode_to(&mut blob);
         self.bytes.encode_size(8).encode_to(&mut blob);
         self.items.encode_size(4).encode_to(&mut blob);
         
@@ -32,8 +32,8 @@ impl Decode for ServiceInfo {
         Ok(ServiceInfo {
             code_hash: OpaqueHash::decode(blob)?,
             balance: u64::decode(blob)?,
-            min_item_gas: Gas::decode(blob)?,
-            min_memo_gas: Gas::decode(blob)?,
+            acc_min_gas: Gas::decode(blob)?,
+            xfer_min_gas: Gas::decode(blob)?,
             bytes: u64::decode(blob)?,
             items: u32::decode(blob)?,
         })

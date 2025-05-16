@@ -60,12 +60,12 @@ mod tests {
             let mut new_account = Account::default();
             new_account.balance = account.data.service.balance.clone();
             new_account.code_hash = account.data.service.code_hash.clone();
-            new_account.gas = account.data.service.min_item_gas.clone();
-            new_account.min_gas = account.data.service.min_memo_gas.clone();
+            new_account.acc_min_gas = account.data.service.acc_min_gas.clone();
+            new_account.xfer_min_gas = account.data.service.xfer_min_gas.clone();
             for preimage in account.data.preimages.iter() {
                 new_account.preimages.insert(preimage.hash.clone(), preimage.blob.clone());
             }
-            service_accounts.service_accounts.insert(account.id.clone(), new_account);
+            service_accounts.insert(account.id.clone(), new_account);
         }
 
         set_service_accounts(service_accounts.clone());
@@ -99,11 +99,11 @@ mod tests {
         assert_eq!(expected_state.privileges, result_state.privileges);
         
         for account in expected_state.accounts.iter() {
-            let result_account = result_state.service_accounts.service_accounts.get(&account.id).unwrap();
+            let result_account = result_state.service_accounts.get(&account.id).unwrap();
             assert_eq!(account.data.service.balance, result_account.balance);
             assert_eq!(account.data.service.code_hash, result_account.code_hash);
-            assert_eq!(account.data.service.min_item_gas, result_account.gas);
-            assert_eq!(account.data.service.min_memo_gas, result_account.min_gas);
+            assert_eq!(account.data.service.acc_min_gas, result_account.acc_min_gas);
+            assert_eq!(account.data.service.xfer_min_gas, result_account.xfer_min_gas);
             for preimage in account.data.preimages.iter() {
                 assert_eq!(&preimage.blob, result_account.preimages.get(&preimage.hash).unwrap());
             }

@@ -27,14 +27,13 @@ use {once_cell::sync::Lazy, sp_core::blake2_256, std::sync::Mutex};
 
 use crate::types::{
     AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesRecords, EntropyPool, GlobalState, 
-    OpaqueHash, Privileges, ProcessError, ReadyQueue, ReportedWorkPackages, Safrole, SerializedState, ServiceAccounts, ServiceInfo, StateKey, 
+    OpaqueHash, Privileges, ProcessError, ReadyQueue, Safrole, SerializedState, ServiceAccounts, ServiceInfo, StateKey, 
     Statistics, TimeSlot, ValidatorSet, ValidatorsData
 };
 use crate::constants::{
     ACCUMULATION_HISTORY, AUTH_POOLS, AUTH_QUEUE, AVAILABILITY, CURR_VALIDATORS, DISPUTES, ENTROPY, NEXT_VALIDATORS, PREV_VALIDATORS, PRIVILEGES, 
     READY_QUEUE, RECENT_HISTORY, SAFROLE, STATISTICS, TIME
 };
-use crate::utils::codec::jam::availability;
 use crate::utils::codec::{Encode, EncodeLen};
 use crate::utils::codec::jam::global_state::{construct_preimage_key, construct_lookup_key, construct_storage_key, StateKeyTrait};
 
@@ -58,11 +57,11 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
     time::set_current_slot(&block.header.unsigned.slot);
 
-    let mut reported_work_packages = ReportedWorkPackages::default();
+    let mut reported_work_packages = Vec::new();
     for report in &block.extrinsic.guarantees.report_guarantee {
-        reported_work_packages.map.push((report.report.package_spec.hash, report.report.package_spec.exports_root));
+        reported_work_packages.push((report.report.package_spec.hash, report.report.package_spec.exports_root));
     }
-    reported_work_packages.map.sort_by_key(|(hash, _)| *hash);
+    reported_work_packages.sort_by_key(|(hash, _)| *hash);
 
     recent_history::process(
         &mut new_state.recent_history,
@@ -172,13 +171,13 @@ impl GlobalState {
         state.map.insert(StateKey::U8(READY_QUEUE).construct(), self.ready_queue.encode());
         state.map.insert(StateKey::U8(ACCUMULATION_HISTORY).construct(), self.accumulation_history.encode());
         
-        for (service_id, account) in self.service_accounts.service_accounts.iter() {
+        for (service_id, account) in self.service_accounts.iter() {
             let key = StateKey::Service(255, *service_id).construct();       
             let service_info = ServiceInfo {
                 balance: account.balance,
                 code_hash: account.code_hash,
-                min_item_gas: account.gas,
-                min_memo_gas: account.min_gas,
+                acc_min_gas: account.acc_min_gas,
+                xfer_min_gas: account.xfer_min_gas,
                 bytes: account.get_footprint_and_threshold().1, // TODO bytes y items se calcula con la eq de threshold account (9.3)
                 items: account.get_footprint_and_threshold().0,
             };
@@ -246,20 +245,20 @@ pub fn get_entropy() -> EntropyPool {
     state.entropy.clone()
 }
 // Authorization Pools
-pub fn set_authpools(new_authpool: AuthPools) {
+pub fn set_auth_pools(new_authpool: AuthPools) {
     let mut state = GLOBAL_STATE.lock().unwrap();
     state.auth_pools = new_authpool;
 }
-pub fn get_authpools() -> AuthPools {
+pub fn get_auth_pools() -> AuthPools {
     let state = GLOBAL_STATE.lock().unwrap();
     state.auth_pools.clone()
 }
 // Authorizations Queues
-pub fn set_authqueues(new_authqueue: AuthQueues) {
+pub fn set_auth_queues(new_authqueue: AuthQueues) {
     let mut state = GLOBAL_STATE.lock().unwrap();
     state.auth_queues = new_authqueue;
 }
-pub fn get_authqueues() -> AuthQueues {
+pub fn get_auth_queues() -> AuthQueues {
     let state = GLOBAL_STATE.lock().unwrap();
     state.auth_queues.clone()
 }

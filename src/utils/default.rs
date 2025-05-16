@@ -1,13 +1,15 @@
 use std::collections::VecDeque;
 use std::collections::{HashMap, HashSet};
 use std::array::from_fn;
-use crate::constants::{EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_POOL, NUM_PAGES, NUM_REG, PAGE_SIZE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT};
+use crate::constants::{
+    MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_POOL, NUM_PAGES, NUM_REG, PAGE_SIZE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT
+};
 use crate::types::{
     Account, AccumulatedHistory, ActivityRecord, ActivityRecords, AssurancesExtrinsic, AuthPool, AuthPools, AuthQueue, AuthQueues, AuthorizerHash, 
     AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, Context, CoreActivityRecord, 
     CoresStatistics, DeferredTransfer, DisputesExtrinsic, DisputesRecords, Ed25519Public, Entropy, EntropyPool, Extrinsic, GlobalState, GuaranteesExtrinsic, 
     MemoryChunk, Metadata, OpaqueHash, Page, PageFlags, PageMap, PageTable, PreimagesExtrinsic, Privileges, Program, RamMemory, ReadyQueue, ReadyRecord, 
-    RefineContext, RefineLoad, ReportGuarantee, ReportedWorkPackages, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServicesStatistics, 
+    RefineContext, RefineLoad, ReportGuarantee, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServicesStatistics, 
     ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorData, 
     ValidatorsData, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, AccumulationPartialState
 };
@@ -164,13 +166,13 @@ impl Default for TicketsMark {
     }
 }
 
-impl Default for ReportedWorkPackages {
+/*impl Default for ReportedWorkPackages {
     fn default() -> Self {
         ReportedWorkPackages {
             map: Vec::new(),
         }
     }
-}
+}*/
 // ----------------------------------------------------------------------------------------------------------
 // Global State
 // ----------------------------------------------------------------------------------------------------------
@@ -266,35 +268,18 @@ impl Default for DeferredTransfer {
 // ----------------------------------------------------------------------------------------------------------
 // Authorization
 // ----------------------------------------------------------------------------------------------------------
-impl Default for AuthPool {
-    fn default() -> Self {
-        AuthPool {
-            auth_pool: VecDeque::with_capacity(MAX_ITEMS_AUTHORIZATION_POOL),
-        }
-    }
-}
 
 impl Default for AuthPools {
     fn default() -> Self {
-        AuthPools {
-            auth_pools: Box::new(from_fn(|_| AuthPool::default())),
-        }
-    }
-}
-
-impl Default for AuthQueue {
-    fn default() -> Self {
-        AuthQueue {
-            auth_queue: Box::new(from_fn(|_| [0; size_of::<AuthorizerHash>()])),
-        }
+        AuthPools(Box::new(std::array::from_fn(|_| AuthPool::default())))
     }
 }
 
 impl Default for AuthQueues {
     fn default() -> Self {
-        AuthQueues {
-            auth_queues: Box::new(from_fn(|_| AuthQueue::default())),
-        }
+        AuthQueues(Box::new(std::array::from_fn(|_| {
+            Box::new([AuthorizerHash::default(); MAX_ITEMS_AUTHORIZATION_QUEUE])
+        })))
     }
 }
 // ----------------------------------------------------------------------------------------------------------
@@ -350,14 +335,7 @@ impl Default for BlockHistory {
 // ----------------------------------------------------------------------------------------------------------
 // Assignments
 // ----------------------------------------------------------------------------------------------------------
-impl Default for AvailabilityAssignments {
 
-    fn default() -> Self {
-        AvailabilityAssignments {
-            0: Box::new(std::array::from_fn(|_| None)),
-        }
-    }
-}
 // ----------------------------------------------------------------------------------------------------------
 // Safrole
 // ----------------------------------------------------------------------------------------------------------
@@ -371,23 +349,9 @@ impl Default for Safrole {
         }
     }
 }
-
-impl Default for BandersnatchEpoch {
-    fn default() -> Self {
-        let keys: [BandersnatchPublic; EPOCH_LENGTH] = std::array::from_fn(|_| BandersnatchPublic::default());
-        BandersnatchEpoch(Box::new(keys))
-    }
-}
 // ----------------------------------------------------------------------------------------------------------
 // Service Accounts
 // ----------------------------------------------------------------------------------------------------------
-impl Default for ServiceAccounts {
-    fn default() -> Self {
-        ServiceAccounts {
-            service_accounts: HashMap::new(),
-        }
-    }
-}
 
 impl Default for Account {
     fn default() -> Self {
@@ -397,8 +361,8 @@ impl Default for Account {
             lookup: HashMap::new(),
             code_hash: OpaqueHash::default(),
             balance: 0,
-            gas: 0,
-            min_gas: 0,
+            acc_min_gas: 0,
+            xfer_min_gas: 0,
         }
     }
 }
@@ -491,18 +455,21 @@ impl Default for Statistics {
 // ----------------------------------------------------------------------------------------------------------
 // Validators
 // ----------------------------------------------------------------------------------------------------------
-impl Default for ValidatorsData {
+impl Default for ValidatorData {
     fn default() -> Self {
-        ValidatorsData {
-            0: Box::new(from_fn(|_| ValidatorData {
-                bandersnatch: [0u8; std::mem::size_of::<BandersnatchPublic>()],
-                ed25519: [0u8; std::mem::size_of::<Ed25519Public>()],
-                bls: [0u8; std::mem::size_of::<BlsPublic>()],
-                metadata: [0u8; std::mem::size_of::<Metadata>()],
-            }))
+        ValidatorData { 
+            bandersnatch: [0u8; std::mem::size_of::<BandersnatchPublic>()], 
+            ed25519: [0u8; std::mem::size_of::<Ed25519Public>()], 
+            bls: [0u8; std::mem::size_of::<BlsPublic>()], 
+            metadata: [0u8; std::mem::size_of::<Metadata>()] 
         }
     }
 }
+/*impl Default for ValidatorsData {
+    fn default() -> Self {
+        Box::new([ValidatorData::default(); VALIDATORS_COUNT])
+    }
+}*/
 // ----------------------------------------------------------------------------------------------------------
 // Polkadot Virtual Machine
 // ----------------------------------------------------------------------------------------------------------

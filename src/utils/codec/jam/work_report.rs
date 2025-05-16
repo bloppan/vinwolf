@@ -90,15 +90,15 @@ impl Decode for Vec<WorkReport> {
     }
 }
 
-impl Encode for Offenders {
+/*impl Encode for Offenders {
 
     fn encode(&self) -> Vec<u8> {
 
-        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>() * self.0.len());
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>() * self.len());
 
-        encode_unsigned(self.0.len()).encode_to(&mut blob);
+        encode_unsigned(self.len()).encode_to(&mut blob);
 
-        for offender in &self.0 {
+        for offender in self.iter() {
             offender.encode_to(&mut blob);
         }
 
@@ -108,22 +108,19 @@ impl Encode for Offenders {
     fn encode_to(&self, into: &mut Vec<u8>) {
         into.extend_from_slice(&self.encode());
     }
-}
+}*/
 
 impl Decode for Offenders {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        Ok(Offenders {
-            0: {
-                let num_offenders = decode_unsigned(blob)?;
-                let mut offenders = Vec::with_capacity(num_offenders);
-                for _ in 0..num_offenders {
-                    offenders.push(Ed25519Public::decode(blob)?);
-                }
-                offenders
-            },
-        })
+        let num_offenders = decode_unsigned(blob)?;
+        let mut offenders = Vec::with_capacity(num_offenders);
+        for _ in 0..num_offenders {
+            offenders.push(Ed25519Public::decode(blob)?);
+        }
+
+        Ok( offenders )
     }
 }
 

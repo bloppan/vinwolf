@@ -25,10 +25,10 @@
 */
 use crate::constants::{CORES_COUNT, MAX_ITEMS_AUTHORIZATION_POOL, MAX_ITEMS_AUTHORIZATION_QUEUE};
 use crate::types::{AuthPools, GuaranteesExtrinsic, TimeSlot};
-use crate::blockchain::state::get_authqueues;
+use crate::blockchain::state::get_auth_queues;
 
 pub fn process(
-    auth_pool_state: &mut AuthPools, 
+    auth_pools: &mut AuthPools, 
     slot: &TimeSlot, 
     guarantees_extrinsic: &GuaranteesExtrinsic) {
     // We define the set of authorizers allowable for a particular core as the authorizer pool
@@ -41,23 +41,23 @@ pub fn process(
     // We utilize the code_authorizers (from guarantees extrinsic) to remove the oldest authorizer which has 
     // been used to justify a guaranteed work-package in the current block.
     'next_report: for report in guarantees_extrinsic.report_guarantee.iter() {
-                        for i in 0..auth_pool_state.auth_pools[report.report.core_index as usize].auth_pool.len() {
-                            if auth_pool_state.auth_pools[report.report.core_index as usize].auth_pool[i] == report.report.authorizer_hash {
-                                auth_pool_state.auth_pools[report.report.core_index as usize].auth_pool.remove(i);
+                        for i in 0..auth_pools.0[report.report.core_index as usize].len() {
+                            if auth_pools.0[report.report.core_index as usize][i] == report.report.authorizer_hash {
+                                auth_pools.0[report.report.core_index as usize].remove(i);
                                 continue 'next_report;
                             }
                         }
     }
     // Since AUTH_POOL_STATE is dependent on AUTH_QUEUE_STATE, practically speaking, this step must be computed 
     // after accumulation, the stage in which AUTH_QUEUE_STATE is defined.
-    let auth_queues = get_authqueues();
+    let auth_queues = get_auth_queues();
 
     // The state transition of a block involves placing a new authorization into the pool from the queue
     for core in 0..CORES_COUNT {
-        let new_auth = auth_queues.auth_queues[core].auth_queue[*slot as usize % MAX_ITEMS_AUTHORIZATION_QUEUE];
-        auth_pool_state.auth_pools[core].auth_pool.push_back(new_auth);
-        while auth_pool_state.auth_pools[core].auth_pool.len() > MAX_ITEMS_AUTHORIZATION_POOL {
-            auth_pool_state.auth_pools[core].auth_pool.pop_front();
+        let new_auth = auth_queues.0[core][*slot as usize % MAX_ITEMS_AUTHORIZATION_QUEUE];
+        auth_pools.0[core].push_back(new_auth);
+        while auth_pools.0[core].len() > MAX_ITEMS_AUTHORIZATION_POOL {
+            auth_pools.0[core].pop_front();
         }
     }
 }

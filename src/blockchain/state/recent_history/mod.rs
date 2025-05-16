@@ -8,7 +8,7 @@
 
 use sp_core::keccak_256;
 
-use crate::types::{Hash, BlockHistory, BlockInfo, ReportedWorkPackages, Mmr};
+use crate::types::{BlockHistory, BlockInfo, Hash, Mmr, OpaqueHash};
 use crate::constants::RECENT_HISTORY_SIZE;
 use crate::utils::trie::append;
 
@@ -16,7 +16,7 @@ pub fn process(
     recent_history_state: &mut BlockHistory,
     header_hash: &Hash, 
     parent_state_root: &Hash, 
-    work_packages: &ReportedWorkPackages
+    reported_wp: &Vec<(OpaqueHash, OpaqueHash)>
 ) -> BlockHistory {
 
     let history_len = recent_history_state.blocks.len();
@@ -28,7 +28,7 @@ pub fn process(
             &Mmr { peaks: Vec::new() },
             &[0u8; std::mem::size_of::<Hash>()],
             &[0u8; std::mem::size_of::<Hash>()],
-            work_packages,
+            reported_wp,
         );
         
         return recent_history_state.clone();
@@ -42,7 +42,7 @@ pub fn process(
 pub fn finalize(recent_history_state: &mut BlockHistory,
                                header_hash: &Hash, 
                                accumulate_root: &Hash, 
-                               work_packages: &ReportedWorkPackages
+                               work_packages: &Vec<(OpaqueHash, OpaqueHash)>
 ) {
     
     let history_len = recent_history_state.blocks.len();
@@ -76,7 +76,7 @@ fn add_new_block(
     mmr: &Mmr,
     accumulate_root: &Hash,
     state_root: &Hash,
-    work_packages: &ReportedWorkPackages,
+    work_packages: &Vec<(OpaqueHash, OpaqueHash)>,
 ) {
     // We define an item n comprising the new block's header hash, its accumulation-result Merkle tree root and the set
     // of work-reports made into it (for which we use the guarantees extrinsic).
@@ -88,7 +88,7 @@ fn add_new_block(
         // The state-trie root is as being the zero hash, which while inaccurate at the end state of the block β', it is
         // nevertheless safe since β' is not utilized except to define the next block’s β†, which contains a corrected value for this
         state_root: *state_root,
-        reported: work_packages.clone(),
+        reported_wp: work_packages.clone(),
     });
 }
 

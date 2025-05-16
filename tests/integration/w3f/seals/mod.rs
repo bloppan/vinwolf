@@ -113,7 +113,7 @@ mod tests {
         let ring_root = create_root_epoch(ring_set.clone());
 
         let mut current_validators = ValidatorsData::default();
-        current_validators.0[block_author].bandersnatch = test_decoded.bandersnatch_pub;
+        current_validators[block_author].bandersnatch = test_decoded.bandersnatch_pub;
         set_validators(current_validators.clone(), ValidatorSet::Current);
 
         let i = header.unsigned.slot % EPOCH_LENGTH as TimeSlot;
@@ -122,7 +122,7 @@ mod tests {
         match test_decoded.T {
             0 => {
                 let mut epoch_keys = BandersnatchEpoch::default();
-                epoch_keys.0[i as usize] = test_decoded.bandersnatch_pub;
+                epoch_keys[i as usize] = test_decoded.bandersnatch_pub;
                 safrole_state.seal = TicketsOrKeys::Keys(epoch_keys);
             },
             1 => {

@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
-use crate::types::{AuthPool, AuthPools, AuthQueue, AuthQueues, OpaqueHash, CodeAuthorizer, CodeAuthorizers, CoreIndex, Authorizer};
+use crate::constants::MAX_ITEMS_AUTHORIZATION_QUEUE;
+use crate::types::{AuthPool, AuthPools, AuthQueue, AuthQueues, Authorizer, AuthorizerHash, CodeAuthorizer, CodeAuthorizers, CoreIndex, OpaqueHash};
 use crate::utils::codec::{BytesReader, Decode, DecodeLen, Encode, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
@@ -7,10 +8,10 @@ impl Encode for AuthPool {
 
     fn encode(&self) -> Vec<u8> {
         
-        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>() * self.auth_pool.len());
-        encode_unsigned(self.auth_pool.len()).encode_to(&mut blob);      
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>() * self.len());
+        encode_unsigned(self.len()).encode_to(&mut blob);      
         
-        for item in &self.auth_pool {
+        for item in self.iter() {
             item.encode_to(&mut blob);
         }
 
@@ -33,9 +34,7 @@ impl Decode for AuthPool {
             auth_pool.push_back(OpaqueHash::decode(blob)?);
         }
 
-        Ok(AuthPool{
-            auth_pool: auth_pool,
-        })
+        Ok( auth_pool )
     }
 }
 
@@ -43,9 +42,9 @@ impl Encode for AuthPools {
 
     fn encode(&self) -> Vec<u8> {
         
-        let mut blob = Vec::with_capacity(std::mem::size_of::<AuthPool>() * self.auth_pools.len());
+        let mut blob = Vec::with_capacity(std::mem::size_of::<AuthPool>() * self.0.len());
 
-        for item in self.auth_pools.iter() {
+        for item in self.0.iter() {
             item.encode_to(&mut blob);
         }
         
@@ -61,15 +60,13 @@ impl Decode for AuthPools {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        let mut pools: AuthPools = AuthPools::default();
+        let mut auth_pools: AuthPools = AuthPools::default();
 
-        for pool in pools.auth_pools.iter_mut() {
-            *pool = AuthPool::decode(blob)?;
+        for auth_pool in auth_pools.0.iter_mut() {
+            *auth_pool = AuthPool::decode(blob)?;
         }
         
-        Ok(AuthPools{
-            auth_pools: pools.auth_pools,
-        })
+        Ok(auth_pools)
     }
 }
 
@@ -79,7 +76,7 @@ impl Encode for AuthQueue {
         
         let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
 
-        for item in self.auth_queue.iter() {
+        for item in self.iter() {
             item.encode_to(&mut blob);
         }
 
@@ -95,15 +92,13 @@ impl Decode for AuthQueue {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        let mut queue = AuthQueue::default();
+        let mut queue = Box::new([AuthorizerHash::default(); MAX_ITEMS_AUTHORIZATION_QUEUE]);
 
-        for auth in queue.auth_queue.iter_mut() {
+        for auth in queue.iter_mut() {
             *auth = OpaqueHash::decode(blob)?;
         }
 
-        Ok(AuthQueue{
-            auth_queue: queue.auth_queue,
-        })
+        Ok( queue )
     }
 }
 
@@ -111,9 +106,9 @@ impl Encode for AuthQueues {
 
     fn encode(&self) -> Vec<u8> {
         
-        let mut blob = Vec::with_capacity(std::mem::size_of::<AuthQueue>() * self.auth_queues.len());
+        let mut blob = Vec::with_capacity(std::mem::size_of::<AuthQueue>() * self.0.len());
 
-        for item in self.auth_queues.iter() {
+        for item in self.0.iter() {
             item.encode_to(&mut blob);
         }
 
@@ -131,13 +126,11 @@ impl Decode for AuthQueues {
 
         let mut queues = AuthQueues::default();
 
-        for queue in queues.auth_queues.iter_mut() {
+        for queue in queues.0.iter_mut() {
             *queue = AuthQueue::decode(blob)?;
         }
 
-        Ok(AuthQueues{
-            auth_queues: queues.auth_queues,
-        })
+        Ok( queues )
     }
 }
 

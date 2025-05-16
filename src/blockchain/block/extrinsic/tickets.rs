@@ -72,7 +72,7 @@ pub fn verify_seal(
                                                         block_author,
             ).map_err(|_| ProcessError::SafroleError(SafroleErrorCode::InvalidKeySeal))?;
             
-            if keys.0[i as usize] != current_validators.0[block_author].bandersnatch {
+            if keys[i as usize] != current_validators[block_author].bandersnatch {
                 return Err(ProcessError::SafroleError(SafroleErrorCode::KeyNotMatch));
             }
 
@@ -132,7 +132,7 @@ impl TicketsExtrinsic {
         }
     
         // Create a bandersnatch ring keys
-        let ring_keys: Vec<_> = safrole_state.pending_validators.0
+        let ring_keys: Vec<_> = safrole_state.pending_validators
                                             .iter()
                                             .map(|validator| validator.bandersnatch.clone())
                                             .collect();
