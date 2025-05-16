@@ -34,7 +34,7 @@
 use crate::types::{DisputesRecords, DisputesExtrinsic, AvailabilityAssignments, OutputDataDisputes};
 use crate::blockchain::state::ProcessError;
 
-pub fn process_disputes(
+pub fn process(
     disputes_state: &mut DisputesRecords, 
     availability_state: &mut AvailabilityAssignments,
     disputes_extrinsic: &DisputesExtrinsic

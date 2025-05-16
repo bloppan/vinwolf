@@ -9,6 +9,7 @@ use vinwolf::blockchain::state::{
     set_entropy, get_entropy, set_validators, get_validators, set_recent_history, get_recent_history,
     set_disputes, get_disputes, set_statistics, get_statistics, set_service_accounts, get_service_accounts
 };
+use vinwolf::blockchain::state::entropy::{set_current_entropy_pool, get_current_entropy_pool};
 use vinwolf::blockchain::state::reporting_assurance::process_guarantees;
 use vinwolf::blockchain::state::statistics::process;
 use vinwolf::utils::codec::{Decode, BytesReader};
@@ -69,7 +70,8 @@ mod tests {
         set_reporting_assurance(pre_state.avail_assignments);
         set_validators(pre_state.curr_validators, ValidatorSet::Current);
         set_validators(pre_state.prev_validators, ValidatorSet::Previous);
-        set_entropy(pre_state.entropy);
+        set_entropy(pre_state.entropy.clone());
+        set_current_entropy_pool(pre_state.entropy);
         set_recent_history(pre_state.recent_blocks);
         set_authpools(pre_state.auth_pools);
         //set_services_state(&pre_state.services);
@@ -95,7 +97,10 @@ mod tests {
 
         let output_result = process_guarantees(&mut assurances_state, 
                                                                              &input.guarantees, 
-                                                                             &input.slot);
+                                                                             &input.slot,
+                                                                            &get_current_entropy_pool(),
+                                                                            &get_validators(ValidatorSet::Current),
+                                                                            &get_validators(ValidatorSet::Previous));
         
         match output_result {
             Ok(_) => { 

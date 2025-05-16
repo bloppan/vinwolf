@@ -8,7 +8,7 @@ use vinwolf::blockchain::state::{
 };
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, CORES_COUNT};
 use vinwolf::types::{DisputesExtrinsic, OutputDataDisputes, ValidatorSet, ProcessError};
-use vinwolf::blockchain::state::disputes::process_disputes;
+use vinwolf::blockchain::state::disputes::process;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
 pub mod codec;
@@ -63,7 +63,7 @@ mod test {
     
             let mut state = get_global_state().lock().unwrap().clone();
     
-            let output_result = process_disputes(
+            let output_result = process(
                                                                     &mut state.disputes,
                                                                     &mut state.availability,
                                                                     &disputes_extrinsic);

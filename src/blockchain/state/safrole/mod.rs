@@ -39,7 +39,7 @@ use std::sync::Mutex;
 use sp_core::blake2_256;
 
 use crate::types::{
-    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, Entropy, EntropyPool, EpochMark, Header, 
+    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, Entropy, EntropyPool, EpochMark, Header, Offenders,
     OutputDataSafrole, Safrole, SafroleErrorCode, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorsData
 };
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
@@ -69,10 +69,9 @@ pub fn process(
     curr_validators: &mut ValidatorsData,
     prev_validators: &mut ValidatorsData,
     tau: &mut TimeSlot,
-    /*post_tau: &TimeSlot,
-    entropy: &Entropy,*/
     header: &Header,
     tickets_extrinsic: &TicketsExtrinsic,
+    offenders: &[Ed25519Public],
 ) -> Result<OutputDataSafrole, ProcessError> {
 
     // tau defines de most recent block
@@ -98,7 +97,7 @@ pub fn process(
         // On an epoch transition, we therefore rotate the accumulator value into the history eta1, eta2 eta3
         rotate_entropy_pool(entropy_pool); 
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
-        key_rotation(safrole_state, curr_validators, prev_validators);
+        key_rotation(safrole_state, curr_validators, prev_validators, offenders);
         // Create the ring set
         set_ring_set(create_ring_set(&curr_validators.0
             .iter()

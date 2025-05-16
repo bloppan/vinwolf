@@ -1,9 +1,12 @@
-use crate::types::{ValidatorsData, ValidatorSet, Safrole};
+use crate::types::{Ed25519Public, Safrole, ValidatorSet, ValidatorsData};
 use crate::blockchain::state::{get_validators, get_disputes};
 use crate::utils::common::set_offenders_null;
 
-pub fn key_rotation(safrole_state: &mut Safrole, curr_validators: &mut ValidatorsData, prev_validators: &mut ValidatorsData) 
-{ 
+pub fn key_rotation(safrole_state: &mut Safrole, 
+                    curr_validators: &mut ValidatorsData, 
+                    prev_validators: &mut ValidatorsData, 
+                    offenders: &[Ed25519Public]
+) { 
     *prev_validators = curr_validators.clone();
     *curr_validators = safrole_state.pending_validators.clone(); 
     // In addition to the active set of validator keys "curr_validators" and staging set "next_validators", internal to the Safrole state 
@@ -14,5 +17,5 @@ pub fn key_rotation(safrole_state: &mut Safrole, curr_validators: &mut Validator
     safrole_state.pending_validators = get_validators(ValidatorSet::Next);   
     // The posterior queued validator key set "pending_validators" is defined such that incoming keys belonging to the offenders 
     // are replaced with a null key containing only zeroes.
-    set_offenders_null(&mut safrole_state.pending_validators, &get_disputes().offenders); // TODO: disputes must be updated before key rotation (Eq 6.14)
+    set_offenders_null(&mut safrole_state.pending_validators, offenders); 
 }

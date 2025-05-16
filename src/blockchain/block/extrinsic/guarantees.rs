@@ -7,7 +7,7 @@
 */
 use crate::constants::{CORES_COUNT, MAX_DEPENDENCY_ITEMS};
 use crate::types::{
-    TimeSlot, ValidatorIndex, CoreIndex, Hash, GuaranteesExtrinsic, AvailabilityAssignments, ReportErrorCode, OutputDataReports, ProcessError
+    AvailabilityAssignments, CoreIndex, EntropyPool, GuaranteesExtrinsic, Hash, OutputDataReports, ProcessError, ReportErrorCode, TimeSlot, ValidatorIndex, ValidatorsData
 };
 use crate::blockchain::state::get_recent_history;
 use crate::utils::common::is_sorted_and_unique;
@@ -17,7 +17,10 @@ impl GuaranteesExtrinsic {
     pub fn process(
         &self, 
         assurances_state: &mut AvailabilityAssignments, 
-        post_tau: &TimeSlot) 
+        post_tau: &TimeSlot,
+        entropy_pool: &EntropyPool,
+        prev_validators: &ValidatorsData,
+        curr_validators: &ValidatorsData) 
     -> Result<OutputDataReports, ProcessError> {
 
         // At most one guarantee for each core
@@ -90,8 +93,8 @@ impl GuaranteesExtrinsic {
             if recent_history_map.contains_key(&guarantee.report.package_spec.hash) {
                 return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
             }
+
             // We ensure that the work-package not appear anywhere within our pipeline.
-            //let assignments = get_staging_reporting_assurance();
             for i in 0..CORES_COUNT {
                 if let Some(assignment) = &assurances_state.0[i] {
                     if assignment.report.package_spec.hash == guarantee.report.package_spec.hash {
@@ -106,6 +109,7 @@ impl GuaranteesExtrinsic {
                     return Err(ProcessError::ReportError(ReportErrorCode::DependencyMissing));
                 }
             }
+            
             // We require that any work-packages mentioned in the segment-root lookup, if present, be either in the extrinsic
             // or in our recent history
             for segment in &guarantee.report.segment_root_lookup {
@@ -123,14 +127,22 @@ impl GuaranteesExtrinsic {
             let OutputDataReports {
                 reported: new_reported,
                 reporters: new_reporters,
-            } = guarantee.report.process(assurances_state, post_tau, guarantee.slot, &guarantee.signatures)?;
+            } = guarantee.report.process(
+                                    assurances_state, 
+                                    post_tau, 
+                                    guarantee.slot, 
+                                    &guarantee.signatures, 
+                                    entropy_pool,
+                                    prev_validators,
+                                    curr_validators)?;
     
             reported.extend(new_reported);
             reporters.extend(new_reporters);
         }
     
-        reported.sort_by(|a, b| a.work_package_hash.cmp(&b.work_package_hash));
-        reporters.sort();
+        reported.sort_by_key(|report| report.work_package_hash);
+        /*reported.sort_by(|a, b| a.work_package_hash.cmp(&b.work_package_hash));
+        reporters.sort();*/
     
         Ok(OutputDataReports { reported, reporters })
     }

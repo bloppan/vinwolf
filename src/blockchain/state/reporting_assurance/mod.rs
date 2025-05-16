@@ -14,8 +14,7 @@
 // seen formally through the requirement of an intermediate state ρ‡.
 
 use crate::types::{
-    Hash, AssurancesExtrinsic, AvailabilityAssignment, AvailabilityAssignments, GuaranteesExtrinsic, TimeSlot, CoreIndex,
-    OutputDataAssurances, OutputDataReports
+    AssurancesExtrinsic, AvailabilityAssignment, AvailabilityAssignments, CoreIndex, EntropyPool, GuaranteesExtrinsic, Hash, OutputDataAssurances, OutputDataReports, TimeSlot, ValidatorsData
 };
 use super::ProcessError;
 
@@ -51,10 +50,13 @@ pub fn process_assurances(
 pub fn process_guarantees(
     assurances_state: &mut AvailabilityAssignments, 
     guarantees: &GuaranteesExtrinsic, 
-    post_tau: &TimeSlot) 
+    post_tau: &TimeSlot,
+    entropy_pool: &EntropyPool,
+    prev_validators: &ValidatorsData,
+    curr_validators: &ValidatorsData) 
 -> Result<OutputDataReports, ProcessError> {
 
-    let output_data = guarantees.process(assurances_state, post_tau)?;
+    let output_data = guarantees.process(assurances_state, post_tau, entropy_pool, prev_validators, curr_validators)?;
 
     Ok(OutputDataReports {
         reported: output_data.reported,

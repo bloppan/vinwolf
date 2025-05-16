@@ -34,6 +34,7 @@ use crate::constants::{
     ACCUMULATION_HISTORY, AUTH_POOLS, AUTH_QUEUE, AVAILABILITY, CURR_VALIDATORS, DISPUTES, ENTROPY, NEXT_VALIDATORS, PREV_VALIDATORS, PRIVILEGES, 
     READY_QUEUE, RECENT_HISTORY, SAFROLE, STATISTICS, TIME
 };
+use crate::utils::codec::jam::availability;
 use crate::utils::codec::{Encode, EncodeLen};
 use crate::utils::codec::jam::global_state::{construct_preimage_key, construct_lookup_key, construct_storage_key, StateKeyTrait};
 
@@ -69,6 +70,12 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &block.header.unsigned.parent_state_root,
         &reported_work_packages);
 
+    let _ = disputes::process(
+        &mut new_state.disputes,
+        &mut new_state.availability,
+        &block.extrinsic.disputes,
+    )?;
+    
     safrole::process(
         &mut new_state.safrole,
         &mut new_state.entropy,
@@ -76,7 +83,8 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &mut new_state.prev_validators,
         &mut new_state.time,
         &block.header,
-        &block.extrinsic.tickets)?;
+        &block.extrinsic.tickets,
+        &new_state.disputes.offenders)?;
 
     let new_available_workreports = reporting_assurance::process_assurances(
         &mut new_state.availability,
@@ -88,7 +96,10 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     let _ = reporting_assurance::process_guarantees(
         &mut new_state.availability, 
         &block.extrinsic.guarantees,
-        &block.header.unsigned.slot
+        &block.header.unsigned.slot,
+        &new_state.entropy,
+        &new_state.prev_validators,
+        &new_state.curr_validators,
     )?; 
 
     let (accumulation_root, 
@@ -161,7 +172,6 @@ impl GlobalState {
         state.map.insert(StateKey::U8(READY_QUEUE).construct(), self.ready_queue.encode());
         state.map.insert(StateKey::U8(ACCUMULATION_HISTORY).construct(), self.accumulation_history.encode());
         
-
         for (service_id, account) in self.service_accounts.service_accounts.iter() {
             let key = StateKey::Service(255, *service_id).construct();       
             let service_info = ServiceInfo {
