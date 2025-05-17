@@ -704,9 +704,14 @@ pub struct AssurancesExtrinsic {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct AvailAssurance {
+    // Assurance anchor hash must be the parent header
     pub anchor: OpaqueHash,
+    // Sequence of binary values (once per core) which a value of 1 at any given index implies that the validator assures
+    // they are contributing to its availability
     pub bitfield: [u8; AVAIL_BITFIELD_BYTES],
+    // Index of validator who is assuring
     pub validator_index: ValidatorIndex,
+    // Validator public Ed25519 signature
     pub signature: Ed25519Signature,
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -765,16 +770,16 @@ pub struct ReadyQueue {
 pub struct AccumulatedHistory {
     pub queue: VecDeque<Vec<WorkPackageHash>>,
 }
-/*#[derive(Debug, Clone, PartialEq)]
-pub struct AlwaysAccumulateMapItem {
-    pub id: ServiceId,
-    pub gas: Gas,
-}*/
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Privileges {
+    // Index of the manager service which is the service able to effect an alteration of privileges state component from block to block
     pub bless: ServiceId,
+    // Index of service able to alter the authorizer queue state component
     pub assign: ServiceId,
+    // Index of service able to alter the next validators state component
     pub designate: ServiceId,
+    // Indices of services which automaticaly accumulate in each block together with a basic amount of gas with which each accumulates
     pub always_acc: HashMap<ServiceId, Gas>,
 }
 
@@ -1053,10 +1058,15 @@ pub struct AccumulationPartialState {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeferredTransfer {
+    // Service index of the sender
     pub from: ServiceId,
+    // Service index of the receiver
     pub to: ServiceId,
+    // Amount to send
     pub amount: u64,
+    // Memo component 
     pub memo: Vec<u8>,
+    // Gas limit for the transfer
     pub gas_limit: Gas,
 }
 #[derive(Debug, Clone, PartialEq)]
