@@ -85,6 +85,19 @@ pub fn extend_sign(le_bytes: &[u8], n: usize) -> RegSize {
     return x;
 }
 
+// TODO
+pub fn extend_sign2<T>(value: T) -> RegSize
+where 
+    T: Copy + Into<i128> + From<i128> + From<RegSize>,
+{
+    let width = std::mem::size_of::<T>() as i32 * 8;
+    let shift = 128 - width;
+    let value_128: i128 = value.into();
+    let extended = (value_128 << shift) >> shift;
+
+    return extended as RegSize;
+}
+
 pub fn signed(a: u64, n: usize) -> i64 {
 
     if a < (1 << (8 * n - 1)) {
@@ -105,10 +118,6 @@ pub fn _branch(
     n: i64,
 ) -> ExitReason {
 
-    /*if n == 0 {
-        pvm_ctx.pc = 0;
-        return ExitReason::Continue;
-    }*/
     // Check if the jump is out of bounds
     if n < 0 || n as usize >= program.code.len() {
         println!("Panic: jump out of bounds");

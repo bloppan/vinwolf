@@ -1051,7 +1051,7 @@ pub struct ProgramFormat {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccumulationPartialState {
-    pub services_accounts: ServiceAccounts,
+    pub service_accounts: ServiceAccounts,
     pub next_validators: ValidatorsData,
     pub queues_auth: AuthQueues,
     pub privileges: Privileges,

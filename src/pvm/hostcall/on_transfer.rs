@@ -12,10 +12,6 @@ static SERVICE_ACCOUNTS: Lazy<Mutex<ServiceAccounts>> = Lazy::new(|| {
     Mutex::new(ServiceAccounts::default())
 });
 
-static ACCOUNT: Lazy<Mutex<Account>> = Lazy::new(|| {
-    Mutex::new(Account::default())
-});
-
 static SERVICE_ID: Lazy<Mutex<ServiceId>> = Lazy::new(|| {
     Mutex::new(ServiceId::default())
 });
@@ -25,12 +21,6 @@ fn set_service_accounts(service_accounts: ServiceAccounts) {
 }
 fn get_service_accounts() -> &'static Mutex<ServiceAccounts> {
     &SERVICE_ACCOUNTS
-}
-fn set_account(account: Account) {
-    *ACCOUNT.lock().unwrap() = account;
-}
-fn get_account() -> &'static Mutex<Account> {
-    &ACCOUNT
 }
 fn set_service(id: ServiceId) {
     *SERVICE_ID.lock().unwrap() = id;
@@ -64,12 +54,11 @@ pub fn invoke_on_transfer(
         let gas = transfers.iter().map(|transfer| transfer.gas_limit).sum::<Gas>();
         let arg = [slot.encode(), service_id.encode(), transfers.encode()].concat();
         set_service_accounts(service_accounts.clone());
-        set_account(s_account.clone());
         set_service(service_id.clone());
         println!("\nexec hostcall_argument\n");
         let (gas_used, 
              _result, 
-             ctx) = hostcall_argument(&preimage_data.code, 10, gas, &arg, on_transfer_dispatcher, HostCallContext::OnTransfer(s_account.clone()));
+             ctx) = hostcall_argument(&preimage_data.code, 10, gas, &arg, dispatch_xfer, HostCallContext::OnTransfer(s_account.clone()));
     
         //println!("ctx storage: {:x?}", ctx)
         let HostCallContext::OnTransfer(modified_account) = ctx else {
@@ -82,7 +71,7 @@ pub fn invoke_on_transfer(
     return (s_account, 0);
 }
 
-pub fn on_transfer_dispatcher(n: HostCallFn, mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext) 
+fn dispatch_xfer(n: HostCallFn, mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext) 
 
 -> (ExitReason, Gas, Registers, RamMemory, HostCallContext) 
 {
@@ -93,34 +82,26 @@ pub fn on_transfer_dispatcher(n: HostCallFn, mut gas: Gas, mut reg: Registers, r
     match n {
         HostCallFn::Lookup => {
             println!("Lookup");
-            let HostCallContext::OnTransfer(account) = ctx else {
-                unreachable!("On transfer dispatcher: Invalid context");
-            };
+            let account = ctx.to_xfer_ctx();
             let (exit_reason, gas, reg, ram, modified_account) = lookup(gas, reg, ram, account, service_id, service_accounts);
             return (exit_reason, gas, reg, ram, HostCallContext::OnTransfer(modified_account));
         }
         HostCallFn::Read => {
             println!("Read");
-            let HostCallContext::OnTransfer(account) = ctx else {
-                unreachable!("On transfer dispatcher: Invalid context");
-            };
+            let account = ctx.to_xfer_ctx();
             let (exit_reason, gas, reg, ram, modified_account) = read(gas, reg, ram, account, service_id, service_accounts);
             return (exit_reason, gas, reg, ram, HostCallContext::OnTransfer(modified_account));
         }
         HostCallFn::Write => {
             println!("Write");
-            let HostCallContext::OnTransfer(account) = ctx else {
-                unreachable!("On transfer dispatcher: Invalid context");
-            };
+            let account = ctx.to_xfer_ctx();
             let (exit_reason, gas, reg, ram, modified_account) = write(gas, reg, ram, account, service_id);
             return (exit_reason, gas, reg, ram, HostCallContext::OnTransfer(modified_account));
         }
         HostCallFn::Gas => {
             println!("Gas");
             let (exit_reason, gas, reg, ram, ctx) = pvm::hostcall::general_fn::gas(gas, reg, ram, ctx);
-            let HostCallContext::OnTransfer(account) = ctx else {
-                unreachable!("On transfer dispatcher: Invalid context");
-            };
+            let account = ctx.to_xfer_ctx();
             return (exit_reason, gas, reg, ram, HostCallContext::OnTransfer(account));
         }
         HostCallFn::Info => {
@@ -130,18 +111,14 @@ pub fn on_transfer_dispatcher(n: HostCallFn, mut gas: Gas, mut reg: Registers, r
         }
         HostCallFn::Log => {
             println!("Log");
-            let HostCallContext::OnTransfer(account) = ctx else {
-                unreachable!("On transfer dispatcher: Invalid context");
-            };
+            let account = ctx.to_xfer_ctx();
             return (ExitReason::Continue, gas, reg, ram, HostCallContext::OnTransfer(account));
         }
         _ => {
             println!("Unknown on transfer hostcall function: {:?}", n);
             gas -= 10;
             reg[7] = WHAT;
-            let HostCallContext::OnTransfer(account) = ctx else {
-                unreachable!("On transfer dispatcher: Invalid context");
-            };
+            let account = ctx.to_xfer_ctx();
             return (ExitReason::Continue, gas, reg, ram, HostCallContext::OnTransfer(account));
         }
     }

@@ -127,7 +127,7 @@ mod tests {
 
         let test_files = vec![
             // No reports.
-            /*"no_available_reports-1.bin",
+            "no_available_reports-1.bin",
             // Report with no dependencies.
             "process_one_immediate_report-1.bin",
             // Report with unsatisfied dependency added to the ready queue.
@@ -184,7 +184,7 @@ mod tests {
             "ready_queue_editing-1.bin",
             // Two reports with unsatisfied dependencies added to the ready-queue.
             // One accumulated. Ready queue items dependencies are edited.
-            "ready_queue_editing-2.bin",*/
+            "ready_queue_editing-2.bin",
             // One report unlocks reports in the ready-queue.
             "ready_queue_editing-3.bin",
         ];

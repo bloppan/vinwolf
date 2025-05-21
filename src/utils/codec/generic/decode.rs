@@ -18,17 +18,6 @@ pub fn decode<T: FromLeBytes>(bytes: &[u8], n: usize) -> T {
     T::from_le_bytes(&buffer)
 }
 
-/*pub fn decode_to_bits(v: &[u8]) -> Vec<bool> {
-
-    let mut bools = Vec::new();
-    for byte in v {
-        for i in 0..8 { 
-            let bit = (byte >> i) & 1; 
-            bools.push(bit == 1); // Convert bit (0 o 1) to boolean
-        }
-    }
-    return bools;
-}*/
 pub fn decode_to_bits(bytes: &mut BytesReader, n: usize) -> Result<Vec<bool>, ReadError> {
     let mut bools = Vec::new();
     for _ in 0..n {
@@ -130,6 +119,7 @@ impl Decode for i64 {
         Ok(i64::from_le_bytes(array))
     }
 }
+
 
 impl<const N: usize> Decode for [u8; N] {
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {

@@ -230,7 +230,7 @@ impl Default for AccumulatedHistory {
 impl Default for AccumulationPartialState {
     fn default() -> Self {
         AccumulationPartialState {
-            services_accounts: ServiceAccounts::default(),
+            service_accounts: ServiceAccounts::default(),
             next_validators: ValidatorsData::default(),
             queues_auth: AuthQueues::default(),
             privileges: Privileges::default(),
