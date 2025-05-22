@@ -31,7 +31,7 @@ impl Decode for AvailabilityAssignment {
     }
 }
 
-impl Encode for AvailabilityAssignmentsItem {
+/*impl Encode for AvailabilityAssignmentsItem {
 
     fn encode(&self) -> Vec<u8> {
 
@@ -53,9 +53,9 @@ impl Encode for AvailabilityAssignmentsItem {
     fn encode_to(&self, into: &mut Vec<u8>) {
         into.extend_from_slice(&self.encode());
     }
-}
+}*/
 
-impl Decode for AvailabilityAssignmentsItem {
+/*impl Decode for AvailabilityAssignmentsItem {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
@@ -69,7 +69,7 @@ impl Decode for AvailabilityAssignmentsItem {
             _ => Err(ReadError::InvalidData),
         }
     }
-}
+}*/
 
 impl Encode for AvailabilityAssignments {
 
@@ -77,7 +77,7 @@ impl Encode for AvailabilityAssignments {
 
         let mut blob = Vec::with_capacity(std::mem::size_of::<Self>() * CORES_COUNT);
 
-        for assigment in self.iter() {
+        for assigment in self.list.iter() {
             assigment.encode_to(&mut blob);
         }
 
@@ -95,7 +95,7 @@ impl Decode for AvailabilityAssignments {
 
         let mut assignments: AvailabilityAssignments = AvailabilityAssignments::default();
         
-        for assignment in assignments.iter_mut() {
+        for assignment in assignments.list.iter_mut() {
             *assignment = AvailabilityAssignmentsItem::decode(blob)?;
         }
 

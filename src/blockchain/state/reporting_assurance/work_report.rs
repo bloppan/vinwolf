@@ -2,7 +2,8 @@ use sp_core::blake2_256;
 use std::collections::HashMap;
 
 use crate::types::{
-    AvailabilityAssignment, AvailabilityAssignments, CoreIndex, Ed25519Public, Entropy, EntropyPool, Hash, OutputDataReports, ReportErrorCode, ReportedPackage, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, WorkResult
+    AvailabilityAssignment, AvailabilityAssignments, CoreIndex, Ed25519Public, Entropy, EntropyPool, Hash, OutputDataReports, ReportErrorCode, 
+    ReportedPackage, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, WorkResult
 };
 use crate::constants::{ EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR };
 use crate::blockchain::state::{ ProcessError, get_auth_pools, get_recent_history, get_disputes };
@@ -108,7 +109,7 @@ impl WorkReport {
         let mut reporters: Vec<Ed25519Public> = Vec::new();
 
         // No reports may be placed on cores with a report pending availability on it 
-        if assurances_state[self.core_index as usize].is_none() {
+        if assurances_state.list[self.core_index as usize].is_none() {
             // Each core has three validators uniquely assigned to guarantee work-reports for it. This is ensured with 
             // VALIDATORS_COUNT and CORES_COUNT, since V/C = 3. The core index is assigned to each of the validators, 
             // and the validator's Ed25519 public keys are denoted as 'guarantors_assignments'.
@@ -137,7 +138,7 @@ impl WorkReport {
                 if credential.validator_index as usize >= VALIDATORS_COUNT {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadValidatorIndex));
                 }
-                let validator = &validators_data[credential.validator_index as usize];
+                let validator = &validators_data.list[credential.validator_index as usize];
                 if !credential.signature.verify_signature(&message, &validator.ed25519) {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadSignature));
                 }
@@ -217,7 +218,7 @@ fn guarantor_assignments(
     set_offenders_null(validators_set, &get_disputes().offenders);
 
     for i in 0..VALIDATORS_COUNT {
-        guarantor_assignments.insert(validators_set[i].ed25519.clone(), core_assignments[i]);
+        guarantor_assignments.insert(validators_set.list[i].ed25519.clone(), core_assignments[i]);
     }
 
     return guarantor_assignments;

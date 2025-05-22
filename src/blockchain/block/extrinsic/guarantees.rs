@@ -96,7 +96,7 @@ impl GuaranteesExtrinsic {
 
             // We ensure that the work-package not appear anywhere within our pipeline.
             for i in 0..CORES_COUNT {
-                if let Some(assignment) = &assurances_state[i] {
+                if let Some(assignment) = &assurances_state.list[i] {
                     if assignment.report.package_spec.hash == guarantee.report.package_spec.hash {
                         return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
                     }

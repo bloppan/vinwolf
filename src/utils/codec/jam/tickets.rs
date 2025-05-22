@@ -88,7 +88,7 @@ impl Decode for TicketsOrKeys {
             1 => {
                     let mut keys: BandersnatchEpoch = BandersnatchEpoch::default();
 
-                    for key in keys.iter_mut() {
+                    for key in keys.epoch.iter_mut() {
                         *key = BandersnatchPublic::decode(blob)?;
                     }
 
@@ -119,7 +119,7 @@ impl Encode for TicketsOrKeys {
         match self {
             TicketsOrKeys::Keys(keys) => {
                 encoded.push(1); // Keys marker
-                for key in keys.iter() {
+                for key in keys.epoch.iter() {
                     key.encode_to(&mut encoded);
                 }
             }

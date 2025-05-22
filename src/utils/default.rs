@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::collections::{HashMap, HashSet};
 use std::array::from_fn;
 use crate::constants::{
-    MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_POOL, NUM_PAGES, NUM_REG, PAGE_SIZE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT
+    CORE, CORES_COUNT, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_POOL, MAX_ITEMS_AUTHORIZATION_QUEUE, NUM_PAGES, NUM_REG, PAGE_SIZE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT
 };
 use crate::types::{
     Account, AccumulatedHistory, ActivityRecord, ActivityRecords, AssurancesExtrinsic, AuthPool, AuthPools, AuthQueue, AuthQueues, AuthorizerHash, 
@@ -11,7 +11,7 @@ use crate::types::{
     MemoryChunk, Metadata, OpaqueHash, Page, PageFlags, PageMap, PageTable, PreimagesExtrinsic, Privileges, Program, RamMemory, ReadyQueue, ReadyRecord, 
     RefineContext, RefineLoad, ReportGuarantee, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServicesStatistics, 
     ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorData, 
-    ValidatorsData, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, AccumulationPartialState
+    ValidatorsData, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, AccumulationPartialState, AvailabilityAssignment
 };
 // ----------------------------------------------------------------------------------------------------------
 // Jam Types
@@ -210,6 +210,23 @@ impl Default for SerializedState {
         }
     }
 }
+
+impl Default for AvailabilityAssignments {
+    fn default() -> Self {
+        AvailabilityAssignments {
+            list: Box::new(std::array::from_fn(|_| None)),
+        }
+    }
+}
+
+/*impl Default for AuthQueues {
+    fn default() -> Self {
+        AuthQueues(Box::new(std::array::from_fn(|_| {
+            Box::new([AuthorizerHash::default(); MAX_ITEMS_AUTHORIZATION_QUEUE])
+        })))
+    }
+}*/
+
 // ----------------------------------------------------------------------------------------------------------
 // Accumulation
 // ----------------------------------------------------------------------------------------------------------
@@ -349,6 +366,14 @@ impl Default for Safrole {
         }
     }
 }
+
+impl Default for BandersnatchEpoch {
+    fn default() -> Self {
+        Self {
+            epoch: Box::new([BandersnatchPublic::default(); EPOCH_LENGTH]),
+        }
+    }
+}
 // ----------------------------------------------------------------------------------------------------------
 // Service Accounts
 // ----------------------------------------------------------------------------------------------------------
@@ -465,11 +490,14 @@ impl Default for ValidatorData {
         }
     }
 }
-/*impl Default for ValidatorsData {
+
+impl Default for ValidatorsData {
     fn default() -> Self {
-        Box::new([ValidatorData::default(); VALIDATORS_COUNT])
+        Self {
+            list: Box::new([ValidatorData::default(); VALIDATORS_COUNT]),
+        }
     }
-}*/
+}
 // ----------------------------------------------------------------------------------------------------------
 // Polkadot Virtual Machine
 // ----------------------------------------------------------------------------------------------------------

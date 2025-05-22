@@ -171,6 +171,23 @@ impl<const N: usize, const M: usize> Decode for Vec<([u8; N], [u8; M])> {
     }
 }
 
+impl<T> Decode for Option<T> 
+where T: Decode
+{
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let option = blob.read_byte()?;
+        
+        match option {
+            0 => Ok(None),
+            1 => {
+                let data = T::decode(blob)?;
+                Ok(Some(data))
+            }
+            _ => Err(ReadError::InvalidData),
+        }
+    }
+}
 
 impl<T, U> Decode for HashMap<T, U> 
 where T: Decode + Eq + std::hash::Hash, 

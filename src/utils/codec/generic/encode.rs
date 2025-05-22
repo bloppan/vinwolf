@@ -234,6 +234,30 @@ impl<const N: usize, const M: usize> Encode for Vec<([u8; N], [u8; M])> {
     }
 }
 
+impl<T> Encode for Option<T> 
+where T: Encode,
+{
+    fn encode(&self) -> Vec<u8> {
+
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
+
+        match self {
+            None => {
+                blob.push(0);
+            }
+            Some(data) => {
+                blob.push(1);
+                data.encode_to(&mut blob);
+            }
+        }
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
 
 impl<T, U> Encode for HashMap<T, U> 
 where T: Encode + Eq + std::hash::Hash,

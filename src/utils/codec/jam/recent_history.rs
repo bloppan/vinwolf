@@ -20,7 +20,7 @@ impl Encode for &[MmrPeak] {
     }
 }
 
-impl Encode for MmrPeak {
+/*impl Encode for MmrPeak {
 
     fn encode(&self) -> Vec<u8> {
 
@@ -57,7 +57,7 @@ impl Decode for MmrPeak {
             _ => Err(ReadError::InvalidData),
         }
     }
-}
+}*/
 
 impl Encode for Mmr {
 

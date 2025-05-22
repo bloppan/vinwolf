@@ -39,7 +39,7 @@ impl Encode for ValidatorsData {
 
         let mut validators_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Self>());
 
-        for validator in self.iter() {
+        for validator in self.list.iter() {
             validator.encode_to(&mut validators_blob);
         }
 
@@ -57,7 +57,7 @@ impl Decode for ValidatorsData {
 
         let mut validators: ValidatorsData = ValidatorsData::default();
 
-        for validator in validators.iter_mut() {
+        for validator in validators.list.iter_mut() {
             *validator = ValidatorData::decode(validators_blob)?;
         }
         

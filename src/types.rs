@@ -72,10 +72,21 @@ pub struct ValidatorData {
     // The metadata is the last 128 octets
     pub metadata: Metadata,
 }
-pub type ValidatorsData = Box<[ValidatorData; VALIDATORS_COUNT]>;
 
-pub type BandersnatchKeys = Box<[BandersnatchPublic; VALIDATORS_COUNT]>;
-pub type BandersnatchEpoch = Box<[BandersnatchPublic; EPOCH_LENGTH]>;
+#[derive(Clone, Debug, PartialEq)]
+pub struct ValidatorsData {
+    pub list: Box<[ValidatorData; VALIDATORS_COUNT]>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BandersnatchKeys {
+    pub key: Box<[BandersnatchPublic; VALIDATORS_COUNT]>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BandersnatchEpoch {
+    pub epoch: Box<[BandersnatchPublic; EPOCH_LENGTH]>,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValidatorSet {
@@ -93,7 +104,11 @@ pub struct AvailabilityAssignment {
 }
 
 pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
-pub type AvailabilityAssignments = Box<[AvailabilityAssignmentsItem; CORES_COUNT]>;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AvailabilityAssignments {
+    pub list: Box<[AvailabilityAssignmentsItem; CORES_COUNT]>,
+}
 // ----------------------------------------------------------------------------------------------------------
 // Refine Context
 // ----------------------------------------------------------------------------------------------------------
@@ -581,6 +596,7 @@ pub struct Fault {
     pub key: Ed25519Public,
     pub signature: Ed25519Signature,
 }
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct DisputesExtrinsic {
     pub verdicts: Vec<Verdict>,

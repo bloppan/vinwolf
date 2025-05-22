@@ -551,10 +551,10 @@ fn designate(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallCont
 
     for i in 0..VALIDATORS_COUNT {
         let validators_data = ram.read(start_address + 336 * i as RamAddress, 336);
-        validators[i].bandersnatch = validators_data[..32].try_into().unwrap();
-        validators[i].ed25519 = validators_data[32..64].try_into().unwrap();
-        validators[i].bls = validators_data[64..208].try_into().unwrap();
-        validators[i].metadata = validators_data[208..].try_into().unwrap();
+        validators.list[i].bandersnatch = validators_data[..32].try_into().unwrap();
+        validators.list[i].ed25519 = validators_data[32..64].try_into().unwrap();
+        validators.list[i].bls = validators_data[64..208].try_into().unwrap();
+        validators.list[i].metadata = validators_data[208..].try_into().unwrap();
     }
 
     let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();

@@ -4,16 +4,16 @@ use crate::types::{Gas, RamAddress, Balance};
 pub const ENTROPY_POOL_SIZE: usize = 4;
 
 // Total number of validators
-//pub const VALIDATORS_COUNT: usize = 1023;
-pub const VALIDATORS_COUNT: usize = 6;
+pub const VALIDATORS_COUNT: usize = 1023;
+//pub const VALIDATORS_COUNT: usize = 6;
 
 // The length of an epoch timeslots.
-//pub const EPOCH_LENGTH: usize = 600;
-pub const EPOCH_LENGTH: usize = 12;
+pub const EPOCH_LENGTH: usize = 600;
+//pub const EPOCH_LENGTH: usize = 12;
 
 // Total number of cores
-//pub const CORES_COUNT: usize = 341;
-pub const CORES_COUNT: usize = 2;
+pub const CORES_COUNT: usize = 341;
+//pub const CORES_COUNT: usize = 2;
 
 // The rotation period of validator-core assignments, in timeslots.
 pub const ROTATION_PERIOD: u32 = 4;
