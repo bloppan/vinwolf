@@ -68,39 +68,6 @@ impl Decode for WorkResult {
     }  
 }
 
-impl Encode for Vec<WorkResult> {
-
-    fn encode(&self) -> Vec<u8> {
-        
-        let mut blob: Vec<u8> = Vec::with_capacity(self.len() * std::mem::size_of::<Self>());
-        encode_unsigned(self.len()).encode_to(&mut blob);
-
-        for result in self.iter() {
-            result.encode_to(&mut blob);
-        }
-
-        return blob;
-    }
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-impl Decode for Vec<WorkResult> {
-
-    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
-        
-        let num_results = decode_unsigned(blob)?;
-        let mut results: Vec<WorkResult> = Vec::with_capacity(num_results);
-
-        for _ in 0..num_results {
-            results.push(WorkResult::decode(blob)?);
-        }
-
-        Ok(results)
-    }
-}
-
 impl Encode for RefineLoad {
 
     fn encode(&self) -> Vec<u8> {

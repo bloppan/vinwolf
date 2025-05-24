@@ -38,7 +38,7 @@ use crate::utils::codec::{Encode, EncodeLen};
 use crate::utils::codec::jam::global_state::{construct_preimage_key, construct_lookup_key, construct_storage_key, StateKeyTrait};
 
 pub mod accumulation; pub mod authorization; pub mod disputes; pub mod entropy; pub mod safrole; pub mod recent_history; pub mod reporting_assurance;
-pub mod services; pub mod time; pub mod statistics; pub mod validators; pub mod privileges;
+pub mod services; pub mod time; pub mod statistics; pub mod validators; 
 
 static GLOBAL_STATE: Lazy<Mutex<GlobalState>> = Lazy::new(|| {
     Mutex::new(GlobalState::default())
@@ -192,7 +192,7 @@ impl GlobalState {
             
             for lookup in account.lookup.iter() {
                 let key = StateKey::Account(*service_id, construct_lookup_key(&lookup.0.0, lookup.0.1).to_vec()).construct();
-                state.map.insert(key, lookup.1.as_slice().encode_len());
+                state.map.insert(key, lookup.1.encode_len());
             }
 
             for item in account.storage.iter() {

@@ -1,5 +1,5 @@
 use crate::types::{Ed25519Public, Safrole, ValidatorSet, ValidatorsData};
-use crate::blockchain::state::{get_validators, get_disputes};
+use crate::blockchain::state::get_validators;
 use crate::utils::common::set_offenders_null;
 
 pub fn key_rotation(safrole_state: &mut Safrole, 

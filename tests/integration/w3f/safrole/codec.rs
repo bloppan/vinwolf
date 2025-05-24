@@ -1,8 +1,7 @@
 use vinwolf::types::{
     Entropy, Ed25519Public, EntropyPool, TimeSlot, BandersnatchRingCommitment, ValidatorsData, TicketsExtrinsic, TicketBody, TicketsOrKeys
 };
-use vinwolf::utils::codec::{Encode, Decode, DecodeLen, BytesReader, ReadError};
-use vinwolf::utils::codec::generic::encode_unsigned;
+use vinwolf::utils::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 
 #[derive(Debug)]
 pub struct InputSafrole {
@@ -69,8 +68,7 @@ impl Encode for SafroleState {
         self.gamma_a.encode_to(&mut state_encoded);
         self.gamma_s.encode_to(&mut state_encoded);
         self.gamma_z.encode_to(&mut state_encoded);
-        encode_unsigned(self.post_offenders.len()).encode_to(&mut state_encoded);
-        self.post_offenders.encode_to(&mut state_encoded);
+        self.post_offenders.encode_len().encode_to(&mut state_encoded);
 
         return state_encoded;
     }
@@ -91,7 +89,7 @@ impl Decode for SafroleState {
             kappa: ValidatorsData::decode(state_blob)?,
             gamma_k: ValidatorsData::decode(state_blob)?,
             iota: ValidatorsData::decode(state_blob)?,
-            gamma_a: Vec::<TicketBody>::decode(state_blob)?,
+            gamma_a: Vec::<TicketBody>::decode_len(state_blob)?,
             gamma_s: TicketsOrKeys::decode(state_blob)?,
             gamma_z: BandersnatchRingCommitment::decode(state_blob)?,  
             post_offenders: Vec::<Ed25519Public>::decode_len(state_blob)?,

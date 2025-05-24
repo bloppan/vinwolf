@@ -31,46 +31,6 @@ impl Decode for AvailabilityAssignment {
     }
 }
 
-/*impl Encode for AvailabilityAssignmentsItem {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
-
-        match self {
-            None => {
-                blob.push(0);
-            }
-            Some(assignment) => {
-                blob.push(1);
-                assignment.encode_to(&mut blob);
-            }
-        }
-
-        return blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}*/
-
-/*impl Decode for AvailabilityAssignmentsItem {
-
-    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
-
-        let option = blob.read_byte()?;
-        match option {
-            0 => Ok(None),
-            1 => {
-                let assignment = AvailabilityAssignment::decode(blob)?;
-                Ok(Some(assignment))
-            }
-            _ => Err(ReadError::InvalidData),
-        }
-    }
-}*/
-
 impl Encode for AvailabilityAssignments {
 
     fn encode(&self) -> Vec<u8> {

@@ -3,7 +3,7 @@ use crate::types::{
     OutputDataAssurances, OutputAssurances, AssurancesErrorCode
 };
 use crate::constants::AVAIL_BITFIELD_BYTES;
-use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
+use crate::utils::codec::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
 impl Encode for AssurancesExtrinsic {
@@ -49,17 +49,15 @@ impl Decode for AssurancesExtrinsic {
 }
 
 impl Encode for OutputDataAssurances {
+    
     fn encode(&self) -> Vec<u8> {
-        let mut output = Vec::with_capacity(std::mem::size_of::<WorkReport>() * self.reported.len());
-        
-        encode_unsigned(self.reported.len()).encode_to(&mut output);
-        
-        for report in &self.reported {
-            report.encode_to(&mut output);
-        }
 
-        return output;
+        let mut blob = Vec::with_capacity(std::mem::size_of::<WorkReport>() * self.reported.len());
+        self.reported.encode_len().encode_to(&mut blob);
+
+        return blob;
     }
+
     fn encode_to(&self, writer: &mut Vec<u8>) {
         writer.extend_from_slice(&self.encode());
     }
@@ -69,14 +67,7 @@ impl Decode for OutputDataAssurances {
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
 
         Ok(OutputDataAssurances {
-            reported: {
-                let len = decode_unsigned(reader)?;
-                let mut reported = Vec::with_capacity(len as usize);
-                for _ in 0..len {
-                    reported.push(WorkReport::decode(reader)?);
-                }
-                reported
-            }
+            reported: Vec::<WorkReport>::decode_len(reader)?,
         })
     }
 }

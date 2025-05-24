@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use crate::constants::MAX_ITEMS_AUTHORIZATION_QUEUE;
 use crate::types::{AuthPool, AuthPools, AuthQueue, AuthQueues, Authorizer, AuthorizerHash, CodeAuthorizer, CodeAuthorizers, CoreIndex, OpaqueHash};
-use crate::utils::codec::{BytesReader, Decode, DecodeLen, Encode, ReadError};
+use crate::utils::codec::{BytesReader, Decode, DecodeLen, Encode, EncodeLen, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
 impl Encode for AuthPool {
@@ -167,11 +167,7 @@ impl Encode for CodeAuthorizers {
     fn encode(&self) -> Vec<u8> {
 
         let mut authorizers = Vec::with_capacity(std::mem::size_of::<CodeAuthorizers>() * self.authorizers.len());
-        encode_unsigned(self.authorizers.len()).encode_to(&mut authorizers);
-
-        for authorizer in &self.authorizers {
-            authorizer.encode_to(&mut authorizers);
-        }
+        self.authorizers.encode_len().encode_to(&mut authorizers);
 
         return authorizers;
     }
@@ -185,15 +181,8 @@ impl Decode for CodeAuthorizers {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        let len = decode_unsigned(blob)?;
-        let mut authorizers = Vec::with_capacity(len);
-
-        for _ in 0..len {
-            authorizers.push(CodeAuthorizer::decode(blob)?);
-        }
-
         Ok(CodeAuthorizers {
-            authorizers,
+            authorizers: Vec::<CodeAuthorizer>::decode_len(blob)?,
         })
     }
 }
@@ -205,8 +194,7 @@ impl Encode for Authorizer {
         let mut authorizer = Vec::with_capacity(std::mem::size_of::<Self>());
 
         self.code_hash.encode_to(&mut authorizer);
-        encode_unsigned(self.params.len()).encode_to(&mut authorizer);
-        self.params.encode_to(&mut authorizer);
+        self.params.encode_len().encode_to(&mut authorizer);
 
         return authorizer;
     }

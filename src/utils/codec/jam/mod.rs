@@ -1,4 +1,3 @@
-pub mod account;
 pub mod authorization;
 pub mod availability;
 pub mod entropy;

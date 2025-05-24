@@ -2,7 +2,7 @@ use sp_core::blake2_256;
 use std::collections::HashMap;
 
 use crate::types::{
-    AvailabilityAssignment, AvailabilityAssignments, CoreIndex, Ed25519Public, Entropy, EntropyPool, Hash, OutputDataReports, ReportErrorCode, 
+    AvailabilityAssignment, AvailabilityAssignments, CoreIndex, Ed25519Public, Entropy, EntropyPool, OutputDataReports, ReportErrorCode, 
     ReportedPackage, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, WorkResult
 };
 use crate::constants::{ EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR };

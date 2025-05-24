@@ -1,8 +1,8 @@
 
-use vinwolf::utils::codec::{BytesReader, Decode, Encode, ReadError};
+use vinwolf::utils::codec::{BytesReader, Decode, DecodeLen, Encode, ReadError};
 use vinwolf::types::{
     AuthPools, AvailabilityAssignments, BlockHistory, CoresStatistics, EntropyPool, GuaranteesExtrinsic, Offenders, OutputDataReports, 
-    ReportErrorCode, Services, TimeSlot, ValidatorsData, ServicesStatistics,
+    ReportErrorCode, Services, TimeSlot, ValidatorsData, ServicesStatistics, Ed25519Public
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -85,7 +85,7 @@ impl Decode for WorkReportState {
             curr_validators: ValidatorsData::decode(blob)?,
             prev_validators: ValidatorsData::decode(blob)?,
             entropy: EntropyPool::decode(blob)?,
-            offenders: Offenders::decode(blob)?,
+            offenders: Vec::<Ed25519Public>::decode_len(blob)?,
             recent_blocks: BlockHistory::decode(blob)?,
             auth_pools: {
                 let auth_pools = AuthPools::decode(blob)?;

@@ -188,7 +188,7 @@ pub struct WorkItem {
     // Gas limit for refine
     pub refine_gas_limit: Gas,
     // Gas limit for accumulate
-    pub accumulate_gas_limit: Gas,
+    pub acc_gas_limit: Gas,
     // Sequence of imported segments which identify a prior exported segment through an index
     pub import_segments: Vec<ImportSpec>,
     // Sequence of blob hashes and lengths (which we assume the validators knows)

@@ -1,6 +1,5 @@
 use crate::types::{OpaqueHash, TimeSlot, RefineContext};
-use crate::utils::codec::{BytesReader, Encode, EncodeSize, Decode, ReadError};
-use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
+use crate::utils::codec::{BytesReader, Decode, DecodeLen, Encode, EncodeLen, EncodeSize, ReadError};
 
 impl Encode for RefineContext {
 
@@ -13,11 +12,7 @@ impl Encode for RefineContext {
         self.beefy_root.encode_to(&mut refine_blob);
         self.lookup_anchor.encode_to(&mut refine_blob);
         self.lookup_anchor_slot.encode_size(4).encode_to(&mut refine_blob);
-
-        encode_unsigned(self.prerequisites.len()).encode_to(&mut refine_blob);
-        for prerequisite in &self.prerequisites {
-            prerequisite.encode_to(&mut refine_blob);
-        }
+        self.prerequisites.encode_len().encode_to(&mut refine_blob);
    
         return refine_blob;
     }
@@ -37,14 +32,7 @@ impl Decode for RefineContext {
             beefy_root: OpaqueHash::decode(refine_blob)?,
             lookup_anchor: OpaqueHash::decode(refine_blob)?,
             lookup_anchor_slot: TimeSlot::decode(refine_blob)?,
-            prerequisites: {
-                let len = decode_unsigned(refine_blob)?;
-                let mut prereqs_vec = Vec::with_capacity(len);
-                for _ in 0..len {
-                    prereqs_vec.push(OpaqueHash::decode(refine_blob)?);
-                }
-                prereqs_vec
-            },
+            prerequisites: Vec::<OpaqueHash>::decode_len(refine_blob)?,
         })
     }
 }

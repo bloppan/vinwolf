@@ -6,7 +6,7 @@ use crate::blockchain::state::services::decode_preimage;
 use crate::pvm;
 use super::general_fn::{write, info, read, lookup};
 use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
-use crate::utils::codec::Encode;
+use crate::utils::codec::{Encode, EncodeLen};
 
 static SERVICE_ACCOUNTS: Lazy<Mutex<ServiceAccounts>> = Lazy::new(|| {
     Mutex::new(ServiceAccounts::default())
@@ -52,7 +52,7 @@ pub fn invoke_on_transfer(
         let preimage_data = decode_preimage(&preimage_code).unwrap(); // TODO handle error
 
         let gas = transfers.iter().map(|transfer| transfer.gas_limit).sum::<Gas>();
-        let arg = [slot.encode(), service_id.encode(), transfers.encode()].concat();
+        let arg = [slot.encode(), service_id.encode(), transfers.encode_len()].concat();
         set_service_accounts(service_accounts.clone());
         set_service(service_id.clone());
         println!("\nexec hostcall_argument\n");

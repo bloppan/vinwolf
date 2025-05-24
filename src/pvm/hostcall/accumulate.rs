@@ -13,7 +13,7 @@ use crate::constants::{
 };
 use crate::blockchain::state::{services::decode_preimage, entropy, time};
 use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
-use crate::utils::codec::{Encode, EncodeSize, DecodeSize, BytesReader};
+use crate::utils::codec::{Encode, EncodeLen, EncodeSize, DecodeSize, BytesReader};
 use crate::utils::codec::generic::decode;
 use super::general_fn::{write, info, read, lookup};
 
@@ -36,7 +36,7 @@ pub fn invoke_accumulation(
     };
     println!("Wrangled results: {:x?}", operands);
 
-    let args = [slot.encode(), service_id.encode(), operands.encode()].concat();
+    let args = [slot.encode(), service_id.encode(), operands.encode_len()].concat();
 
     let preimage_data = decode_preimage(&preimage_code).unwrap(); // TODO handle error
 

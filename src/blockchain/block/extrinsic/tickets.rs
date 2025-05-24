@@ -13,10 +13,7 @@ use ark_vrf::{reexports::ark_serialize::CanonicalDeserialize, suites::bandersnat
 use crate::blockchain::state::safrole::bandersnatch::Verifier;
 
 use crate::constants::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR};
-use crate::types::{
-    EntropyPool, Header, OpaqueHash, Safrole, SafroleErrorCode, TicketsOrKeys, TicketBody, TicketsExtrinsic, 
-    TimeSlot, ValidatorsData, ProcessError,
-};
+use crate::types::{EntropyPool, OpaqueHash, Safrole, SafroleErrorCode, TicketBody, TicketsExtrinsic,  TimeSlot, ProcessError};
 use crate::utils::codec::Encode;
 use crate::utils::common::{has_duplicates, bad_order};
 

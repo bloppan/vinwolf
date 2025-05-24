@@ -374,13 +374,13 @@ mod tests {
         assert_eq!(result.is_ok(), true);
     }
     
-   /*#[test]
+   #[test]
     fn run_disputes_extrinsic() {
         let test_content = read_test_file(&format!("{}/disputes_extrinsic.bin", TEST_DIR));
         let test_body: Vec<TestBody> = vec![TestBody::DisputesExtrinsic];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
-    }*/
+    }
     
     #[test]
     fn run_preimages_extrinsic() {

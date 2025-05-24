@@ -1,7 +1,6 @@
 use sp_core::blake2_256;
-use std::collections::HashSet;
 
-use crate::types::{OpaqueHash, OutputPreimages, PreimagesErrorCode, PreimagesExtrinsic, ServiceAccounts, ServiceId, Account, TimeSlot, PreimageData, Balance};
+use crate::types::{OpaqueHash, OutputPreimages, PreimagesErrorCode, PreimagesExtrinsic, ServiceAccounts, Account, TimeSlot, PreimageData, Balance};
 use crate::constants::{MIN_BALANCE, MIN_BALANCE_PER_ITEM, MIN_BALANCE_PER_OCTET};
 use crate::blockchain::state::ProcessError;
 use crate::utils::codec::{BytesReader, ReadError};

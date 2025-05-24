@@ -1,6 +1,6 @@
 use vinwolf::types::{AccumulatedHistory, Entropy, PreimagesMapEntry, Privileges, ReadyQueue, ServiceId, ServiceInfo, TimeSlot, WorkReport};
 use vinwolf::utils::codec::generic::{decode_unsigned, encode_unsigned};
-use vinwolf::utils::codec::{BytesReader, Decode, Encode, ReadError};
+use vinwolf::utils::codec::{BytesReader, Decode, DecodeLen, Encode, ReadError};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccountTest {
@@ -126,7 +126,7 @@ impl Decode for InputAccumulate {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
         Ok(InputAccumulate { 
             slot: TimeSlot::decode(blob)?,
-            reports: Vec::<WorkReport>::decode(blob)?,
+            reports: Vec::<WorkReport>::decode_len(blob)?,
         })
     }
 }

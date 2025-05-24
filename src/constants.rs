@@ -4,16 +4,16 @@ use crate::types::{Gas, RamAddress, Balance};
 pub const ENTROPY_POOL_SIZE: usize = 4;
 
 // Total number of validators
-pub const VALIDATORS_COUNT: usize = 1023;
-//pub const VALIDATORS_COUNT: usize = 6;
+//pub const VALIDATORS_COUNT: usize = 1023;
+pub const VALIDATORS_COUNT: usize = 6;
 
 // The length of an epoch timeslots.
-pub const EPOCH_LENGTH: usize = 600;
-//pub const EPOCH_LENGTH: usize = 12;
+//pub const EPOCH_LENGTH: usize = 600;
+pub const EPOCH_LENGTH: usize = 12;
 
 // Total number of cores
-pub const CORES_COUNT: usize = 341;
-//pub const CORES_COUNT: usize = 2;
+//pub const CORES_COUNT: usize = 341;
+pub const CORES_COUNT: usize = 2;
 
 // The rotation period of validator-core assignments, in timeslots.
 pub const ROTATION_PERIOD: u32 = 4;
@@ -38,7 +38,6 @@ pub const VALIDATORS_SUPER_MAJORITY: usize = (VALIDATORS_COUNT * 2) / 3 + 1;
 pub const ONE_THIRD_VALIDATORS: usize = VALIDATORS_COUNT / 3;
 
 pub const AVAIL_BITFIELD_BYTES: usize = (CORES_COUNT + 7) / 8;
-
 
 // The additional minimum balance required per item of elective service state
 pub const MIN_BALANCE_PER_ITEM: Balance = 10;

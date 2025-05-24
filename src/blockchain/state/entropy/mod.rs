@@ -40,12 +40,5 @@ impl EntropyPool {
         set_recent_entropy(self.buf[0].entropy);
     }
 }
-/*pub fn rotate_entropy_pool(entropy_pool: &mut EntropyPool) {
-
-}
-
-pub fn update_recent_entropy(entropy_pool: &mut EntropyPool, entropy_source: [u8; 32]) {
-
-}*/
 
 

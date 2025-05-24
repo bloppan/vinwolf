@@ -1,4 +1,4 @@
-use crate::constants::{NUM_PAGES, PAGE_SIZE, RAM_SIZE, LOWEST_ACCESIBLE_PAGE};
+use crate::constants::{NUM_PAGES, PAGE_SIZE, LOWEST_ACCESIBLE_PAGE};
 use crate::types::{RamMemory, RamAddress, RamAccess};
 pub mod program_init;
 

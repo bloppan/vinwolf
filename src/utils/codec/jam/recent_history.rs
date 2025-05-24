@@ -1,100 +1,8 @@
 use std::collections::VecDeque;
 
 use crate::types::{BlockHistory, BlockInfo, Hash, Mmr, MmrPeak, ReportedWorkPackages};
-use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
+use crate::utils::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
-
-impl Encode for &[MmrPeak] {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mmr: Mmr = Mmr { peaks: self.to_vec() };
-        let mut result: Vec<u8> = Vec::with_capacity(mmr.peaks.len());
-        mmr.encode_to(&mut result);
-
-        return result;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-/*impl Encode for MmrPeak {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut mmrpeak_blob = Vec::new();
-
-        match self {
-            Some(hash) => {
-                mmrpeak_blob.push(1);
-                hash.encode_to(&mut mmrpeak_blob);
-            }
-            None => {
-                mmrpeak_blob.push(0);
-            }
-        }
-
-        return mmrpeak_blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-impl Decode for MmrPeak {
-    
-    fn decode(mmrpeak_blob: &mut BytesReader) -> Result<Self, ReadError> {
-        let option = mmrpeak_blob.read_byte()?;
-        match option {
-            0 => Ok(None),
-            1 => {
-                let hash = Hash::decode(mmrpeak_blob)?;
-                Ok(Some(hash))
-            }
-            _ => Err(ReadError::InvalidData),
-        }
-    }
-}*/
-
-impl Encode for Mmr {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let len = self.peaks.len();
-        let mut mmr_blob = Vec::with_capacity(std::mem::size_of::<MmrPeak>() * len);
-        encode_unsigned(len).encode_to(&mut mmr_blob);
-
-        for peak in &self.peaks {
-            peak.encode_to(&mut mmr_blob);
-        }
-
-        return mmr_blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-impl Decode for Mmr {
-
-    fn decode(mmr_blob: &mut BytesReader) -> Result<Self, ReadError> {
-
-        let len = decode_unsigned(mmr_blob)?;
-        let mut peaks = Mmr { peaks: Vec::with_capacity(len) };
-
-        for _ in 0..len {
-            peaks
-                .peaks
-                .push(MmrPeak::decode(mmr_blob)?);
-        }
-
-        Ok(peaks)
-    }
-}
 
 impl Encode for BlockInfo {
 
@@ -103,7 +11,7 @@ impl Encode for BlockInfo {
         let mut block_info = Vec::with_capacity(std::mem::size_of::<Self>());
 
         self.header_hash.encode_to(&mut block_info);
-        self.mmr.encode_to(&mut block_info);
+        self.mmr.peaks.encode_len().encode_to(&mut block_info);
         self.state_root.encode_to(&mut block_info);
         self.reported_wp.encode_to(&mut block_info);
 
@@ -121,7 +29,7 @@ impl Decode for BlockInfo {
 
         Ok(BlockInfo {
             header_hash: Hash::decode(block_info)?,
-            mmr: Mmr::decode(block_info)?,
+            mmr: Mmr {peaks: Vec::<MmrPeak>::decode_len(block_info)?},
             state_root: Hash::decode(block_info)?,
             reported_wp: ReportedWorkPackages::decode(block_info)?,
         })

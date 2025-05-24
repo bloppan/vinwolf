@@ -1,6 +1,34 @@
 use crate::utils::codec::{FromLeBytes, Decode, DecodeLen, DecodeSize, ReadError, BytesReader};
 use std::collections::HashMap;
 
+pub fn decode_unsigned(data: &mut BytesReader) -> Result<usize, ReadError> {
+
+    let first_byte = data.read_byte()?;
+    let l = first_byte.leading_ones() as usize;
+
+    if l == 0 { 
+        return Ok(first_byte as usize); 
+    }
+
+    let result = decode_integer(data, l)?;
+
+    if l == 8 {
+        return Ok(result);
+    }
+
+    let mask = (1 << (7 - l)) - 1;
+
+    return Ok(result | ((first_byte & mask) as usize) << (8 * l));
+}
+
+pub fn decode_integer(data: &mut BytesReader, l: usize) -> Result<usize, ReadError> {
+    let mut array = [0u8; std::mem::size_of::<usize>()];
+    let len = std::cmp::min(l, std::mem::size_of::<usize>());
+    let bytes = data.read_bytes(len)?;
+    array[..len].copy_from_slice(bytes);  
+    Ok(usize::from_le_bytes(array))
+}
+
 // TODO revisar esta funcion
 pub fn decode<T: FromLeBytes>(bytes: &[u8], n: usize) -> T {
     let mut buffer = vec![0u8; std::mem::size_of::<T>()];
@@ -28,35 +56,6 @@ pub fn decode_to_bits(bytes: &mut BytesReader, n: usize) -> Result<Vec<bool>, Re
         }
     }
     return Ok(bools);
-}
-
-
-pub fn decode_integer(data: &mut BytesReader, l: usize) -> Result<usize, ReadError> {
-    let mut array = [0u8; std::mem::size_of::<usize>()];
-    let len = std::cmp::min(l, std::mem::size_of::<usize>());
-    let bytes = data.read_bytes(len)?;
-    array[..len].copy_from_slice(bytes);  
-    Ok(usize::from_le_bytes(array))
-}
-
-pub fn decode_unsigned(data: &mut BytesReader) -> Result<usize, ReadError> {
-
-    let first_byte = data.read_byte()?;
-    let l = first_byte.leading_ones() as usize;
-
-    if l == 0 { 
-        return Ok(first_byte as usize); 
-    }
-
-    let result = decode_integer(data, l)?;
-
-    if l == 8 {
-        return Ok(result);
-    }
-
-    let mask = (1 << (7 - l)) - 1;
-
-    return Ok(result | ((first_byte & mask) as usize) << (8 * l));
 }
 
 impl Decode for u8 {
@@ -121,16 +120,8 @@ impl Decode for i64 {
 }
 
 
-impl<const N: usize> Decode for [u8; N] {
-    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
-        let bytes = reader.read_bytes(N)?;
-        let mut array = [0u8; N];
-        array.copy_from_slice(bytes);
-        Ok(array)
-    }
-}
 
-impl<const N: usize, const M: usize> Decode for [[u8; N]; M] {
+/*impl<const N: usize, const M: usize> Decode for [[u8; N]; M] {
 
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
 
@@ -143,7 +134,9 @@ impl<const N: usize, const M: usize> Decode for [[u8; N]; M] {
 
         Ok(array)
     }
-}
+}*/
+
+
 
 impl Decode for Vec<u32> {
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
@@ -155,6 +148,51 @@ impl Decode for Vec<u32> {
         Ok(result)
     }
 }
+
+/*impl<const N: usize> Decode for [u8; N] {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        let bytes = reader.read_bytes(N)?;
+        let mut array = [0u8; N];
+        array.copy_from_slice(bytes);
+        Ok(array)
+    }
+}*/
+
+impl<T, const N: usize> Decode for [T; N]
+where
+    T: Decode + Default + Copy,
+{
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        let mut array: [T; N] = [T::default(); N];
+        for i in 0..N {
+            array[i] = T::decode(reader)?;
+        }
+        Ok(array)
+    }
+}
+
+use std::convert::TryInto;
+
+impl<T, const N: usize, const M: usize> Decode for Box<[Box<[T; N]>; M]>
+where
+    T: Decode + Default + Copy,
+{
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        let mut items = Vec::with_capacity(M);
+        for _ in 0..M {
+            let mut inner = [T::default(); N];
+            for i in 0..N {
+                inner[i] = T::decode(reader)?;
+            }
+            items.push(Box::new(inner));
+        }
+
+        let array: [Box<[T; N]>; M] = items.try_into().map_err(|_| ReadError::NotEnoughData)?;
+        Ok(Box::new(array))
+    }
+}
+
+
 
 impl<const N: usize, const M: usize> Decode for Vec<([u8; N], [u8; M])> {
 

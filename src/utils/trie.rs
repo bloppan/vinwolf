@@ -239,9 +239,9 @@ pub fn mmr_super_peak(h: &Mmr) -> Hash {
     return mmr(&extract_non_empty_peaks(h));
 }
 
-use crate::types::{GlobalState, SerializedState};
+/*use crate::types::{GlobalState, SerializedState};
 use crate::blockchain::state::{get_global_state, set_global_state};
-use std::convert::TryInto;
+use std::convert::TryInto;*/
 
 
 #[cfg(test)]
