@@ -12,7 +12,7 @@ use vinwolf::types::{
 
 use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 use vinwolf::utils::codec::{Decode, BytesReader};
-use super::{read_test, TestnetState, TestData, ParsedTransitionFile};
+use super::{read_test, TestnetState, TestData, ParsedTransitionFile, ParsedStateFile, TestFuzzedData};
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
@@ -299,9 +299,34 @@ mod tests {
         assert_eq!(parsed.tlen, 2);
         assert_eq!(parsed.t, vec![37, 39]);
 
-        println!("parsed timeslots: {:?}", parsed.t);
+        //println!("parsed timeslots: {:?}", parsed.t);
     }
 }
+
+pub fn deserialize_state(dir: &str, filename: &str) -> Result<ParsedStateFile, Box<dyn std::error::Error>> {
+    
+
+    let filename = format!("{}/{}", dir, filename);
+
+    let mut file = match std::fs::File::open(&filename) {
+        Ok(file) => file,
+        Err(e) => {
+            return Err(Box::new(e));
+        }
+    };
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).expect("Failed to read JSON file");
+    let testcase: TestFuzzedData = serde_json::from_str(&contents).expect("Failed to deserialize JSON");
+    let pre_state_root = hex::decode(&testcase.pre_state.state_root[2..])?.try_into().unwrap();
+    let pre_state = read_state_transition(&testcase.pre_state)?;
+    /*let pre_state = get_serialized_state(&testcase.pre_state)?;
+    let post_state = get_serialized_state(&testcase.post_state)?;*/
+    Ok(ParsedStateFile {
+        pre_state_root,
+        pre_state,
+    })
+}
+
 
 pub fn deserialize_state_transition_file(dir: &str, filename: &str) -> Result<ParsedTransitionFile, Box<dyn std::error::Error>> {
     

@@ -28,7 +28,6 @@ impl AssurancesExtrinsic {
         /*if self.assurances.is_empty() {
             return Ok(OutputDataAssurances { reported: Vec::new() });
         }*/
-
         // The assurances extrinsic is a sequence of assurance values, at most one per validator
         if self.assurances.len() > VALIDATORS_COUNT {
             return Err(ProcessError::AssurancesError(AssurancesErrorCode::TooManyAssurances));

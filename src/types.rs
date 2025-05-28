@@ -550,6 +550,11 @@ pub enum SafroleErrorCode {
     TicketNotMatch = 12,      
     // Seal key does not match
     KeyNotMatch = 13,        
+    InvalidRingVrfSignature = 14,
+    RingSignatureVerificationFail = 15,
+    InvalidIetffSignature = 16,
+    IetfSignatureVerificationFail = 17,
+    InvalidSignerKeyIndex = 18,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Disputes
@@ -875,7 +880,7 @@ pub struct Block {
 // ----------------------------------------------------------------------------------------------------------
 // Global state
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GlobalState {
     pub time: TimeSlot,
     pub availability: AvailabilityAssignments,

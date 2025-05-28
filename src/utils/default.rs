@@ -1,23 +1,46 @@
 use std::collections::VecDeque;
 use std::collections::{HashMap, HashSet};
 use std::array::from_fn;
+
 use crate::constants::{
     EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, NUM_PAGES, NUM_REG, PAGE_SIZE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT
 };
 use crate::types::{
-    Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, ActivityRecords, AssurancesExtrinsic, AuthPool, AuthPools, 
-    AuthQueues, AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, 
-    BandersnatchRingCommitment, BlockHistory, BlsPublic, CodeAuthorizer, CodeAuthorizers, Context, CoreActivityRecord, CoresStatistics, 
-    DeferredTransfer, DisputesExtrinsic, DisputesRecords, Ed25519Public, Entropy, EntropyPool, Extrinsic, GlobalState, GuaranteesExtrinsic, 
-    MemoryChunk, Metadata, OpaqueHash, Page, PageFlags, PageMap, PageTable, PreimagesExtrinsic, Privileges, Program, RamMemory, ReadyQueue, 
-    ReadyRecord, RefineContext, RefineLoad, ReportGuarantee, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServicesStatistics, 
-    ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot,
-    ValidatorData, ValidatorsData, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, WorkItem, ReportedWorkPackage, ServiceId, ImportSpec,
-    ExtrinsicSpec, ReportedPackage, ServiceItem, ServiceInfo, Verdict, Culprit, Fault, Ed25519Signature, Judgement
-};
+    Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, ActivityRecords, AssurancesExtrinsic, AuthPool, AuthPools, AuthQueues, AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, CodeAuthorizer, CodeAuthorizers, Context, CoreActivityRecord, CoresStatistics, Culprit, DeferredTransfer, DisputesExtrinsic, DisputesRecords, Ed25519Public, Ed25519Signature, Entropy, EntropyPool, Extrinsic, ExtrinsicSpec, Fault, GlobalState, GuaranteesExtrinsic, ImportSpec, Judgement, MemoryChunk, Metadata, OpaqueHash, Page, PageFlags, PageMap, PageTable, PreimagesExtrinsic, Privileges, Program, RamMemory, ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportGuarantee, ReportedPackage, ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, UnsignedHeader, ValidatorData, ValidatorsData, Verdict, WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult,
+    Header, Block, EpochMark,
+}
+;
 // ----------------------------------------------------------------------------------------------------------
 // Jam Types
 // ----------------------------------------------------------------------------------------------------------
+impl Default for Block {
+    fn default() -> Self {
+        Self { header: Header::default(), extrinsic: Extrinsic::default(), }
+    }
+}
+impl Default for Header {
+    fn default() -> Self {
+        Self {
+            unsigned: UnsignedHeader::default(),
+            seal: [0u8; 96],
+        }
+    }
+}
+impl Default for UnsignedHeader {
+    fn default() -> Self {
+        Self {
+            parent: OpaqueHash::default(),
+            parent_state_root: OpaqueHash::default(),
+            extrinsic_hash: OpaqueHash::default(),
+            slot: 0,
+            epoch_mark: None,
+            tickets_mark: None,
+            offenders_mark: Vec::new(),
+            author_index: 0,
+            entropy_source: [0u8; 96],
+        }
+    }
+}
 impl Default for Extrinsic {
     fn default() -> Self {
         Extrinsic {
@@ -469,7 +492,17 @@ impl Default for Safrole {
         }
     }
 }
-
+impl Default for EpochMark {
+    fn default() -> Self {
+        Self {
+            entropy: Entropy::default(),
+            tickets_entropy: Entropy::default(),
+            validators: Box::new(std::array::from_fn(|_| {
+                (BandersnatchPublic::default(), Ed25519Public::default())
+            }))
+        }
+    }
+}
 impl Default for BandersnatchEpoch {
     fn default() -> Self {
         Self {
