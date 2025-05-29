@@ -17,11 +17,17 @@
 // and a sequence of Bandersnatch keys defining the Bandersnatch validator keys (kb) beginning in 
 // the next epoch.
 use ark_vrf::suites::bandersnatch::Public;
+use crate::blockchain::state::get_state_root;
 use crate::blockchain::state::safrole::bandersnatch::Verifier;
 
-use crate::constants::EPOCH_LENGTH;
-use crate::types::{EntropyPool, Header, OpaqueHash, Safrole, SafroleErrorCode, TicketsOrKeys, TimeSlot, ValidatorsData, ProcessError};
-use crate::utils::codec::Encode;
+use crate::constants::{EPOCH_LENGTH, VALIDATORS_COUNT};
+use crate::types::{
+    EntropyPool, Header, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, TicketsOrKeys, TimeSlot, Extrinsic, 
+    ValidatorsData};
+use crate::utils::codec::{Encode, EncodeSize};
+use crate::utils::codec::generic::{encode_unsigned};
+
+use super::extrinsic;
 
 impl Header {
     // Sealing using the ticket is of greater security, and we utilize this knowledge when determining a candidate block
@@ -103,4 +109,104 @@ impl Header {
         Ok(entropy_source_vrf_output)
     }
 
+    pub fn verify(&self, extrinsic: &Extrinsic) -> Result<(), ProcessError> {
+
+        self.extrinsic_verify(extrinsic)?;
+        self.validator_index_verify()?;
+        self.offenders_verify(extrinsic)?;
+        // TODO verify parent state root
+        return Ok(());
+    }
+
+    pub fn offenders_verify(&self, extrinsic: &Extrinsic) -> Result<(), ProcessError> {
+        
+        //The offenders markers must contain exactly the keys of all new offenders, respectively
+        if self.unsigned.offenders_mark.encode() != [extrinsic.disputes.culprits.encode(), extrinsic.disputes.faults.encode()].concat() {
+            return Err(ProcessError::HeaderError(HeaderErrorCode::BadOffenders));
+        }
+
+        return Ok(());
+    }
+
+    pub fn state_root_verify(&self) -> Result<(), ProcessError> {
+
+        let parent_state_root = get_state_root();
+
+        if self.unsigned.parent_state_root != parent_state_root {
+            return Err(ProcessError::HeaderError(HeaderErrorCode::BadParentStateRoot));
+        }
+
+        return Ok(());
+    }
+
+    pub fn validator_index_verify(&self) -> Result<(), ProcessError> { 
+
+        if self.unsigned.author_index >= VALIDATORS_COUNT as u16 {
+            return Err(ProcessError::HeaderError(HeaderErrorCode::BadValidatorIndex));
+        }
+    
+        return Ok(());
+    }
+    
+
+    pub fn extrinsic_verify(&self, extrinsic: &Extrinsic) -> Result<(), ProcessError> {
+
+        let mut guarantees_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Self>() * extrinsic.guarantees.report_guarantee.len());
+        encode_unsigned(extrinsic.guarantees.report_guarantee.len()).encode_to(&mut guarantees_blob);
+
+        for guarantee in extrinsic.guarantees.report_guarantee.iter() {
+
+            sp_core::blake2_256(&guarantee.report.encode()).encode_to(&mut guarantees_blob);
+            guarantee.slot.encode_size(4).encode_to(&mut guarantees_blob);
+            encode_unsigned(guarantee.signatures.len()).encode_to(&mut guarantees_blob);
+
+            for signature in &guarantee.signatures {
+                signature.validator_index.encode_to(&mut guarantees_blob);
+                signature.signature.encode_to(&mut guarantees_blob);
+            }
+        }
+
+        let a = [sp_core::blake2_256(&extrinsic.tickets.encode()),
+                               sp_core::blake2_256(&extrinsic.preimages.encode()),
+                               sp_core::blake2_256(&guarantees_blob),
+                               sp_core::blake2_256(&extrinsic.assurances.encode()),
+                               sp_core::blake2_256(&extrinsic.disputes.encode())].concat();
+    
+        if self.unsigned.extrinsic_hash != sp_core::blake2_256(&a) {
+            return Err(ProcessError::HeaderError(HeaderErrorCode::BadExtrinsicHash));
+        }
+
+        println!("\nheader extrinsic expected: {:x?}", self.unsigned.extrinsic_hash );
+        println!("header extrinsic   result: {:x?}\n", sp_core::blake2_256(&a) );
+        return Ok(());
+    }
+
 }
+
+
+/*impl Encode for GuaranteesExtrinsicHeader {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut guarantees_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Self>() * self.report_guarantee.len());
+        encode_unsigned(self.report_guarantee.len()).encode_to(&mut guarantees_blob);
+
+        for guarantee in &self.report_guarantee {
+
+            guarantee.report.encode_to(&mut guarantees_blob);
+            guarantee.slot.encode_size(4).encode_to(&mut guarantees_blob);
+            encode_unsigned(guarantee.signatures.len()).encode_to(&mut guarantees_blob);
+
+            for signature in &guarantee.signatures {
+                signature.validator_index.encode_to(&mut guarantees_blob);
+                signature.signature.encode_to(&mut guarantees_blob);
+            }
+        }
+
+        return guarantees_blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode()); 
+    }
+}*/

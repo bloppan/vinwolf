@@ -9,6 +9,7 @@
 */
 
 use ark_vrf::{reexports::ark_serialize::CanonicalDeserialize, suites::bandersnatch::Public};
+use ark_vrf::suites::bandersnatch::RingProofParams;
 
 use crate::blockchain::state::safrole::bandersnatch::Verifier;
 
@@ -24,6 +25,7 @@ impl TicketsExtrinsic {
         safrole_state: &mut Safrole,
         entropy_state: &mut EntropyPool,
         post_tau: &TimeSlot,
+        ring_set: Vec<Public>,
     ) -> Result<(), ProcessError> {
         
         if self.tickets.is_empty() {
@@ -46,24 +48,7 @@ impl TicketsExtrinsic {
                 return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketAttempt));
             }
         }
-    
-        // Create a bandersnatch ring keys
-        let ring_keys: Vec<_> = safrole_state.pending_validators
-                                            .list
-                                            .iter()
-                                            .map(|validator| validator.bandersnatch.clone())
-                                            .collect();
-    
-        // Create a bandersnatch ring set 
-        let ring_set: Vec<Public> = ring_keys
-                                            .iter()
-                                            .map(|key| {
-                                                let point = Public::deserialize_compressed(&key[..])
-                                                .expect("Deserialization failed");
-                                                point
-                                            })
-                                            .collect();
-        
+            
         let verifier = Verifier::new(ring_set);
         let mut new_ticket_ids: Vec<OpaqueHash> = vec![];
         // Verify each ticket

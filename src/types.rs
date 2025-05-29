@@ -917,6 +917,7 @@ pub struct SerializedState {
 #[derive(Debug, PartialEq)]
 pub enum ProcessError {
     ReadError(ReadError),
+    HeaderError(HeaderErrorCode),
     SafroleError(SafroleErrorCode),
     DisputesError(DisputesErrorCode),
     ReportError(ReportErrorCode),
@@ -927,6 +928,15 @@ pub enum ProcessError {
 #[derive(Debug, Clone, PartialEq)]
 pub enum AccumulateErrorCode {
     ServiceConflict = 0,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum HeaderErrorCode {
+    BadParentStateRoot = 0,
+    BadValidatorIndex = 1,
+    BadBlockAuthor = 2,
+    BadExtrinsicHash = 3,
+    BadOffenders = 4,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Polkadot Virtual Machine

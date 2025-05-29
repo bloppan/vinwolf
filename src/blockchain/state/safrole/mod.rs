@@ -154,7 +154,7 @@ pub fn process(
         tickets_mark = Some(outside_in_sequencer(&safrole_state.ticket_accumulator));
     }
     // Process tickets extrinsic
-    tickets_extrinsic.process(safrole_state, entropy_pool, &post_tau)?;
+    tickets_extrinsic.process(safrole_state, entropy_pool, &post_tau, get_ring_set())?;
     
     // update tau which defines the most recent block's index
     *tau = post_tau;

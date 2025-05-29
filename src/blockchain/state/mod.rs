@@ -53,6 +53,8 @@ static STATE_ROOT: Lazy<Mutex<OpaqueHash>> = Lazy::new(|| {
 // dependency graph where possible. 
 pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
+    block.header.verify(&block.extrinsic)?;
+
     let mut new_state = get_global_state().lock().unwrap().clone();
     
     time::set_current_slot(&block.header.unsigned.slot);
@@ -75,7 +77,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &block.extrinsic.disputes,
     )?;
     
-    /*safrole::process(
+    safrole::process(
         &mut new_state.safrole,
         &mut new_state.entropy,
         &mut new_state.curr_validators,
@@ -83,7 +85,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &mut new_state.time,
         &block.header,
         &block.extrinsic.tickets,
-        &new_state.disputes.offenders)?;*/
+        &new_state.disputes.offenders)?;
 
     let new_available_workreports = reporting_assurance::process_assurances(
         &mut new_state.availability,

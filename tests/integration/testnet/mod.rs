@@ -85,10 +85,10 @@ mod tests {
         
         //run_jamduna_blocks_fuzzed("tests/test_vectors/testnet/jamtestnet/data/assurances/state_transitions_fuzzed/");
         
-        //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/orderedaccumulation");
+        run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/orderedaccumulation");
         //run_javajam_blocks("tests/test_vectors/testnet/javajam-trace/stf");
 
-        run_jamduna_blocks_disputes("tests/test_vectors/testnet/jamtestnet/data/disputes/state_transitions/");
+        //run_jamduna_blocks_disputes("tests/test_vectors/testnet/jamtestnet/data/disputes/state_transitions/");
     }
 
     fn decode_hex(json_str: &str) -> Vec<u8> {
