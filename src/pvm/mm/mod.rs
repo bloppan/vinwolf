@@ -17,7 +17,7 @@ impl RamMemory {
     pub fn is_readable(&self, from_address: RamAddress, num_bytes: RamAddress) -> bool {
 
         let from_page = from_address / PAGE_SIZE;
-        let to_page = (from_address + num_bytes - 1) / PAGE_SIZE;
+        let to_page = (from_address + num_bytes).saturating_sub(1) / PAGE_SIZE;
 
         self.page_access(from_page, to_page, RamAccess::Read)
     }
@@ -26,7 +26,7 @@ impl RamMemory {
         let mut bytes = Vec::new();
         //println!("Reading {} bytes from address {}", num_bytes, address);
         for i in start_address..start_address + num_bytes {
-            let page_target = i / PAGE_SIZE;
+            let page_target = (i % RamAddress::MAX) / PAGE_SIZE;
             let offset = i % PAGE_SIZE;
             bytes.push(self.pages[page_target as usize].as_ref().unwrap().data[offset as usize])
         }
@@ -36,7 +36,7 @@ impl RamMemory {
     pub fn is_writable(&self, from_address: RamAddress, num_bytes: RamAddress) -> bool {
 
         let from_page = from_address / PAGE_SIZE;
-        let to_page = (from_address + num_bytes - 1) / PAGE_SIZE;
+        let to_page = (from_address + num_bytes).saturating_sub(1) / PAGE_SIZE;
         
         self.page_access(from_page, to_page, RamAccess::Write)
     }

@@ -242,3 +242,30 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
 
     return (ExitReason::Continue, gas, reg, ram, account.unwrap());
 }
+
+pub fn log(reg: &Registers, ram: &RamMemory, service_id: &ServiceId) {
+
+    println!("Log hostcall");
+
+    let level = reg[7];
+    
+    let target_start_address = reg[8] as RamAddress;
+    let target_size = reg[9] as RamAddress;
+    
+    let msg_start_address = reg[10] as RamAddress;
+    let msg_size = reg[11] as RamAddress;
+
+    if !ram.is_readable(target_start_address, target_size) {
+        println!("Ram memory is not readable for target");
+    }
+
+    if !ram.is_readable(msg_start_address, msg_size) {
+        println!("Ram memory is not readable for message");
+    }
+
+    let target = ram.read(target_start_address, target_size);
+    let msg = ram.read(msg_start_address, msg_size);
+    let msg_str = String::from_utf8_lossy(&msg);
+    
+    println!(" \nLevel: {level} target: {:?} service: {service_id} msg: {:?}\n", target, msg_str);
+}

@@ -96,10 +96,10 @@ impl Header {
         let mut context = Vec::from(b"jam_entropy");
         seal_vrf_output.encode_to(&mut context);
         let entropy_source_vrf_result = verifier.ietf_vrf_verify(
-                                                                            &context,
-                                                                            &[],
-                                                                            &self.unsigned.entropy_source,
-                                                                            block_author);
+                                                                                &context,
+                                                                                &[],
+                                                                                &self.unsigned.entropy_source,
+                                                                                block_author);
 
         let entropy_source_vrf_output = match entropy_source_vrf_result {
             Ok(_) => entropy_source_vrf_result.unwrap(),

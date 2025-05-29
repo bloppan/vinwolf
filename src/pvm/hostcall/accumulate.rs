@@ -15,7 +15,7 @@ use crate::blockchain::state::{services::decode_preimage, entropy, time};
 use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
 use crate::utils::codec::{Encode, EncodeLen, EncodeSize, DecodeSize, BytesReader};
 use crate::utils::codec::generic::decode;
-use super::general_fn::{write, info, read, lookup};
+use super::general_fn::{write, info, read, lookup, log};
 
 pub fn invoke_accumulation(
     partial_state: AccumulationPartialState,
@@ -92,7 +92,11 @@ fn dispatch_acc(n: HostCallFn, mut gas: Gas, mut reg: Registers, ram: RamMemory,
             let account = get_accumulating_service_account(&ctx_x.partial_state, &ctx_x.service_id).unwrap();
             general_fn(lookup(gas, reg, ram, account, ctx_x.service_id, ctx_x.partial_state.service_accounts.clone()), (ctx_x, ctx_y))
         }
-        HostCallFn::Log      => { println!("ACCUMULATE: Log hostcall!"); (ExitReason::Continue, gas, reg, ram, ctx)},
+        HostCallFn::Log      => { 
+            let (ctx_x, _ctx_y) = ctx.clone().to_acc_ctx(); 
+            log(&reg, &ram, &ctx_x.service_id); 
+            (ExitReason::Continue, gas, reg, ram, ctx)
+        },
         _ => {
             gas -= 10;
             reg[7] = WHAT;
