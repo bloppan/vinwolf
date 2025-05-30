@@ -28,7 +28,7 @@ use {once_cell::sync::Lazy, sp_core::blake2_256, std::sync::Mutex};
 use crate::types::{
     AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesRecords, EntropyPool, GlobalState, 
     OpaqueHash, Privileges, ProcessError, ReadyQueue, Safrole, SerializedState, ServiceAccounts, ServiceInfo, StateKey, 
-    Statistics, TimeSlot, ValidatorSet, ValidatorsData
+    Statistics, TimeSlot, ValidatorSet, ValidatorsData, ReportedWorkPackages, ReportedWorkPackage
 };
 use crate::constants::{
     ACCUMULATION_HISTORY, AUTH_POOLS, AUTH_QUEUE, AVAILABILITY, CURR_VALIDATORS, DISPUTES, ENTROPY, NEXT_VALIDATORS, PREV_VALIDATORS, PRIVILEGES, 
@@ -59,11 +59,11 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
     time::set_current_slot(&block.header.unsigned.slot);
 
-    let mut reported_work_packages = Vec::new();
+    let mut reported_work_packages: ReportedWorkPackages = ReportedWorkPackages::default();
     for report in &block.extrinsic.guarantees.report_guarantee {
-        reported_work_packages.push((report.report.package_spec.hash, report.report.package_spec.exports_root));
+        reported_work_packages.0.push(ReportedWorkPackage{ hash: report.report.package_spec.hash, exports_root: report.report.package_spec.exports_root });
     }
-    reported_work_packages.sort_by_key(|(hash, _)| *hash);
+    reported_work_packages.0.sort_by_key(|pkg| pkg.hash);
 
     recent_history::process(
         &mut new_state.recent_history,

@@ -361,7 +361,8 @@ pub struct ReportedWorkPackage {
     pub exports_root: OpaqueHash,
 }
 
-pub type ReportedWorkPackages = Vec<(OpaqueHash, OpaqueHash)>;
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportedWorkPackages(pub Vec<ReportedWorkPackage>);
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockInfo {

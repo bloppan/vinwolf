@@ -7,9 +7,11 @@
 */
 use crate::constants::{CORES_COUNT, MAX_DEPENDENCY_ITEMS};
 use crate::types::{
-    AvailabilityAssignments, CoreIndex, EntropyPool, GuaranteesExtrinsic, Hash, OutputDataReports, ProcessError, ReportErrorCode, TimeSlot, ValidatorIndex, ValidatorsData
+    AvailabilityAssignments, CoreIndex, EntropyPool, GuaranteesExtrinsic, Hash, OutputDataReports, ProcessError, ReportErrorCode, TimeSlot, ValidatorIndex, 
+    ValidatorsData, OpaqueHash
 };
-use crate::blockchain::state::get_recent_history;
+use std::collections::{HashSet, HashMap};
+use crate::blockchain::state::{get_accumulation_history, get_ready_queue, get_recent_history, get_reporting_assurance};
 use crate::utils::common::is_sorted_and_unique;
 
 impl GuaranteesExtrinsic {
@@ -54,18 +56,43 @@ impl GuaranteesExtrinsic {
         let mut core_index: Vec<CoreIndex> = Vec::new();
         let recent_history = get_recent_history();
 
-        let packages_map: std::collections::HashMap<Hash, Hash> = self.report_guarantee
-                                                                    .iter()
-                                                                    .map(|g| 
-                                                                            (g.report.package_spec.hash, g.report.package_spec.exports_root))
-                                                                    .collect();
+        let packages_map: HashMap<Hash, Hash> = self.report_guarantee.iter()
+                                                                     .map(|g| (g.report.package_spec.hash, g.report.package_spec.exports_root))
+                                                                     .collect();
         
+        // We require that the work-package of the report not be the work-package of some other report made in the past.
+        // We ensure that the work-package not appear anywhere within our pipeline
+        let mut wp_hashes_in_our_pipeline: std::collections::HashSet<OpaqueHash> = HashSet::new();
+
         let recent_history_map: std::collections::HashMap<_, _> = recent_history.blocks
             .iter()
-            .flat_map(|blocks| blocks.reported_wp.iter())
-            .map(|report| (report.0, report.1))
+            .flat_map(|blocks| blocks.reported_wp.0.iter())
+            .map(|report| (report.hash, report.exports_root))
             .collect();
+
+        for hash in recent_history_map.iter() {
+            wp_hashes_in_our_pipeline.insert(hash.0.clone());
+        }
+
+        let acc_queue = get_ready_queue();
+        for epoch in acc_queue.queue.iter() {
+            for ready_record in epoch.iter() {
+                wp_hashes_in_our_pipeline.extend(ready_record.dependencies.clone());
+            }
+        }
         
+        let acc_history = get_accumulation_history();
+        for item in acc_history.queue.iter() {
+            wp_hashes_in_our_pipeline.extend(item.clone());
+        }
+
+        let assurance_state = get_reporting_assurance();
+        for item in assurance_state.list.iter() {
+            if let Some(assignment) = item {
+                wp_hashes_in_our_pipeline.extend(&assignment.report.context.prerequisites.clone());
+            }
+        }
+
         for guarantee in &self.report_guarantee {
        
             // The core index of each guarantee must be unique and guarantees must be in ascending order of this
@@ -90,17 +117,9 @@ impl GuaranteesExtrinsic {
             }
 
             // We require that the work-package of the report not be the work-package of some other report made in the past.
-            if recent_history_map.contains_key(&guarantee.report.package_spec.hash) {
-                return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
-            }
-
             // We ensure that the work-package not appear anywhere within our pipeline.
-            for i in 0..CORES_COUNT {
-                if let Some(assignment) = &assurances_state.list[i] {
-                    if assignment.report.package_spec.hash == guarantee.report.package_spec.hash {
-                        return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
-                    }
-                }
+            if wp_hashes_in_our_pipeline.contains(&guarantee.report.package_spec.hash) {
+                return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
             }
  
             // We require that the prerequisite work-packages, if present, be either in the extrinsic or in our recent history 
@@ -141,6 +160,7 @@ impl GuaranteesExtrinsic {
         }
     
         reported.sort_by_key(|report| report.work_package_hash);
+        reporters.sort();
         /*reported.sort_by(|a, b| a.work_package_hash.cmp(&b.work_package_hash));
         reporters.sort();*/
     

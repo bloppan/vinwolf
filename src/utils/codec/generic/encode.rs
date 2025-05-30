@@ -282,7 +282,7 @@ where T: Encode
         let mut blob = Vec::new();
 
         encode_unsigned(self.len()).encode_to(&mut blob);
-
+        
         for item in self.iter() {
             item.encode_to(&mut blob);
         }

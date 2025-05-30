@@ -8,7 +8,7 @@
 
 use sp_core::keccak_256;
 
-use crate::types::{BlockHistory, BlockInfo, Hash, Mmr, OpaqueHash};
+use crate::types::{BlockHistory, BlockInfo, Hash, Mmr, OpaqueHash, ReportedWorkPackages};
 use crate::constants::RECENT_HISTORY_SIZE;
 use crate::utils::trie::append;
 
@@ -16,7 +16,7 @@ pub fn process(
     recent_history_state: &mut BlockHistory,
     header_hash: &Hash, 
     parent_state_root: &Hash, 
-    reported_wp: &Vec<(OpaqueHash, OpaqueHash)>
+    reported_wp: &ReportedWorkPackages
 ) -> BlockHistory {
 
     let history_len = recent_history_state.blocks.len();
@@ -42,7 +42,7 @@ pub fn process(
 pub fn finalize(recent_history_state: &mut BlockHistory,
                                header_hash: &Hash, 
                                accumulate_root: &Hash, 
-                               work_packages: &Vec<(OpaqueHash, OpaqueHash)>
+                               work_packages: &ReportedWorkPackages
 ) {
     
     let history_len = recent_history_state.blocks.len();
@@ -76,7 +76,7 @@ fn add_new_block(
     mmr: &Mmr,
     accumulate_root: &Hash,
     state_root: &Hash,
-    work_packages: &Vec<(OpaqueHash, OpaqueHash)>,
+    work_packages: &ReportedWorkPackages,
 ) {
     // We define an item n comprising the new block's header hash, its accumulation-result Merkle tree root and the set
     // of work-reports made into it (for which we use the guarantees extrinsic).

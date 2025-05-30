@@ -7,7 +7,6 @@ impl Encode for WorkResult {
     fn encode(&self) -> Vec<u8> {
 
         let mut blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkResult>());
-
         self.service.encode_size(4).encode_to(&mut blob);
         self.code_hash.encode_to(&mut blob);
         self.payload_hash.encode_to(&mut blob);
@@ -18,7 +17,7 @@ impl Encode for WorkResult {
         if self.result[0] == 0 {
             let result_len = encode_unsigned(self.result.len() - 1);
             result_len.encode_to(&mut blob);
-            self.result[result_len.len()..].encode_to(&mut blob);
+            self.result[1..].encode_to(&mut blob);
         } 
         
         self.refine_load.encode_to(&mut blob);

@@ -1,5 +1,5 @@
 
-use vinwolf::utils::codec::{BytesReader, Decode, DecodeLen, Encode, ReadError};
+use vinwolf::utils::codec::{BytesReader, Decode, DecodeLen, EncodeLen, Encode, ReadError};
 use vinwolf::types::{
     AuthPools, AvailabilityAssignments, BlockHistory, CoresStatistics, EntropyPool, GuaranteesExtrinsic, Offenders, OutputDataReports, 
     ReportErrorCode, Services, TimeSlot, ValidatorsData, ServicesStatistics, Ed25519Public
@@ -61,7 +61,7 @@ impl Encode for WorkReportState {
         self.curr_validators.encode_to(&mut blob);
         self.prev_validators.encode_to(&mut blob);
         self.entropy.encode_to(&mut blob);
-        self.offenders.encode_to(&mut blob);
+        self.offenders.encode_len().encode_to(&mut blob);
         self.recent_blocks.encode_to(&mut blob);
         self.auth_pools.encode_to(&mut blob);
         self.services.encode_to(&mut blob);

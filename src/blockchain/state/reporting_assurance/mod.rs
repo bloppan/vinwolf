@@ -49,14 +49,14 @@ pub fn process_assurances(
 
 pub fn process_guarantees(
     assurances_state: &mut AvailabilityAssignments, 
-    guarantees: &GuaranteesExtrinsic, 
+    guarantees_extrinsic: &GuaranteesExtrinsic, 
     post_tau: &TimeSlot,
     entropy_pool: &EntropyPool,
     prev_validators: &ValidatorsData,
     curr_validators: &ValidatorsData) 
 -> Result<OutputDataReports, ProcessError> {
 
-    let output_data = guarantees.process(assurances_state, post_tau, entropy_pool, prev_validators, curr_validators)?;
+    let output_data = guarantees_extrinsic.process(assurances_state, post_tau, entropy_pool, prev_validators, curr_validators)?;
 
     Ok(OutputDataReports {
         reported: output_data.reported,

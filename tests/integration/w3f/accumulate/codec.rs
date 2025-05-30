@@ -1,6 +1,6 @@
 use vinwolf::types::{AccumulatedHistory, Entropy, PreimagesMapEntry, Privileges, ReadyQueue, ServiceId, ServiceInfo, TimeSlot, WorkReport};
 use vinwolf::utils::codec::generic::{decode_unsigned, encode_unsigned};
-use vinwolf::utils::codec::{BytesReader, Decode, DecodeLen, Encode, ReadError};
+use vinwolf::utils::codec::{BytesReader, Decode, DecodeLen, Encode, EncodeLen, ReadError};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccountTest {
@@ -113,7 +113,7 @@ impl Encode for InputAccumulate {
         let mut blob = Vec::new();
 
         self.slot.encode_to(&mut blob);
-        self.reports.encode_to(&mut blob);
+        self.reports.encode_len().encode_to(&mut blob);
 
         return blob;
     }

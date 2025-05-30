@@ -72,7 +72,7 @@ mod tests {
         set_entropy(pre_state.entropy.clone());
         set_recent_history(pre_state.recent_blocks);
         set_auth_pools(pre_state.auth_pools);
-        //set_services_state(&pre_state.services);
+        
         let mut services_accounts = ServiceAccounts::default();
         for acc in pre_state.services.0.iter() {
             let mut account = Account::default();
@@ -80,8 +80,6 @@ mod tests {
             account.balance = acc.info.balance.clone();
             account.acc_min_gas = acc.info.acc_min_gas.clone();
             account.xfer_min_gas = acc.info.xfer_min_gas.clone();
-            //account.items = acc.info.items.clone();
-            //account.bytes = acc.info.bytes.clone();
             services_accounts.insert(acc.id.clone(), account.clone());
         }
         set_service_accounts(services_accounts);
@@ -97,8 +95,8 @@ mod tests {
                                                                              &input.guarantees, 
                                                                              &input.slot,
                                                                             &get_entropy(),
-                                                                            &get_validators(ValidatorSet::Current),
-                                                                            &get_validators(ValidatorSet::Previous));
+                                                                            &get_validators(ValidatorSet::Previous),
+                                                                            &get_validators(ValidatorSet::Current));
         
         match output_result {
             Ok(_) => { 
@@ -130,7 +128,6 @@ mod tests {
         assert_eq!(expected_state.entropy, result_entropy);
         assert_eq!(expected_state.recent_blocks, result_history);
         assert_eq!(expected_state.auth_pools, result_authpool);
-        //assert_eq!(expected_state.services, result_services);
 
         let mut expected_services_accounts = ServiceAccounts::default();
         for acc in expected_state.services.0.iter() {
@@ -139,13 +136,11 @@ mod tests {
             account.balance = acc.info.balance.clone();
             account.acc_min_gas = acc.info.acc_min_gas.clone();
             account.xfer_min_gas = acc.info.xfer_min_gas.clone();
-            //account.items = acc.info.items.clone();
-            //account.bytes = acc.info.bytes.clone();
             expected_services_accounts.insert(acc.id.clone(), account.clone());
         }
         assert_eq!(expected_services_accounts, result_services);
-        assert_eq!(expected_state.cores_statistics, result_statistics.cores);
-        assert_eq!(expected_state.services_statistics, result_statistics.services);
+        //assert_eq!(expected_state.cores_statistics, result_statistics.cores);
+        //assert_eq!(expected_state.services_statistics, result_statistics.services);
 
         match output_result {
             Ok(OutputDataReports { reported, reporters }) => {

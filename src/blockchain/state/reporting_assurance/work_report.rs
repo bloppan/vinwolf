@@ -1,12 +1,11 @@
 use sp_core::blake2_256;
-use std::collections::HashMap;
+use std::collections::{HashSet, HashMap};
 
 use crate::types::{
-    AvailabilityAssignment, AvailabilityAssignments, CoreIndex, Ed25519Public, Entropy, EntropyPool, OutputDataReports, ReportErrorCode, 
-    ReportedPackage, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, WorkResult
+    AvailabilityAssignment, AvailabilityAssignments, CoreIndex, Ed25519Public, Entropy, EntropyPool, OpaqueHash, OutputDataReports, ReportErrorCode, ReportedPackage, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, WorkResult
 };
 use crate::constants::{ EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR };
-use crate::blockchain::state::{ ProcessError, get_auth_pools, get_recent_history, get_disputes };
+use crate::blockchain::state::{ get_accumulation_history, get_auth_pools, get_disputes, get_ready_queue, get_recent_history, get_reporting_assurance, ProcessError};
 use crate::blockchain::state::reporting_assurance::add_assignment;
 use crate::utils::trie::mmr_super_peak;
 use crate::utils::shuffle::shuffle;
@@ -56,8 +55,25 @@ impl WorkReport {
             return Err(ProcessError::ReportError(ReportErrorCode::BadLookupAnchorSlot));
         }
 
-        // TODO 11.36 
-        // TODO 11.37
+        // TODO 11.35
+        
+        // We require that the prerequisite work-packages, if present, and any work-packages mentioned in the segment-root lookup,
+        // be either in the extrinsic or in our recent history.
+        /*let mut wp_hashes_in_our_pipeline: HashSet<OpaqueHash> = HashSet::new();
+
+        let acc_queue = get_ready_queue();
+        for epoch in acc_queue.queue.iter() {
+            for ready_record in epoch.iter() {
+                wp_hashes_in_our_pipeline.extend(ready_record.dependencies.clone());
+            }
+        }
+        
+        let assurance_state = get_reporting_assurance();
+        for item in assurance_state.list.iter() {
+            if let Some(assignment) = item {
+                wp_hashes_in_our_pipeline.extend(&assignment.report.context.prerequisites);
+            }
+        }*/
 
         let OutputDataReports {
             reported: new_reported,
@@ -112,7 +128,7 @@ impl WorkReport {
         if assurances_state.list[self.core_index as usize].is_none() {
             // Each core has three validators uniquely assigned to guarantee work-reports for it. This is ensured with 
             // VALIDATORS_COUNT and CORES_COUNT, since V/C = 3. The core index is assigned to each of the validators, 
-            // and the validator's Ed25519 public keys are denoted as 'guarantors_assignments'.
+            // and the validator's Ed25519 public keys are denoted as 'assignments'.
             // We determine the core to which any given validator is assigned through a shuffle using epochal entropy 
             // and a periodic rotation to help guard the security and liveness of the network. We use η2 (entropy_index 2) 
             // for the epochal entropy rather than η1 to avoid the possibility of fork-magnification where uncertainty 
@@ -139,6 +155,7 @@ impl WorkReport {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadValidatorIndex));
                 }
                 let validator = &validators_data.list[credential.validator_index as usize];
+
                 if !credential.signature.verify_signature(&message, &validator.ed25519) {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadSignature));
                 }

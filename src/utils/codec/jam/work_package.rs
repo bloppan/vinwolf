@@ -1,4 +1,5 @@
-use crate::types::{Authorizer, Hash, RefineContext, ReportedWorkPackage, ServiceId, WorkItem, WorkPackage};
+use crate::types::{Authorizer, Hash, RefineContext, ReportedWorkPackage, ReportedWorkPackages, ServiceId, WorkItem, WorkPackage};
+use crate::utils::codec::generic::decode;
 use crate::utils::codec::{Encode, EncodeSize, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 
 impl Encode for WorkPackage {
@@ -49,6 +50,28 @@ impl Encode for ReportedWorkPackage {
 
     fn encode_to(&self, into: &mut Vec<u8>) {
         into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Encode for ReportedWorkPackages {
+
+    fn encode(&self) -> Vec<u8> {
+        let mut blob = Vec::new();
+
+        self.0.encode_to(&mut blob);
+
+        return blob;
+    }
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for ReportedWorkPackages {
+
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        
+        Ok( ReportedWorkPackages{0: Vec::<ReportedWorkPackage>::decode_len(reader)?})
     }
 }
 
