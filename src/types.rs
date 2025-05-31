@@ -630,11 +630,12 @@ pub enum DisputesErrorCode {
     BadJudgementAge = 11,
     BadValidatorIndex = 12,
     BadSignature = 13,
-    DisputeStateNotInitialized = 14,
-    NoVerdictsFound = 15,
-    AgesNotEqual = 16,
-    CulpritKeyNotFound = 17,
-    FaultKeyNotFound = 18,
+    BadGuarantoorKey = 14,
+    BadAuditorKey = 15,
+    NoVerdictsFound = 16,
+    AgesNotEqual = 17,
+    CulpritKeyNotFound = 18,
+    FaultKeyNotFound = 19,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Service Accounts

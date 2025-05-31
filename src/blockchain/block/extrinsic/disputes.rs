@@ -2,10 +2,11 @@ use sp_core::blake2_256;
 
 use crate::types::{
     AvailabilityAssignments, DisputesExtrinsic, DisputesRecords, Hash, DisputesErrorCode, OutputDataDisputes, Verdict, ProcessError, ValidatorSet,
+    Ed25519Public
 };
 use crate::constants::{EPOCH_LENGTH, ONE_THIRD_VALIDATORS, VALIDATORS_SUPER_MAJORITY};
-use crate::blockchain::state::{get_time, get_validators};
-use crate::utils::common::{VerifySignature, is_sorted_and_unique, has_duplicates};
+use crate::blockchain::state::{get_disputes, get_time, get_validators};
+use crate::utils::common::{has_duplicates, is_sorted_and_unique, set_offenders_null, VerifySignature};
 use crate::utils::codec::Encode;
 
 impl DisputesExtrinsic {
@@ -143,7 +144,7 @@ impl DisputesExtrinsic {
     } else {
         get_validators(ValidatorSet::Previous)
     };
-
+    
     // Offender signatures must be similarly valid and reference work-reports with judgemets and may not report
     // keys which are already in the punish-set
 
@@ -154,11 +155,11 @@ impl DisputesExtrinsic {
         if !is_in_bad {
             return Err(ProcessError::DisputesError(DisputesErrorCode::CulpritsVerdictNotBad));
         }
-        if !already_reported.contains(&culprit.key) {
+        /*if !already_reported.contains(&culprit.key) {
             if !validator_set.list.iter().any(|v| v.ed25519 == culprit.key) {
                 return Err(ProcessError::DisputesError(DisputesErrorCode::CulpritKeyNotFound));
             }
-        }
+        }*/
     }
     
     good_set.extend_from_slice(&new_records.good);
@@ -171,11 +172,11 @@ impl DisputesExtrinsic {
             return Err(ProcessError::DisputesError(DisputesErrorCode::FaultVerdictWrong));
         }
 
-        if !already_reported.contains(&fault.key) {
+        /*if !already_reported.contains(&fault.key) {
             if !validator_set.list.iter().any(|key| key.ed25519 == fault.key) {
                 return Err(ProcessError::DisputesError(DisputesErrorCode::FaultKeyNotFound));
             }
-        }
+        }*/
     }
 
     // Verify Ed25519 signatures
@@ -203,6 +204,23 @@ impl DisputesExtrinsic {
             }
         }
     }
+
+    let mut validators_ed25519: Vec<Ed25519Public> = validator_set.list.iter().map(|key| key.ed25519).collect();
+    let offenders: Vec<Ed25519Public> = get_disputes().offenders.clone();
+    validators_ed25519.retain(|ed25519_key| !offenders.contains(ed25519_key));
+
+    for culprit in &self.culprits {
+        if !validators_ed25519.contains(&culprit.key) {
+            return Err(ProcessError::DisputesError(DisputesErrorCode::BadGuarantoorKey));
+        }
+    }
+
+    for fault in &self.faults {
+        if !validators_ed25519.contains(&fault.key) {
+            return Err(ProcessError::DisputesError(DisputesErrorCode::BadAuditorKey));
+        }
+    }
+
     // Verify fault ed25519 signatures
     for fault in &self.faults {
         let mut message = Vec::new();

@@ -157,6 +157,12 @@ mod test {
             "progress_with_verdict_signatures_from_previous_set-2.bin",
             // Bad signature within the culprits sequence
             "progress_with_bad_signatures-2.bin",
+            // Invalidation of availability assignments
+            "progress_invalidates_avail_assignments-1.bin",
+            // Unexpected key found in the culprits sequence
+            "progress_with_invalid_keys-1.bin",
+            // Unexpected key found in the faults sequence
+            "progress_with_invalid_keys-2.bin",
         ];
         for file in test_files {
             println!("Running test: {}", file);

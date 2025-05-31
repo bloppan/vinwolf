@@ -99,11 +99,12 @@ impl Decode for OutputDisputes {
                 11 => DisputesErrorCode::BadJudgementAge,
                 12 => DisputesErrorCode::BadValidatorIndex,
                 13 => DisputesErrorCode::BadSignature,
-                14 => DisputesErrorCode::DisputeStateNotInitialized,
-                15 => DisputesErrorCode::NoVerdictsFound,
-                16 => DisputesErrorCode::AgesNotEqual,
-                17 => DisputesErrorCode::CulpritKeyNotFound,
-                18 => DisputesErrorCode::FaultKeyNotFound,
+                14 => DisputesErrorCode::BadGuarantoorKey,
+                15 => DisputesErrorCode::BadAuditorKey,
+                16 => DisputesErrorCode::NoVerdictsFound,
+                17 => DisputesErrorCode::AgesNotEqual,
+                18 => DisputesErrorCode::CulpritKeyNotFound,
+                19 => DisputesErrorCode::FaultKeyNotFound,
                 _ => return Err(ReadError::InvalidData),
             };
             Ok(OutputDisputes::Err(error))
