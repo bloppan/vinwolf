@@ -66,8 +66,8 @@ impl GuaranteesExtrinsic {
 
         let recent_history_map: std::collections::HashMap<_, _> = recent_history.blocks
             .iter()
-            .flat_map(|blocks| blocks.reported_wp.0.iter())
-            .map(|report| (report.hash, report.exports_root))
+            .flat_map(|blocks| blocks.reported_wp.iter())
+            .map(|report| (report.0, report.1))
             .collect();
 
         for hash in recent_history_map.iter() {

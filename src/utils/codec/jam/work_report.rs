@@ -23,6 +23,7 @@ impl Encode for WorkReport {
         self.segment_root_lookup.encode_len().encode_to(&mut work_report_blob);
         self.results.encode_len().encode_to(&mut work_report_blob);
         encode_unsigned(self.auth_gas_used as usize).encode_to(&mut work_report_blob);
+        
         return work_report_blob;
     }
 

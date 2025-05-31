@@ -361,8 +361,9 @@ pub struct ReportedWorkPackage {
     pub exports_root: OpaqueHash,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct ReportedWorkPackages(pub Vec<ReportedWorkPackage>);
+/*#[derive(Clone, Debug, PartialEq)]
+pub struct ReportedWorkPackages(pub Vec<ReportedWorkPackage>);*/
+pub type ReportedWorkPackages = Vec<(OpaqueHash, OpaqueHash)>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockInfo {
@@ -1127,3 +1128,19 @@ pub struct RefineMemory {
 
 // The set of data segments, equivalent to octet sequences of length WG.(4104)
 pub type DataSegment = [u8; SEGMENT_SIZE];
+
+
+pub type StorageKey = [u8; 31];
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct KeyValue {
+    pub key: StorageKey,
+    pub value: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawState {
+
+    pub state_root: StateRoot,
+    pub keyvals: Vec<KeyValue>,
+}

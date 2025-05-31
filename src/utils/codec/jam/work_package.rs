@@ -53,7 +53,7 @@ impl Encode for ReportedWorkPackage {
     }
 }
 
-impl Encode for ReportedWorkPackages {
+/*impl Encode for ReportedWorkPackages {
 
     fn encode(&self) -> Vec<u8> {
         let mut blob = Vec::new();
@@ -73,7 +73,7 @@ impl Decode for ReportedWorkPackages {
         
         Ok( ReportedWorkPackages{0: Vec::<ReportedWorkPackage>::decode_len(reader)?})
     }
-}
+}*/
 
 impl Decode for ReportedWorkPackage {
 

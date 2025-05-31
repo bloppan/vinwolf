@@ -11,7 +11,6 @@ pub mod accumulate;
 pub mod privileges;
 
 pub mod global_state;
-
 pub mod header;
 pub mod assurances;
 pub mod guarantees;

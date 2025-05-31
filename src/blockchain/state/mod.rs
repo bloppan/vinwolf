@@ -59,11 +59,11 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
     time::set_current_slot(&block.header.unsigned.slot);
 
-    let mut reported_work_packages: ReportedWorkPackages = ReportedWorkPackages::default();
+    let mut reported_work_packages = Vec::new();
     for report in &block.extrinsic.guarantees.report_guarantee {
-        reported_work_packages.0.push(ReportedWorkPackage{ hash: report.report.package_spec.hash, exports_root: report.report.package_spec.exports_root });
+        reported_work_packages.push((report.report.package_spec.hash, report.report.package_spec.exports_root));
     }
-    reported_work_packages.0.sort_by_key(|pkg| pkg.hash);
+    reported_work_packages.sort_by_key(|(hash, _)| *hash);
 
     recent_history::process(
         &mut new_state.recent_history,

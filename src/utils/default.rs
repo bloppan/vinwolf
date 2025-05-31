@@ -7,7 +7,7 @@ use crate::constants::{
 };
 use crate::types::{
     Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, ActivityRecords, AssurancesExtrinsic, AuthPool, AuthPools, AuthQueues, AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, CodeAuthorizer, CodeAuthorizers, Context, CoreActivityRecord, CoresStatistics, Culprit, DeferredTransfer, DisputesExtrinsic, DisputesRecords, Ed25519Public, Ed25519Signature, Entropy, EntropyPool, Extrinsic, ExtrinsicSpec, Fault, GlobalState, GuaranteesExtrinsic, ImportSpec, Judgement, MemoryChunk, Metadata, OpaqueHash, Page, PageFlags, PageMap, PageTable, PreimagesExtrinsic, Privileges, Program, RamMemory, ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportGuarantee, ReportedPackage, ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, UnsignedHeader, ValidatorData, ValidatorsData, Verdict, WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult,
-    Header, Block, EpochMark, ReportedWorkPackages
+    Header, Block, EpochMark, KeyValue
 }
 ;
 // ----------------------------------------------------------------------------------------------------------
@@ -239,13 +239,13 @@ impl Default for ExtrinsicSpec {
     }
 }
 
-impl Default for ReportedWorkPackages {
+/*impl Default for ReportedWorkPackages {
     fn default() -> Self {
         ReportedWorkPackages {
             0: Vec::new(),
         }
     }
-}
+}*/
 // ----------------------------------------------------------------------------------------------------------
 // Global State
 // ----------------------------------------------------------------------------------------------------------
@@ -280,6 +280,15 @@ impl Default for SerializedState {
     fn default() -> Self {
         SerializedState {
             map: HashMap::new(),
+        }
+    }
+}
+
+impl Default for KeyValue {
+    fn default() -> Self {
+        Self {
+            key: [0u8; 31],
+            value: Vec::new(),
         }
     }
 }

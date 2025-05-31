@@ -24,8 +24,8 @@ fn run_test(filename: &str) {
     let expected_post_state = BlockHistory::decode(&mut reader).expect("Error decoding post BlockHistory");
     
     let mut reported_work_packages = ReportedWorkPackages::default();
-    for report in &input.work_packages {
-        reported_work_packages.0.push(ReportedWorkPackage{ hash: report.hash, exports_root: report.exports_root });
+    for wp in &input.work_packages {
+        reported_work_packages.push((wp.hash, wp.exports_root));
     }
 
     set_recent_history(expected_pre_state.clone());

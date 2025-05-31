@@ -22,6 +22,7 @@ mod preimages;
 mod accumulate;
 mod pvm;
 mod host_function;
+mod traces;
 
 //mod jamtestnet;
 
