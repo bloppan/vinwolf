@@ -275,37 +275,6 @@ fn parallelized_accumulation(
     return Ok((result_partial_state, t_deferred_transfers, b_service_hash_pairs, u_gas_used));
 }
 
-fn preimage_integration(services: &ServiceAccounts, preimages: &[(ServiceId, Vec<u8>)]) -> ServiceAccounts {
-
-    let mut services_result = services.clone();
-
-    for pair in preimages.iter() {
-
-        if services.contains_key(&pair.0) { 
-                        
-            let timeslots = services.get(&pair.0)
-                                                       .unwrap()
-                                                       .lookup
-                                                       .get(&(sp_core::blake2_256(&pair.1), pair.1.len() as u32));
-            
-            if timeslots.is_none() || (timeslots.is_some() && timeslots.len() == 0) {
-
-                services_result.get_mut(&pair.0)
-                               .unwrap()
-                               .lookup
-                               .insert((sp_core::blake2_256(&pair.1), pair.1.len() as u32), vec![get_current_block_slot()]);
-                
-                services_result.get_mut(&pair.0)
-                               .unwrap()
-                               .preimages
-                               .insert(sp_core::blake2_256(&pair.1), pair.1.clone());
-            }
-        } 
-    }
-
-    return services_result;
-}
-
 fn single_service_accumulation(
     partial_state: AccumulationPartialState,
     reports: &[WorkReport],
@@ -364,6 +333,40 @@ fn get_acc_root(service_hash_pairs: &mut Vec<(ServiceId, OpaqueHash)>) -> Opaque
     println!("accumulation_root: {:x?}", accumulation_root);
 
     return accumulation_root;
+}
+
+// The preimage integration transforms a dictionary of service states and a set of service/hash pairs into a new 
+// dictionary of service states. Preimage provisions into services which no longer exist or whose relevant request
+// is dropped are disregarded.
+fn preimage_integration(services: &ServiceAccounts, preimages: &[(ServiceId, Vec<u8>)]) -> ServiceAccounts {
+
+    let mut services_result = services.clone();
+
+    for pair in preimages.iter() {
+
+        if services.contains_key(&pair.0) { 
+                        
+            let timeslots = services.get(&pair.0)
+                                                       .unwrap()
+                                                       .lookup
+                                                       .get(&(sp_core::blake2_256(&pair.1), pair.1.len() as u32));
+            
+            if timeslots.is_none() || (timeslots.is_some() && timeslots.len() == 0) {
+
+                services_result.get_mut(&pair.0)
+                               .unwrap()
+                               .lookup
+                               .insert((sp_core::blake2_256(&pair.1), pair.1.len() as u32), vec![get_current_block_slot()]);
+                
+                services_result.get_mut(&pair.0)
+                               .unwrap()
+                               .preimages
+                               .insert(sp_core::blake2_256(&pair.1), pair.1.clone());
+            }
+        } 
+    }
+
+    return services_result;
 }
 
 fn select_deferred_transfers(deferred_transfers: &[DeferredTransfer], to_service: &ServiceId) -> Vec<DeferredTransfer> {
