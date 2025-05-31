@@ -1,5 +1,4 @@
-use crate::types::{Authorizer, Hash, RefineContext, ReportedWorkPackage, ReportedWorkPackages, ServiceId, WorkItem, WorkPackage};
-use crate::utils::codec::generic::decode;
+use crate::types::{Authorizer, Hash, RefineContext, ReportedWorkPackage, ServiceId, WorkItem, WorkPackage};
 use crate::utils::codec::{Encode, EncodeSize, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 
 impl Encode for WorkPackage {

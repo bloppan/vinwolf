@@ -11,12 +11,13 @@ use parser::{deserialize_state_transition_file, deserialize_state};
 
 extern crate vinwolf;
 
-use vinwolf::types::{Block, GlobalState, OpaqueHash, EpochMark, Judgement, Verdict, Culprit, Fault, TicketsMark, Ed25519Public, TicketBody, AvailAssurance, TicketEnvelope};
+use vinwolf::types::{
+    Block, GlobalState, OpaqueHash, EpochMark, Judgement, Verdict, Culprit, Fault, TicketsMark, Ed25519Public, TicketBody, AvailAssurance, TicketEnvelope
+};
 use vinwolf::constants::{*};
 use vinwolf::blockchain::state::{get_global_state, state_transition_function};
 use vinwolf::blockchain::state::set_global_state;
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::utils::codec::generic::decode;
 
 use vinwolf::utils::trie::merkle_state;
 
@@ -70,7 +71,6 @@ pub fn read_test(filename: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> 
 mod tests {
 
     use super::*;
-    use ark_vrf::reexports::ark_std::iterable::Iterable;
     use serde_json::*;
 
     #[test]

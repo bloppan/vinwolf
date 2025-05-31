@@ -28,7 +28,7 @@ use {once_cell::sync::Lazy, sp_core::blake2_256, std::sync::Mutex};
 use crate::types::{
     AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesRecords, EntropyPool, GlobalState, 
     OpaqueHash, Privileges, ProcessError, ReadyQueue, Safrole, SerializedState, ServiceAccounts, ServiceInfo, StateKey, 
-    Statistics, TimeSlot, ValidatorSet, ValidatorsData, ReportedWorkPackages, ReportedWorkPackage
+    Statistics, TimeSlot, ValidatorSet, ValidatorsData, 
 };
 use crate::constants::{
     ACCUMULATION_HISTORY, AUTH_POOLS, AUTH_QUEUE, AVAILABILITY, CURR_VALIDATORS, DISPUTES, ENTROPY, NEXT_VALIDATORS, PREV_VALIDATORS, PRIVILEGES, 

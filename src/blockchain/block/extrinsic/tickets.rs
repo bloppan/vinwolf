@@ -8,8 +8,7 @@
     of valid tickets, each of which is a tuple of an entry index (a natural number less than N) and a proof of ticket validity.
 */
 
-use ark_vrf::{reexports::ark_serialize::CanonicalDeserialize, suites::bandersnatch::Public};
-use ark_vrf::suites::bandersnatch::RingProofParams;
+use ark_vrf::suites::bandersnatch::Public;
 
 use crate::blockchain::state::safrole::bandersnatch::Verifier;
 

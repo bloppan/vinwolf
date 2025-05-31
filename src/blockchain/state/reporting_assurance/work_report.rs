@@ -1,11 +1,12 @@
 use sp_core::blake2_256;
-use std::collections::{HashSet, HashMap};
+use std::collections::HashMap;
 
 use crate::types::{
-    AvailabilityAssignment, AvailabilityAssignments, CoreIndex, Ed25519Public, Entropy, EntropyPool, OpaqueHash, OutputDataReports, ReportErrorCode, ReportedPackage, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, WorkResult
+    AvailabilityAssignment, AvailabilityAssignments, CoreIndex, Ed25519Public, Entropy, EntropyPool, OutputDataReports, ReportErrorCode, 
+    ReportedPackage, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, WorkResult
 };
 use crate::constants::{ EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR };
-use crate::blockchain::state::{ get_accumulation_history, get_auth_pools, get_disputes, get_ready_queue, get_recent_history, get_reporting_assurance, ProcessError};
+use crate::blockchain::state::{ get_auth_pools, get_disputes, get_recent_history, ProcessError};
 use crate::blockchain::state::reporting_assurance::add_assignment;
 use crate::utils::trie::mmr_super_peak;
 use crate::utils::shuffle::shuffle;

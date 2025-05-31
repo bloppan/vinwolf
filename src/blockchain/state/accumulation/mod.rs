@@ -12,6 +12,8 @@
 */
 
 use std::collections::{HashSet, HashMap};
+use ark_vrf::reexports::ark_std::iterable::Iterable;
+
 use crate::constants::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT, CORES_COUNT};
 use crate::types::{
     AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, OpaqueHash, Privileges, 
@@ -160,6 +162,7 @@ fn parallelized_accumulation(
     let mut t_deferred_transfers: Vec<DeferredTransfer> = vec![];
     let mut n_service_accounts: ServiceAccounts = ServiceAccounts::default();
     let mut m_service_accounts = HashSet::new();
+    let mut p_preimages: Vec<(ServiceId, Vec<u8>)> = Vec::new();
 
     let mut d_services = partial_state.service_accounts.clone();
     
@@ -169,7 +172,8 @@ fn parallelized_accumulation(
         let (post_partial_state, 
             transfers, 
             service_hash, 
-            gas) = single_service_accumulation(partial_state, reports, service_gas_dict, service);
+            gas, 
+            preimages) = single_service_accumulation(partial_state, reports, service_gas_dict, service);
 
         partial_state = post_partial_state.clone();
         d_services = partial_state.service_accounts.clone();
@@ -179,7 +183,8 @@ fn parallelized_accumulation(
             b_service_hash_pairs.push((*service, hash));
         }
         t_deferred_transfers.extend(transfers);
-        
+        p_preimages.extend(preimages);
+
         d_services.remove(service);
         //let d_services_excluding_s = d_services.clone();
         let d_keys_excluding_s: HashSet<_> = d_services.iter().map(|key| *key.0).collect();
@@ -229,34 +234,39 @@ fn parallelized_accumulation(
     let (partial_state, 
         _transfers, 
         _service_hash, 
-        _gas) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &m_bless);
+        _gas,
+        _preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &m_bless);
 
     let post_privileges = partial_state.privileges.clone();
     
     let (partial_state, 
         _transfers, 
         _service_hash, 
-        _gas) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &v_designate);
+        _gas,
+        _preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &v_designate);
 
     let post_next_validators = partial_state.next_validators.clone();
 
     let (partial_state, 
         _transfers, 
         _service_hash, 
-        _gas) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &a_assign);
+        _gas, 
+        _preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &a_assign);
     
     let post_queues_auth = partial_state.queues_auth.clone();
 
     d_services.extend(n_service_accounts);
 
-    let result_services: HashMap<_, _> = d_services
+    let result_services: ServiceAccounts = d_services
                                             .iter()
                                             .filter(|(key, _)| !m_service_accounts.contains(key))
                                             .map(|(k, v)| (k.clone(), v.clone()))
                                             .collect();
 
+    let final_services = preimage_integration(&result_services, &p_preimages);
+
     let result_partial_state = AccumulationPartialState {
-        service_accounts: result_services,
+        service_accounts: final_services,
         next_validators: post_next_validators,
         queues_auth: post_queues_auth,
         privileges: post_privileges,
@@ -265,12 +275,43 @@ fn parallelized_accumulation(
     return Ok((result_partial_state, t_deferred_transfers, b_service_hash_pairs, u_gas_used));
 }
 
+fn preimage_integration(services: &ServiceAccounts, preimages: &[(ServiceId, Vec<u8>)]) -> ServiceAccounts {
+
+    let mut services_result = services.clone();
+
+    for pair in preimages.iter() {
+
+        if services.contains_key(&pair.0) { 
+                        
+            let timeslots = services.get(&pair.0)
+                                                       .unwrap()
+                                                       .lookup
+                                                       .get(&(sp_core::blake2_256(&pair.1), pair.1.len() as u32));
+            
+            if timeslots.is_none() || (timeslots.is_some() && timeslots.len() == 0) {
+
+                services_result.get_mut(&pair.0)
+                               .unwrap()
+                               .lookup
+                               .insert((sp_core::blake2_256(&pair.1), pair.1.len() as u32), vec![get_current_block_slot()]);
+                
+                services_result.get_mut(&pair.0)
+                               .unwrap()
+                               .preimages
+                               .insert(sp_core::blake2_256(&pair.1), pair.1.clone());
+            }
+        } 
+    }
+
+    return services_result;
+}
+
 fn single_service_accumulation(
     partial_state: AccumulationPartialState,
     reports: &[WorkReport],
     service_gas_dict: &HashMap<ServiceId, Gas>,
     service_id: &ServiceId,
-) -> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas)
+) -> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(ServiceId, Vec<u8>)>)
 {
     println!("\nsingle accumulation, service id: {}", *service_id);
     
@@ -288,6 +329,7 @@ fn single_service_accumulation(
                     payload_hash: result.payload_hash,
                     code_hash: report.package_spec.hash,
                     authorizer_hash: report.authorizer_hash,
+                    gas_limit: result.gas,
                 });
             }
         }

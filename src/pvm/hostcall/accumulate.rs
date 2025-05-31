@@ -1,3 +1,4 @@
+use log::debug;
 use std::collections::HashMap;
 use sp_core::blake2_256;
 
@@ -23,7 +24,7 @@ pub fn invoke_accumulation(
     service_id: &ServiceId,
     gas: Gas,
     operands: &[AccumulationOperand]
-) -> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas) {
+) -> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(ServiceId, Vec<u8>)>) {
     
     let preimage_code = if let Some(code) = partial_state
         .service_accounts
@@ -32,7 +33,7 @@ pub fn invoke_accumulation(
     {
         code
     } else {
-        return (partial_state.clone(), vec![], None, 0);
+        return (partial_state.clone(), vec![], None, 0, vec![]);
     };
     println!("Wrangled results: {:x?}", operands);
 
@@ -61,18 +62,22 @@ fn dispatch_acc(n: HostCallFn, mut gas: Gas, mut reg: Registers, ram: RamMemory,
     
     match n {
         HostCallFn::Gas         => pvm::hostcall::general_fn::gas(gas, reg, ram, ctx),
+        HostCallFn::Bless       => bless(gas, reg, ram, ctx),
         HostCallFn::Assign      => assign(gas, reg, ram, ctx),
+        HostCallFn::Designate   => designate(gas, reg, ram, ctx),
         HostCallFn::Checkpoint  => checkpoint(gas, reg, ram, ctx),
         HostCallFn::New         => new(gas, reg, ram, ctx),
-        HostCallFn::Yield       => yield_(gas, reg, ram, ctx),
-        HostCallFn::Bless       => bless(gas, reg, ram, ctx),
-        HostCallFn::Designate   => designate(gas, reg, ram, ctx),
         HostCallFn::Upgrade     => upgrade(gas, reg, ram, ctx),
         HostCallFn::Transfer    => transfer(gas, reg, ram, ctx),
         HostCallFn::Eject       => eject(gas, reg, ram, ctx, get_current_block_slot()),
         HostCallFn::Query       => query(gas, reg, ram, ctx),
         HostCallFn::Solicit     => solicit(gas, reg, ram, ctx, get_current_block_slot()),
         HostCallFn::Forget      => forget(gas, reg, ram, ctx, get_current_block_slot()),
+        HostCallFn::Yield       => yield_(gas, reg, ram, ctx),
+        HostCallFn::Provide     => {
+                                    let (ctx_x, _ctx_y) = ctx.clone().to_acc_ctx();
+                                    provide(gas, reg, ram, ctx, ctx_x.service_id)
+        }
         HostCallFn::Write => {
             let (ctx_x, ctx_y) = ctx.to_acc_ctx();
             let account = get_accumulating_service_account(&ctx_x.partial_state, &ctx_x.service_id).unwrap();
@@ -128,24 +133,24 @@ fn get_accumulating_service_account(partial_state: &AccumulationPartialState, se
 
 fn collapse(gas: Gas, output: WorkExecResult, ctx: HostCallContext) 
 
--> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas) 
+-> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(ServiceId, Vec<u8>)>) 
 {
     let (ctx_x, ctx_y) = ctx.to_acc_ctx();
 
     if let WorkExecResult::Error(_) = output {
         println!("WorkExecResult::Error: {:?}", output);
-        return (ctx_y.partial_state, ctx_y.deferred_transfers, ctx_y.y, gas);
+        return (ctx_y.partial_state, ctx_y.deferred_transfers, ctx_y.y, gas, ctx_y.preimages);
     }
 
     if let WorkExecResult::Ok(payload) = output {
         if payload.len() == std::mem::size_of::<OpaqueHash>() {
             println!("WorkExecResult::Ok: {:?}", payload);
-            return (ctx_x.partial_state, ctx_x.deferred_transfers, Some(payload.try_into().unwrap()), gas);
+            return (ctx_x.partial_state, ctx_x.deferred_transfers, Some(payload.try_into().unwrap()), gas, ctx_x.preimages);
         }
     }
 
     println!("Service HASH: {:x?}", ctx_x.y);
-    return (ctx_x.partial_state, ctx_x.deferred_transfers, ctx_x.y, gas);
+    return (ctx_x.partial_state, ctx_x.deferred_transfers, ctx_x.y, gas, ctx_x.preimages);
 }
 
 #[allow(non_snake_case)]
@@ -161,6 +166,7 @@ fn I(partial_state: &AccumulationPartialState, service_id: &ServiceId) -> Accumu
         index: i,
         deferred_transfers: vec![],
         y: None,
+        preimages: Vec::new(),
     };
 }
 
@@ -701,6 +707,64 @@ fn yield_(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
 
     ctx_x.y = Some(ram.read(start_address, 32).try_into().unwrap());
     reg[7] = OK;
+
+    return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+}
+
+fn provide(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext, service_id: ServiceId)
+
+-> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
+{
+    gas -= 10;
+
+    if gas < 0 {
+        return (ExitReason::OutOfGas, gas, reg, ram, ctx);
+    }
+
+    let start_address = reg[8] as RamAddress;
+    let size = reg[9] as RamAddress;
+
+    let id = if reg[7] == u64::MAX {
+        service_id
+    } else {
+        reg[7] as ServiceId
+    };
+
+    if !ram.is_readable(start_address, size) {
+        return (ExitReason::panic, gas, reg, ram, ctx);
+    }
+
+    let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
+
+    let account: Option<Account> = if ctx_x.partial_state.service_accounts.contains_key(&id) {
+        ctx_x.partial_state.service_accounts.get(&id).cloned()
+    } else {
+        None
+    };
+
+    if account.is_none() {
+        debug!("provide: WHO");
+        reg[7] = WHO;
+        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
+
+    let item = ram.read(start_address, size);
+
+    if account.unwrap().lookup.contains_key(&(sp_core::blake2_256(&item), size)) {
+        debug!("provide: HUH");
+        reg[7] = HUH;
+        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
+    
+    if ctx_x.preimages.contains(&(id, item.clone())) {
+        debug!("provide: HUH. preimages already contains id and item");
+        reg[7] = HUH;
+        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
+
+    ctx_x.preimages.push((id, item));
+    reg[7] = OK;
+    debug!("provide: OK");
 
     return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
 }

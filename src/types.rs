@@ -1109,6 +1109,7 @@ pub struct AccumulationContext {
     pub index: ServiceId,
     pub deferred_transfers: Vec<DeferredTransfer>,
     pub y: Option<OpaqueHash>,
+    pub preimages: Vec<(ServiceId, Vec<u8>)>,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccumulationOperand {
@@ -1117,6 +1118,7 @@ pub struct AccumulationOperand {
     pub authorizer_hash: OpaqueHash,
     pub auth_output: Vec<u8>,
     pub payload_hash: OpaqueHash,
+    pub gas_limit: Gas,
     pub result: Vec<u8>,
 }
 #[derive(Debug, Clone, PartialEq)]

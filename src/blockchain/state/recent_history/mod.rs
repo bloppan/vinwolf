@@ -8,7 +8,7 @@
 
 use sp_core::keccak_256;
 
-use crate::types::{BlockHistory, BlockInfo, Hash, Mmr, OpaqueHash, ReportedWorkPackages};
+use crate::types::{BlockHistory, BlockInfo, Hash, Mmr, ReportedWorkPackages};
 use crate::constants::RECENT_HISTORY_SIZE;
 use crate::utils::trie::append;
 
