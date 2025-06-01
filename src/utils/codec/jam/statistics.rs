@@ -195,7 +195,8 @@ impl Encode for ServicesStatisticsMapEntry {
     fn encode(&self) -> Vec<u8> {
         let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
 
-        encode_unsigned(self.id as usize).encode_to(&mut blob);
+        //encode_unsigned(self.id as usize).encode_to(&mut blob);
+        self.id.encode_to(&mut blob);
         self.record.encode_to(&mut blob);
 
         return blob;
@@ -211,7 +212,7 @@ impl Decode for ServicesStatisticsMapEntry {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
         
         Ok(ServicesStatisticsMapEntry {
-            id: decode_unsigned(blob)? as ServiceId,
+            id: ServiceId::decode(blob)?,
             record: SeviceActivityRecord::decode(blob)?,
         })
     }
