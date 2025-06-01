@@ -14,8 +14,10 @@
 // seen formally through the requirement of an intermediate state ρ‡.
 
 use crate::types::{
-    AssurancesExtrinsic, AvailabilityAssignment, AvailabilityAssignments, CoreIndex, EntropyPool, GuaranteesExtrinsic, Hash, OutputDataAssurances, OutputDataReports, TimeSlot, ValidatorsData
+    AssurancesExtrinsic, AvailabilityAssignment, AvailabilityAssignments, CoreIndex, DisputesRecords, EntropyPool, GuaranteesExtrinsic, 
+    Hash, OutputDataAssurances, OutputDataReports, TimeSlot, ValidatorsData,
 };
+use crate::utils::codec::Encode;
 use super::ProcessError;
 
 pub mod work_report;
@@ -64,3 +66,22 @@ pub fn process_guarantees(
     })
 }
 
+impl AvailabilityAssignments {
+
+    pub fn update_first_step(&mut self, disputes_state: &DisputesRecords) {
+        
+        // We clear any work-reports which we judged as uncertain or invalid from their core:
+        for assignment in self.list.iter_mut() {
+            if let Some(availability_assignment) = assignment {
+                // Calculate target hash
+                let target_hash = sp_core::blake2_256(&availability_assignment.report.encode());
+                // Check if the hash is contained in bad or wonky sets
+                if disputes_state.bad.contains(&target_hash)
+                    || disputes_state.wonky.contains(&target_hash)
+                {
+                    *assignment = None; // Set to None
+                }
+            }
+        }
+    }
+}

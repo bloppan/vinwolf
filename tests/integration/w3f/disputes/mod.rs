@@ -93,6 +93,7 @@ mod test {
                     assert_eq!(expected_output, OutputDisputes::Ok(OutputDataDisputes { offenders_mark }));
                 }
                 Err(error) => {
+                    //println!("error: {:?}", error);
                     assert_eq!(expected_output, OutputDisputes::from_process_error(error));
                 }
             }

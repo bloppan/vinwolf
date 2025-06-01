@@ -2,7 +2,6 @@ use serde::Deserialize;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
-use crate::integration::w3f::read_test_file;
 use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 pub mod codec;

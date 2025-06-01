@@ -636,6 +636,7 @@ pub enum DisputesErrorCode {
     AgesNotEqual = 17,
     CulpritKeyNotFound = 18,
     FaultKeyNotFound = 19,
+    BadVotesCount = 20,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Service Accounts
