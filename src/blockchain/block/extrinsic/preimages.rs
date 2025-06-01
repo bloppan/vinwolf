@@ -1,9 +1,58 @@
-// Preimages are static data which is presently being requested to be available for workloads to be able to 
-// fetch on demand. Prior to accumulation, we must first integrate all preimages provided in the lookup extrinsic. 
-
-use crate::types::{ProcessError, PreimagesExtrinsic, PreimagesErrorCode};
+/*
+    Preimages are static data which is presently being requested to be available for workloads to be able to 
+    fetch on demand. Prior to accumulation, we must first integrate all preimages provided in the lookup extrinsic. 
+ */
 
 use std::collections::HashSet;
+use crate::types::{TimeSlot, ServiceAccounts, ProcessError, PreimagesExtrinsic, PreimagesErrorCode};
+
+impl PreimagesExtrinsic {
+
+    pub fn process(
+        &self, 
+        services: 
+        &mut ServiceAccounts, 
+        post_tau: &TimeSlot) 
+    -> Result<(), ProcessError> {
+
+        // The lookup extrinsic is a sequence of pairs of service indices and data. These pairs must be ordered and 
+        // without duplicates.
+        let pairs = self.preimages.iter().map(|preimage| (preimage.requester, preimage.blob.clone())).collect::<Vec<_>>();
+        if has_duplicates(&pairs) {
+            return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
+        }
+        let pairs = pairs.iter().map(|(requester, blob)| (*requester, blob.as_slice())).collect::<Vec<_>>();
+        //println!("pairs: {:x?}", pairs);
+        if !is_sorted_preimages(&pairs) {
+            return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
+        }
+
+        for preimage in self.preimages.iter() {
+            let hash = sp_core::blake2_256(&preimage.blob);
+            let length = preimage.blob.len() as u32;
+            if services.contains_key(&preimage.requester) {
+                let account = services.get_mut(&preimage.requester).unwrap();
+                if account.preimages.contains_key(&hash) {
+                    return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
+                }
+                if let Some(timeslots) = account.lookup.get(&(hash, length)) {
+                    if timeslots.len() > 0 {
+                        return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
+                    }
+                } else {
+                    return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
+                }
+                account.preimages.insert(hash, preimage.blob.clone());
+                let timeslot_values = vec![post_tau.clone()];
+                account.lookup.insert((hash, length), timeslot_values);
+            } else {
+                return Err(ProcessError::PreimagesError(PreimagesErrorCode::RequesterNotFound));
+            }
+        }
+
+        Ok(())
+    }
+}
 
 fn has_duplicates<T: Eq + std::hash::Hash, U: Eq + std::hash::Hash>(tuples: &[(T, U)]) -> bool {
     let mut seen = HashSet::new();
@@ -30,50 +79,10 @@ fn is_sorted_preimages(preimages: &[(u32, &[u8])]) -> bool {
     })
 }
 
-
-impl PreimagesExtrinsic {
-
-    pub fn process(&self) -> Result<(), ProcessError> {
-
-        // The lookup extrinsic is a sequence of pairs of service indices and data. These pairs must be ordered and 
-        // without duplicates.
-        let pairs = self.preimages.iter().map(|preimage| (preimage.requester, preimage.blob.clone())).collect::<Vec<_>>();
-        if has_duplicates(&pairs) {
-            return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
-        }
-        let pairs = pairs.iter().map(|(requester, blob)| (*requester, blob.as_slice())).collect::<Vec<_>>();
-        //println!("pairs: {:x?}", pairs);
-        if !is_sorted_preimages(&pairs) {
-            return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
-        }
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    use crate::types::Preimage;
-
-    #[test]
-    fn test_preimages_extrinsic_process() {
-        let preimages = vec![
-            Preimage { requester: 0, blob: vec![1, 2, 3] },
-            Preimage { requester: 1, blob: vec![4, 5, 6] },
-            Preimage { requester: 2, blob: vec![7, 8, 9] },
-        ];
-        let preimages_extrinsic = PreimagesExtrinsic { preimages };
-        assert_eq!(preimages_extrinsic.process(), Ok(()));
-
-        let preimages = vec![
-            Preimage { requester: 0, blob: vec![1, 2, 3] },
-            Preimage { requester: 1, blob: vec![4, 5, 6] },
-            Preimage { requester: 0, blob: vec![7, 8, 9] },
-        ];
-        let preimages_extrinsic = PreimagesExtrinsic { preimages };
-        assert_eq!(preimages_extrinsic.process(), Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique)));
-    }
 
     #[test]
     fn test_has_duplicates() {
