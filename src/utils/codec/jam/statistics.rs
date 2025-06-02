@@ -230,7 +230,7 @@ impl Encode for ServicesStatistics {
         services_stats.sort_by_key(|(id, _)| *id);
         
         for (id, record) in services_stats.iter() {
-            encode_unsigned(*id as usize).encode_to(&mut blob);
+            id.encode_to(&mut blob);
             record.encode_to(&mut blob);
         }
 
@@ -250,7 +250,7 @@ impl Decode for ServicesStatistics {
         let mut map = ServicesStatistics::default();
         
         for _ in 0..len {
-            let id = decode_unsigned(blob)? as ServiceId;
+            let id = ServiceId::decode(blob)?;
             let record = SeviceActivityRecord::decode(blob)?;
             map.records.insert(id, record);
         }

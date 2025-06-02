@@ -1,6 +1,6 @@
 use once_cell::sync::Lazy;
 use crate::integration::w3f::{read_test_file, FromProcessError};
-//use crate::integration::w3f::codec::{TestBody, encode_decode_test};
+use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
 use vinwolf::types::{DisputesRecords, OutputDataReports, ValidatorSet, ProcessError, Statistics, Extrinsic, ServiceAccounts, Account};
@@ -44,20 +44,25 @@ mod tests {
     fn run_test(filename: &str) {
 
         let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/reports/{}/{}", *TEST_TYPE, filename));
-        /*let test_body: Vec<TestBody> = vec![
+        let test_body: Vec<TestBody> = vec![
                                         TestBody::InputWorkReport,
                                         TestBody::WorkReportState,
                                         TestBody::OutputWorkReport,
                                         TestBody::WorkReportState];
         
-        let _ = encode_decode_test(&test_content, &test_body);*/
+        let _ = encode_decode_test(&test_content, &test_body);
         
         let mut reader = BytesReader::new(&test_content);
-        let input = InputWorkReport::decode(&mut reader).expect("Error decoding post InputWorkReport");
-        let pre_state = WorkReportState::decode(&mut reader).expect("Error decoding post WorkReport PreState");
-        let expected_output = OutputWorkReport::decode(&mut reader).expect("Error decoding post OutputWorkReport");
-        let expected_state = WorkReportState::decode(&mut reader).expect("Error decoding post WorkReport PostState");
+        let input = InputWorkReport::decode(&mut reader).expect("Error decoding InputWorkReport");
+        let pre_state = WorkReportState::decode(&mut reader).expect("Error decoding WorkReport PreState");
+        let expected_output = OutputWorkReport::decode(&mut reader).expect("Error decoding OutputWorkReport");
+        let expected_state = WorkReportState::decode(&mut reader).expect("Error decoding WorkReport PostState");
       
+        /*println!("\ninput: {:x?}", input);
+        println!("\npre_state: {:x?}", pre_state);
+        println!("\nexpected_output: {:x?}", expected_output);
+        println!("\nexpected_output: {:x?}", expected_output);*/
+
         let disputes_state = DisputesRecords {
             good: vec![],
             bad: vec![],
@@ -138,9 +143,19 @@ mod tests {
             account.xfer_min_gas = acc.info.xfer_min_gas.clone();
             expected_services_accounts.insert(acc.id.clone(), account.clone());
         }
+        
         assert_eq!(expected_services_accounts, result_services);
-        //assert_eq!(expected_state.cores_statistics, result_statistics.cores);
-        //assert_eq!(expected_state.services_statistics, result_statistics.services);
+
+        for (i, core) in result_statistics.cores.records.iter().enumerate() {
+            assert_eq!(core.imports, result_statistics.cores.records[i].imports);
+            assert_eq!(core.exports, result_statistics.cores.records[i].exports);
+            assert_eq!(core.extrinsic_size, result_statistics.cores.records[i].extrinsic_size);
+            assert_eq!(core.extrinsic_count, result_statistics.cores.records[i].extrinsic_count);
+            assert_eq!(core.bundle_size, result_statistics.cores.records[i].bundle_size);  
+            assert_eq!(core.gas_used, result_statistics.cores.records[i].gas_used);
+        }
+        
+        assert_eq!(expected_state.services_statistics, result_statistics.services);
 
         match output_result {
             Ok(OutputDataReports { reported, reporters }) => {
@@ -198,7 +213,7 @@ mod tests {
             // Work report per core gas is very high, still less than the limit.
             "high_work_report_gas-1.bin",
             // Work report per core gas is too much high.
-            //"too_high_work_report_gas-1.bin",  ***************************************  REPORTAR A DAVXY por que refactoriza el gas en tiny
+            "too_high_work_report_gas-1.bin",  //***************************************  REPORTAR A DAVXY por que refactoriza el gas en tiny
             // Accumulate gas is below the service minimum.
             "service_item_gas_too_low-1.bin",
             // Work report has many dependencies, still less than the limit.
@@ -239,6 +254,7 @@ mod tests {
             "big_work_report_output-1.bin",
             // Work report output is size is over the limit.
             "too_big_work_report_output-1.bin",
+            "with_avail_assignments-1.bin",
         ];
         for file in test_files {
             println!("Running test: {}", file);

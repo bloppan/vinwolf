@@ -422,22 +422,22 @@ pub struct CoresStatistics {
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct SeviceActivityRecord {
-    // Number of segments imported from the DL by service for reported work.
-    pub imports: u32,               
-    // Total number of extrinsics used by service for reported work.
-    pub extrinsic_count: u32,       
-    // Total size of extrinsics used by service for reported work.
-    pub extrinsic_size: u32,        
-    // Number of segments exported into the DL by service for reported work.
-    pub exports: u32,               
+    // Number of preimages provided to this service
+    pub provided_count: u16,        
+    // Total size of preimages provided to this service.    
+    pub provided_size: u32,    
     // Number of work-items refined by service for reported work.
     pub refinement_count: u32,      
     // Amount of gas used for refinement by service for reported work.
     pub refinement_gas_used: u64,   
-    // Number of preimages provided to this service
-    pub provided_count: u16,        
-    // Total size of preimages provided to this service.    
-    pub provided_size: u32,         
+    // Number of segments imported from the DL by service for reported work.
+    pub imports: u32,   
+    // Number of segments exported into the DL by service for reported work.
+    pub exports: u32,       
+    // Total size of extrinsics used by service for reported work.
+    pub extrinsic_size: u32,       
+    // Total number of extrinsics used by service for reported work.
+    pub extrinsic_count: u32,       
     // Number of work-items accumulated by service.
     pub accumulate_count: u32,      
     // Amount of gas used for accumulation by service.

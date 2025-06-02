@@ -1,7 +1,10 @@
 # Work Reports STF Test Vectors
 
-Both JSON and SCALE formats conform to the JAM ASN.1 [schema](../jam-types-asn/jam-types.asn)
-and this subsystem STF specific [schema](./reports.asn).
+## Schema
+
+Both the binary and json formats adhere to the overarching JAM protocol ASN.1
+[schema](../jam-types-asn/jam-types.asn), as well as the specific vectors
+[schema](./reports.asn) defined for these test cases.
 
 ## Authorization Pools Management
 
@@ -11,6 +14,16 @@ authorization pools, which are read-only within the scope of this STF.
 Any update to the pools is delegated to the dedicated ["authorizations"](../authorizations/README.md)
 subsystem, which is tasked with removing consumed items from the authorization
 pools and introduce new authorizers from the authorization queue.
+
+## Statistics
+
+A subset of service ($π_S$) and core ($π_S$) activity statistics updated by the
+STF subsystem used to process these test vectors.
+
+In particular, for cores statistics we may update imports (i), exports (e),
+extrinsic_size (z), extrinsic_count (x), bundle_size (b), gas_used (u).
+For services statistics we may update refinement_count (r.0), refinement_gas_used (r.1),
+imports (i), exports (x), extrinsic_size (z), extrinsic_count (x).
 
 ## Tiny Vectors
 
