@@ -6,7 +6,7 @@ use crate::constants::{
     EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, NUM_PAGES, NUM_REG, PAGE_SIZE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT
 };
 use crate::types::{
-    Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, ActivityRecords, AssurancesExtrinsic, AuthPool, AuthPools, AuthQueues, AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, CodeAuthorizer, CodeAuthorizers, Context, CoreActivityRecord, CoresStatistics, Culprit, DeferredTransfer, DisputesExtrinsic, DisputesRecords, Ed25519Public, Ed25519Signature, Entropy, EntropyPool, Extrinsic, ExtrinsicSpec, Fault, GlobalState, GuaranteesExtrinsic, ImportSpec, Judgement, MemoryChunk, Metadata, OpaqueHash, Page, PageFlags, PageMap, PageTable, PreimagesExtrinsic, Privileges, Program, RamMemory, ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportGuarantee, ReportedPackage, ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, UnsignedHeader, ValidatorData, ValidatorsData, Verdict, WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult,
+    Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, ValidatorStatistics, AssurancesExtrinsic, AuthPool, AuthPools, AuthQueues, AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, CodeAuthorizer, CodeAuthorizers, Context, CoreActivityRecord, CoresStatistics, Culprit, DeferredTransfer, DisputesExtrinsic, DisputesRecords, Ed25519Public, Ed25519Signature, Entropy, EntropyPool, Extrinsic, ExtrinsicSpec, Fault, GlobalState, GuaranteesExtrinsic, ImportSpec, Judgement, MemoryChunk, Metadata, OpaqueHash, Page, PageFlags, PageMap, PageTable, PreimagesExtrinsic, Privileges, Program, RamMemory, ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportGuarantee, ReportedPackage, ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, UnsignedHeader, ValidatorData, ValidatorsData, Verdict, WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult,
     Header, Block, EpochMark, KeyValue, Preimage, PreimagesMapEntry 
 }
 ;
@@ -592,7 +592,7 @@ impl Default for ActivityRecord {
         }
     }
 }
-impl Default for ActivityRecords {
+impl Default for ValidatorStatistics {
     fn default() -> Self {
         Self {
             records: Box::new([ActivityRecord::default(); VALIDATORS_COUNT]),
@@ -656,8 +656,8 @@ impl Default for ServicesStatistics {
 impl Default for Statistics {
     fn default() -> Self {
         Self {
-            curr: ActivityRecords::default(),
-            prev: ActivityRecords::default(),
+            curr: ValidatorStatistics::default(),
+            prev: ValidatorStatistics::default(),
             cores: CoresStatistics::default(),
             services: ServicesStatistics::default(),
         }

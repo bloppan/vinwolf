@@ -20,7 +20,7 @@ use std::sync::Mutex;
 use std::collections::{HashMap, HashSet};
 
 use crate::types::{
-    ActivityRecords, CoresStatistics, Extrinsic, ServicesStatistics, SeviceActivityRecord, Statistics, TimeSlot, ValidatorIndex, 
+    ValidatorStatistics, CoresStatistics, Extrinsic, ServicesStatistics, SeviceActivityRecord, Statistics, TimeSlot, ValidatorIndex, 
     WorkReport, Gas, ServiceId
 };
 use super::*;
@@ -66,7 +66,7 @@ pub fn process(
         statistics.prev = statistics.curr.clone();
 
         // Reset the current record
-        statistics.curr = ActivityRecords::default();
+        statistics.curr = ValidatorStatistics::default();
     }
     // The number of blocks produced by the validator
     statistics.curr.records[*author_index as usize].blocks += 1;

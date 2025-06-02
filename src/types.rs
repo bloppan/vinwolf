@@ -394,7 +394,7 @@ pub struct ActivityRecord {
     pub assurances: u32,
 }
 #[derive(Clone, Debug, PartialEq)]
-pub struct ActivityRecords {
+pub struct ValidatorStatistics {
     pub records: Box<[ActivityRecord; VALIDATORS_COUNT]>,
 }
 #[derive(Clone, Debug, PartialEq)]
@@ -458,8 +458,8 @@ pub struct ServicesStatistics {
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct Statistics {
-    pub curr: ActivityRecords,
-    pub prev: ActivityRecords,
+    pub curr: ValidatorStatistics,
+    pub prev: ValidatorStatistics,
     pub cores: CoresStatistics,
     pub services: ServicesStatistics,
 }

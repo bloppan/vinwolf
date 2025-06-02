@@ -1,5 +1,5 @@
 use crate::types::{
-    ActivityRecord, ActivityRecords, CoreActivityRecord, Statistics, CoresStatistics, SeviceActivityRecord, ServicesStatisticsMapEntry,
+    ActivityRecord, ValidatorStatistics, CoreActivityRecord, Statistics, CoresStatistics, SeviceActivityRecord, ServicesStatisticsMapEntry,
     ServicesStatistics, ServiceId
 };
 use crate::utils::codec::{BytesReader, Decode, Encode, ReadError};
@@ -40,7 +40,7 @@ impl Decode for ActivityRecord {
     }
 }
 
-impl Encode for ActivityRecords {
+impl Encode for ValidatorStatistics {
     
     fn encode(&self) -> Vec<u8> {
 
@@ -58,11 +58,11 @@ impl Encode for ActivityRecords {
     }
 }
 
-impl Decode for ActivityRecords {
+impl Decode for ValidatorStatistics {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
         
-        let mut records= ActivityRecords::default();
+        let mut records= ValidatorStatistics::default();
 
         for record in records.records.iter_mut() {
             *record = ActivityRecord::decode(blob)?;
@@ -283,8 +283,8 @@ impl Decode for Statistics {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
         Ok(Statistics {
-            curr: ActivityRecords::decode(blob)?,
-            prev: ActivityRecords::decode(blob)?,
+            curr: ValidatorStatistics::decode(blob)?,
+            prev: ValidatorStatistics::decode(blob)?,
             cores: CoresStatistics::decode(blob)?,
             services: ServicesStatistics::decode(blob)?,
         })
