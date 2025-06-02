@@ -155,7 +155,7 @@ impl Encode for AccumulationOperand {
         self.code_hash.encode_to(&mut blob);
         self.exports_root.encode_to(&mut blob);
         self.authorizer_hash.encode_to(&mut blob);
-        self.auth_output.as_slice().encode_len().encode_to(&mut blob);
+        self.auth_output.encode_len().encode_to(&mut blob);
         self.payload_hash.encode_to(&mut blob);
         //self.result.encode_to(&mut blob);
         self.result[0].encode_to(&mut blob);

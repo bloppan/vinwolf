@@ -5,7 +5,7 @@ use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 pub mod codec;
 use codec::{InputAccumulate, StateAccumulate};
 
-use vinwolf::types::{EntropyPool, ServiceAccounts, OutputAccumulation, Account};
+use vinwolf::types::{EntropyPool, ServiceAccounts, OutputAccumulation, Account, Statistics};
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH};
 use vinwolf::blockchain::state::{
     set_service_accounts, set_entropy, set_time, get_global_state, set_accumulation_history, set_privileges, set_ready_queue
@@ -50,11 +50,15 @@ mod tests {
         let mut entropy = EntropyPool::default();
         entropy.buf[0] = pre_state.entropy;
         set_entropy(entropy);
+
+        /*let mut statistics = Statistics::default();
+        statistics.*/
+
         set_time(pre_state.slot.clone());
         set_ready_queue(pre_state.ready.clone());
         set_accumulation_history(pre_state.accumulated.clone());
         set_privileges(pre_state.privileges.clone());
-
+        
         let mut service_accounts = ServiceAccounts::default();
         for account in pre_state.accounts.iter() {
             let mut new_account = Account::default();
@@ -110,8 +114,8 @@ mod tests {
         }
 
         match output_accumulation { 
-            Ok((_accumulation_root, _a, _b, _c, _d)) => {
-                //assert_eq!(expected_output, accumulation_root); // TODO arreglar esto
+            Ok((accumulation_root, _a, _b, _c, _d)) => {
+                assert_eq!(_expected_output, OutputAccumulation::Ok(accumulation_root)); 
             },
             Err(_) => {
                 
@@ -187,6 +191,7 @@ mod tests {
             "ready_queue_editing-2.bin",
             // One report unlocks reports in the ready-queue.
             "ready_queue_editing-3.bin",
+            "same_code_different_services-1.bin",
         ];
         for file in test_files {
             println!("Running test: {}", file);

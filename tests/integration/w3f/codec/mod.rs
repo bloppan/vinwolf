@@ -118,6 +118,8 @@ impl<'a, 'b> TestContext<'a, 'b> {
             println!("\n\nResult encoded: \n\n {:0x?}\n\n", encoded_part);
         }
 
+        //println!("part_name: {}", part_name);
+
         assert_eq!(
             &self.blob[self.global_position..end_position],
             &encoded_part
