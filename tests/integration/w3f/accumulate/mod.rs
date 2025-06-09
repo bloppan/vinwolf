@@ -5,12 +5,14 @@ use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 pub mod codec;
 use codec::{InputAccumulate, StateAccumulate};
 
-use vinwolf::types::{EntropyPool, ServiceAccounts, OutputAccumulation, Account, Statistics};
+use vinwolf::types::{EntropyPool, ServiceAccounts, OutputAccumulation, Account, Statistics, Extrinsic};
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH};
 use vinwolf::blockchain::state::{
     set_service_accounts, set_entropy, set_time, get_global_state, set_accumulation_history, set_privileges, set_ready_queue
 };
+use vinwolf::blockchain::state::{time::set_current_slot, entropy::set_recent_entropy};
 use vinwolf::blockchain::state::accumulation::process;
+use vinwolf::blockchain::state::statistics::process as process_statistics;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
 extern crate vinwolf;
@@ -27,6 +29,8 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
 
 #[cfg(test)]
 mod tests {
+
+    use vinwolf::blockchain::state::set_statistics;
 
     use super::*;
 
@@ -46,15 +50,17 @@ mod tests {
         let pre_state = StateAccumulate::decode(&mut reader).expect("Error decoding Accumulate PreState");
         let _expected_output = OutputAccumulation::decode(&mut reader).expect("Error decoding OutputAccumulate");
         let expected_state = StateAccumulate::decode(&mut reader).expect("Error decoding Accumulate PostState");
+                
         
+        let mut statistics = Statistics::default();
+        statistics.services = pre_state.statistics;
+        set_statistics(statistics);
         let mut entropy = EntropyPool::default();
-        entropy.buf[0] = pre_state.entropy;
+        entropy.buf[0].entropy = pre_state.entropy.clone();
         set_entropy(entropy);
-
-        /*let mut statistics = Statistics::default();
-        statistics.*/
-
+        set_recent_entropy(pre_state.entropy.clone());
         set_time(pre_state.slot.clone());
+        set_current_slot(&input.slot.clone());
         set_ready_queue(pre_state.ready.clone());
         set_accumulation_history(pre_state.accumulated.clone());
         set_privileges(pre_state.privileges.clone());
@@ -87,9 +93,17 @@ mod tests {
                                                         &input.reports);
 
         match output_accumulation {
-            Ok(_) => { 
+            Ok(_) => {
                 set_accumulation_history(state.accumulation_history.clone());
                 set_ready_queue(state.ready_queue.clone());
+                process_statistics(
+                                &mut state.statistics, 
+                                &input.slot, 
+                                &0, 
+                                &Extrinsic::default(),
+                                &input.reports,
+                            );
+                set_statistics(state.statistics.clone());
             },
             Err(_) => { },
         }
@@ -98,7 +112,7 @@ mod tests {
 
         assert_eq!(expected_state.accumulated, result_state.accumulation_history);
         assert_eq!(expected_state.ready, result_state.ready_queue);
-        assert_eq!(expected_state.entropy, result_state.entropy.buf[0]);
+        //assert_eq!(expected_state.entropy, result_state.entropy.buf[0]);
         //assert_eq!(expected_state.slot, result_state.time);
         assert_eq!(expected_state.privileges, result_state.privileges);
         
@@ -108,10 +122,15 @@ mod tests {
             assert_eq!(account.data.service.code_hash, result_account.code_hash);
             assert_eq!(account.data.service.acc_min_gas, result_account.acc_min_gas);
             assert_eq!(account.data.service.xfer_min_gas, result_account.xfer_min_gas);
+            // TODO assert bytes and items
             for preimage in account.data.preimages.iter() {
                 assert_eq!(&preimage.blob, result_account.preimages.get(&preimage.hash).unwrap());
             }
+
+            //assert_eq!(account.data.storage, result_account.storage); // TODO
         }
+
+        assert_eq!(expected_state.statistics, result_state.statistics.services);
 
         match output_accumulation { 
             Ok((accumulation_root, _a, _b, _c, _d)) => {

@@ -15,7 +15,7 @@ use crate::constants::{
 use crate::blockchain::state::{services::decode_preimage, entropy, time};
 use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
 use crate::utils::codec::{Encode, EncodeLen, EncodeSize, DecodeSize, BytesReader};
-use crate::utils::codec::generic::decode;
+use crate::utils::codec::generic::{encode_unsigned, decode};
 use super::general_fn::{write, info, read, lookup, log};
 
 pub fn invoke_accumulation(
@@ -37,8 +37,10 @@ pub fn invoke_accumulation(
     };
     println!("Wrangled results: {:x?}", operands);
 
-    let args = [slot.encode(), service_id.encode(), operands.encode_len()].concat();
-
+    //let args = [slot.encode(), service_id.encode(), operands.encode_len()].concat();
+    println!("slot: {:?}, service_id: {:?}", *slot, *service_id);
+    let args = [encode_unsigned(*slot as usize), encode_unsigned(*service_id as usize), operands.encode_len()].concat();
+    println!("args: {:x?}", args);
     let preimage_data = decode_preimage(&preimage_code).unwrap(); // TODO handle error
 
     let hostcall_arg_result = hostcall_argument(
@@ -156,7 +158,8 @@ fn collapse(gas: Gas, output: WorkExecResult, ctx: HostCallContext)
 #[allow(non_snake_case)]
 fn I(partial_state: &AccumulationPartialState, service_id: &ServiceId) -> AccumulationContext {
 
-    let encoded = [service_id.encode(), entropy::get_recent_entropy().encode(), time::get_current_block_slot().encode()].concat();
+    //let encoded = [service_id.encode(), entropy::get_recent_entropy().encode(), time::get_current_block_slot().encode()].concat();
+    let encoded = [encode_unsigned(*service_id as usize), entropy::get_recent_entropy().encode(), encode_unsigned(time::get_current_block_slot() as usize)].concat();
     let payload = ((OpaqueHash::decode_size(&mut BytesReader::new(&blake2_256(&encoded)), 4).unwrap() % ((1 << 32) - (1 << 9))) + (1 << 8)) as ServiceId;
     let i = check(&partial_state, &payload);
 

@@ -1,5 +1,5 @@
 use crate::constants::{NUM_PAGES, PAGE_SIZE, LOWEST_ACCESIBLE_PAGE};
-use crate::types::{RamMemory, RamAddress, RamAccess};
+use crate::types::{RamMemory, RamAddress, RamAccess, Page};
 pub mod program_init;
 
 impl RamMemory {
@@ -19,7 +19,7 @@ impl RamMemory {
         let from_page = from_address / PAGE_SIZE;
         let to_page = (from_address + num_bytes).saturating_sub(1) / PAGE_SIZE;
 
-        self.page_access(from_page, to_page, RamAccess::Read)
+        self.access_page(from_page, to_page, RamAccess::Read)
     }
 
     pub fn read(&self, start_address: RamAddress, num_bytes: RamAddress) -> Vec<u8> {
@@ -38,7 +38,7 @@ impl RamMemory {
         let from_page = from_address / PAGE_SIZE;
         let to_page = (from_address + num_bytes).saturating_sub(1) / PAGE_SIZE;
         
-        self.page_access(from_page, to_page, RamAccess::Write)
+        self.access_page(from_page, to_page, RamAccess::Write)
     }
 
     pub fn write(&mut self, start_address: RamAddress, bytes: Vec<u8>) {
@@ -50,13 +50,13 @@ impl RamMemory {
         }
     }
 
-    fn page_access(&self, from_page: RamAddress, to_page: RamAddress, access: RamAccess) -> bool {
+    fn access_page(&self, from_page: RamAddress, to_page: RamAddress, access: RamAccess) -> bool {
 
         for page in from_page..=to_page {
 
             // Check if the page is in the range of the highest inaccessible page (0xFFFF0000)
             if (page % NUM_PAGES) < LOWEST_ACCESIBLE_PAGE {
-                println!("Page target out of bounds");
+                println!("Page target {:?} out of bounds", page);
                 // TODO
                 return false;
             }
@@ -68,12 +68,34 @@ impl RamMemory {
                 }
             } else {
                 // TODO page fault
+                println!("page_fault: page {:?}", page);
                 return false;
             }
         }
 
         return true;
     }
+
+    pub fn allocate_pages(&mut self, from_page: RamAddress, count: RamAddress) -> bool {
+
+        let to_page = from_page + count;
+
+        /*if !self.access_page(from_page, to_page, RamAccess::Write) {
+                println!("allocate page: no access from_page {:?} to_page {:?}", from_page, to_page);
+                return false;
+        }*/
+
+        for page in from_page..=to_page {
+            println!("allocate page: {:?}", page);
+            let mut new_page = Some(Page::default());
+            new_page.as_mut().unwrap().flags.access.insert(RamAccess::Write);
+            new_page.as_mut().unwrap().flags.access.insert(RamAccess::Read);
+            self.pages[(page % NUM_PAGES) as usize] = new_page;
+        }
+
+        return true;
+    }   
+
 }
 
 

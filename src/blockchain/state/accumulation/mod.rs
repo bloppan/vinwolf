@@ -52,7 +52,7 @@ pub fn process(
     let current_block_accumulatable = get_current_block_accumulatable(new_available_reports, ready_queue, accumulated_history, post_tau);
 
     let partial_state = AccumulationPartialState {
-        service_accounts: service_accounts,
+        service_accounts,
         next_validators,
         queues_auth,
         privileges,

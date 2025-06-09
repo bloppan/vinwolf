@@ -121,8 +121,10 @@ fn R(gas: Gas, hostcall_result: (ExitReason, RegSize, Gas, Registers, RamMemory,
     if exit_reason == ExitReason::Halt || exit_reason == ExitReason::halt { // TODO cambiar esto
         if post_ram.is_readable(start_address, bytes_to_read) {
             let data = post_ram.read(start_address, post_reg[8] as u32);
+            println!("ram is readable after halt");
             return (gas_consumed, WorkExecResult::Ok(data), post_ctx);
         } else {
+            println!("ram not readable after halt");
             return (gas_consumed, WorkExecResult::Ok(vec![]), post_ctx);
         }
     }   

@@ -43,12 +43,12 @@ impl Decode for ProgramFormat {
         
         let o_len = Vec::<u8>::decode_size(blob, 3)?;
         let w_len = Vec::<u8>::decode_size(blob, 3)?;
-        let z = u16::decode(blob)?;
-        let s = Vec::<u8>::decode_size(blob, 3)?;
-        let o = blob.read_bytes(o_len as usize)?.to_vec();
-        let w = blob.read_bytes(w_len as usize)?.to_vec();
+        let code_size = u16::decode(blob)?;
+        let stack = Vec::<u8>::decode_size(blob, 3)?;
+        let ro_data = blob.read_bytes(o_len as usize)?.to_vec();
+        let rw_data = blob.read_bytes(w_len as usize)?.to_vec();
         let c_len = u32::decode(blob)?;
-        let c = blob.read_bytes(c_len as usize)?.to_vec();
+        let code = blob.read_bytes(c_len as usize)?.to_vec();
         
         /*println!("\no_len = {}", o_len);
         println!("w_len = {}", w_len);
@@ -66,11 +66,11 @@ impl Decode for ProgramFormat {
         }*/
 
         return Ok(ProgramFormat {
-            c: c.to_vec(),
-            o: o.to_vec(),
-            w: w.to_vec(),
-            z: z as u16,
-            s: s as u32,
+            code: code.to_vec(),
+            ro_data: ro_data.to_vec(),
+            rw_data: rw_data.to_vec(),
+            code_size: code_size as u16,
+            stack: stack as u32,
         });
     }
 }

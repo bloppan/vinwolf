@@ -964,11 +964,7 @@ pub struct Context {
 #[derive(Debug, Clone, PartialEq)]
 pub struct RamMemory {
     pub pages: Box<[Option<Page>]>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct PageTable {
-    pub pages: HashMap<PageNumber, Page>,
+    pub curr_heap_pointer: RamAddress,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1078,11 +1074,11 @@ pub struct StandardProgram {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProgramFormat {
-    pub c: Vec<u8>,
-    pub o: Vec<u8>,
-    pub w: Vec<u8>,
-    pub z: u16,
-    pub s: u32,
+    pub code: Vec<u8>,
+    pub ro_data: Vec<u8>,
+    pub rw_data: Vec<u8>,
+    pub code_size: u16,
+    pub stack: u32,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccumulationPartialState {

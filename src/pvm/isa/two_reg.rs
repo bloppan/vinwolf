@@ -3,7 +3,9 @@
 */
 
 use std::cmp::min;
-use crate::types::{RegSize, Context, Program, ExitReason};
+use crate::constants::PAGE_SIZE;
+use crate::pvm::mm::program_init;
+use crate::types::{Context, ExitReason, Program, RamAddress, RegSize};
 use crate::pvm::isa::skip;
 use crate::pvm::isa::{signed, unsigned};
 
@@ -16,6 +18,32 @@ fn get_reg(pc: &u64, code: &[u8]) -> (u8, u8) {
 pub fn move_reg(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let (reg_a, reg_d) = get_reg(&pvm_ctx.pc, &program.code);
     pvm_ctx.reg[reg_d as usize] = pvm_ctx.reg[reg_a as usize];
+    pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
+    ExitReason::Continue
+}
+
+pub fn sbrk(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
+    let (reg_a, reg_d) = get_reg(&pvm_ctx.pc, &program.code);
+    let value_a = pvm_ctx.reg[reg_a as usize];
+    if value_a == 0 {
+        pvm_ctx.reg[reg_d as usize] = pvm_ctx.ram.curr_heap_pointer as RegSize;
+        pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
+        return ExitReason::Continue;
+    }
+    //let result = pvm_ctx.ram.curr_heap_pointer as RegSize;
+
+    let next_page_boundary = program_init::page(pvm_ctx.ram.curr_heap_pointer as usize) as RamAddress;
+    let new_heap_pointer = pvm_ctx.ram.curr_heap_pointer + value_a as RamAddress;
+
+    if new_heap_pointer > next_page_boundary {
+        let final_boundary = program_init::page(new_heap_pointer as usize) as RamAddress;
+        let idx_start = next_page_boundary / PAGE_SIZE;
+        let idx_end = final_boundary / PAGE_SIZE;
+        let page_count = idx_end - idx_start;    
+        pvm_ctx.ram.allocate_pages(idx_start, page_count);
+    }
+    
+    pvm_ctx.ram.curr_heap_pointer = new_heap_pointer;
     pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
     ExitReason::Continue
 }

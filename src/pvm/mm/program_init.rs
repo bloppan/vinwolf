@@ -12,7 +12,7 @@ use crate::types::{Page, ProgramFormat, RamAccess, RamAddress, RamMemory, Regist
 use crate::constants::{Zi, Zz, NUM_PAGES, NUM_REG, PAGE_SIZE, PVM_INIT_ZONE_SIZE};
 use crate::utils::codec::{Decode, BytesReader, ReadError};
 
-fn page(x: usize) -> u64 {
+pub fn page(x: usize) -> u64 {
     x.div_ceil(PAGE_SIZE as usize) as u64 * PAGE_SIZE as u64
 }
 
@@ -39,7 +39,7 @@ pub fn init_std_program(program: &[u8], arg: &[u8]) -> Result<Option<StandardPro
     let mut blob = BytesReader::new(program);
     let params = ProgramFormat::decode(&mut blob)?;
 
-    if 5 * Zz + zone(params.o.len()) + zone(params.w.len() + params.z as usize * PAGE_SIZE as usize) + zone(params.s as usize) + Zi > (1 << 32) {
+    if 5 * Zz + zone(params.ro_data.len()) + zone(params.rw_data.len() + params.code_size as usize * PAGE_SIZE as usize) + zone(params.stack as usize) + Zi > (1 << 32) {
         return Ok(None);
     }
 
@@ -49,7 +49,7 @@ pub fn init_std_program(program: &[u8], arg: &[u8]) -> Result<Option<StandardPro
     return Ok(Some(StandardProgram {
         ram,
         reg: init_registers(&params, arg),
-        code: params.c,
+        code: params.code,
     }));
 }
 
@@ -80,22 +80,22 @@ impl RamMemory {
     pub fn init(&mut self, params: &ProgramFormat, arg: &[u8]) {
 
             let start_zone_1 = Zz;
-            let end_zone_1 = Zz + params.o.len() as u64;
+            let end_zone_1 = Zz + params.ro_data.len() as u64;
             self.init_section(params, arg, start_zone_1 as RamAddress, end_zone_1 as RamAddress, RamSection::Zone1);
 
-            let start_zone_2 = Zz + params.o.len() as u64;
-            let end_zone_2 = Zz + page(params.o.len()) as u64;
+            let start_zone_2 = Zz + params.ro_data.len() as u64;
+            let end_zone_2 = Zz + page(params.ro_data.len()) as u64;
             self.init_section(params, arg, start_zone_2 as RamAddress, end_zone_2 as RamAddress, RamSection::Zone2);
 
-            let start_zone_3 = 2 * Zz + zone(params.o.len()) as u64;
-            let end_zone_3 = 2 * Zz + zone(params.o.len()) as u64 + params.w.len() as u64;
+            let start_zone_3 = 2 * Zz + zone(params.ro_data.len()) as u64;
+            let end_zone_3 = 2 * Zz + zone(params.ro_data.len()) as u64 + params.rw_data.len() as u64;
             self.init_section(params, arg, start_zone_3 as RamAddress, end_zone_3 as RamAddress, RamSection::Zone3);
 
-            let start_zone_4 = 2 * Zz + zone(params.o.len()) as u64 + params.w.len() as u64;
-            let end_zone_4 = 2 * Zz + zone(params.o.len()) as u64 + page(params.w.len()) as u64 + (params.z as u64 * PAGE_SIZE as u64);
+            let start_zone_4 = 2 * Zz + zone(params.ro_data.len()) as u64 + params.rw_data.len() as u64;
+            let end_zone_4 = 2 * Zz + zone(params.ro_data.len()) as u64 + page(params.rw_data.len()) as u64 + (params.code_size as u64 * PAGE_SIZE as u64);
             self.init_section(params, arg, start_zone_4 as RamAddress, end_zone_4 as RamAddress, RamSection::Zone4);
 
-            let start_zone_5 = (1 << 32) - 2 * Zz - Zi - page(params.s as usize) as u64;
+            let start_zone_5 = (1 << 32) - 2 * Zz - Zi - page(params.stack as usize) as u64;
             let end_zone_5 = (1 << 32) - 2 * Zz - Zi;
             self.init_section(params, arg, start_zone_5 as RamAddress, end_zone_5 as RamAddress, RamSection::Zone5);
 
@@ -131,7 +131,7 @@ impl RamMemory {
                     let page = i / PAGE_SIZE;
                     let offset = i % PAGE_SIZE;
                     self.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Read);
-                    self.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.o[i as usize - Zz as usize];
+                    self.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.ro_data[i as usize - Zz as usize];
                 }
             },
             RamSection::Zone2 => {
@@ -145,8 +145,9 @@ impl RamMemory {
                     let offset = i % PAGE_SIZE;
                     self.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Write);
                     self.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Read);
-                    self.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.w[i as usize - (2 * Zz + zone(params.o.len()) as u64) as usize];
+                    self.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.rw_data[i as usize - (2 * Zz + zone(params.ro_data.len()) as u64) as usize];
                 }
+                self.curr_heap_pointer = end + PAGE_SIZE;
             },
             RamSection::Zone4 => {
                 for page in start_page..=end_page {

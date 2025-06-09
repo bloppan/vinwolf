@@ -127,7 +127,7 @@ impl Decode for AccountsMapEntry {
 #[derive(Debug, Clone, PartialEq)]
 pub struct StateAccumulate {
     pub slot: TimeSlot,
-    pub entropy: Entropy,
+    pub entropy: OpaqueHash,
     pub ready: ReadyQueue,
     pub accumulated: AccumulatedHistory,
     pub privileges: Privileges,
@@ -167,7 +167,7 @@ impl Decode for StateAccumulate {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
         Ok(StateAccumulate { 
             slot: TimeSlot::decode(blob)?,
-            entropy: Entropy::decode(blob)?,
+            entropy: OpaqueHash::decode(blob)?,
             ready: ReadyQueue::decode(blob)?,
             accumulated: AccumulatedHistory::decode(blob)?,
             privileges: Privileges::decode(blob)?,
