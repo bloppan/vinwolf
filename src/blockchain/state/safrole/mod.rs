@@ -90,6 +90,13 @@ pub fn process(
     let mut epoch_mark: Option<EpochMark> = None;
     let mut tickets_mark: Option<TicketsMark> = None;
 
+    if get_ring_set().is_empty() {
+        set_ring_set(create_ring_set(&curr_validators
+            .list
+            .iter()
+            .map(|validator| validator.bandersnatch.clone())
+            .collect::<Vec<BandersnatchPublic>>()));
+    }
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
         // On an epoch transition, we therefore rotate the accumulator value into the history eta1, eta2 eta3

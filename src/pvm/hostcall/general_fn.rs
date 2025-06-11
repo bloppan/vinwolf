@@ -1,6 +1,7 @@
 use crate::types::{Account, ExitReason, Gas, RamAddress, RamMemory, Registers, ServiceAccounts, ServiceId, OpaqueHash, RegSize};
 use crate::constants::{NONE, OK, FULL};
 use crate::utils::codec::Encode;
+use crate::utils::codec::generic::encode_unsigned;
 
 use super::HostCallContext;
 
@@ -220,12 +221,12 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
     let metadata = if let Some(account) = account.as_ref() {
 
         [account.code_hash.encode(), 
-         account.balance.encode(),
-         account.get_footprint_and_threshold().2.encode(),
-         account.acc_min_gas.encode(),
-         account.xfer_min_gas.encode(),
-         account.get_footprint_and_threshold().1.encode(),
-         account.get_footprint_and_threshold().0.encode()].concat()
+         encode_unsigned(account.balance as usize),
+         encode_unsigned(account.get_footprint_and_threshold().2 as usize),
+         encode_unsigned(account.acc_min_gas as usize),
+         encode_unsigned(account.xfer_min_gas as usize),
+         encode_unsigned(account.get_footprint_and_threshold().1 as usize),
+         encode_unsigned(account.get_footprint_and_threshold().0 as usize)].concat()
     } else {
         reg[7] = NONE;
         return (ExitReason::Continue, gas, reg, ram, Account::default());
