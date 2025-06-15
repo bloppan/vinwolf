@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 extern crate vinwolf;
 use vinwolf::constants::{NUM_REG, PAGE_SIZE};
-use vinwolf::types::{Account, Context, OpaqueHash, Page, PageFlags, RamAccess, RamMemory, ServiceAccounts};
+use vinwolf::types::{Account, Context, OpaqueHash, Page, PageFlags, RamAccess, RamMemory, ServiceAccounts, StorageKey};
 
 use super::{DeltaEntry, InitialMemory, HostCallTestFile};
 
@@ -32,7 +32,7 @@ pub fn parse_account(json_data: &DeltaEntry) -> Account {
             value.push(item.1[i]);
         }
         let hash = hex::decode(&item.0[2..]).unwrap();
-        let mut hash_storage: OpaqueHash = [0u8; 32];
+        let mut hash_storage: StorageKey = [0u8; 31];
         for (i, byte) in hash.iter().enumerate() {
             hash_storage[i] = *byte;
         }

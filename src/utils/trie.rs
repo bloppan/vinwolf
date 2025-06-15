@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use sp_core::blake2_256;
 use sp_core::keccak_256;
 
-use crate::types::{Hash, Mmr, MmrPeak};
+use crate::types::{Hash, Mmr, MmrPeak, StateKey};
 use crate::utils::codec::{Encode, EncodeSize};
 
 // State Merklization involves transforming the serialized mapping into a cryptographic commitment. 
@@ -74,7 +74,7 @@ fn leaf(k: &[u8], v: &[u8]) -> [u8; 64] {
     leaf_hash
 }
 
-pub fn merkle_state(kvs: &HashMap<[u8; 32], Vec<u8>>, i: usize) -> Result<Hash, MerkleError> {
+pub fn merkle_state(kvs: &HashMap<StateKey, Vec<u8>>, i: usize) -> Result<Hash, MerkleError> {
     // Empty (sub-)tries are identified as the zero hash
     if kvs.is_empty() {
         return Ok([0u8; 32]);

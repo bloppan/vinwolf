@@ -647,7 +647,7 @@ pub type ServiceAccounts = HashMap<ServiceId, Account>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Account {
     // Storage dictionary
-    pub storage: HashMap<OpaqueHash, Vec<u8>>,
+    pub storage: HashMap<StorageKey, Vec<u8>>,
     // Preimages dictionary
     pub preimages: HashMap<OpaqueHash, Vec<u8>>,
     // Lookup dictionary
@@ -908,14 +908,14 @@ pub struct GlobalState {
     pub privileges: Privileges,
 }
 #[derive(Debug, Clone, PartialEq, Deserialize)]
-pub enum StateKey {
+pub enum StateKeyType {
     U8(u8),
     Service(u8, ServiceId),
     Account(ServiceId, Vec<u8>),
 }
 #[derive(Clone, Debug)]
 pub struct SerializedState {
-    pub map: HashMap<OpaqueHash, Vec<u8>>,
+    pub map: HashMap<StateKey, Vec<u8>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -1129,7 +1129,7 @@ pub struct RefineMemory {
 // The set of data segments, equivalent to octet sequences of length WG.(4104)
 pub type DataSegment = [u8; SEGMENT_SIZE];
 
-
+pub type StateKey = [u8; 31];
 pub type StorageKey = [u8; 31];
 
 #[derive(Debug, Clone, PartialEq)]

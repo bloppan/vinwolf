@@ -75,7 +75,9 @@ mod tests {
 
             let mut state = GlobalState::default();
             let mut expected_state = GlobalState::default();
+            println!("\nset pre state");
             set_raw_state(pre_state.clone(), &mut state);
+            println!("\nset post state");
             set_raw_state(post_state.clone(), &mut expected_state);
             
             assert_eq!(pre_state.state_root.clone(), merkle_state(&state.serialize().map, 0).unwrap());
@@ -111,10 +113,10 @@ mod tests {
                 assert_eq!(block.state_root, result_state.recent_history.blocks[i].state_root);
             }
             assert_eq!(expected_state.recent_history.blocks, result_state.recent_history.blocks);           
-
+            assert_eq!(expected_state.service_accounts, result_state.service_accounts);
             for service_account in expected_state.service_accounts.iter() {
                 if let Some(account) = result_state.service_accounts.get(&service_account.0) {
-                    //assert_eq!(service_account, state.service_accounts.get_key_value(&service_account.0).unwrap());
+                    assert_eq!(service_account.1, account);
                     println!("TESTING service {:?}", service_account.0);
                     //println!("Account: {:x?}", account);
                     let (items, octets, _threshold) = account.get_footprint_and_threshold();
@@ -153,9 +155,11 @@ mod tests {
             println!("Statistics cores: {:?}", state.statistics.cores);
             println!("Statistics services: {:?}", state.statistics.services);*/
 
-            assert_eq!(post_state.state_root, merkle_state(&result_state.serialize().map, 0).unwrap());
             println!("expected state_root: {:x?}", post_state.state_root);
+            println!("expected result sto: {:x?}", merkle_state(&expected_state.serialize().map, 0).unwrap());
             println!("result   state_root: {:x?}", merkle_state(&result_state.serialize().map, 0).unwrap());
+            assert_eq!(post_state.state_root, merkle_state(&result_state.serialize().map, 0).unwrap());
+            
             //println!("pre_state: {:x?}", pre_state);
             //println!("block: {:x?}", block);
             //println!("post_state: {:x?}", post_state);
@@ -269,8 +273,10 @@ mod tests {
                         state.service_accounts.insert(service_id, Account::default());
                     }
 
-                    let mut storage_key  = [0u8; 32];
-                    storage_key[..31].copy_from_slice(&keyval.key);
+                    let mut storage_key  = [0u8; 31];
+                    storage_key.copy_from_slice(&keyval.key);
+                    println!("insert to service: {:?} storage key: {:x?}", service_id, storage_key);
+                    println!("insert value: {:x?}", keyval.value);
                     state.service_accounts.get_mut(&service_id).unwrap().storage.insert(storage_key, keyval.value.clone());
 
                 // Lookup

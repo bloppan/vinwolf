@@ -164,8 +164,6 @@ fn parallelized_accumulation(
     let mut n_service_accounts: ServiceAccounts = ServiceAccounts::default();
     let mut m_service_accounts = HashSet::new();
     let mut p_preimages: Vec<(ServiceId, Vec<u8>)> = Vec::new();
-
-    let mut d_services = partial_state.service_accounts.clone();
     
     for service in s_services.iter() {
         
@@ -174,10 +172,7 @@ fn parallelized_accumulation(
             transfers, 
             service_hash, 
             gas, 
-            preimages) = single_service_accumulation(partial_state, reports, service_gas_dict, service);
-
-        partial_state = post_partial_state.clone();
-        d_services = partial_state.service_accounts.clone();
+            preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, service);
 
         u_gas_used.push((*service, gas));
         if let Some(hash) = service_hash {
@@ -186,11 +181,26 @@ fn parallelized_accumulation(
         t_deferred_transfers.extend(transfers);
         p_preimages.extend(preimages);
 
+        let o_d_services_keys: HashSet<_> = post_partial_state
+                                                .service_accounts
+                                                .iter()
+                                                .map(|key| *key.0)
+                                                .collect();
+
+        let m: HashSet<_> = partial_state
+                                .service_accounts
+                                .iter()
+                                .filter(|(key, _)| !o_d_services_keys.contains(key))
+                                .map(|(k, _)| (k.clone()))
+                                .collect();
+        // Removed services
+        m_service_accounts.extend(m);
+        
+        let mut d_services = partial_state.service_accounts.clone();
         d_services.remove(service);
-        //let d_services_excluding_s = d_services.clone();
         let d_keys_excluding_s: HashSet<_> = d_services.iter().map(|key| *key.0).collect();
         
-        let n: HashMap<_, _> = partial_state
+        let n: HashMap<_, _> = post_partial_state
                                     .service_accounts
                                     .iter()
                                     .filter(|(key, _)| !d_keys_excluding_s.contains(key))
@@ -200,19 +210,6 @@ fn parallelized_accumulation(
         // New and modified services
         n_service_accounts.extend(n);
 
-        let o_d_services_keys: HashSet<_> = partial_state
-                                                .service_accounts
-                                                .iter()
-                                                .map(|key| *key.0)
-                                                .collect();
-
-        let m: HashSet<_> = d_services
-                                .iter()
-                                .filter(|(key, _)| !o_d_services_keys.contains(key))
-                                .map(|(k, _)| (k.clone()))
-                                .collect();
-        // Removed services
-        m_service_accounts.extend(m);
     }
     
     // Different services may not each contribute the same index for a new, altered or removed service. This cannot happen for the set of
@@ -232,7 +229,7 @@ fn parallelized_accumulation(
     let v_designate = partial_state.privileges.designate.clone();
     //let z_always_acc = partial_state.privileges.always_acc.clone();
 
-    let (partial_state, 
+    let (_post_partial_state, 
         _transfers, 
         _service_hash, 
         _gas,
@@ -240,7 +237,7 @@ fn parallelized_accumulation(
 
     let post_privileges = partial_state.privileges.clone();
     
-    let (partial_state, 
+    let (_post_partial_state, 
         _transfers, 
         _service_hash, 
         _gas,
@@ -248,7 +245,7 @@ fn parallelized_accumulation(
 
     let post_next_validators = partial_state.next_validators.clone();
 
-    let (partial_state, 
+    let (_post_partial_state, 
         _transfers, 
         _service_hash, 
         _gas, 
@@ -256,6 +253,7 @@ fn parallelized_accumulation(
     
     let post_queues_auth = partial_state.queues_auth.clone();
 
+    let mut d_services = partial_state.service_accounts.clone();
     d_services.extend(n_service_accounts);
 
     let result_services: ServiceAccounts = d_services

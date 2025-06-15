@@ -487,7 +487,7 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
                 let account = Account::default();
                 global_state.service_accounts.insert(service, account);
             }
-            let mut hash = [0u8; 32];
+            let mut hash = [0u8; 31];
             hash.copy_from_slice(&parsed_account_storage.h);
             let blob = hex::decode(&keyval.1[2..]).unwrap();
             global_state.service_accounts.get_mut(&service).unwrap().storage.insert(hash, blob);

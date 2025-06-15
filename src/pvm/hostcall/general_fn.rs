@@ -1,7 +1,8 @@
-use crate::types::{Account, ExitReason, Gas, RamAddress, RamMemory, Registers, ServiceAccounts, ServiceId, OpaqueHash, RegSize};
+use crate::types::{Account, ExitReason, Gas, OpaqueHash, RamAddress, RamMemory, RegSize, Registers, ServiceAccounts, ServiceId, StateKey, StateKeyType};
 use crate::constants::{NONE, OK, FULL};
 use crate::utils::codec::Encode;
 use crate::utils::codec::generic::encode_unsigned;
+use crate::utils::codec::jam::global_state::{construct_storage_key, StateKeyTrait};
 
 use super::HostCallContext;
 
@@ -112,8 +113,15 @@ pub fn read(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Accou
         return (ExitReason::panic, gas, reg, ram, account);
     }
 
-    let key = sp_core::blake2_256(&[id.encode(), ram.read(start_read_address, bytes_to_read).encode()].concat());
-
+    let key= sp_core::blake2_256(&[id.encode(), ram.read(start_read_address, bytes_to_read).encode()].concat())[..31].try_into().unwrap();
+    println!("raw key: {:x?}", key);
+    let key = StateKeyType::Account(id, construct_storage_key(&key).to_vec()).construct();
+    println!("service: {:?} storage key: {:x?}", id, key);
+    
+    /*for item in target_account.as_ref().unwrap().storage.iter() {
+        println!("find key: {:x?}", item.0);
+    }*/
+    
     let value: Vec<u8> = if target_account.is_some() && target_account.as_ref().unwrap().storage.contains_key(&key) {
         target_account.unwrap().storage.get(&key).unwrap().clone()
     } else {
@@ -126,6 +134,7 @@ pub fn read(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Accou
     // TODO revisar el orden de los return, no estoy seguro de si estan
     let f = std::cmp::min(reg[11], value.len() as RegSize); 
     let l = std::cmp::min(reg[12], value.len() as RegSize - f);
+    println!("start address: {start_write_address}");
     if !ram.is_writable(start_write_address, l as RamAddress) {
         println!("READ PANIC");
         return (ExitReason::panic, gas, reg, ram, account);
@@ -156,8 +165,14 @@ pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account,
         println!("panic: not readable");
         return (ExitReason::panic, gas, reg, ram, account);
     }
+    
     println!("service_id: {}", service_id);
-    let key = sp_core::blake2_256(&[service_id.encode(), ram.read(key_start_address as RamAddress, key_size as RamAddress)].concat());
+
+    let key = sp_core::blake2_256(&[service_id.encode(), ram.read(key_start_address as RamAddress, key_size as RamAddress)].concat())[..31].try_into().unwrap();
+    println!("raw key: {:x?}", key);
+    let key = StateKeyType::Account(service_id, construct_storage_key(&key).to_vec()).construct();
+    println!("service: {:?} storage key: {:x?}", service_id, key);
+
     let mut s_account = account.clone();
 
     let modified_account = if value_size == 0 {
