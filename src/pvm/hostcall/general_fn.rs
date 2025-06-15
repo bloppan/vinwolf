@@ -225,9 +225,10 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
          encode_unsigned(account.get_footprint_and_threshold().2 as usize),
          encode_unsigned(account.acc_min_gas as usize),
          encode_unsigned(account.xfer_min_gas as usize),
-         encode_unsigned(account.get_footprint_and_threshold().1 as usize),
-         encode_unsigned(account.get_footprint_and_threshold().0 as usize)].concat()
+         encode_unsigned(account.get_footprint_and_threshold().0 as usize),
+         encode_unsigned(account.get_footprint_and_threshold().1 as usize)].concat()
     } else {
+        println!("Info: NONE");
         reg[7] = NONE;
         return (ExitReason::Continue, gas, reg, ram, Account::default());
     };
@@ -235,10 +236,24 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
     let start_address = reg[8] as RamAddress;
 
     if !ram.is_writable(start_address, metadata.len() as RamAddress) {
+        println!("Info: Panic");
         return (ExitReason::panic, gas, reg, ram, Account::default());
     }
 
+    println!("code_hash: {:x?}", account.as_ref().unwrap().code_hash);
+    println!("balance: {:?}", account.as_ref().unwrap().balance);
+    println!("balance footprint: {:?}", account.as_ref().unwrap().get_footprint_and_threshold().2);
+    println!("acc gas: {:?}", account.as_ref().unwrap().acc_min_gas);
+    println!("xfer gas: {:?}", account.as_ref().unwrap().xfer_min_gas);
+    println!("items: {:?}", account.as_ref().unwrap().get_footprint_and_threshold().0);
+    println!("octets: {:?}", account.as_ref().unwrap().get_footprint_and_threshold().1);
+    
+
+    println!("Info: OK");
+    println!("m: {:x?}", metadata);
+
     ram.write(start_address, metadata);
+
     reg[7] = OK;
 
     return (ExitReason::Continue, gas, reg, ram, account.unwrap());

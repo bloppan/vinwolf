@@ -147,7 +147,9 @@ impl RamMemory {
                     self.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Read);
                     self.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.rw_data[i as usize - (2 * Zz + zone(params.ro_data.len()) as u64) as usize];
                 }
-                self.curr_heap_pointer = end + PAGE_SIZE;
+                println!("END: {:?}", end);
+                self.curr_heap_pointer = page(end as usize) as RamAddress;
+                println!("init heap pointer: {:?}", self.curr_heap_pointer);
             },
             RamSection::Zone4 => {
                 for page in start_page..=end_page {

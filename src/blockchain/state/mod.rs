@@ -25,6 +25,7 @@
 */
 use {once_cell::sync::Lazy, sp_core::blake2_256, std::sync::Mutex};
 
+use crate::blockchain::state::recent_history::set_current_block_history;
 use crate::types::{
     AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesRecords, EntropyPool, GlobalState, 
     OpaqueHash, Privileges, ProcessError, ReadyQueue, Safrole, SerializedState, ServiceAccounts, ServiceInfo, StateKey, 
@@ -65,11 +66,12 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     }
     reported_work_packages.sort_by_key(|(hash, _)| *hash);
 
-    recent_history::process(
+    let curr_block_history = recent_history::process(
         &mut new_state.recent_history,
         &blake2_256(&block.header.encode()), 
         &block.header.unsigned.parent_state_root,
         &reported_work_packages);
+    set_current_block_history(curr_block_history);
 
     let _ = disputes::process(
         &mut new_state.disputes,
@@ -183,7 +185,7 @@ impl GlobalState {
                 bytes: account.get_footprint_and_threshold().1, // TODO bytes y items se calcula con la eq de threshold account (9.3)
                 items: account.get_footprint_and_threshold().0,
             };
-            println!("service: {} items: {} bytes: {}", service_id, service_info.items, service_info.bytes);
+            //println!("service: {} items: {} bytes: {}", service_id, service_info.items, service_info.bytes);
             // TODO revisar esto y ver si se puede hacer con encode account
             state.map.insert(key, service_info.encode());
 

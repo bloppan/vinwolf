@@ -7,10 +7,23 @@
 */
 
 use sp_core::keccak_256;
+use {once_cell::sync::Lazy, sp_core::blake2_256, std::sync::Mutex};
 
 use crate::types::{BlockHistory, BlockInfo, Hash, Mmr, ReportedWorkPackages};
 use crate::constants::RECENT_HISTORY_SIZE;
 use crate::utils::trie::append;
+
+static CURR_BLOCK_HISTORY: Lazy<Mutex<BlockHistory>> = Lazy::new(|| {
+    Mutex::new(BlockHistory::default())
+});
+
+pub fn get_current_block_history() -> &'static Mutex<BlockHistory> {
+    &CURR_BLOCK_HISTORY
+}
+
+pub fn set_current_block_history(new_state: BlockHistory) {
+    *CURR_BLOCK_HISTORY.lock().unwrap() = new_state;
+}
 
 pub fn process(
     recent_history_state: &mut BlockHistory,

@@ -110,6 +110,7 @@ fn outer_accumulation(
     }
 
     if i == 0 {
+        println!("outer_accumulation: i = 0");
         return Ok((0, partial_state.clone(), vec![], vec![], vec![]));
     }
 
@@ -284,13 +285,15 @@ fn single_service_accumulation(
 {
     println!("\nsingle accumulation, service id: {}", *service_id);
     
+    println!("reports: {:x?}", reports);
+    
     let mut total_gas = 0;
     let mut accumulation_operands: Vec<AccumulationOperand> = vec![];
     for report in reports.iter() {
         for result in report.results.iter() {
             if *service_id == result.service {
                 total_gas += result.gas;
-
+                println!("total_gas: {:?}", total_gas);
                 accumulation_operands.push(AccumulationOperand {
                     result: result.result.clone(),
                     exports_root: report.package_spec.exports_root,

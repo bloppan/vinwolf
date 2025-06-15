@@ -22,7 +22,7 @@ pub mod hostcall;
 pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
     println!("Invoke PVM");
     let program = Program::decode(&mut BytesReader::new(program_blob)).unwrap(); // TODO handle error
-    let mut step: u128 = 1;
+    let mut step = 1;
     
     loop {
         let pc_copy = pvm_ctx.pc.clone();
@@ -39,17 +39,17 @@ pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
             },
             // TODO arreglar esto
             /*ExitReason::panic |*/ ExitReason::Halt => {
-                println!("step = {step}, pc = {:?}, opcode = {:?} \t, reg = {:?}", pc_copy, program.code[pc_copy as usize], pvm_ctx.reg);
+                println!("step = {step}, pc = {:?}, opcode = {:?} \t, reg = {:?}", pvm_ctx.pc.clone(), program.code[pvm_ctx.pc.clone() as usize], pvm_ctx.reg);
                 //pvm_ctx.pc = 0; // Esto pone en el GP que deberia ser 0 (con panic tambien)
                 return ExitReason::halt;
             },
             _ => { 
-                println!("step = {step}, pc = {:?}, opcode = {:?} \t, reg = {:?}", pc_copy, program.code[pc_copy as usize], pvm_ctx.reg);
+                println!("step = {step}, pc = {:?}, opcode = {:?} \t, reg = {:?}", pvm_ctx.pc.clone(), program.code[pvm_ctx.pc.clone() as usize], pvm_ctx.reg);
                 //println!("")
                 return exit_reason; 
             },
         } 
-        //println!("step = {step}, pc = {:?}, opcode = {:?} \t, reg = {:?}", pc_copy, program.code[pc_copy as usize], pvm_ctx.reg);
+        //println!("step = {step}, pc = {:?}, opcode = {:?} \t, reg = {:?}", pvm_ctx.pc.clone(), program.code[pc_copy as usize], pvm_ctx.reg);
         step += 1;   
     }
 }

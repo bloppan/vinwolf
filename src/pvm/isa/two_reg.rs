@@ -25,7 +25,9 @@ pub fn move_reg(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
 pub fn sbrk(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let (reg_a, reg_d) = get_reg(&pvm_ctx.pc, &program.code);
     let value_a = pvm_ctx.reg[reg_a as usize];
+    //println!("curr_heap_pointer: {:?}", pvm_ctx.ram.curr_heap_pointer);
     if value_a == 0 {
+        //println!("value 0");
         pvm_ctx.reg[reg_d as usize] = pvm_ctx.ram.curr_heap_pointer as RegSize;
         pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
         return ExitReason::Continue;

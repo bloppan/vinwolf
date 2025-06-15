@@ -267,7 +267,7 @@ pub fn add_imm_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
 pub fn mul_imm_64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     let (reg_a, _reg_b, value_imm, value_reg_b) = get_data(pvm_ctx, program);
     let result = (value_reg_b as u64).wrapping_mul(value_imm as u64) as u64;
-    pvm_ctx.reg[reg_a as usize] = extend_sign(&result.to_le_bytes(), 4);
+    pvm_ctx.reg[reg_a as usize] = extend_sign(&result.to_le_bytes(), 8);
     pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
     ExitReason::Continue
 }

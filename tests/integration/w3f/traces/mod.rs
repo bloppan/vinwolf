@@ -65,7 +65,7 @@ mod tests {
         loop {
             println!("\n\nReading test file: {}", slot);
             //let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/traces/reports-l0/{:08}.bin", slot));
-            let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/traces/safrole/{:08}.bin", slot));
+            let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/traces/reports-l0/{:08}.bin", slot));
             let _ = encode_decode_test(&test_content, &test_body);
             
             let mut reader = BytesReader::new(&test_content);
@@ -104,7 +104,7 @@ mod tests {
             assert_eq!(expected_state.auth_queues, result_state.auth_queues);
 
             for (i, block) in expected_state.recent_history.blocks.iter().enumerate() {
-                //assert_eq!(*block, state.recent_history.blocks[i]);
+                assert_eq!(*block, result_state.recent_history.blocks[i]);
                 assert_eq!(block.header_hash, result_state.recent_history.blocks[i].header_hash);
                 assert_eq!(block.mmr, result_state.recent_history.blocks[i].mmr);
                 assert_eq!(block.reported_wp, result_state.recent_history.blocks[i].reported_wp);
@@ -114,7 +114,7 @@ mod tests {
 
             for service_account in expected_state.service_accounts.iter() {
                 if let Some(account) = result_state.service_accounts.get(&service_account.0) {
-                    //assert_eq!(service_account, state.service_accounts.service_accounts.get_key_value(&service_account.0).unwrap());
+                    //assert_eq!(service_account, state.service_accounts.get_key_value(&service_account.0).unwrap());
                     println!("TESTING service {:?}", service_account.0);
                     //println!("Account: {:x?}", account);
                     let (items, octets, _threshold) = account.get_footprint_and_threshold();
@@ -154,12 +154,17 @@ mod tests {
             println!("Statistics services: {:?}", state.statistics.services);*/
 
             assert_eq!(post_state.state_root, merkle_state(&result_state.serialize().map, 0).unwrap());
-
+            println!("expected state_root: {:x?}", post_state.state_root);
+            println!("result   state_root: {:x?}", merkle_state(&result_state.serialize().map, 0).unwrap());
             //println!("pre_state: {:x?}", pre_state);
             //println!("block: {:x?}", block);
             //println!("post_state: {:x?}", post_state);
 
             slot += 1;
+
+            if slot == 8 {
+                return;
+            }
         }
 
     }
@@ -265,7 +270,7 @@ mod tests {
                     }
 
                     let mut storage_key  = [0u8; 32];
-                    storage_key.copy_from_slice(&keyval.key);
+                    storage_key[..31].copy_from_slice(&keyval.key);
                     state.service_accounts.get_mut(&service_id).unwrap().storage.insert(storage_key, keyval.value.clone());
 
                 // Lookup

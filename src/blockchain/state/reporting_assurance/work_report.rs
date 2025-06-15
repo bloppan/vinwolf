@@ -6,7 +6,8 @@ use crate::types::{
     ReportedPackage, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, WorkResult
 };
 use crate::constants::{ EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR };
-use crate::blockchain::state::{ get_auth_pools, get_disputes, get_recent_history, ProcessError};
+use crate::blockchain::state::{ get_auth_pools, get_disputes, ProcessError};
+use crate::blockchain::state::recent_history::get_current_block_history;
 use crate::blockchain::state::reporting_assurance::add_assignment;
 use crate::utils::trie::mmr_super_peak;
 use crate::utils::shuffle::shuffle;
@@ -93,7 +94,7 @@ impl WorkReport {
 
     fn is_recent(&self) -> Result<bool, ProcessError> {
         
-        let block_history = get_recent_history();
+        let block_history = get_current_block_history().lock().unwrap().clone();
 
         for block in &block_history.blocks {
             if block.header_hash == self.context.anchor {
@@ -163,7 +164,7 @@ impl WorkReport {
                 if !credential.signature.verify_signature(&message, &validator.ed25519) {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadSignature));
                 }
-                if ROTATION_PERIOD * ((*post_tau / ROTATION_PERIOD) - 1) > guarantee_slot {
+                if ROTATION_PERIOD * ((*post_tau / ROTATION_PERIOD).saturating_sub(1)) > guarantee_slot {
                     return Err(ProcessError::ReportError(ReportErrorCode::ReportEpochBeforeLast));
                 }
                 if guarantee_slot > *post_tau {
