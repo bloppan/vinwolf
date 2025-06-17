@@ -16,6 +16,10 @@ impl RamMemory {
 
     pub fn is_readable(&self, from_address: RamAddress, num_bytes: RamAddress) -> bool {
 
+        if num_bytes == 0 {
+            return true;
+        }
+        
         let from_page = from_address / PAGE_SIZE;
         let to_page = (from_address + num_bytes).saturating_sub(1) / PAGE_SIZE;
 
@@ -35,6 +39,10 @@ impl RamMemory {
 
     pub fn is_writable(&self, from_address: RamAddress, num_bytes: RamAddress) -> bool {
 
+        if num_bytes == 0 {
+            return true;
+        }
+        
         let from_page = from_address / PAGE_SIZE;
         let to_page = (from_address + num_bytes).saturating_sub(1) / PAGE_SIZE;
         
@@ -55,11 +63,11 @@ impl RamMemory {
         for page in from_page..=to_page {
 
             // Check if the page is in the range of the highest inaccessible page (0xFFFF0000)
-            if (page % NUM_PAGES) < LOWEST_ACCESIBLE_PAGE {
+            /*if (page % NUM_PAGES) < LOWEST_ACCESIBLE_PAGE {
                 println!("Page target {:?} out of bounds", page);
                 // TODO
                 return false;
-            }
+            }*/
 
             if let Some(page) = self.pages[(page % NUM_PAGES) as usize].as_ref() {
                 if page.flags.access.get(&access).is_none() {

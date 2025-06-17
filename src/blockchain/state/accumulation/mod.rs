@@ -263,7 +263,15 @@ fn parallelized_accumulation(
                                             .collect();
 
     let final_services = preimage_integration(&result_services, &p_preimages);
-
+    
+    println!("\nfinal services:");
+    for service in final_services.iter() {
+        for item in service.1.storage.iter() {
+            println!("service {:?} storage key: {:x?}", service.0, item.0);
+        }
+    }
+    
+    
     let result_partial_state = AccumulationPartialState {
         service_accounts: final_services,
         next_validators: post_next_validators,

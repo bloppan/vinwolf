@@ -913,7 +913,7 @@ pub enum StateKeyType {
     Service(u8, ServiceId),
     Account(ServiceId, Vec<u8>),
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SerializedState {
     pub map: HashMap<StateKey, Vec<u8>>,
 }

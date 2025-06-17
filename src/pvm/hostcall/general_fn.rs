@@ -123,6 +123,7 @@ pub fn read(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Accou
     }*/
     
     let value: Vec<u8> = if target_account.is_some() && target_account.as_ref().unwrap().storage.contains_key(&key) {
+        println!("key found: {:x?}", key);
         target_account.unwrap().storage.get(&key).unwrap().clone()
     } else {
         reg[7] = NONE;
@@ -131,10 +132,12 @@ pub fn read(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Accou
         println!("service_id: {} storage: {:x?}", id, target_account.unwrap().storage);
         return (ExitReason::Continue, gas, reg, ram, account);
     };
+    println!("value: {:x?}", value);
     // TODO revisar el orden de los return, no estoy seguro de si estan
     let f = std::cmp::min(reg[11], value.len() as RegSize); 
     let l = std::cmp::min(reg[12], value.len() as RegSize - f);
     println!("start address: {start_write_address}");
+    println!("f: {f}, l: {l}");
     if !ram.is_writable(start_write_address, l as RamAddress) {
         println!("READ PANIC");
         return (ExitReason::panic, gas, reg, ram, account);

@@ -201,8 +201,9 @@ impl GlobalState {
             }
 
             for item in account.storage.iter() {
-                let key = StateKeyType::Account(*service_id, construct_storage_key(item.0).to_vec()).construct();
-                state.map.insert(key, item.1.encode());
+                //let key = StateKeyType::Account(*service_id, construct_storage_key(item.0).to_vec()).construct();
+                //println!("insert serialized key: {:x?}", key);
+                state.map.insert(*item.0, item.1.encode());
             }
         }
 
