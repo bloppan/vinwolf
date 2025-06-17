@@ -463,7 +463,19 @@ fn solicit(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
 
     let mut account = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().clone();
 
-    if account.lookup.contains_key(&(hash, preimage_size)) {
+    if !account.lookup.contains_key(&(hash, preimage_size)) {
+        account.lookup.insert((hash, preimage_size), vec![]);
+    } else if account.lookup.get(&(hash, preimage_size)).unwrap().len() == 2 {
+        let mut timeslots = account.lookup.get(&(hash, preimage_size)).unwrap().clone();
+        timeslots.push(slot);
+        account.lookup.insert((hash, preimage_size), timeslots);
+    } else {
+        reg[7] = HUH;
+        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    };
+
+
+    /*if account.lookup.contains_key(&(hash, preimage_size)) {
         
         let mut timeslots = account.lookup.get(&(hash, preimage_size)).unwrap().clone();
 
@@ -478,7 +490,7 @@ fn solicit(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
         account.lookup.insert((hash, preimage_size), timeslots);
     } else {
         account.lookup.insert((hash, preimage_size), vec![]);
-    }
+    }*/
 
     if account.balance < account.get_footprint_and_threshold().2 {
         println!("FULL");
