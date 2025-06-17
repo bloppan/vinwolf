@@ -24,6 +24,7 @@ use crate::blockchain::state::statistics;
 use crate::blockchain::state::{get_time, ProcessError};
 use crate::blockchain::state::time::get_current_block_slot;
 use crate::utils::codec::Encode;
+use crate::utils::codec::jam::global_state::construct_lookup_key;
 use crate::utils::trie;
 use crate::pvm::hostcall::accumulate::invoke_accumulation;
 use crate::pvm::hostcall::on_transfer::invoke_on_transfer;
@@ -358,14 +359,14 @@ fn preimage_integration(services: &ServiceAccounts, preimages: &[(ServiceId, Vec
             let timeslots = services.get(&pair.0)
                                                        .unwrap()
                                                        .lookup
-                                                       .get(&(sp_core::blake2_256(&pair.1), pair.1.len() as u32));
+                                                       .get(&construct_lookup_key(&sp_core::blake2_256(&pair.1), pair.1.len() as u32));
             
             if timeslots.is_none() || (timeslots.is_some() && timeslots.len() == 0) {
 
                 services_result.get_mut(&pair.0)
                                .unwrap()
                                .lookup
-                               .insert((sp_core::blake2_256(&pair.1), pair.1.len() as u32), vec![get_current_block_slot()]);
+                               .insert(construct_lookup_key(&sp_core::blake2_256(&pair.1), pair.1.len() as u32), vec![get_current_block_slot()]);
                 
                 services_result.get_mut(&pair.0)
                                .unwrap()

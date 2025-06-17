@@ -12,6 +12,8 @@ use vinwolf::types::{
 
 use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 use vinwolf::utils::codec::{Decode, BytesReader};
+use vinwolf::utils::codec::jam::global_state::construct_lookup_key;
+
 use super::{read_test, TestnetState, TestData, ParsedTransitionFile, ParsedStateFile, TestFuzzedData};
 
 #[allow(dead_code)]
@@ -445,7 +447,7 @@ fn read_state_transition(testcase_state: &TestnetState) -> Result<GlobalState, B
             }
             let mut hash = [0u8; 32];
             hash.copy_from_slice(&parsed_account_lookup.h);
-            global_state.service_accounts.get_mut(&service).unwrap().lookup.insert((hash, parsed_account_lookup.l), parsed_account_lookup.t.clone());
+            global_state.service_accounts.get_mut(&service).unwrap().lookup.insert(construct_lookup_key(&hash, parsed_account_lookup.l), parsed_account_lookup.t.clone());
 
             //println!("key_type: Account lookup: {:?}", parsed_account_lookup);
         } else if keyval.2 == "service_account" {

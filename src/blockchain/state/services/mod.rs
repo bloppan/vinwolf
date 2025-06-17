@@ -4,6 +4,7 @@ use crate::constants::{MIN_BALANCE, MIN_BALANCE_PER_ITEM, MIN_BALANCE_PER_OCTET}
 use crate::blockchain::state::ProcessError;
 use crate::utils::codec::{BytesReader, ReadError};
 use crate::utils::codec::generic::decode_unsigned;
+use crate::utils::codec::jam::global_state::construct_lookup_key;
 
 pub fn process(
     services: &mut ServiceAccounts, 
@@ -26,8 +27,9 @@ impl Account {
         let items: u32 = 2 * self.lookup.len() as u32 + self.storage.len() as u32;
 
         let mut octets: u64 = 0;
-        for ((_hash, length), _timeslot) in self.lookup.iter() {
-            octets += 81 + *length as u64;
+        for (lookup_key, _timeslot) in self.lookup.iter() {
+            let length = u32::from_le_bytes([lookup_key[1], lookup_key[3], lookup_key[5], lookup_key[7]]);
+            octets += 81 + length as u64;
         }
         for (_hash, storage_data) in self.storage.iter() {
             octets += 32 + storage_data.len() as u64;
@@ -57,7 +59,7 @@ pub fn historical_preimage_lookup(account: &Account, slot: &TimeSlot, hash: &Opa
 
     if let Some(preimage) = account.preimages.get(hash) {
         let length = preimage.len() as u32;
-        if let Some(timeslot_record) = account.lookup.get(&(*hash, length)) {
+        if let Some(timeslot_record) = account.lookup.get(&construct_lookup_key(hash, length)) {
             if check_preimage_availability(timeslot_record, slot) {
                 return Some(preimage.clone());
             }

@@ -651,7 +651,7 @@ pub struct Account {
     // Preimages dictionary
     pub preimages: HashMap<OpaqueHash, Vec<u8>>,
     // Lookup dictionary
-    pub lookup: HashMap<(OpaqueHash, u32), Vec<TimeSlot>>,
+    pub lookup: HashMap<StorageKey, Vec<TimeSlot>>,
     // Code hash
     pub code_hash: OpaqueHash,
     // Account balance

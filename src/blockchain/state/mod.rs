@@ -196,8 +196,8 @@ impl GlobalState {
             }
             
             for lookup in account.lookup.iter() {
-                let key = StateKeyType::Account(*service_id, construct_lookup_key(&lookup.0.0, lookup.0.1).to_vec()).construct();
-                state.map.insert(key, lookup.1.encode_len());
+                //let key = StateKeyType::Account(*service_id, construct_lookup_key(&lookup.0.0, lookup.0.1).to_vec()).construct();
+                state.map.insert(*lookup.0, lookup.1.encode_len());
             }
 
             for item in account.storage.iter() {

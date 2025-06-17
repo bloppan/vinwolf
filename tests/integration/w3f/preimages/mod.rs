@@ -10,6 +10,7 @@ use vinwolf::blockchain::state::{set_service_accounts, get_service_accounts, set
 use vinwolf::blockchain::state::services::process;
 use vinwolf::blockchain::state::statistics::*;
 use vinwolf::utils::codec::{Decode, BytesReader};
+use vinwolf::utils::codec::jam::global_state::construct_lookup_key;
 
 #[cfg(test)]
 mod tests {
@@ -61,7 +62,7 @@ mod tests {
                 for timeslot in lookup_meta.value.iter() {
                     timeslot_values.push(timeslot.clone());
                 }   
-                lookup_map.insert((lookup_meta.key.hash.clone(), lookup_meta.key.length.clone()), timeslot_values.clone());
+                lookup_map.insert(construct_lookup_key(&lookup_meta.key.hash.clone(), lookup_meta.key.length.clone()), timeslot_values.clone());
             }
             let mut new_account = Account::default();
             new_account.preimages = preimages_map.clone();
@@ -104,7 +105,7 @@ mod tests {
                 }
             }
             for lookup_meta in account.data.lookup_meta.iter() {
-                let timeslot_values = result_account.lookup.get(&(lookup_meta.key.hash.clone(), lookup_meta.key.length.clone())).unwrap();
+                let timeslot_values = result_account.lookup.get(&construct_lookup_key(&lookup_meta.key.hash.clone(), lookup_meta.key.length.clone())).unwrap();
                 assert_eq!(lookup_meta.value.len(), timeslot_values.len());
                 for (i, byte) in lookup_meta.value.iter().enumerate() {
                     assert_eq!(byte.clone(), timeslot_values[i].clone());

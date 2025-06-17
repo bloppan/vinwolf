@@ -15,6 +15,7 @@ use vinwolf::blockchain::state::reporting_assurance::process_guarantees;
 use vinwolf::blockchain::state::statistics::process;
 use vinwolf::utils::codec::{Decode, DecodeLen, BytesReader};
 use vinwolf::utils::codec::generic::decode;
+use vinwolf::utils::codec::jam::global_state::construct_lookup_key;
 use vinwolf::utils::trie::merkle_state;
 
 pub mod codec;
@@ -83,7 +84,7 @@ mod tests {
             set_raw_state(post_state.clone(), &mut expected_state);
             
             assert_eq!(pre_state.state_root.clone(), merkle_state(&state.serialize().map, 0).unwrap());
-            //assert_eq!(post_state.state_root.clone(), merkle_state(&expected_state.serialize().map, 0).unwrap());
+            assert_eq!(post_state.state_root.clone(), merkle_state(&expected_state.serialize().map, 0).unwrap());
 
             set_global_state(state.clone());
 
@@ -159,8 +160,8 @@ mod tests {
             println!("Statistics cores: {:?}", state.statistics.cores);
             println!("Statistics services: {:?}", state.statistics.services);*/
 
-            println!("expected state_root: {:x?}", post_state.state_root);
-            println!("expected result sto: {:x?}", merkle_state(&expected_state.serialize().map, 0).unwrap());
+            println!("post_sta state_root: {:x?}", post_state.state_root);
+            println!("expected state_root: {:x?}", merkle_state(&expected_state.serialize().map, 0).unwrap());
             println!("result   state_root: {:x?}", merkle_state(&result_state.serialize().map, 0).unwrap());
             /*if slot == 7 {
                 test_post_state_merkle_root(result_state.serialize());
@@ -174,7 +175,7 @@ mod tests {
 
             slot += 1;
 
-            if slot == 101 {
+            if slot == 5 {
                 return;
             }
         }
@@ -304,6 +305,7 @@ mod tests {
             // Check for preimage lookup
             if keyval.key[1] != 0xFF && keyval.key[1] != 0xFE && keyval.key[1] != 0x00 {
 
+
                 let service_id_vec = vec![keyval.key[0], keyval.key[2], keyval.key[4], keyval.key[6]];
                 let service_id = decode::<ServiceId>(&service_id_vec, std::mem::size_of::<ServiceId>());
                 
@@ -315,13 +317,14 @@ mod tests {
                 let timeslots = Vec::<u32>::decode_len(&mut timeslots_reader).expect("Error decoding timeslots");
 
                 let account = state.service_accounts.get_mut(&service_id).unwrap();
+                account.lookup.insert(keyval.key, timeslots.clone());
 
-                for preimage in account.preimages.iter() {
+                /*for preimage in account.preimages.iter() {
 
                     if preimage.1.len() == length as usize {
                         //println!("the length match!!!");
                         let hash = sp_core::blake2_256(&preimage.1);
-                        account.lookup.insert((hash, length), timeslots.clone());
+                        account.lookup.insert(construct_lookup_key(&hash, length), timeslots.clone());
                         /*println!("Lookup preimage inserted");
                         println!("raw: {:x?} | {:x?}", keyval.key, keyval.value);
                         println!("len: {:?} hash: {:x?}", length, hash);
@@ -329,7 +332,7 @@ mod tests {
                     } else {
                         //println!("length doesnt match");
                     }
-                }
+                }*/
                 
             }
         }

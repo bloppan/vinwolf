@@ -77,7 +77,7 @@ pub fn process(
         // The number of preimages introduced by the validator
         statistics.curr.records[*author_index as usize].preimages += 1;
         // The total number of octets across all preimages introduced by the validator
-        statistics.curr.records[*author_index as usize].preimages_size += statistics.curr.records[*author_index as usize].preimages_size.saturating_add(preimage.blob.len() as u32);
+        statistics.curr.records[*author_index as usize].preimages_size = statistics.curr.records[*author_index as usize].preimages_size.saturating_add(preimage.blob.len() as u32);
     }
 
     let mut services: HashSet<ServiceId> = HashSet::new();

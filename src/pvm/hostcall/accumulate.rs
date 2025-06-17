@@ -6,7 +6,7 @@ use crate::blockchain::state::time::get_current_block_slot;
 use crate::pvm;
 use crate::types::{
     Account, AccumulationContext, AccumulationOperand, AccumulationPartialState, CoreIndex, DeferredTransfer, ExitReason, Gas, HostCallFn, OpaqueHash, 
-    RamAddress, RamMemory, RegSize, Registers, ServiceId, TimeSlot, ValidatorsData, WorkExecResult
+    RamAddress, RamMemory, RegSize, Registers, ServiceId, TimeSlot, ValidatorsData, WorkExecResult, StateKeyType,
 };
 use crate::constants::{
     CASH, CORE, CORES_COUNT, FULL, HUH, LOW, MAX_ITEMS_AUTHORIZATION_QUEUE, MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE, NONE, OK, TRANSFER_MEMO_SIZE, 
@@ -16,7 +16,9 @@ use crate::blockchain::state::{services::decode_preimage, entropy, time};
 use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
 use crate::utils::codec::{Encode, EncodeLen, EncodeSize, DecodeSize, BytesReader};
 use crate::utils::codec::generic::{encode_unsigned, decode};
+use crate::utils::codec::jam::global_state::construct_lookup_key;
 use super::general_fn::{write, info, read, lookup, log};
+use crate::utils::codec::jam::global_state::StateKeyTrait;
 
 pub fn invoke_accumulation(
     partial_state: AccumulationPartialState,
@@ -279,13 +281,13 @@ fn eject(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext,
             return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
         }
 
-        if d_account.get_footprint_and_threshold().0 != 2 || !d_account.lookup.contains_key(&(hash, length)) {
+        if d_account.get_footprint_and_threshold().0 != 2 || !d_account.lookup.contains_key(&construct_lookup_key(&hash, length)) {
             println!("HUH");
             reg[7] = HUH;
             return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
         }
 
-        let timeslots = d_account.lookup.get(&(hash, length)).unwrap().clone();
+        let timeslots = d_account.lookup.get(&construct_lookup_key(&hash, length)).unwrap().clone();
 
         if timeslots.len() == 2 && (slot - timeslots[1] < MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE) {
 
@@ -328,13 +330,13 @@ fn query(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
     println!("length: {:?}", hash);
     let (ctx_x, ctx_y) = ctx.to_acc_ctx();
 
-    if !ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().lookup.contains_key(&(hash, length)) {
+    if !ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().lookup.contains_key(&construct_lookup_key(&hash, length)) {
         println!("NONE");
         reg[7] = NONE;
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
-    let timeslots = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().lookup.get(&(hash, length)).unwrap().clone();
+    let timeslots = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().lookup.get(&construct_lookup_key(&hash, length)).unwrap().clone();
     let timeslots_len = timeslots.len();
     println!("timestlots_len = {timeslots_len}");
     println!("timeslots: {:?}", timeslots);
@@ -381,7 +383,7 @@ fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
         let c = ram.read(start_address, 32);
         let mut new_account = Account::default();
         new_account.code_hash.copy_from_slice(&c);
-        new_account.lookup.insert((new_account.code_hash, limit as u32), vec![]);
+        new_account.lookup.insert(construct_lookup_key(&new_account.code_hash, limit as u32), vec![]);
         new_account.acc_min_gas = new_account_gas as Gas;
         new_account.xfer_min_gas = new_account_min_gas as Gas;
         let threshold_account = new_account.get_footprint_and_threshold().2;
@@ -460,15 +462,17 @@ fn solicit(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
     }
 
     let hash: OpaqueHash = ram.read(start_address,  32).try_into().unwrap();
+    let lookup_key = StateKeyType::Account(ctx_x.service_id, construct_lookup_key(&hash, preimage_size).to_vec()).construct();
 
     let mut account = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().clone();
 
-    if !account.lookup.contains_key(&(hash, preimage_size)) {
-        account.lookup.insert((hash, preimage_size), vec![]);
-    } else if account.lookup.get(&(hash, preimage_size)).unwrap().len() == 2 {
-        let mut timeslots = account.lookup.get(&(hash, preimage_size)).unwrap().clone();
+    if !account.lookup.contains_key(&lookup_key) {
+        account.lookup.insert(lookup_key, vec![]);
+    } else if account.lookup.get(&lookup_key).unwrap().len() == 2 {
+        let mut timeslots = account.lookup.get(&lookup_key).unwrap().clone();
         timeslots.push(slot);
-        account.lookup.insert((hash, preimage_size), timeslots);
+        let key = StateKeyType::Account(ctx_x.service_id, lookup_key.to_vec()).construct();
+        account.lookup.insert(key, timeslots);
     } else {
         reg[7] = HUH;
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
@@ -499,7 +503,7 @@ fn solicit(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
     }
 
     println!("hash: {:x?}", hash);
-    println!("timeslots: {:?}", account.lookup.get(&(hash, preimage_size)).unwrap());
+    println!("timeslots: {:?}", account.lookup.get(&lookup_key).unwrap());
     println!("size: {:?}", preimage_size);
     println!("OK");
     reg[7] = OK;
@@ -670,18 +674,18 @@ fn forget(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
 
     let mut account = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().clone();
 
-    if let Some(mut timeslot) = account.lookup.get(&(hash, length)).cloned() {
+    if let Some(mut timeslot) = account.lookup.get(&construct_lookup_key(&hash, length)).cloned() {
         println!("slot: {slot}");
         println!("timeslot len: {:?}, timeslot: {:?}", timeslot.len(), timeslot);
-        println!("account timeslot before: {:?}", account.lookup.get(&(hash, length)).unwrap().clone());
+        println!("account timeslot before: {:?}", account.lookup.get(&construct_lookup_key(&hash, length)).unwrap().clone());
         if timeslot.len() == 0 || (timeslot.len() == 2 && (slot - timeslot[1] < MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE)) {
-            account.lookup.remove(&(hash, length));
+            account.lookup.remove(&construct_lookup_key(&hash, length));
             account.preimages.remove(&hash);
         } else if timeslot.len() == 1 {
             timeslot.push(slot);
-            account.lookup.insert((hash, length), timeslot);
+            account.lookup.insert(construct_lookup_key(&hash, length), timeslot);
         } else if timeslot.len() == 3 && (slot - timeslot[1] < MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE) {
-            account.lookup.insert((hash, length), vec![timeslot[2], slot]);
+            account.lookup.insert(construct_lookup_key(&hash, length), vec![timeslot[2], slot]);
         } else {
             println!("HUH");
             reg[7] = HUH;
@@ -692,7 +696,7 @@ fn forget(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
         reg[7] = HUH;
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
-    println!("account timeslot after: {:?}", account.lookup.get(&(hash, length)).unwrap().clone());
+    println!("account timeslot after: {:?}", account.lookup.get(&construct_lookup_key(&hash, length)).unwrap().clone());
     println!("OK");
     reg[7] = OK;
     ctx_x.partial_state.service_accounts.insert(ctx_x.service_id, account);
@@ -765,7 +769,7 @@ fn provide(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
 
     let item = ram.read(start_address, size);
 
-    if account.unwrap().lookup.contains_key(&(sp_core::blake2_256(&item), size)) {
+    if account.unwrap().lookup.contains_key(&construct_lookup_key(&sp_core::blake2_256(&item), size)) {
         debug!("provide: HUH");
         reg[7] = HUH;
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));

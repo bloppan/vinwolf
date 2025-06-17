@@ -43,21 +43,21 @@ impl StateKeyTrait for StateKeyType {
 }
 
 pub fn construct_storage_key(key: &StorageKey) -> StateKey {
-    let mut key_result = StorageKey::default();
+    let mut key_result = StateKey::default();
     key_result[..4].copy_from_slice(&u32::MAX.encode());
     key_result[4..].copy_from_slice(&key[..27]);
     key_result
 }
 
-pub fn construct_preimage_key(hash: &OpaqueHash) -> StorageKey {
-    let mut key_result = StorageKey::default();
+pub fn construct_preimage_key(hash: &OpaqueHash) -> StateKey {
+    let mut key_result = StateKey::default();
     key_result[..4].copy_from_slice(&(u32::MAX - 1).encode());
     key_result[4..].copy_from_slice(&hash[1..28]);
     key_result
 }
 
-pub fn construct_lookup_key(hash: &OpaqueHash, length: u32) -> StorageKey {
-    let mut key_result = StorageKey::default();
+pub fn construct_lookup_key(hash: &OpaqueHash, length: u32) -> StateKey {
+    let mut key_result = StateKey::default();
     key_result[..4].copy_from_slice(&length.encode());
     key_result[4..].copy_from_slice(&(blake2_256(hash)[2..29]));
     key_result
