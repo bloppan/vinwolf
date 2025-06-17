@@ -32,13 +32,13 @@ impl PreimagesExtrinsic {
         for preimage in self.preimages.iter() {
             let hash = sp_core::blake2_256(&preimage.blob);
             let length = preimage.blob.len() as u32;
+            let lookup_key = StateKeyType::Account(preimage.requester, construct_lookup_key(&hash, length).to_vec()).construct();
             if services.contains_key(&preimage.requester) {
                 let account = services.get_mut(&preimage.requester).unwrap();
                 if account.preimages.contains_key(&hash) {
                     println!("preimage unneeded. hash {:x?}", hash);
                     return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
                 }
-                let lookup_key = StateKeyType::Account(preimage.requester, construct_lookup_key(&hash, length).to_vec()).construct();
                 if let Some(timeslots) = account.lookup.get(&lookup_key) {
                     if timeslots.len() > 0 {
                         return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
@@ -48,7 +48,7 @@ impl PreimagesExtrinsic {
                 }
                 account.preimages.insert(hash, preimage.blob.clone());
                 let timeslot_values = vec![post_tau.clone()];
-                account.lookup.insert(construct_lookup_key(&hash, length), timeslot_values);
+                account.lookup.insert(lookup_key, timeslot_values);
             } else {
                 return Err(ProcessError::PreimagesError(PreimagesErrorCode::RequesterNotFound));
             }

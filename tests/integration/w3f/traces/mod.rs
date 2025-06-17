@@ -61,7 +61,7 @@ mod tests {
         //println!("block: {:x?}", block);
         //println!("post_state: {:x?}", post_state);
         
-        let mut slot = 3;
+        let mut slot = 4;
         
         loop {
             println!("\n\n**********************    Reading test file: {}    **********************************", slot);
@@ -132,12 +132,23 @@ mod tests {
                             panic!("Key storage not found : {:x?}", *item.0);
                         }
                     }
-                    
-                    //println!("items: {items}, octets: {octets}");
+
                     assert_eq!(service_account.1.storage, account.storage);
-                    //println!("pre_state lookup: {:x?}", test_state.service_accounts.get(&0).unwrap().lookup);
-                    //println!("post stat lookup: {:x?}", account.lookup);
-                    //assert_eq!(service_account.1.lookup, account.lookup);
+                    //println!("items: {items}, octets: {octets}");
+                    println!("Lookup expected");
+                    for item in expected_state.service_accounts.get(&service_account.0).unwrap().lookup.iter() {
+                        println!("{:x?} | {:?}", item.0, item.1);
+                    }
+                    println!("Lookup post_state");
+                    for item in account.lookup.iter() {
+                        println!("{:x?} | {:?}", item.0, item.1);
+                    }
+                    println!("Lookup pre_state");
+                    for item in test_state.service_accounts.get(&service_account.0).unwrap().lookup.iter() {
+                        println!("{:x?} | {:?}", item.0, item.1);
+                    }
+
+                    assert_eq!(service_account.1.lookup, account.lookup);
                     assert_eq!(service_account.1.preimages, account.preimages);
                     assert_eq!(service_account.1.code_hash, account.code_hash);
                     assert_eq!(service_account.1.balance, account.balance);
@@ -175,7 +186,7 @@ mod tests {
 
             slot += 1;
 
-            if slot == 5 {
+            if slot == 101 {
                 return;
             }
         }
