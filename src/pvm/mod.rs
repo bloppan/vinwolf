@@ -39,14 +39,17 @@ pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
             },
             // TODO arreglar esto
             /*ExitReason::panic |*/ ExitReason::Halt => {
-                println!("step = {step}, pc = {:?}, opcode = {:?} \t, reg = {:?}", pc_copy, program.code[pc_copy as usize], pvm_ctx.reg);
+                println!("step = {step}, pc = {:?}, opcode = {:?} \t, reg = {:?}", pvm_ctx.pc.clone(), program.code[pvm_ctx.pc.clone() as usize], pvm_ctx.reg);
                 //pvm_ctx.pc = 0; // Esto pone en el GP que deberia ser 0 (con panic tambien)
                 return ExitReason::halt;
             },
-            _ => { println!("step = {step}, pc = {:?}, opcode = {:?} \t, reg = {:?}", pc_copy, program.code[pc_copy as usize], pvm_ctx.reg);
-                    return exit_reason; },
+            _ => { 
+                println!("step = {step}, pc = {:?}, opcode = {:?} \t, reg = {:?}", pvm_ctx.pc.clone(), program.code[pvm_ctx.pc.clone() as usize], pvm_ctx.reg);
+                //println!("")
+                return exit_reason; 
+            },
         } 
-        //println!("step = {step}, pc = {:?}, opcode = {:?} \t, reg = {:?}", pc_copy, program.code[pc_copy as usize], pvm_ctx.reg);
+        //println!("step = {step}, pc = {:?}, opcode = {:?} \t, reg = {:?}", pvm_ctx.pc.clone(), program.code[pc_copy as usize], pvm_ctx.reg);
         step += 1;   
     }
 }
@@ -54,7 +57,7 @@ pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
 
 fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
 
-    pvm_ctx.gas -= 0;
+    pvm_ctx.gas -= 1;
 
     if pvm_ctx.gas < 0 {
         return ExitReason::OutOfGas;
@@ -100,6 +103,7 @@ fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
         BRANCH_GE_S_IMM         => { branch_ge_s_imm(pvm_ctx, program) },
         BRANCH_GT_S_IMM         => { branch_gt_s_imm(pvm_ctx, program) },
         MOVE_REG                => { move_reg(pvm_ctx, program) }, 
+        SBRK                    => { sbrk(pvm_ctx, program) },
         COUNT_SET_BITS_64       => { count_set_bits_64(pvm_ctx, program) },
         COUNT_SET_BITS_32       => { count_set_bits_32(pvm_ctx, program) },
         LEADING_ZERO_BITS_64    => { leading_zero_bits_64(pvm_ctx, program) },
@@ -202,7 +206,7 @@ fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
         MIN_U                   => { min_u(pvm_ctx, program) },
         _                       => { println!("Unknown instruction!"); return ExitReason::panic },
     };
-    //println!("pc = {:?}, opcode = {:?}, reg = {:?}", pvm_ctx.pc, next_instruction, pvm_ctx.reg);
+    //println!("pc = {:?}, opcode = {:?}, reg = {:?}", pvm_ctx.pc, program.code[pvm_ctx.pc as usize], pvm_ctx.reg);
     return exit_reason;
 }
 
@@ -244,6 +248,7 @@ const BRANCH_LE_S_IMM: u8 = 88;
 const BRANCH_GE_S_IMM: u8 = 89;
 const BRANCH_GT_S_IMM: u8 = 90;
 const MOVE_REG: u8 = 100;
+const SBRK: u8 = 101;
 const COUNT_SET_BITS_64: u8 = 102;
 const COUNT_SET_BITS_32: u8 = 103;
 const LEADING_ZERO_BITS_64: u8 = 104;

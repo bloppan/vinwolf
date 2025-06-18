@@ -120,7 +120,16 @@ impl Encode for &[u8] {
     }
 }
 
-impl Encode for Vec<u8> {
+/*impl Encode for &T {
+    fn encode(&self) -> Vec<u8> {
+        self.to_vec()        
+    }
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.extend_from_slice(&self.encode())
+    }
+}*/
+
+/*impl Encode for Vec<u8> {
     fn encode(&self) -> Vec<u8> {
         self.clone() 
     }
@@ -128,11 +137,13 @@ impl Encode for Vec<u8> {
         writer.extend_from_slice(&self.encode())
     }
 }
-
-impl Encode for Vec<u32> {
+*/
+impl<T> Encode for Vec<T> 
+where T: Encode
+{
     fn encode(&self) -> Vec<u8> {
-        let mut blob = Vec::with_capacity(self.len() * 4);
-        for item in self {
+        let mut blob = Vec::with_capacity(self.len());
+        for item in self.iter() {
             item.encode_to(&mut blob);
         }
         blob
@@ -141,6 +152,44 @@ impl Encode for Vec<u32> {
         into.extend_from_slice(&self.encode());
     }
 }
+
+impl<T> Encode for Option<T> 
+where T: Encode,
+{
+    fn encode(&self) -> Vec<u8> {
+
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
+
+        match self {
+            None => {
+                blob.push(0);
+            }
+            Some(data) => {
+                blob.push(1);
+                data.encode_to(&mut blob);
+            }
+        }
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+/*impl<T> Encode for Option<Vec<T>>
+where T: Encode + Default,
+{
+    fn encode(&self) -> Vec<u8> {
+        let mut blob = Vec::new();
+        self.encode_to(&mut blob);
+        return blob;
+    }
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.extend_from_slice(&self.encode());
+    }
+}*/
 
 impl<const N: usize> Encode for [u8; N] {
     fn encode(&self) -> Vec<u8> {
@@ -151,21 +200,15 @@ impl<const N: usize> Encode for [u8; N] {
     }
 }
 
-impl<const N: usize> Encode for Vec<[u8; N]> {
+impl<const N: usize> Encode for Box<[u8; N]> {
     fn encode(&self) -> Vec<u8> {
-        let mut encoded = Vec::new();
-        for array in self {
-            encoded.extend_from_slice(&array.encode());
-        }
-        encoded
+        self.to_vec()
     }
-    
     fn encode_to(&self, writer: &mut Vec<u8>) {
-        for array in self {
-            writer.extend_from_slice(&array.encode());
-        }
+        writer.extend_from_slice(&self.encode())
     }
 }
+
 
 impl<const N: usize, const M: usize> Encode for [[u8; N]; M] {
 
@@ -188,29 +231,23 @@ impl<const N: usize, const M: usize> Encode for [[u8; N]; M] {
     }
 }
 
-
-impl<const N: usize, const M: usize> Encode for Vec<[[u8; N]; M]> {
+impl<const N: usize, const M: usize> Encode for Vec<([u8; N], [u8; M])> {
 
     fn encode(&self) -> Vec<u8> {
-
+        
         let mut encoded = Vec::with_capacity(N * M);
+        encode_unsigned(self.len()).encode_to(&mut encoded);
 
-        for array in self {
-            for inner_array in array {
-                encoded.extend_from_slice(&inner_array.encode());
-            }
+        for item in self.iter() {
+            item.0.encode_to(&mut encoded);
+            item.1.encode_to(&mut encoded);
         }
 
         return encoded;
     }
-    
-    fn encode_to(&self, writer: &mut Vec<u8>) {
 
-        for array in self {
-            for inner_array in array {
-                writer.extend_from_slice(&inner_array.encode());
-            }
-        }
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.extend_from_slice(&self.encode());    
     }
 }
 
@@ -234,6 +271,23 @@ where T: Encode + Eq + std::hash::Hash,
 
     fn encode_to(&self, into: &mut Vec<u8>) {
         into.extend_from_slice(&self.encode());
+    }
+}
+
+impl<T> EncodeLen for Vec<T> 
+where T: Encode
+{
+    fn encode_len(&self) -> Vec<u8> {
+
+        let mut blob = Vec::new();
+
+        encode_unsigned(self.len()).encode_to(&mut blob);
+        
+        for item in self.iter() {
+            item.encode_to(&mut blob);
+        }
+
+        return blob;
     }
 }
 

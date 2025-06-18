@@ -75,14 +75,25 @@ pub fn extend_sign(le_bytes: &[u8], n: usize) -> RegSize {
         return 0;
     }
 
-    let x = decode::<u64>(le_bytes, n);
-    let sign_bit = (x >> ((8 * n) - 1)) & 1;
+    let x = decode::<RegSize>(le_bytes, n);
 
-    if sign_bit == 1 {
-        return x | ((1u128 << 64) - (1u128 << (8 * n))) as u64;
-    } 
+    let shift = 64 - 8 * n;
+    let extended = ((x << shift) as i64 >> shift) as RegSize;
 
-    return x;
+    return extended;
+}
+
+// TODO
+pub fn extend_sign2<T>(value: T) -> RegSize
+where 
+    T: Copy + Into<i128> + From<i128> + From<RegSize>,
+{
+    let width = std::mem::size_of::<T>() as i32 * 8;
+    let shift = 128 - width;
+    let value_128: i128 = value.into();
+    let extended = (value_128 << shift) >> shift;
+
+    return extended as RegSize;
 }
 
 pub fn signed(a: u64, n: usize) -> i64 {
@@ -105,10 +116,6 @@ pub fn _branch(
     n: i64,
 ) -> ExitReason {
 
-    /*if n == 0 {
-        pvm_ctx.pc = 0;
-        return ExitReason::Continue;
-    }*/
     // Check if the jump is out of bounds
     if n < 0 || n as usize >= program.code.len() {
         println!("Panic: jump out of bounds");
@@ -261,6 +268,7 @@ mod test {
             (vec![0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], 8, 1u64),
             (vec![0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], 8, 0xFFFFFFFFFFFFFFFFu64),
             (vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80], 8, 0x8000000000000000u64),
+            (vec![0x80, 0xC1, 0x1D, 0xF3, 0x2A, 0x00, 0x00, 0x00], 8, 184467440000),
         ];
     
         for (input, size, expected) in test_cases {

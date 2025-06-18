@@ -31,10 +31,13 @@
 // disputes cannot be raised in the future of the chain.
 
 
-use crate::types::{DisputesRecords, DisputesExtrinsic, AvailabilityAssignments, OutputDataDisputes};
+use crate::types::{
+    AvailabilityAssignments, DisputesExtrinsic, DisputesRecords, Offenders, OutputDataDisputes, WorkReportHash,DisputesErrorCode 
+};
+use crate::utils::common::has_duplicates;
 use crate::blockchain::state::ProcessError;
 
-pub fn process_disputes(
+pub fn process(
     disputes_state: &mut DisputesRecords, 
     availability_state: &mut AvailabilityAssignments,
     disputes_extrinsic: &DisputesExtrinsic
@@ -48,3 +51,31 @@ pub fn process_disputes(
 }
 
 
+impl DisputesRecords {
+
+    pub fn update(
+        &mut self, 
+        new_wr_reported: &DisputesRecords, 
+        culprits_keys: &[WorkReportHash],
+        faults_keys: &[WorkReportHash]) 
+    -> Result<Offenders, ProcessError> {
+
+        let new_offenders = Vec::from([culprits_keys, faults_keys].concat());
+
+        // In the disputes extrinsic can not be offenders already reported
+        let all_offenders = Vec::from([self.offenders.clone(), new_offenders.clone()].concat());
+        if has_duplicates(&all_offenders) {
+            return Err(ProcessError::DisputesError(DisputesErrorCode::OffenderAlreadyReported));
+        }   
+
+        // If the state was initialized, then we save the auxiliar records in the state
+        self.good.extend_from_slice(&new_wr_reported.good);
+        self.bad.extend_from_slice(&new_wr_reported.bad);
+        self.wonky.extend_from_slice(&new_wr_reported.wonky);
+        let mut offenders = new_offenders.clone();
+        offenders.sort();
+        self.offenders.extend_from_slice(&offenders);
+
+        Ok(new_offenders)
+    }
+}

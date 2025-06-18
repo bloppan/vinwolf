@@ -14,9 +14,10 @@
 // seen formally through the requirement of an intermediate state ρ‡.
 
 use crate::types::{
-    Hash, AssurancesExtrinsic, AvailabilityAssignment, AvailabilityAssignments, GuaranteesExtrinsic, TimeSlot, CoreIndex,
-    OutputDataAssurances, OutputDataReports
+    AssurancesExtrinsic, AvailabilityAssignment, AvailabilityAssignments, CoreIndex, DisputesRecords, EntropyPool, GuaranteesExtrinsic, 
+    Hash, OutputDataAssurances, OutputDataReports, TimeSlot, ValidatorsData,
 };
+use crate::utils::codec::Encode;
 use super::ProcessError;
 
 pub mod work_report;
@@ -27,11 +28,11 @@ pub mod work_result;
 // with the time at which each was reported. As mentioned earlier, only one report may be assigned to a core at any given time.
 
 pub fn add_assignment(assignment: &AvailabilityAssignment, state: &mut AvailabilityAssignments) {
-    state.0[assignment.report.core_index as usize] = Some(assignment.clone());
+    state.list[assignment.report.core_index as usize] = Some(assignment.clone());
 }
 
 pub fn remove_assignment(core_index: &CoreIndex, state: &mut AvailabilityAssignments) {
-    state.0[*core_index as usize] = None;
+    state.list[*core_index as usize] = None;
 }
 
 pub fn process_assurances(
@@ -50,11 +51,14 @@ pub fn process_assurances(
 
 pub fn process_guarantees(
     assurances_state: &mut AvailabilityAssignments, 
-    guarantees: &GuaranteesExtrinsic, 
-    post_tau: &TimeSlot) 
+    guarantees_extrinsic: &GuaranteesExtrinsic, 
+    post_tau: &TimeSlot,
+    entropy_pool: &EntropyPool,
+    prev_validators: &ValidatorsData,
+    curr_validators: &ValidatorsData) 
 -> Result<OutputDataReports, ProcessError> {
 
-    let output_data = guarantees.process(assurances_state, post_tau)?;
+    let output_data = guarantees_extrinsic.process(assurances_state, post_tau, entropy_pool, prev_validators, curr_validators)?;
 
     Ok(OutputDataReports {
         reported: output_data.reported,
@@ -62,3 +66,22 @@ pub fn process_guarantees(
     })
 }
 
+impl AvailabilityAssignments {
+
+    pub fn update_first_step(&mut self, disputes_state: &DisputesRecords) {
+        
+        // We clear any work-reports which we judged as uncertain or invalid from their core:
+        for assignment in self.list.iter_mut() {
+            if let Some(availability_assignment) = assignment {
+                // Calculate target hash
+                let target_hash = sp_core::blake2_256(&availability_assignment.report.encode());
+                // Check if the hash is contained in bad or wonky sets
+                if disputes_state.bad.contains(&target_hash)
+                    || disputes_state.wonky.contains(&target_hash)
+                {
+                    *assignment = None; // Set to None
+                }
+            }
+        }
+    }
+}

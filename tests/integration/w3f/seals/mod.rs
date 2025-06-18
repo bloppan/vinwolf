@@ -13,7 +13,6 @@ use vinwolf::types::{
     TicketsMark, ValidatorsData, ValidatorSet
 };
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::blockchain::block::extrinsic::tickets::verify_seal;
 use vinwolf::blockchain::state::{set_validators, set_entropy};
 use vinwolf::blockchain::state::safrole::{create_ring_set, create_root_epoch};
 
@@ -113,7 +112,7 @@ mod tests {
         let ring_root = create_root_epoch(ring_set.clone());
 
         let mut current_validators = ValidatorsData::default();
-        current_validators.0[block_author].bandersnatch = test_decoded.bandersnatch_pub;
+        current_validators.list[block_author].bandersnatch = test_decoded.bandersnatch_pub;
         set_validators(current_validators.clone(), ValidatorSet::Current);
 
         let i = header.unsigned.slot % EPOCH_LENGTH as TimeSlot;
@@ -122,7 +121,7 @@ mod tests {
         match test_decoded.T {
             0 => {
                 let mut epoch_keys = BandersnatchEpoch::default();
-                epoch_keys.0[i as usize] = test_decoded.bandersnatch_pub;
+                epoch_keys.epoch[i as usize] = test_decoded.bandersnatch_pub;
                 safrole_state.seal = TicketsOrKeys::Keys(epoch_keys);
             },
             1 => {
@@ -134,7 +133,7 @@ mod tests {
             _ => panic!("Invalid T value"),
         }
 
-        verify_seal(&safrole_state, &entropy_pool, &current_validators, ring_set, &header).expect("Failed to verify seal");
+        header.seal_verify(&safrole_state, &entropy_pool, &current_validators, ring_set).expect("Failed to verify seal");
 
         println!("Test done\n");
     

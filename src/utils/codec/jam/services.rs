@@ -1,8 +1,5 @@
-use crate::types::{
-    ServiceId, Gas, OpaqueHash, ServiceInfo, ServiceItem, Services
-};
-use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
-use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
+use crate::types::{ ServiceId, Gas, OpaqueHash, ServiceInfo, ServiceItem, Services };
+use crate::utils::codec::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
 
 impl Encode for ServiceInfo {
 
@@ -12,8 +9,8 @@ impl Encode for ServiceInfo {
         
         self.code_hash.encode_to(&mut blob);
         self.balance.encode_size(8).encode_to(&mut blob);
-        self.min_item_gas.encode_size(8).encode_to(&mut blob);
-        self.min_memo_gas.encode_size(8).encode_to(&mut blob);
+        self.acc_min_gas.encode_size(8).encode_to(&mut blob);
+        self.xfer_min_gas.encode_size(8).encode_to(&mut blob);
         self.bytes.encode_size(8).encode_to(&mut blob);
         self.items.encode_size(4).encode_to(&mut blob);
         
@@ -32,8 +29,8 @@ impl Decode for ServiceInfo {
         Ok(ServiceInfo {
             code_hash: OpaqueHash::decode(blob)?,
             balance: u64::decode(blob)?,
-            min_item_gas: Gas::decode(blob)?,
-            min_memo_gas: Gas::decode(blob)?,
+            acc_min_gas: Gas::decode(blob)?,
+            xfer_min_gas: Gas::decode(blob)?,
             bytes: u64::decode(blob)?,
             items: u32::decode(blob)?,
         })
@@ -73,12 +70,7 @@ impl Encode for Services {
     fn encode(&self) -> Vec<u8> {
 
         let mut blob = Vec::with_capacity(std::mem::size_of::<Self>() * self.0.len());
-
-        encode_unsigned(self.0.len()).encode_to(&mut blob);
-
-        for item in &self.0 {
-            item.encode_to(&mut blob);
-        }
+        self.0.encode_len().encode_to(&mut blob);
 
         return blob;
     }
@@ -92,13 +84,6 @@ impl Decode for Services {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
-        let len = decode_unsigned(blob)?;
-        let mut services = Vec::with_capacity(std::mem::size_of::<Self>() * len);
-
-        for _ in 0..len {
-            services.push(ServiceItem::decode(blob)?);
-        }
-
-        Ok(Services{0: services})
+        Ok(Services{0: Vec::<ServiceItem>::decode_len(blob)?})
     }
 }

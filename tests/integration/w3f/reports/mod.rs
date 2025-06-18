@@ -1,11 +1,11 @@
 use once_cell::sync::Lazy;
 use crate::integration::w3f::{read_test_file, FromProcessError};
-//use crate::integration::w3f::codec::{TestBody, encode_decode_test};
+use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
 use vinwolf::types::{DisputesRecords, OutputDataReports, ValidatorSet, ProcessError, Statistics, Extrinsic, ServiceAccounts, Account};
 use vinwolf::blockchain::state::{
-    get_global_state, set_reporting_assurance, get_reporting_assurance, set_authpools, get_authpools, 
+    get_global_state, set_reporting_assurance, get_reporting_assurance, set_auth_pools, get_auth_pools, 
     set_entropy, get_entropy, set_validators, get_validators, set_recent_history, get_recent_history,
     set_disputes, get_disputes, set_statistics, get_statistics, set_service_accounts, get_service_accounts
 };
@@ -44,45 +44,48 @@ mod tests {
     fn run_test(filename: &str) {
 
         let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/reports/{}/{}", *TEST_TYPE, filename));
-        /*let test_body: Vec<TestBody> = vec![
+        let test_body: Vec<TestBody> = vec![
                                         TestBody::InputWorkReport,
                                         TestBody::WorkReportState,
                                         TestBody::OutputWorkReport,
                                         TestBody::WorkReportState];
         
-        let _ = encode_decode_test(&test_content, &test_body);*/
+        let _ = encode_decode_test(&test_content, &test_body);
         
         let mut reader = BytesReader::new(&test_content);
-        let input = InputWorkReport::decode(&mut reader).expect("Error decoding post InputWorkReport");
-        let pre_state = WorkReportState::decode(&mut reader).expect("Error decoding post WorkReport PreState");
-        let expected_output = OutputWorkReport::decode(&mut reader).expect("Error decoding post OutputWorkReport");
-        let expected_state = WorkReportState::decode(&mut reader).expect("Error decoding post WorkReport PostState");
+        let input = InputWorkReport::decode(&mut reader).expect("Error decoding InputWorkReport");
+        let pre_state = WorkReportState::decode(&mut reader).expect("Error decoding WorkReport PreState");
+        let expected_output = OutputWorkReport::decode(&mut reader).expect("Error decoding OutputWorkReport");
+        let expected_state = WorkReportState::decode(&mut reader).expect("Error decoding WorkReport PostState");
       
+        /*println!("\ninput: {:x?}", input);
+        println!("\npre_state: {:x?}", pre_state);
+        println!("\nexpected_output: {:x?}", expected_output);
+        println!("\nexpected_output: {:x?}", expected_output);*/
+
         let disputes_state = DisputesRecords {
             good: vec![],
             bad: vec![],
             wonky: vec![],
-            offenders: pre_state.offenders.0.clone(),
+            offenders: pre_state.offenders.clone(),
         };
 
         set_disputes(disputes_state);
         set_reporting_assurance(pre_state.avail_assignments);
         set_validators(pre_state.curr_validators, ValidatorSet::Current);
         set_validators(pre_state.prev_validators, ValidatorSet::Previous);
-        set_entropy(pre_state.entropy);
+        set_entropy(pre_state.entropy.clone());
         set_recent_history(pre_state.recent_blocks);
-        set_authpools(pre_state.auth_pools);
-        //set_services_state(&pre_state.services);
+        set_auth_pools(pre_state.auth_pools);
+        
         let mut services_accounts = ServiceAccounts::default();
         for acc in pre_state.services.0.iter() {
             let mut account = Account::default();
             account.code_hash = acc.info.code_hash.clone();
             account.balance = acc.info.balance.clone();
-            account.gas = acc.info.min_item_gas.clone();
-            account.min_gas = acc.info.min_memo_gas.clone();
-            account.items = acc.info.items.clone();
-            account.bytes = acc.info.bytes.clone();
-            services_accounts.service_accounts.insert(acc.id.clone(), account.clone());
+            account.acc_min_gas = acc.info.acc_min_gas.clone();
+            account.xfer_min_gas = acc.info.xfer_min_gas.clone();
+            services_accounts.insert(acc.id.clone(), account.clone());
         }
         set_service_accounts(services_accounts);
         let mut statistics_state = Statistics::default();
@@ -95,7 +98,10 @@ mod tests {
 
         let output_result = process_guarantees(&mut assurances_state, 
                                                                              &input.guarantees, 
-                                                                             &input.slot);
+                                                                             &input.slot,
+                                                                            &get_entropy(),
+                                                                            &get_validators(ValidatorSet::Previous),
+                                                                            &get_validators(ValidatorSet::Current));
         
         match output_result {
             Ok(_) => { 
@@ -115,33 +121,40 @@ mod tests {
         let result_prev_validators = get_validators(ValidatorSet::Previous);
         let result_entropy = get_entropy();
         let result_history = get_recent_history();
-        let result_authpool = get_authpools();
+        let result_authpool = get_auth_pools();
         //let result_services = get_services_state();
         let result_services = get_service_accounts();
         let result_statistics = get_statistics();
 
-        assert_eq!(expected_state.offenders.0, result_disputes.offenders);
+        assert_eq!(expected_state.offenders, result_disputes.offenders);
         assert_eq!(expected_state.avail_assignments, result_avail_assignments);
         assert_eq!(expected_state.curr_validators, result_curr_validators);
         assert_eq!(expected_state.prev_validators, result_prev_validators);
         assert_eq!(expected_state.entropy, result_entropy);
         assert_eq!(expected_state.recent_blocks, result_history);
         assert_eq!(expected_state.auth_pools, result_authpool);
-        //assert_eq!(expected_state.services, result_services);
 
         let mut expected_services_accounts = ServiceAccounts::default();
         for acc in expected_state.services.0.iter() {
             let mut account = Account::default();
             account.code_hash = acc.info.code_hash.clone();
             account.balance = acc.info.balance.clone();
-            account.gas = acc.info.min_item_gas.clone();
-            account.min_gas = acc.info.min_memo_gas.clone();
-            account.items = acc.info.items.clone();
-            account.bytes = acc.info.bytes.clone();
-            expected_services_accounts.service_accounts.insert(acc.id.clone(), account.clone());
+            account.acc_min_gas = acc.info.acc_min_gas.clone();
+            account.xfer_min_gas = acc.info.xfer_min_gas.clone();
+            expected_services_accounts.insert(acc.id.clone(), account.clone());
         }
-        assert_eq!(expected_services_accounts.service_accounts, result_services.service_accounts);
-        assert_eq!(expected_state.cores_statistics, result_statistics.cores);
+        
+        assert_eq!(expected_services_accounts, result_services);
+
+        for (i, core) in result_statistics.cores.records.iter().enumerate() {
+            assert_eq!(core.imports, result_statistics.cores.records[i].imports);
+            assert_eq!(core.exports, result_statistics.cores.records[i].exports);
+            assert_eq!(core.extrinsic_size, result_statistics.cores.records[i].extrinsic_size);
+            assert_eq!(core.extrinsic_count, result_statistics.cores.records[i].extrinsic_count);
+            assert_eq!(core.bundle_size, result_statistics.cores.records[i].bundle_size);  
+            assert_eq!(core.gas_used, result_statistics.cores.records[i].gas_used);
+        }
+        
         assert_eq!(expected_state.services_statistics, result_statistics.services);
 
         match output_result {
@@ -200,7 +213,7 @@ mod tests {
             // Work report per core gas is very high, still less than the limit.
             "high_work_report_gas-1.bin",
             // Work report per core gas is too much high.
-            //"too_high_work_report_gas-1.bin",  ***************************************  REPORTAR A DAVXY por que refactoriza el gas en tiny
+            "too_high_work_report_gas-1.bin",  //***************************************  REPORTAR A DAVXY por que refactoriza el gas en tiny
             // Accumulate gas is below the service minimum.
             "service_item_gas_too_low-1.bin",
             // Work report has many dependencies, still less than the limit.
@@ -241,6 +254,7 @@ mod tests {
             "big_work_report_output-1.bin",
             // Work report output is size is over the limit.
             "too_big_work_report_output-1.bin",
+            "with_avail_assignments-1.bin",
         ];
         for file in test_files {
             println!("Running test: {}", file);

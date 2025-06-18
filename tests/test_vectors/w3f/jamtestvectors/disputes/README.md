@@ -1,7 +1,10 @@
 # Disputes STF Test Vectors
 
-Both JSON and SCALE formats conform to the JAM ASN.1 [schema](../jam-types-asn/jam-types.asn)
-and this subsystem STF specific [schema](./disputes.asn).
+## Schema
+
+Both the binary and json formats adhere to the overarching JAM protocol ASN.1
+[schema](../jam-types-asn/jam-types.asn), as well as the specific vectors
+[schema](./disputes.asn) defined for these test cases.
 
 ## Availability Assignments
 
@@ -59,6 +62,10 @@ tests that verify the invalidation of assignments following a verdict.
   - Bad signature within the verdict judgements
 - [progress_with_bad_signatures-2](tiny/progress_with_bad_signatures-2.json) 🔴
   - Bad signature within the culprits sequence
+- [progress_with_invalid_keys-1](tiny/progress_with_invalid_keys-1.json) 🔴
+  - Unexpected key found in the culprits sequence
+- [progress_with_invalid_keys-2](tiny/progress_with_invalid_keys-2.json) 🔴
+  - Unexpected key found in the faults sequence
 - [progress_with_verdict_signatures_from_previous_set-1](tiny/progress_with_verdict_signatures_from_previous_set-1.json) 🟢
   - Use previous epoch validators set for verdict signatures verification
 - [progress_with_verdict_signatures_from_previous_set-2](tiny/progress_with_verdict_signatures_from_previous_set-2.json) 🔴

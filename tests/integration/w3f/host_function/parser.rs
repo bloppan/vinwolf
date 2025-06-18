@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 extern crate vinwolf;
 use vinwolf::constants::{NUM_REG, PAGE_SIZE};
-use vinwolf::types::{Account, Context, OpaqueHash, Page, PageFlags, RamAccess, RamMemory, ServiceAccounts};
+use vinwolf::types::{Account, Context, OpaqueHash, Page, PageFlags, RamAccess, RamMemory, ServiceAccounts, StorageKey};
+use vinwolf::utils::codec::jam::global_state::construct_lookup_key;
 
 use super::{DeltaEntry, InitialMemory, HostCallTestFile};
 
@@ -23,8 +24,8 @@ pub fn parse_account(json_data: &DeltaEntry) -> Account {
     
     account.code_hash = hash;
     account.balance = json_data.balance;
-    account.gas = json_data.g;
-    account.min_gas = json_data.m;
+    account.acc_min_gas = json_data.g;
+    account.xfer_min_gas = json_data.m;
     
     for item in json_data.s_map.iter() {
         let mut value: Vec<u8> = Vec::new();
@@ -32,7 +33,7 @@ pub fn parse_account(json_data: &DeltaEntry) -> Account {
             value.push(item.1[i]);
         }
         let hash = hex::decode(&item.0[2..]).unwrap();
-        let mut hash_storage: OpaqueHash = [0u8; 32];
+        let mut hash_storage: StorageKey = [0u8; 31];
         for (i, byte) in hash.iter().enumerate() {
             hash_storage[i] = *byte;
         }
@@ -49,7 +50,7 @@ pub fn parse_account(json_data: &DeltaEntry) -> Account {
             timeslots.push(*slot);
         }
         let length = item.1.l;
-        account.lookup.insert((hash_lookup, length), timeslots);
+        account.lookup.insert(construct_lookup_key(&hash_lookup, length), timeslots);
     }
     for item in json_data.p_map.iter() {
         let mut value: Vec<u8> = Vec::new();
@@ -73,7 +74,7 @@ pub fn parse_service_accounts(json_data: &HashMap<String, DeltaEntry>) -> Servic
 
     for service in json_data.iter() {
         let account = parse_account(service.1);
-        service_accounts.service_accounts.insert(service.0.parse::<u32>().unwrap(), account);
+        service_accounts.insert(service.0.parse::<u32>().unwrap(), account);
     }
 
     return service_accounts;

@@ -1,4 +1,4 @@
-use vinwolf::types::{TimeSlot, ValidatorIndex, Statistics, Extrinsic, ValidatorsData};
+use vinwolf::types::{ValidatorStatistics, TimeSlot, ValidatorIndex, Statistics, Extrinsic, ValidatorsData};
 use vinwolf::utils::codec::{BytesReader, Decode, Encode, ReadError};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -39,18 +39,20 @@ impl Decode for InputStatistics {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct StateStatistics {
-    pub stats: Statistics,
+    pub curr_stats: ValidatorStatistics,
+    pub prev_stats: ValidatorStatistics,
     pub tau: TimeSlot,
-    pub next_validators: ValidatorsData
+    pub curr_validators: ValidatorsData
 }
 
 impl Encode for StateStatistics {
     fn encode(&self) -> Vec<u8> {
         let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
 
-        self.stats.encode_to(&mut blob);
+        self.curr_stats.encode_to(&mut blob);
+        self.prev_stats.encode_to(&mut blob);
         self.tau.encode_to(&mut blob);
-        self.next_validators.encode_to(&mut blob);
+        self.curr_validators.encode_to(&mut blob);
 
         return blob;
     }
@@ -63,9 +65,10 @@ impl Decode for StateStatistics {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
         Ok(StateStatistics {
-            stats: Statistics::decode(blob)?,
+            curr_stats: ValidatorStatistics::decode(blob)?,
+            prev_stats: ValidatorStatistics::decode(blob)?,
             tau: TimeSlot::decode(blob)?,
-            next_validators: ValidatorsData::decode(blob)?
+            curr_validators: ValidatorsData::decode(blob)?
         })
     }
 }

@@ -8,7 +8,7 @@ use vinwolf::types::{
     RefineContext, WorkItem, WorkPackage, WorkResult, TicketsExtrinsic, DisputesExtrinsic, PreimagesExtrinsic, AssurancesExtrinsic, 
     GuaranteesExtrinsic, Header, Block, BlockHistory, WorkReport, OutputAssurances, OutputSafrole, OutputPreimages, OutputAccumulation,
     AuthPools, AuthQueues, Safrole, DisputesRecords, EntropyPool, ValidatorsData, AvailabilityAssignments, TimeSlot, Privileges, Statistics,
-    AccumulatedHistory, ReadyQueue, 
+    AccumulatedHistory, ReadyQueue, KeyValue, RawState, 
 };
 use vinwolf::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
@@ -21,7 +21,6 @@ use crate::integration::w3f::statistics::codec::{InputStatistics, StateStatistic
 use crate::integration::w3f::reports::codec::{InputWorkReport, WorkReportState, OutputWorkReport};
 use crate::integration::w3f::preimages::codec::{InputPreimages, PreimagesState};
 use crate::integration::w3f::accumulate::codec::{InputAccumulate, StateAccumulate};
-
 use crate::integration::testnet::codec::{GlobalStateTest, ServiceAccounts};
 
 fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
@@ -88,6 +87,8 @@ pub enum TestBody {
     AccumulatedHistory,
     ReadyQueue,
     ServiceAccounts,
+    KeyValue,
+    RawState,
 }
 
 struct TestContext<'a, 'b> {
@@ -116,6 +117,8 @@ impl<'a, 'b> TestContext<'a, 'b> {
             println!("Result decoded: \n\n {:0x?}", part);
             println!("\n\nResult encoded: \n\n {:0x?}\n\n", encoded_part);
         }
+
+        //println!("part_name: {}", part_name);
 
         assert_eq!(
             &self.blob[self.global_position..end_position],
@@ -299,6 +302,12 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
             TestBody::ServiceAccounts => {
                 context.process_test_part("ServiceAccounts", ServiceAccounts::decode, ServiceAccounts::encode)?;
             }
+            TestBody::KeyValue => {
+                context.process_test_part("KeyValue", KeyValue::decode, KeyValue::encode)?;
+            }
+            TestBody::RawState => {
+                context.process_test_part("RawState", RawState::decode, RawState::encode)?;
+            }
         }
     }
 
@@ -374,7 +383,7 @@ mod tests {
         assert_eq!(result.is_ok(), true);
     }
     
-    #[test]
+   #[test]
     fn run_disputes_extrinsic() {
         let test_content = read_test_file(&format!("{}/disputes_extrinsic.bin", TEST_DIR));
         let test_body: Vec<TestBody> = vec![TestBody::DisputesExtrinsic];

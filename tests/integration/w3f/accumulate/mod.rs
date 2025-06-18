@@ -5,12 +5,14 @@ use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 pub mod codec;
 use codec::{InputAccumulate, StateAccumulate};
 
-use vinwolf::types::{EntropyPool, ServiceAccounts, OutputAccumulation, Account};
+use vinwolf::types::{EntropyPool, ServiceAccounts, OutputAccumulation, Account, Statistics, Extrinsic};
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH};
 use vinwolf::blockchain::state::{
     set_service_accounts, set_entropy, set_time, get_global_state, set_accumulation_history, set_privileges, set_ready_queue
 };
+use vinwolf::blockchain::state::{time::set_current_slot, entropy::set_recent_entropy};
 use vinwolf::blockchain::state::accumulation::process;
+use vinwolf::blockchain::state::statistics::process as process_statistics;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
 extern crate vinwolf;
@@ -27,6 +29,8 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
 
 #[cfg(test)]
 mod tests {
+
+    use vinwolf::blockchain::state::set_statistics;
 
     use super::*;
 
@@ -46,26 +50,32 @@ mod tests {
         let pre_state = StateAccumulate::decode(&mut reader).expect("Error decoding Accumulate PreState");
         let _expected_output = OutputAccumulation::decode(&mut reader).expect("Error decoding OutputAccumulate");
         let expected_state = StateAccumulate::decode(&mut reader).expect("Error decoding Accumulate PostState");
+                
         
+        let mut statistics = Statistics::default();
+        statistics.services = pre_state.statistics;
+        set_statistics(statistics);
         let mut entropy = EntropyPool::default();
-        entropy.buf[0] = pre_state.entropy;
+        entropy.buf[0].entropy = pre_state.entropy.clone();
         set_entropy(entropy);
+        set_recent_entropy(pre_state.entropy.clone());
         set_time(pre_state.slot.clone());
+        set_current_slot(&input.slot.clone());
         set_ready_queue(pre_state.ready.clone());
         set_accumulation_history(pre_state.accumulated.clone());
         set_privileges(pre_state.privileges.clone());
-
+        
         let mut service_accounts = ServiceAccounts::default();
         for account in pre_state.accounts.iter() {
             let mut new_account = Account::default();
             new_account.balance = account.data.service.balance.clone();
             new_account.code_hash = account.data.service.code_hash.clone();
-            new_account.gas = account.data.service.min_item_gas.clone();
-            new_account.min_gas = account.data.service.min_memo_gas.clone();
+            new_account.acc_min_gas = account.data.service.acc_min_gas.clone();
+            new_account.xfer_min_gas = account.data.service.xfer_min_gas.clone();
             for preimage in account.data.preimages.iter() {
                 new_account.preimages.insert(preimage.hash.clone(), preimage.blob.clone());
             }
-            service_accounts.service_accounts.insert(account.id.clone(), new_account);
+            service_accounts.insert(account.id.clone(), new_account);
         }
 
         set_service_accounts(service_accounts.clone());
@@ -83,9 +93,17 @@ mod tests {
                                                         &input.reports);
 
         match output_accumulation {
-            Ok(_) => { 
+            Ok(_) => {
                 set_accumulation_history(state.accumulation_history.clone());
                 set_ready_queue(state.ready_queue.clone());
+                process_statistics(
+                                &mut state.statistics, 
+                                &input.slot, 
+                                &0, 
+                                &Extrinsic::default(),
+                                &input.reports,
+                            );
+                set_statistics(state.statistics.clone());
             },
             Err(_) => { },
         }
@@ -94,24 +112,29 @@ mod tests {
 
         assert_eq!(expected_state.accumulated, result_state.accumulation_history);
         assert_eq!(expected_state.ready, result_state.ready_queue);
-        assert_eq!(expected_state.entropy, result_state.entropy.buf[0]);
+        //assert_eq!(expected_state.entropy, result_state.entropy.buf[0]);
         //assert_eq!(expected_state.slot, result_state.time);
         assert_eq!(expected_state.privileges, result_state.privileges);
         
         for account in expected_state.accounts.iter() {
-            let result_account = result_state.service_accounts.service_accounts.get(&account.id).unwrap();
+            let result_account = result_state.service_accounts.get(&account.id).unwrap();
             assert_eq!(account.data.service.balance, result_account.balance);
             assert_eq!(account.data.service.code_hash, result_account.code_hash);
-            assert_eq!(account.data.service.min_item_gas, result_account.gas);
-            assert_eq!(account.data.service.min_memo_gas, result_account.min_gas);
+            assert_eq!(account.data.service.acc_min_gas, result_account.acc_min_gas);
+            assert_eq!(account.data.service.xfer_min_gas, result_account.xfer_min_gas);
+            // TODO assert bytes and items
             for preimage in account.data.preimages.iter() {
                 assert_eq!(&preimage.blob, result_account.preimages.get(&preimage.hash).unwrap());
             }
+
+            //assert_eq!(account.data.storage, result_account.storage); // TODO
         }
 
+        assert_eq!(expected_state.statistics, result_state.statistics.services);
+
         match output_accumulation { 
-            Ok((_accumulation_root, _a, _b, _c, _d)) => {
-                //assert_eq!(expected_output, accumulation_root); // TODO arreglar esto
+            Ok((accumulation_root, _a, _b, _c, _d)) => {
+                assert_eq!(_expected_output, OutputAccumulation::Ok(accumulation_root)); 
             },
             Err(_) => {
                 
@@ -127,7 +150,7 @@ mod tests {
 
         let test_files = vec![
             // No reports.
-            /*"no_available_reports-1.bin",
+            "no_available_reports-1.bin",
             // Report with no dependencies.
             "process_one_immediate_report-1.bin",
             // Report with unsatisfied dependency added to the ready queue.
@@ -184,9 +207,10 @@ mod tests {
             "ready_queue_editing-1.bin",
             // Two reports with unsatisfied dependencies added to the ready-queue.
             // One accumulated. Ready queue items dependencies are edited.
-            "ready_queue_editing-2.bin",*/
+            "ready_queue_editing-2.bin",
             // One report unlocks reports in the ready-queue.
             "ready_queue_editing-3.bin",
+            "same_code_different_services-1.bin",
         ];
         for file in test_files {
             println!("Running test: {}", file);

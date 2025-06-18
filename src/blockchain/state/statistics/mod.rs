@@ -20,7 +20,7 @@ use std::sync::Mutex;
 use std::collections::{HashMap, HashSet};
 
 use crate::types::{
-    ActivityRecords, CoresStatistics, Extrinsic, ServicesStatistics, SeviceActivityRecord, Statistics, TimeSlot, ValidatorIndex, 
+    ValidatorStatistics, CoresStatistics, Extrinsic, ServicesStatistics, SeviceActivityRecord, Statistics, TimeSlot, ValidatorIndex, 
     WorkReport, Gas, ServiceId
 };
 use super::*;
@@ -66,7 +66,7 @@ pub fn process(
         statistics.prev = statistics.curr.clone();
 
         // Reset the current record
-        statistics.curr = ActivityRecords::default();
+        statistics.curr = ValidatorStatistics::default();
     }
     // The number of blocks produced by the validator
     statistics.curr.records[*author_index as usize].blocks += 1;
@@ -92,12 +92,12 @@ pub fn process(
             statistics.curr.records[signature.validator_index as usize].guarantees += 1;
         }
 
-        statistics.cores.records[guarantee.report.core_index as usize].imports = guarantee.report.results.iter().map(|result| result.refine_load.imports).sum::<u16>();
-        statistics.cores.records[guarantee.report.core_index as usize].extrinsic_count = guarantee.report.results.iter().map(|result| result.refine_load.extrinsic_count).sum::<u16>();
-        statistics.cores.records[guarantee.report.core_index as usize].extrinsic_size = guarantee.report.results.iter().map(|result| result.refine_load.extrinsic_size).sum::<u32>();
-        statistics.cores.records[guarantee.report.core_index as usize].exports = guarantee.report.results.iter().map(|result| result.refine_load.exports).sum::<u16>();
-        statistics.cores.records[guarantee.report.core_index as usize].gas_used = guarantee.report.results.iter().map(|result| result.refine_load.gas_used).sum::<u64>();
-        statistics.cores.records[guarantee.report.core_index as usize].bundle_size = guarantee.report.package_spec.length;
+        statistics.cores.records[guarantee.report.core_index as usize].imports += guarantee.report.results.iter().map(|result| result.refine_load.imports).sum::<u16>();
+        statistics.cores.records[guarantee.report.core_index as usize].extrinsic_count += guarantee.report.results.iter().map(|result| result.refine_load.extrinsic_count).sum::<u16>();
+        statistics.cores.records[guarantee.report.core_index as usize].extrinsic_size += guarantee.report.results.iter().map(|result| result.refine_load.extrinsic_size).sum::<u32>();
+        statistics.cores.records[guarantee.report.core_index as usize].exports += guarantee.report.results.iter().map(|result| result.refine_load.exports).sum::<u16>();
+        statistics.cores.records[guarantee.report.core_index as usize].gas_used += guarantee.report.results.iter().map(|result| result.refine_load.gas_used).sum::<u64>();
+        statistics.cores.records[guarantee.report.core_index as usize].bundle_size += guarantee.report.package_spec.length;
 
         /*for result in guarantee.report.results.iter() {
             if statistics.services.records.get(&result.service).is_none() {
@@ -158,28 +158,7 @@ pub fn process(
     }
 
     for new_wr in new_available_wr.iter() {
-        statistics.cores.records[new_wr.core_index as usize].da_load = new_wr.package_spec.length + SEGMENT_SIZE as u32 * (new_wr.package_spec.exports_count * 65).div_ceil(64) as u32;
+        statistics.cores.records[new_wr.core_index as usize].da_load += new_wr.package_spec.length + SEGMENT_SIZE as u32 * (new_wr.package_spec.exports_count * (65/64)) as u32;
     }
 
 }
-/*pub struct WorkReport {
-    pub package_spec: WorkPackageSpec,
-    pub context: RefineContext,
-    pub core_index: CoreIndex,
-    pub authorizer_hash: OpaqueHash,
-    pub auth_output: Vec<u8>,
-    pub segment_root_lookup: Vec<SegmentRootLookupItem>,
-    pub results: Vec<WorkResult>,
-    pub auth_gas_used: Gas,
-}
-
-pub struct CoreActivityRecord {
-    pub gas_used: u64,        // Total gas consumed by core for reported work. Includes all refinement and authorizations.
-    pub imports: u16,         // Number of segments imported from DA made by core for reported work.
-    pub extrinsic_count: u16, // Total number of extrinsics used by core for reported work.
-    pub extrinsic_size: u32,  // Total size of extrinsics used by core for reported work.
-    pub exports: u16,         // Number of segments exported into DA made by core for reported work.
-    pub bundle_size: u32,     // The work-bundle size. This is the size of data being placed into Audits DA by the core.
-    pub da_load: u32,         // Amount of bytes which are placed into either Audits or Segments DA. This includes the work-bundle (including all extrinsics and imports) as well as all (exported) segments
-    pub popularity: u16,      // Number of validators which formed super-majority for assurance.
-}*/

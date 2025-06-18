@@ -8,7 +8,7 @@ use vinwolf::blockchain::state::{
 };
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, CORES_COUNT};
 use vinwolf::types::{DisputesExtrinsic, OutputDataDisputes, ValidatorSet, ProcessError};
-use vinwolf::blockchain::state::disputes::process_disputes;
+use vinwolf::blockchain::state::disputes::process;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
 pub mod codec;
@@ -63,7 +63,7 @@ mod test {
     
             let mut state = get_global_state().lock().unwrap().clone();
     
-            let output_result = process_disputes(
+            let output_result = process(
                                                                     &mut state.disputes,
                                                                     &mut state.availability,
                                                                     &disputes_extrinsic);
@@ -93,6 +93,7 @@ mod test {
                     assert_eq!(expected_output, OutputDisputes::Ok(OutputDataDisputes { offenders_mark }));
                 }
                 Err(error) => {
+                    //println!("error: {:?}", error);
                     assert_eq!(expected_output, OutputDisputes::from_process_error(error));
                 }
             }
@@ -157,6 +158,12 @@ mod test {
             "progress_with_verdict_signatures_from_previous_set-2.bin",
             // Bad signature within the culprits sequence
             "progress_with_bad_signatures-2.bin",
+            // Invalidation of availability assignments
+            "progress_invalidates_avail_assignments-1.bin",
+            // Unexpected key found in the culprits sequence
+            "progress_with_invalid_keys-1.bin",
+            // Unexpected key found in the faults sequence
+            "progress_with_invalid_keys-2.bin",
         ];
         for file in test_files {
             println!("Running test: {}", file);

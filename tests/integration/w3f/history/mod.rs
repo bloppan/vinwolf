@@ -2,7 +2,7 @@ use crate::integration::w3f::read_test_file;
 //use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::types::{BlockHistory, ReportedWorkPackages};
+use vinwolf::types::{BlockHistory, ReportedWorkPackages, ReportedWorkPackage};
 use vinwolf::blockchain::state::{set_recent_history, get_recent_history};
 use vinwolf::blockchain::state::recent_history::{process, finalize};
 use codec::InputHistory;
@@ -25,7 +25,7 @@ fn run_test(filename: &str) {
     
     let mut reported_work_packages = ReportedWorkPackages::default();
     for wp in &input.work_packages {
-        reported_work_packages.map.insert(wp.hash, wp.exports_root);
+        reported_work_packages.push((wp.hash, wp.exports_root));
     }
 
     set_recent_history(expected_pre_state.clone());

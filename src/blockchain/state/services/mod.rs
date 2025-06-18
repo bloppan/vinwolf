@@ -1,10 +1,10 @@
-use sp_core::blake2_256;
 
-use crate::types::{OpaqueHash, OutputPreimages, PreimagesErrorCode, PreimagesExtrinsic, ServiceAccounts, Account, TimeSlot, PreimageData, Balance};
+use crate::types::{OpaqueHash, OutputPreimages, PreimagesExtrinsic, ServiceAccounts, Account, TimeSlot, PreimageData, Balance};
 use crate::constants::{MIN_BALANCE, MIN_BALANCE_PER_ITEM, MIN_BALANCE_PER_OCTET};
 use crate::blockchain::state::ProcessError;
 use crate::utils::codec::{BytesReader, ReadError};
 use crate::utils::codec::generic::decode_unsigned;
+use crate::utils::codec::jam::global_state::construct_lookup_key;
 
 pub fn process(
     services: &mut ServiceAccounts, 
@@ -16,30 +16,7 @@ pub fn process(
         return Ok(OutputPreimages::Ok());
     }
 
-    preimages_extrinsic.process()?;
-
-    for preimage in preimages_extrinsic.preimages.iter() {
-        let hash = blake2_256(&preimage.blob);
-        let length = preimage.blob.len() as u32;
-        if services.service_accounts.contains_key(&preimage.requester) {
-            let account = services.service_accounts.get_mut(&preimage.requester).unwrap();
-            if account.preimages.contains_key(&hash) {
-                return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
-            }
-            if let Some(timeslots) = account.lookup.get(&(hash, length)) {
-                if timeslots.len() > 0 {
-                    return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
-                }
-            } else {
-                return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
-            }
-            account.preimages.insert(hash, preimage.blob.clone());
-            let timeslot_values = vec![post_tau.clone()];
-            account.lookup.insert((hash, length), timeslot_values);
-        } else {
-            return Err(ProcessError::PreimagesError(PreimagesErrorCode::RequesterNotFound));
-        }
-    }
+    preimages_extrinsic.process(services, post_tau)?;
 
     Ok(OutputPreimages::Ok())
 }
@@ -50,8 +27,9 @@ impl Account {
         let items: u32 = 2 * self.lookup.len() as u32 + self.storage.len() as u32;
 
         let mut octets: u64 = 0;
-        for ((_hash, length), _timeslot) in self.lookup.iter() {
-            octets += 81 + *length as u64;
+        for (lookup_key, _timeslot) in self.lookup.iter() {
+            let length = u32::from_le_bytes([lookup_key[1], lookup_key[3], lookup_key[5], lookup_key[7]]);
+            octets += 81 + length as u64;
         }
         for (_hash, storage_data) in self.storage.iter() {
             octets += 32 + storage_data.len() as u64;
@@ -81,7 +59,7 @@ pub fn historical_preimage_lookup(account: &Account, slot: &TimeSlot, hash: &Opa
 
     if let Some(preimage) = account.preimages.get(hash) {
         let length = preimage.len() as u32;
-        if let Some(timeslot_record) = account.lookup.get(&(*hash, length)) {
+        if let Some(timeslot_record) = account.lookup.get(&construct_lookup_key(hash, length)) {
             if check_preimage_availability(timeslot_record, slot) {
                 return Some(preimage.clone());
             }
@@ -110,4 +88,35 @@ fn check_preimage_availability(timeslot_record: &[TimeSlot], slot: &TimeSlot) ->
     }
  
     return false;
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::types::{PreimagesErrorCode, Preimage};
+
+    #[test]
+    fn test_preimages_extrinsic_process() {
+        let mut services = ServiceAccounts::default();
+        let slot = TimeSlot::default();
+
+        let preimages = vec![
+            Preimage { requester: 0, blob: vec![1, 2, 3] },
+            Preimage { requester: 1, blob: vec![4, 5, 6] },
+            Preimage { requester: 2, blob: vec![7, 8, 9] },
+        ];
+        let preimages_extrinsic = PreimagesExtrinsic { preimages };
+        assert_eq!(preimages_extrinsic.process(&mut services, &slot), Err(ProcessError::PreimagesError(PreimagesErrorCode::RequesterNotFound)));
+
+        let preimages = vec![
+            Preimage { requester: 0, blob: vec![1, 2, 3] },
+            Preimage { requester: 1, blob: vec![4, 5, 6] },
+            Preimage { requester: 0, blob: vec![7, 8, 9] },
+        ];
+    
+        let preimages_extrinsic = PreimagesExtrinsic { preimages };
+        assert_eq!(preimages_extrinsic.process(&mut services, &slot), Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique)));
+    }
+
 }

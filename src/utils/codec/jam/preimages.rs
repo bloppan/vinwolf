@@ -7,35 +7,12 @@ use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 // The lookup extrinsic is a sequence of pairs of service indices and data. These pairs must be ordered and without 
 // duplicates. The data must have been solicited by a service but not yet be provided.
 
-impl Decode for PreimagesExtrinsic {
-
-    fn decode(preimage_blob: &mut BytesReader) -> Result<Self, ReadError> {
-
-        let num_preimages = decode_unsigned(preimage_blob)?;
-        let mut preimg_extrinsic: Vec<Preimage> = Vec::with_capacity(num_preimages);
-
-        for _ in 0..num_preimages {
-            let requester = ServiceId::decode(preimage_blob)?;
-            let blob = Vec::<u8>::decode_len(preimage_blob)?;
-            preimg_extrinsic.push(Preimage { requester, blob });
-        }
-
-        Ok(PreimagesExtrinsic { preimages: preimg_extrinsic })
-    }
-}
-
 impl Encode for PreimagesExtrinsic {
 
     fn encode(&self) -> Vec<u8> {
 
         let mut preimg_encoded = Vec::with_capacity(std::mem::size_of::<PreimagesExtrinsic>());
-        encode_unsigned(self.preimages.len()).encode_to(&mut preimg_encoded);
-        
-        for preimage in &self.preimages {
-            preimage.requester.encode_to(&mut preimg_encoded);
-            preimage.blob.as_slice().encode_len().encode_to(&mut preimg_encoded);
-        }
-        
+        self.preimages.encode_len().encode_to(&mut preimg_encoded);
         return preimg_encoded;
     }
 
@@ -44,12 +21,48 @@ impl Encode for PreimagesExtrinsic {
     }
 }
 
-impl Encode for PreimagesMapEntry {
+impl Decode for PreimagesExtrinsic {
+
+    fn decode(preimage_blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        Ok(PreimagesExtrinsic { preimages: Vec::<Preimage>::decode_len(preimage_blob)? })
+    }
+}
+
+impl Encode for Preimage {
+
     fn encode(&self) -> Vec<u8> {
+        
+        let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
+
+        self.requester.encode_to(&mut blob);
+        self.blob.encode_len().encode_to(&mut blob);
+
+        return blob;
+    }
+
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for Preimage {
+
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        Ok(Self { requester: ServiceId::decode(reader)?, blob: Vec::<u8>::decode_len(reader)? })
+    }
+}
+
+
+impl Encode for PreimagesMapEntry {
+
+    fn encode(&self) -> Vec<u8> {
+
         let mut blob = Vec::new();
+
         self.hash.encode_to(&mut blob);
-        encode_unsigned(self.blob.len() as usize).encode_to(&mut blob);
-        self.blob.encode_to(&mut blob);
+        self.blob.encode_len().encode_to(&mut blob);
+        
         return blob;
     }
     fn encode_to(&self, into: &mut Vec<u8>) {
@@ -65,8 +78,6 @@ impl Decode for PreimagesMapEntry {
         })
     }
 }
-
-
 
 impl Encode for PreimagesErrorCode {
     fn encode(&self) -> Vec<u8> {

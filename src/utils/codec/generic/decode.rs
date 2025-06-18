@@ -1,55 +1,6 @@
 use crate::utils::codec::{FromLeBytes, Decode, DecodeLen, DecodeSize, ReadError, BytesReader};
 use std::collections::HashMap;
 
-// TODO revisar esta funcion
-pub fn decode<T: FromLeBytes>(bytes: &[u8], n: usize) -> T {
-    let mut buffer = vec![0u8; std::mem::size_of::<T>()];
-    
-    let mut len = n;
-
-    if bytes.len() < n {
-        len = bytes.len();
-    }
-
-    for i in 0..len {
-        buffer[i] = bytes[i];
-    }
-
-    T::from_le_bytes(&buffer)
-}
-
-/*pub fn decode_to_bits(v: &[u8]) -> Vec<bool> {
-
-    let mut bools = Vec::new();
-    for byte in v {
-        for i in 0..8 { 
-            let bit = (byte >> i) & 1; 
-            bools.push(bit == 1); // Convert bit (0 o 1) to boolean
-        }
-    }
-    return bools;
-}*/
-pub fn decode_to_bits(bytes: &mut BytesReader, n: usize) -> Result<Vec<bool>, ReadError> {
-    let mut bools = Vec::new();
-    for _ in 0..n {
-        let byte = bytes.read_byte()?;
-        for i in 0..8 { 
-            let bit = (byte >> i) & 1; 
-            bools.push(bit == 1); // Convert bit (0 o 1) to boolean
-        }
-    }
-    return Ok(bools);
-}
-
-
-pub fn decode_integer(data: &mut BytesReader, l: usize) -> Result<usize, ReadError> {
-    let mut array = [0u8; std::mem::size_of::<usize>()];
-    let len = std::cmp::min(l, std::mem::size_of::<usize>());
-    let bytes = data.read_bytes(len)?;
-    array[..len].copy_from_slice(bytes);  
-    Ok(usize::from_le_bytes(array))
-}
-
 pub fn decode_unsigned(data: &mut BytesReader) -> Result<usize, ReadError> {
 
     let first_byte = data.read_byte()?;
@@ -68,6 +19,43 @@ pub fn decode_unsigned(data: &mut BytesReader) -> Result<usize, ReadError> {
     let mask = (1 << (7 - l)) - 1;
 
     return Ok(result | ((first_byte & mask) as usize) << (8 * l));
+}
+
+pub fn decode_integer(data: &mut BytesReader, l: usize) -> Result<usize, ReadError> {
+    let mut array = [0u8; std::mem::size_of::<usize>()];
+    let len = std::cmp::min(l, std::mem::size_of::<usize>());
+    let bytes = data.read_bytes(len)?;
+    array[..len].copy_from_slice(bytes);  
+    Ok(usize::from_le_bytes(array))
+}
+
+// TODO revisar esta funcion
+pub fn decode<T: FromLeBytes>(bytes: &[u8], n: usize) -> T {
+    let mut buffer = vec![0u8; std::mem::size_of::<T>()];
+    
+    let mut len = n;
+
+    if bytes.len() < n {
+        len = bytes.len();
+    }
+
+    for i in 0..len {
+        buffer[i] = bytes[i];
+    }
+
+    T::from_le_bytes(&buffer)
+}
+
+pub fn decode_to_bits(bytes: &mut BytesReader, n: usize) -> Result<Vec<bool>, ReadError> {
+    let mut bools = Vec::new();
+    for _ in 0..n {
+        let byte = bytes.read_byte()?;
+        for i in 0..8 { 
+            let bit = (byte >> i) & 1; 
+            bools.push(bit == 1); // Convert bit (0 o 1) to boolean
+        }
+    }
+    return Ok(bools);
 }
 
 impl Decode for u8 {
@@ -131,16 +119,9 @@ impl Decode for i64 {
     }
 }
 
-impl<const N: usize> Decode for [u8; N] {
-    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
-        let bytes = reader.read_bytes(N)?;
-        let mut array = [0u8; N];
-        array.copy_from_slice(bytes);
-        Ok(array)
-    }
-}
 
-impl<const N: usize, const M: usize> Decode for [[u8; N]; M] {
+
+/*impl<const N: usize, const M: usize> Decode for [[u8; N]; M] {
 
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
 
@@ -153,7 +134,9 @@ impl<const N: usize, const M: usize> Decode for [[u8; N]; M] {
 
         Ok(array)
     }
-}
+}*/
+
+
 
 impl Decode for Vec<u32> {
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
@@ -163,6 +146,84 @@ impl Decode for Vec<u32> {
             result.push(u32::decode(reader)?);
         }
         Ok(result)
+    }
+}
+
+/*impl<const N: usize> Decode for [u8; N] {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        let bytes = reader.read_bytes(N)?;
+        let mut array = [0u8; N];
+        array.copy_from_slice(bytes);
+        Ok(array)
+    }
+}*/
+
+impl<T, const N: usize> Decode for [T; N]
+where
+    T: Decode + Default + Copy,
+{
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        let mut array: [T; N] = [T::default(); N];
+        for i in 0..N {
+            array[i] = T::decode(reader)?;
+        }
+        Ok(array)
+    }
+}
+
+use std::convert::TryInto;
+
+impl<T, const N: usize, const M: usize> Decode for Box<[Box<[T; N]>; M]>
+where
+    T: Decode + Default + Copy,
+{
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        let mut items = Vec::with_capacity(M);
+        for _ in 0..M {
+            let mut inner = [T::default(); N];
+            for i in 0..N {
+                inner[i] = T::decode(reader)?;
+            }
+            items.push(Box::new(inner));
+        }
+
+        let array: [Box<[T; N]>; M] = items.try_into().map_err(|_| ReadError::NotEnoughData)?;
+        Ok(Box::new(array))
+    }
+}
+
+
+
+impl<const N: usize, const M: usize> Decode for Vec<([u8; N], [u8; M])> {
+
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        
+        let mut result = Vec::with_capacity(N * M);
+        let len = decode_unsigned(reader)?;
+        
+        for _ in 0..len {
+            result.push((<[u8; N]>::decode(reader)?, <[u8; M]>::decode(reader)?));
+        }
+
+        Ok( result )
+    }
+}
+
+impl<T> Decode for Option<T> 
+where T: Decode
+{
+    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let option = blob.read_byte()?;
+        
+        match option {
+            0 => Ok(None),
+            1 => {
+                let data = T::decode(blob)?;
+                Ok(Some(data))
+            }
+            _ => Err(ReadError::InvalidData),
+        }
     }
 }
 

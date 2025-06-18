@@ -1,19 +1,46 @@
 use std::collections::VecDeque;
 use std::collections::{HashMap, HashSet};
 use std::array::from_fn;
-use crate::constants::{EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_POOL, NUM_PAGES, NUM_REG, PAGE_SIZE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT};
-use crate::types::{
-    Account, AccumulatedHistory, ActivityRecord, ActivityRecords, AssurancesExtrinsic, AuthPool, AuthPools, AuthQueue, AuthQueues, AuthorizerHash, 
-    AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, Context, CoreActivityRecord, 
-    CoresStatistics, DeferredTransfer, DisputesExtrinsic, DisputesRecords, Ed25519Public, Entropy, EntropyPool, Extrinsic, GlobalState, GuaranteesExtrinsic, 
-    MemoryChunk, Metadata, OpaqueHash, Page, PageFlags, PageMap, PageTable, PreimagesExtrinsic, Privileges, Program, RamMemory, ReadyQueue, ReadyRecord, 
-    RefineContext, RefineLoad, ReportGuarantee, ReportedWorkPackages, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServicesStatistics, 
-    ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorData, 
-    ValidatorsData, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, AccumulationPartialState
+
+use crate::constants::{
+    EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, NUM_PAGES, NUM_REG, PAGE_SIZE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT
 };
+use crate::types::{
+    Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, ValidatorStatistics, AssurancesExtrinsic, AuthPool, AuthPools, AuthQueues, AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, CodeAuthorizer, CodeAuthorizers, Context, CoreActivityRecord, CoresStatistics, Culprit, DeferredTransfer, DisputesExtrinsic, DisputesRecords, Ed25519Public, Ed25519Signature, Entropy, EntropyPool, Extrinsic, ExtrinsicSpec, Fault, GlobalState, GuaranteesExtrinsic, ImportSpec, Judgement, MemoryChunk, Metadata, OpaqueHash, Page, PageFlags, PageMap, PreimagesExtrinsic, Privileges, Program, RamMemory, ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportGuarantee, ReportedPackage, ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, UnsignedHeader, ValidatorData, ValidatorsData, Verdict, WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult,
+    Header, Block, EpochMark, KeyValue, Preimage, PreimagesMapEntry 
+}
+;
 // ----------------------------------------------------------------------------------------------------------
 // Jam Types
 // ----------------------------------------------------------------------------------------------------------
+impl Default for Block {
+    fn default() -> Self {
+        Self { header: Header::default(), extrinsic: Extrinsic::default(), }
+    }
+}
+impl Default for Header {
+    fn default() -> Self {
+        Self {
+            unsigned: UnsignedHeader::default(),
+            seal: [0u8; 96],
+        }
+    }
+}
+impl Default for UnsignedHeader {
+    fn default() -> Self {
+        Self {
+            parent: OpaqueHash::default(),
+            parent_state_root: OpaqueHash::default(),
+            extrinsic_hash: OpaqueHash::default(),
+            slot: 0,
+            epoch_mark: None,
+            tickets_mark: None,
+            offenders_mark: Vec::new(),
+            author_index: 0,
+            entropy_source: [0u8; 96],
+        }
+    }
+}
 impl Default for Extrinsic {
     fn default() -> Self {
         Extrinsic {
@@ -75,6 +102,20 @@ impl Default for ReportGuarantee {
         }
     }
 }
+impl Default for WorkItem {
+    fn default() -> Self {
+        Self {
+            service: ServiceId::default(),
+            code_hash: OpaqueHash::default(),
+            payload: Vec::new(),
+            refine_gas_limit: 0,
+            acc_gas_limit: 0,
+            import_segments: Vec::new(),
+            extrinsic: Vec::new(),
+            export_count: 0,
+        }
+    }
+}
 impl Default for WorkReport {
     fn default() -> Self {
         WorkReport {
@@ -111,6 +152,22 @@ impl Default for WorkPackageSpec {
     }
 }
 
+impl Default for ReportedWorkPackage {
+    fn default() -> Self {
+        Self {
+            hash: OpaqueHash::default(),
+            exports_root: OpaqueHash::default(),
+        }
+    }
+}
+impl Default for ReportedPackage {
+    fn default() -> Self {
+        Self {
+            work_package_hash: OpaqueHash::default(),
+            segment_tree_root: OpaqueHash::default(),
+        }
+    }
+}
 impl Default for RefineContext {
     fn default() -> Self {
         RefineContext {
@@ -164,13 +221,31 @@ impl Default for TicketsMark {
     }
 }
 
-impl Default for ReportedWorkPackages {
+impl Default for ImportSpec {
     fn default() -> Self {
-        ReportedWorkPackages {
-            map: HashMap::new(),
+        Self {
+            tree_root: OpaqueHash::default(),
+            index: 0,
         }
     }
 }
+
+impl Default for ExtrinsicSpec {
+    fn default() -> Self {
+        Self {
+            hash: OpaqueHash::default(),
+            len: 0,
+        }
+    }
+}
+
+/*impl Default for ReportedWorkPackages {
+    fn default() -> Self {
+        ReportedWorkPackages {
+            0: Vec::new(),
+        }
+    }
+}*/
 // ----------------------------------------------------------------------------------------------------------
 // Global State
 // ----------------------------------------------------------------------------------------------------------
@@ -208,6 +283,32 @@ impl Default for SerializedState {
         }
     }
 }
+
+impl Default for KeyValue {
+    fn default() -> Self {
+        Self {
+            key: [0u8; 31],
+            value: Vec::new(),
+        }
+    }
+}
+
+impl Default for AvailabilityAssignments {
+    fn default() -> Self {
+        AvailabilityAssignments {
+            list: Box::new(std::array::from_fn(|_| None)),
+        }
+    }
+}
+
+/*impl Default for AuthQueues {
+    fn default() -> Self {
+        AuthQueues(Box::new(std::array::from_fn(|_| {
+            Box::new([AuthorizerHash::default(); MAX_ITEMS_AUTHORIZATION_QUEUE])
+        })))
+    }
+}*/
+
 // ----------------------------------------------------------------------------------------------------------
 // Accumulation
 // ----------------------------------------------------------------------------------------------------------
@@ -228,7 +329,7 @@ impl Default for AccumulatedHistory {
 impl Default for AccumulationPartialState {
     fn default() -> Self {
         AccumulationPartialState {
-            services_accounts: ServiceAccounts::default(),
+            service_accounts: ServiceAccounts::default(),
             next_validators: ValidatorsData::default(),
             queues_auth: AuthQueues::default(),
             privileges: Privileges::default(),
@@ -266,34 +367,32 @@ impl Default for DeferredTransfer {
 // ----------------------------------------------------------------------------------------------------------
 // Authorization
 // ----------------------------------------------------------------------------------------------------------
-impl Default for AuthPool {
-    fn default() -> Self {
-        AuthPool {
-            auth_pool: VecDeque::with_capacity(MAX_ITEMS_AUTHORIZATION_POOL),
-        }
-    }
-}
 
 impl Default for AuthPools {
     fn default() -> Self {
-        AuthPools {
-            auth_pools: Box::new(from_fn(|_| AuthPool::default())),
-        }
-    }
-}
-
-impl Default for AuthQueue {
-    fn default() -> Self {
-        AuthQueue {
-            auth_queue: Box::new(from_fn(|_| [0; size_of::<AuthorizerHash>()])),
-        }
+        AuthPools(Box::new(std::array::from_fn(|_| AuthPool::default())))
     }
 }
 
 impl Default for AuthQueues {
     fn default() -> Self {
-        AuthQueues {
-            auth_queues: Box::new(from_fn(|_| AuthQueue::default())),
+        AuthQueues(Box::new(std::array::from_fn(|_| {
+            Box::new([AuthorizerHash::default(); MAX_ITEMS_AUTHORIZATION_QUEUE])
+        })))
+    }
+}
+impl Default for CodeAuthorizer {
+    fn default() -> Self {
+        CodeAuthorizer {
+            core: 0,
+            auth_hash: OpaqueHash::default(),
+        }
+    }
+}
+impl Default for CodeAuthorizers {
+    fn default() -> Self {
+        CodeAuthorizers {
+            authorizers: Vec::new(),
         }
     }
 }
@@ -307,6 +406,44 @@ impl Default for DisputesRecords {
             bad: vec![],
             wonky: vec![],
             offenders: vec![],
+        }
+    }
+}
+
+impl Default for Verdict {
+    fn default() -> Self {
+        Self {
+            target: OpaqueHash::default(),
+            age: 0,
+            votes: Vec::new(),
+        }
+    }
+}
+impl Default for Culprit {
+    fn default() -> Self {
+        Self {
+            target: OpaqueHash::default(),
+            key: OpaqueHash::default(),
+            signature: [0u8; std::mem::size_of::<Ed25519Signature>()],
+        }
+    }
+}
+impl Default for Fault {
+    fn default() -> Self {
+        Self {
+            target: OpaqueHash::default(),
+            vote: false,
+            key: OpaqueHash::default(),
+            signature: [0u8; std::mem::size_of::<Ed25519Signature>()],
+        }
+    }
+}
+impl Default for Judgement {
+    fn default() -> Self {
+        Self {
+            vote: false,
+            index: 0,
+            signature: [0u8; std::mem::size_of::<Ed25519Signature>()],
         }
     }
 }
@@ -350,14 +487,7 @@ impl Default for BlockHistory {
 // ----------------------------------------------------------------------------------------------------------
 // Assignments
 // ----------------------------------------------------------------------------------------------------------
-impl Default for AvailabilityAssignments {
 
-    fn default() -> Self {
-        AvailabilityAssignments {
-            0: Box::new(std::array::from_fn(|_| None)),
-        }
-    }
-}
 // ----------------------------------------------------------------------------------------------------------
 // Safrole
 // ----------------------------------------------------------------------------------------------------------
@@ -371,23 +501,28 @@ impl Default for Safrole {
         }
     }
 }
-
-impl Default for BandersnatchEpoch {
+impl Default for EpochMark {
     fn default() -> Self {
-        let keys: [BandersnatchPublic; EPOCH_LENGTH] = std::array::from_fn(|_| BandersnatchPublic::default());
-        BandersnatchEpoch(Box::new(keys))
-    }
-}
-// ----------------------------------------------------------------------------------------------------------
-// Service Accounts
-// ----------------------------------------------------------------------------------------------------------
-impl Default for ServiceAccounts {
-    fn default() -> Self {
-        ServiceAccounts {
-            service_accounts: HashMap::new(),
+        Self {
+            entropy: Entropy::default(),
+            tickets_entropy: Entropy::default(),
+            validators: Box::new(std::array::from_fn(|_| {
+                (BandersnatchPublic::default(), Ed25519Public::default())
+            }))
         }
     }
 }
+impl Default for BandersnatchEpoch {
+    fn default() -> Self {
+        Self {
+            epoch: Box::new([BandersnatchPublic::default(); EPOCH_LENGTH]),
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------------------------------------
+// Service Accounts
+// ----------------------------------------------------------------------------------------------------------
 
 impl Default for Account {
     fn default() -> Self {
@@ -397,10 +532,48 @@ impl Default for Account {
             lookup: HashMap::new(),
             code_hash: OpaqueHash::default(),
             balance: 0,
-            gas: 0,
-            min_gas: 0,
-            items: 0,
+            acc_min_gas: 0,
+            xfer_min_gas: 0,
+        }
+    }
+}
+
+impl Default for ServiceInfo {
+    fn default() -> Self {
+        Self {
+            code_hash: OpaqueHash::default(),
+            balance: 0,
+            acc_min_gas: 0,
+            xfer_min_gas: 0,
             bytes: 0,
+            items: 0,
+        }
+    }
+}
+
+impl Default for ServiceItem {
+    fn default() -> Self {
+        Self {
+            id: ServiceId::default(),
+            info: ServiceInfo::default(),
+        }
+    }
+}
+
+impl Default for Preimage {
+    fn default() -> Self {
+        Self {
+            requester: ServiceId::default(),
+            blob: Vec::new(),
+        }
+    }
+}
+
+impl Default for PreimagesMapEntry {
+    fn default() -> Self {
+        Self {
+            hash: OpaqueHash::default(),
+            blob: Vec::new(),
         }
     }
 }
@@ -419,7 +592,7 @@ impl Default for ActivityRecord {
         }
     }
 }
-impl Default for ActivityRecords {
+impl Default for ValidatorStatistics {
     fn default() -> Self {
         Self {
             records: Box::new([ActivityRecord::default(); VALIDATORS_COUNT]),
@@ -483,8 +656,8 @@ impl Default for ServicesStatistics {
 impl Default for Statistics {
     fn default() -> Self {
         Self {
-            curr: ActivityRecords::default(),
-            prev: ActivityRecords::default(),
+            curr: ValidatorStatistics::default(),
+            prev: ValidatorStatistics::default(),
             cores: CoresStatistics::default(),
             services: ServicesStatistics::default(),
         }
@@ -493,15 +666,21 @@ impl Default for Statistics {
 // ----------------------------------------------------------------------------------------------------------
 // Validators
 // ----------------------------------------------------------------------------------------------------------
+impl Default for ValidatorData {
+    fn default() -> Self {
+        ValidatorData { 
+            bandersnatch: [0u8; std::mem::size_of::<BandersnatchPublic>()], 
+            ed25519: [0u8; std::mem::size_of::<Ed25519Public>()], 
+            bls: [0u8; std::mem::size_of::<BlsPublic>()], 
+            metadata: [0u8; std::mem::size_of::<Metadata>()] 
+        }
+    }
+}
+
 impl Default for ValidatorsData {
     fn default() -> Self {
-        ValidatorsData {
-            0: Box::new(from_fn(|_| ValidatorData {
-                bandersnatch: [0u8; std::mem::size_of::<BandersnatchPublic>()],
-                ed25519: [0u8; std::mem::size_of::<Ed25519Public>()],
-                bls: [0u8; std::mem::size_of::<BlsPublic>()],
-                metadata: [0u8; std::mem::size_of::<Metadata>()],
-            }))
+        Self {
+            list: Box::new([ValidatorData::default(); VALIDATORS_COUNT]),
         }
     }
 }
@@ -530,13 +709,13 @@ impl Default for Program {
     }
 }
 
-impl Default for PageTable {
+/*impl Default for PageTable {
     fn default() -> Self {
         PageTable {
             pages: HashMap::new(),
         }
     }
-}
+}*/
 
 impl Default for Page {
     fn default() -> Self {
@@ -575,6 +754,7 @@ impl Default for RamMemory {
         }
         RamMemory {
             pages: v.into_boxed_slice(),
+            curr_heap_pointer: 0,
         }
     }
 }

@@ -6,7 +6,7 @@ pub mod codec;
 use codec::{InputAuthorizations, StateAuthorizations};
 
 use vinwolf::constants::CORES_COUNT;
-use vinwolf::blockchain::state::{get_global_state, set_authpools, set_authqueues, get_authqueues};
+use vinwolf::blockchain::state::{get_global_state, set_auth_pools, set_auth_queues, get_auth_queues};
 use vinwolf::blockchain::state::authorization::process;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
@@ -43,8 +43,8 @@ mod tests {
         let pre_state = StateAuthorizations::decode(&mut reader).expect("Error decoding post Authorizations PreState");
         let expected_state = StateAuthorizations::decode(&mut reader).expect("Error decoding post Authorizations PostState");
 
-        set_authpools(pre_state.auth_pools);
-        set_authqueues(pre_state.auth_queues);
+        set_auth_pools(pre_state.auth_pools);
+        set_auth_queues(pre_state.auth_queues);
         
         let mut guarantees_extrinsic = GuaranteesExtrinsic::default();
         for auth in input.auths.authorizers.iter() {
@@ -60,7 +60,7 @@ mod tests {
         let mut auth_pool_state = get_global_state().lock().unwrap().auth_pools.clone();
         process(&mut auth_pool_state, &input.slot, &guarantees_extrinsic);
         
-        let result_auth_queues = get_authqueues();
+        let result_auth_queues = get_auth_queues();
 
         assert_eq!(expected_state.auth_pools, auth_pool_state);
         assert_eq!(expected_state.auth_queues, result_auth_queues);

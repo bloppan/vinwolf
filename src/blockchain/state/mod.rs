@@ -25,20 +25,22 @@
 */
 use {once_cell::sync::Lazy, sp_core::blake2_256, std::sync::Mutex};
 
+use crate::blockchain::state::recent_history::set_current_block_history;
 use crate::types::{
     AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesRecords, EntropyPool, GlobalState, 
-    OpaqueHash, Privileges, ProcessError, ReadyQueue, ReportedWorkPackages, Safrole, SerializedState, ServiceAccounts, ServiceInfo, StateKey, 
-    Statistics, TimeSlot, ValidatorSet, ValidatorsData
+    OpaqueHash, Privileges, ProcessError, ReadyQueue, Safrole, SerializedState, ServiceAccounts, ServiceInfo, StateKeyType, 
+    Statistics, TimeSlot, ValidatorSet, ValidatorsData, 
 };
+use crate::utils::codec::jam::global_state::StateKeyTrait;
 use crate::constants::{
     ACCUMULATION_HISTORY, AUTH_POOLS, AUTH_QUEUE, AVAILABILITY, CURR_VALIDATORS, DISPUTES, ENTROPY, NEXT_VALIDATORS, PREV_VALIDATORS, PRIVILEGES, 
     READY_QUEUE, RECENT_HISTORY, SAFROLE, STATISTICS, TIME
 };
 use crate::utils::codec::{Encode, EncodeLen};
-use crate::utils::codec::jam::global_state::{construct_preimage_key, construct_lookup_key, construct_storage_key, StateKeyTrait};
+use crate::utils::codec::jam::global_state::construct_preimage_key;
 
 pub mod accumulation; pub mod authorization; pub mod disputes; pub mod entropy; pub mod safrole; pub mod recent_history; pub mod reporting_assurance;
-pub mod services; pub mod time; pub mod statistics; pub mod validators; pub mod privileges;
+pub mod services; pub mod time; pub mod statistics; pub mod validators; 
 
 static GLOBAL_STATE: Lazy<Mutex<GlobalState>> = Lazy::new(|| {
     Mutex::new(GlobalState::default())
@@ -53,21 +55,31 @@ static STATE_ROOT: Lazy<Mutex<OpaqueHash>> = Lazy::new(|| {
 // dependency graph where possible. 
 pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
+    block.header.verify(&block.extrinsic)?;
+
     let mut new_state = get_global_state().lock().unwrap().clone();
     
     time::set_current_slot(&block.header.unsigned.slot);
 
-    let mut reported_work_packages = ReportedWorkPackages::default();
+    let mut reported_work_packages = Vec::new();
     for report in &block.extrinsic.guarantees.report_guarantee {
-        reported_work_packages.map.insert(report.report.package_spec.hash, report.report.package_spec.exports_root);
+        reported_work_packages.push((report.report.package_spec.hash, report.report.package_spec.exports_root));
     }
+    reported_work_packages.sort_by_key(|(hash, _)| *hash);
 
-    recent_history::process(
+    let curr_block_history = recent_history::process(
         &mut new_state.recent_history,
         &blake2_256(&block.header.encode()), 
         &block.header.unsigned.parent_state_root,
         &reported_work_packages);
+    set_current_block_history(curr_block_history);
 
+    let _ = disputes::process(
+        &mut new_state.disputes,
+        &mut new_state.availability,
+        &block.extrinsic.disputes,
+    )?;
+    
     safrole::process(
         &mut new_state.safrole,
         &mut new_state.entropy,
@@ -75,7 +87,8 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &mut new_state.prev_validators,
         &mut new_state.time,
         &block.header,
-        &block.extrinsic.tickets)?;
+        &block.extrinsic.tickets,
+        &new_state.disputes.offenders)?;
 
     let new_available_workreports = reporting_assurance::process_assurances(
         &mut new_state.availability,
@@ -87,7 +100,10 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     let _ = reporting_assurance::process_guarantees(
         &mut new_state.availability, 
         &block.extrinsic.guarantees,
-        &block.header.unsigned.slot
+        &block.header.unsigned.slot,
+        &new_state.entropy,
+        &new_state.prev_validators,
+        &new_state.curr_validators,
     )?; 
 
     let (accumulation_root, 
@@ -95,14 +111,14 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
          next_validators, 
          queue_auth, 
          privileges) = accumulation::process(
-            &mut new_state.accumulation_history,
-            &mut new_state.ready_queue,
-            new_state.service_accounts,
-            new_state.next_validators,
-            new_state.auth_queues,
-            new_state.privileges,
-            &block.header.unsigned.slot,
-            &new_available_workreports.reported)?;
+                                        &mut new_state.accumulation_history,
+                                        &mut new_state.ready_queue,
+                                        new_state.service_accounts,
+                                        new_state.next_validators,
+                                        new_state.auth_queues,
+                                        new_state.privileges,
+                                        &block.header.unsigned.slot,
+                                        &new_available_workreports.reported)?;
 
     new_state.service_accounts = service_accounts;
     new_state.next_validators = next_validators;
@@ -144,52 +160,59 @@ impl GlobalState {
 
         let mut state = SerializedState::default();
 
-        state.map.insert(StateKey::U8(AUTH_POOLS).construct(), self.auth_pools.encode());
-        state.map.insert(StateKey::U8(AUTH_QUEUE).construct(), self.auth_queues.encode());
-        state.map.insert(StateKey::U8(RECENT_HISTORY).construct(), self.recent_history.encode());
-        state.map.insert(StateKey::U8(SAFROLE).construct(), self.safrole.encode());
-        state.map.insert(StateKey::U8(DISPUTES).construct(), self.disputes.encode());
-        state.map.insert(StateKey::U8(ENTROPY).construct(), self.entropy.encode());
-        state.map.insert(StateKey::U8(NEXT_VALIDATORS).construct(), self.next_validators.encode());
-        state.map.insert(StateKey::U8(CURR_VALIDATORS).construct(), self.curr_validators.encode());
-        state.map.insert(StateKey::U8(PREV_VALIDATORS).construct(), self.prev_validators.encode());
-        state.map.insert(StateKey::U8(AVAILABILITY).construct(), self.availability.encode());
-        state.map.insert(StateKey::U8(TIME).construct(), self.time.encode());
-        state.map.insert(StateKey::U8(PRIVILEGES).construct(), self.privileges.encode());
-        state.map.insert(StateKey::U8(STATISTICS).construct(), self.statistics.encode());
-        state.map.insert(StateKey::U8(READY_QUEUE).construct(), self.ready_queue.encode());
-        state.map.insert(StateKey::U8(ACCUMULATION_HISTORY).construct(), self.accumulation_history.encode());
+        state.map.insert(StateKeyType::U8(AUTH_POOLS).construct(), self.auth_pools.encode());
+        state.map.insert(StateKeyType::U8(AUTH_QUEUE).construct(), self.auth_queues.encode());
+        state.map.insert(StateKeyType::U8(RECENT_HISTORY).construct(), self.recent_history.encode());
+        state.map.insert(StateKeyType::U8(SAFROLE).construct(), self.safrole.encode());
+        state.map.insert(StateKeyType::U8(DISPUTES).construct(), self.disputes.encode());
+        state.map.insert(StateKeyType::U8(ENTROPY).construct(), self.entropy.encode());
+        state.map.insert(StateKeyType::U8(NEXT_VALIDATORS).construct(), self.next_validators.encode());
+        state.map.insert(StateKeyType::U8(CURR_VALIDATORS).construct(), self.curr_validators.encode());
+        state.map.insert(StateKeyType::U8(PREV_VALIDATORS).construct(), self.prev_validators.encode());
+        state.map.insert(StateKeyType::U8(AVAILABILITY).construct(), self.availability.encode());
+        state.map.insert(StateKeyType::U8(TIME).construct(), self.time.encode());
+        state.map.insert(StateKeyType::U8(PRIVILEGES).construct(), self.privileges.encode());
+        state.map.insert(StateKeyType::U8(STATISTICS).construct(), self.statistics.encode());
+        state.map.insert(StateKeyType::U8(READY_QUEUE).construct(), self.ready_queue.encode());
+        state.map.insert(StateKeyType::U8(ACCUMULATION_HISTORY).construct(), self.accumulation_history.encode());
         
-
-        for (service_id, account) in self.service_accounts.service_accounts.iter() {
-            let key = StateKey::Service(255, *service_id).construct();       
+        for (service_id, account) in self.service_accounts.iter() {
+            let key = StateKeyType::Service(255, *service_id).construct();       
             let service_info = ServiceInfo {
                 balance: account.balance,
                 code_hash: account.code_hash,
-                min_item_gas: account.gas,
-                min_memo_gas: account.min_gas,
+                acc_min_gas: account.acc_min_gas,
+                xfer_min_gas: account.xfer_min_gas,
                 bytes: account.get_footprint_and_threshold().1, // TODO bytes y items se calcula con la eq de threshold account (9.3)
                 items: account.get_footprint_and_threshold().0,
             };
+            //println!("service: {} items: {} bytes: {}", service_id, service_info.items, service_info.bytes);
             // TODO revisar esto y ver si se puede hacer con encode account
             state.map.insert(key, service_info.encode());
 
             for preimage in account.preimages.iter() {
-                let key = StateKey::Account(*service_id, construct_preimage_key(preimage.0).to_vec()).construct();
+                let key = StateKeyType::Account(*service_id, construct_preimage_key(preimage.0).to_vec()).construct();
                 state.map.insert(key, preimage.1.encode());
             }
             
             for lookup in account.lookup.iter() {
-                let key = StateKey::Account(*service_id, construct_lookup_key(&lookup.0.0, lookup.0.1).to_vec()).construct();
-                state.map.insert(key, lookup.1.as_slice().encode_len());
+                //let key = StateKeyType::Account(*service_id, construct_lookup_key(&lookup.0.0, lookup.0.1).to_vec()).construct();
+                state.map.insert(*lookup.0, lookup.1.encode_len());
             }
 
             for item in account.storage.iter() {
-                let key = StateKey::Account(*service_id, construct_storage_key(item.0).to_vec()).construct();
-                state.map.insert(key, item.1.encode());
+                //let key = StateKeyType::Account(*service_id, construct_storage_key(item.0).to_vec()).construct();
+                //println!("insert serialized key: {:x?}", key);
+                state.map.insert(*item.0, item.1.encode());
             }
         }
 
+        /*for item in state.map.iter() {
+            println!("0x{}", item.0.iter().map(|b| format!("{:02x}", b)).collect::<String>());
+            println!("0x{}", item.1.iter().map(|b| format!("{:02x}", b)).collect::<String>());
+            println!("\n");
+        }*/
+        
         return state;
     }
 }
@@ -228,20 +251,20 @@ pub fn get_entropy() -> EntropyPool {
     state.entropy.clone()
 }
 // Authorization Pools
-pub fn set_authpools(new_authpool: AuthPools) {
+pub fn set_auth_pools(new_authpool: AuthPools) {
     let mut state = GLOBAL_STATE.lock().unwrap();
     state.auth_pools = new_authpool;
 }
-pub fn get_authpools() -> AuthPools {
+pub fn get_auth_pools() -> AuthPools {
     let state = GLOBAL_STATE.lock().unwrap();
     state.auth_pools.clone()
 }
 // Authorizations Queues
-pub fn set_authqueues(new_authqueue: AuthQueues) {
+pub fn set_auth_queues(new_authqueue: AuthQueues) {
     let mut state = GLOBAL_STATE.lock().unwrap();
     state.auth_queues = new_authqueue;
 }
-pub fn get_authqueues() -> AuthQueues {
+pub fn get_auth_queues() -> AuthQueues {
     let state = GLOBAL_STATE.lock().unwrap();
     state.auth_queues.clone()
 }

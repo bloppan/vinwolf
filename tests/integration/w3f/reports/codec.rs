@@ -1,14 +1,14 @@
 
-use vinwolf::utils::codec::{BytesReader, Decode, Encode, ReadError};
+use vinwolf::utils::codec::{BytesReader, Decode, DecodeLen, EncodeLen, Encode, ReadError};
 use vinwolf::types::{
-    AuthPools, AvailabilityAssignments, BlockHistory, CoresStatistics, EntropyPool, GuaranteesExtrinsic, Offenders, OutputDataReports, 
-    ReportErrorCode, Services, TimeSlot, ValidatorsData, ServicesStatistics,
+    AuthPools, AvailabilityAssignments, BlockHistory, CoresStatistics, Ed25519Public, EntropyPool, GuaranteesExtrinsic, Offenders, OutputDataReports, ReportErrorCode, Services, ServicesStatistics, TimeSlot, ValidatorsData, WorkPackageHash
 };
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputWorkReport {
     pub guarantees: GuaranteesExtrinsic,
     pub slot: TimeSlot,
+    pub known_packages: Vec<WorkPackageHash>,
 }
 
 impl Encode for InputWorkReport {
@@ -17,6 +17,7 @@ impl Encode for InputWorkReport {
         let mut blob = Vec::with_capacity(std::mem::size_of::<InputWorkReport>());
         self.guarantees.encode_to(&mut blob);
         self.slot.encode_to(&mut blob);
+        self.known_packages.encode_len().encode_to(&mut blob);
         return blob;
     }
 
@@ -32,6 +33,7 @@ impl Decode for InputWorkReport {
         Ok(InputWorkReport{
             guarantees: GuaranteesExtrinsic::decode(blob)?,
             slot: TimeSlot::decode(blob)?,
+            known_packages: Vec::<WorkPackageHash>::decode_len(blob)?,
         })
     }
 }
@@ -61,7 +63,7 @@ impl Encode for WorkReportState {
         self.curr_validators.encode_to(&mut blob);
         self.prev_validators.encode_to(&mut blob);
         self.entropy.encode_to(&mut blob);
-        self.offenders.encode_to(&mut blob);
+        self.offenders.encode_len().encode_to(&mut blob);
         self.recent_blocks.encode_to(&mut blob);
         self.auth_pools.encode_to(&mut blob);
         self.services.encode_to(&mut blob);
@@ -81,11 +83,15 @@ impl Decode for WorkReportState {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
         Ok(WorkReportState{
-            avail_assignments: AvailabilityAssignments::decode(blob)?,
+            avail_assignments: {
+                let avail = AvailabilityAssignments::decode(blob)?;
+                //println!("avail: {:x?}", avail);
+                avail
+            },
             curr_validators: ValidatorsData::decode(blob)?,
             prev_validators: ValidatorsData::decode(blob)?,
             entropy: EntropyPool::decode(blob)?,
-            offenders: Offenders::decode(blob)?,
+            offenders: Vec::<Ed25519Public>::decode_len(blob)?,
             recent_blocks: BlockHistory::decode(blob)?,
             auth_pools: {
                 let auth_pools = AuthPools::decode(blob)?;
@@ -99,12 +105,12 @@ impl Decode for WorkReportState {
             },
             cores_statistics: {
                 let core_statistics = CoresStatistics::decode(blob)?;
-                //println!("\nCore statistics: {:x?}", core_statistics);
+                //println!("\nCore statistics: {:?}", core_statistics);
                 core_statistics
             },
             services_statistics: {
                 let services_statistics = ServicesStatistics::decode(blob)?;
-                //println!("\nServices statistics: {:x?}", services_statistics);
+                //println!("\nServices statistics: {:?}", services_statistics);
                 services_statistics
             },
         })

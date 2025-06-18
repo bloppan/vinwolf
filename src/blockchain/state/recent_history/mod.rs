@@ -7,16 +7,29 @@
 */
 
 use sp_core::keccak_256;
+use {once_cell::sync::Lazy, sp_core::blake2_256, std::sync::Mutex};
 
-use crate::types::{Hash, BlockHistory, BlockInfo, ReportedWorkPackages, Mmr};
+use crate::types::{BlockHistory, BlockInfo, Hash, Mmr, ReportedWorkPackages};
 use crate::constants::RECENT_HISTORY_SIZE;
 use crate::utils::trie::append;
+
+static CURR_BLOCK_HISTORY: Lazy<Mutex<BlockHistory>> = Lazy::new(|| {
+    Mutex::new(BlockHistory::default())
+});
+
+pub fn get_current_block_history() -> &'static Mutex<BlockHistory> {
+    &CURR_BLOCK_HISTORY
+}
+
+pub fn set_current_block_history(new_state: BlockHistory) {
+    *CURR_BLOCK_HISTORY.lock().unwrap() = new_state;
+}
 
 pub fn process(
     recent_history_state: &mut BlockHistory,
     header_hash: &Hash, 
     parent_state_root: &Hash, 
-    work_packages: &ReportedWorkPackages
+    reported_wp: &ReportedWorkPackages
 ) -> BlockHistory {
 
     let history_len = recent_history_state.blocks.len();
@@ -28,7 +41,7 @@ pub fn process(
             &Mmr { peaks: Vec::new() },
             &[0u8; std::mem::size_of::<Hash>()],
             &[0u8; std::mem::size_of::<Hash>()],
-            work_packages,
+            reported_wp,
         );
         
         return recent_history_state.clone();
@@ -88,7 +101,7 @@ fn add_new_block(
         // The state-trie root is as being the zero hash, which while inaccurate at the end state of the block β', it is
         // nevertheless safe since β' is not utilized except to define the next block’s β†, which contains a corrected value for this
         state_root: *state_root,
-        reported: work_packages.clone(),
+        reported_wp: work_packages.clone(),
     });
 }
 

@@ -1,6 +1,6 @@
 use once_cell::sync::Lazy;
 use crate::integration::w3f::read_test_file;
-//use crate::integration::w3f::codec::{TestBody, encode_decode_test};
+use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 pub mod codec;
 use codec::{InputStatistics, StateStatistics};
@@ -24,36 +24,42 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
 #[cfg(test)]
 mod tests {
 
-    use vinwolf::blockchain::state::get_time;
+    use vinwolf::{blockchain::state::get_time, types::Statistics};
 
     use super::*;
 
     fn run_test(filename: &str) {
 
         let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/statistics/{}/{}", *TEST_TYPE, filename));
-        /*let test_body: Vec<TestBody> = vec![
+        let test_body: Vec<TestBody> = vec![
                                         TestBody::InputStatistics,
                                         TestBody::StateStatistics,
-                                        TestBody::StateStatistics];*/
+                                        TestBody::StateStatistics];
         
+        let _ = encode_decode_test(&test_content, &test_body);
+
         let mut reader = BytesReader::new(&test_content);
         let input = InputStatistics::decode(&mut reader).expect("Error decoding InputStatistics");
         let pre_state = StateStatistics::decode(&mut reader).expect("Error decoding Statitstics PreState");
         let expected_state = StateStatistics::decode(&mut reader).expect("Error decoding Statitstics PostState");
 
-        set_statistics(pre_state.stats);
+        let mut statistics = Statistics::default();
+        statistics.curr = pre_state.curr_stats;
+        statistics.prev = pre_state.prev_stats;
+        set_statistics(statistics.clone());
         set_time(pre_state.tau);
-        set_validators(pre_state.next_validators, ValidatorSet::Next);
+        set_validators(pre_state.curr_validators, ValidatorSet::Current);
 
         let mut result_statistics = get_global_state().lock().unwrap().statistics.clone();
         process(&mut result_statistics, &input.slot, &input.author_index, &input.extrinsic, &[]);
 
         let result_time = get_time();
-        let result_validators = get_validators(ValidatorSet::Next);
-
-        assert_eq!(expected_state.stats, result_statistics);
+        let result_validators = get_validators(ValidatorSet::Current);
+        
+        assert_eq!(expected_state.curr_stats, result_statistics.curr);
+        assert_eq!(expected_state.prev_stats, result_statistics.prev);
         assert_eq!(expected_state.tau, result_time);
-        assert_eq!(expected_state.next_validators, result_validators);
+        assert_eq!(expected_state.curr_validators, result_validators);
     }
 
     #[test]

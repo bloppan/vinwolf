@@ -44,9 +44,7 @@ use crate::types::{
 };
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 use crate::blockchain::state::ProcessError;
-use crate::blockchain::state::entropy::{rotate_entropy_pool, update_recent_entropy};
 use crate::blockchain::state::validators::key_rotation;
-use crate::blockchain::block::extrinsic::tickets::verify_seal;
 use crate::utils::codec::Encode;
 
 pub mod bandersnatch;
@@ -69,10 +67,9 @@ pub fn process(
     curr_validators: &mut ValidatorsData,
     prev_validators: &mut ValidatorsData,
     tau: &mut TimeSlot,
-    /*post_tau: &TimeSlot,
-    entropy: &Entropy,*/
     header: &Header,
     tickets_extrinsic: &TicketsExtrinsic,
+    offenders: &[Ed25519Public],
 ) -> Result<OutputDataSafrole, ProcessError> {
 
     // tau defines de most recent block
@@ -93,19 +90,28 @@ pub fn process(
     let mut epoch_mark: Option<EpochMark> = None;
     let mut tickets_mark: Option<TicketsMark> = None;
 
+    if get_ring_set().is_empty() {
+        set_ring_set(create_ring_set(&curr_validators
+            .list
+            .iter()
+            .map(|validator| validator.bandersnatch.clone())
+            .collect::<Vec<BandersnatchPublic>>()));
+    }
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
         // On an epoch transition, we therefore rotate the accumulator value into the history eta1, eta2 eta3
-        rotate_entropy_pool(entropy_pool); 
+        entropy_pool.rotate();
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
-        key_rotation(safrole_state, curr_validators, prev_validators);
+        key_rotation(safrole_state, curr_validators, prev_validators, offenders);
         // Create the ring set
-        set_ring_set(create_ring_set(&curr_validators.0
+        set_ring_set(create_ring_set(&curr_validators
+            .list
             .iter()
             .map(|validator| validator.bandersnatch.clone())
             .collect::<Vec<BandersnatchPublic>>()));
         // Create the epoch root
-        let next_ring_set = create_ring_set(&safrole_state.pending_validators.0
+        let next_ring_set = create_ring_set(&safrole_state.pending_validators
+            .list
             .iter()
             .map(|validator| validator.bandersnatch.clone())
             .collect::<Vec<BandersnatchPublic>>());
@@ -117,16 +123,18 @@ pub fn process(
             entropy: entropy_pool.buf[1].clone(),
             tickets_entropy: entropy_pool.buf[2].clone(),
             validators: {
-                let bandersnatch_keys: Vec<BandersnatchPublic> = safrole_state.pending_validators.0
+                let bandersnatch_keys: Vec<BandersnatchPublic> = safrole_state.pending_validators
+                .list
                 .iter()
                 .map(|validator| validator.bandersnatch.clone())
                 .collect();
 
-                let mut array: [(BandersnatchPublic, Ed25519Public); VALIDATORS_COUNT] = Default::default();
-                for (i, key) in bandersnatch_keys.into_iter().enumerate() {
-                    array[i] = (key, key); // Replace `(key, key)` with the actual tuple logic
-                }
-            
+                let array: [(BandersnatchPublic, Ed25519Public); VALIDATORS_COUNT] =
+                    std::array::from_fn(|i| {
+                        let key = bandersnatch_keys[i];
+                        (key, key)
+                    });
+
                 Box::new(array)
             }
         });
@@ -140,7 +148,8 @@ pub fn process(
             // gamma_s' = gamma_s
         } else {
             // Otherwise, it takes the value of the fallback key sequence
-            let bandersnatch_keys: Vec<_> = curr_validators.0
+            let bandersnatch_keys: Vec<_> = curr_validators
+                .list
                 .iter()
                 .map(|validator| validator.bandersnatch.clone())
                 .collect();
@@ -152,14 +161,14 @@ pub fn process(
         tickets_mark = Some(outside_in_sequencer(&safrole_state.ticket_accumulator));
     }
     // Process tickets extrinsic
-    tickets_extrinsic.process(safrole_state, entropy_pool, &post_tau)?;
+    tickets_extrinsic.process(safrole_state, entropy_pool, &post_tau, get_ring_set())?;
     
     // update tau which defines the most recent block's index
     *tau = post_tau;
 
-    let entropy_source_vrf_output = verify_seal(&safrole_state, &entropy_pool, &curr_validators, get_ring_set(), &header)?;
+    let entropy_source_vrf_output = header.seal_verify(&safrole_state, &entropy_pool, &curr_validators, get_ring_set())?;
     // Update recent entropy eta0
-    update_recent_entropy(entropy_pool, entropy_source_vrf_output);
+    entropy_pool.update_recent(entropy_source_vrf_output);
     
     return Ok(OutputDataSafrole {epoch_mark, tickets_mark});
 }
@@ -182,7 +191,7 @@ pub fn create_root_epoch(ring_set: Vec<Public>) -> BandersnatchRingCommitment {
     let verifier = Verifier::new(ring_set);
     let mut proof: BandersnatchRingCommitment = [0u8; std::mem::size_of::<BandersnatchRingCommitment>()];
     verifier.commitment.serialize_compressed(&mut proof[..]).unwrap();
-    proof
+    return proof;
 }
 
 fn outside_in_sequencer(tickets: &[TicketBody]) -> TicketsMark {
@@ -194,7 +203,7 @@ fn outside_in_sequencer(tickets: &[TicketBody]) -> TicketsMark {
         new_ticket_accumulator.tickets_mark[2 * i + 1] = tickets[EPOCH_LENGTH - 1 - i].clone();
     }
 
-    new_ticket_accumulator
+    return new_ticket_accumulator;
 }
 
 fn fallback(buf: &Entropy, current_keys: &[BandersnatchPublic]) -> BandersnatchEpoch {
@@ -206,7 +215,8 @@ fn fallback(buf: &Entropy, current_keys: &[BandersnatchPublic]) -> BandersnatchE
         let hash = blake2_256(&[&buf.entropy[..], &index_le].concat());
         let hash_4 = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
         let id = (hash_4 % VALIDATORS_COUNT as u32) as usize;
-        new_epoch_keys.0[i as usize] = current_keys[id].clone();
+        new_epoch_keys.epoch[i as usize] = current_keys[id].clone();
     }
-    new_epoch_keys
+
+    return new_epoch_keys;
 }

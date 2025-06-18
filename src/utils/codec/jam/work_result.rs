@@ -7,7 +7,6 @@ impl Encode for WorkResult {
     fn encode(&self) -> Vec<u8> {
 
         let mut blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkResult>());
-
         self.service.encode_size(4).encode_to(&mut blob);
         self.code_hash.encode_to(&mut blob);
         self.payload_hash.encode_to(&mut blob);
@@ -18,7 +17,7 @@ impl Encode for WorkResult {
         if self.result[0] == 0 {
             let result_len = encode_unsigned(self.result.len() - 1);
             result_len.encode_to(&mut blob);
-            self.result[result_len.len()..].encode_to(&mut blob);
+            self.result[1..].encode_to(&mut blob);
         } 
         
         self.refine_load.encode_to(&mut blob);
@@ -66,39 +65,6 @@ impl Decode for WorkResult {
             refine_load: RefineLoad::decode(blob)?,
         })
     }  
-}
-
-impl Encode for Vec<WorkResult> {
-
-    fn encode(&self) -> Vec<u8> {
-        
-        let mut blob: Vec<u8> = Vec::with_capacity(self.len() * std::mem::size_of::<Self>());
-        encode_unsigned(self.len()).encode_to(&mut blob);
-
-        for result in self.iter() {
-            result.encode_to(&mut blob);
-        }
-
-        return blob;
-    }
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-impl Decode for Vec<WorkResult> {
-
-    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
-        
-        let num_results = decode_unsigned(blob)?;
-        let mut results: Vec<WorkResult> = Vec::with_capacity(num_results);
-
-        for _ in 0..num_results {
-            results.push(WorkResult::decode(blob)?);
-        }
-
-        Ok(results)
-    }
 }
 
 impl Encode for RefineLoad {

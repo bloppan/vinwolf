@@ -39,7 +39,6 @@ pub const ONE_THIRD_VALIDATORS: usize = VALIDATORS_COUNT / 3;
 
 pub const AVAIL_BITFIELD_BYTES: usize = (CORES_COUNT + 7) / 8;
 
-
 // The additional minimum balance required per item of elective service state
 pub const MIN_BALANCE_PER_ITEM: Balance = 10;
 

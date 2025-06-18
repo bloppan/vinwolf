@@ -1,5 +1,5 @@
 use crate::types::{
-    ActivityRecord, ActivityRecords, CoreActivityRecord, Statistics, CoresStatistics, SeviceActivityRecord, ServicesStatisticsMapEntry,
+    ActivityRecord, ValidatorStatistics, CoreActivityRecord, Statistics, CoresStatistics, SeviceActivityRecord, ServicesStatisticsMapEntry,
     ServicesStatistics, ServiceId
 };
 use crate::utils::codec::{BytesReader, Decode, Encode, ReadError};
@@ -40,7 +40,7 @@ impl Decode for ActivityRecord {
     }
 }
 
-impl Encode for ActivityRecords {
+impl Encode for ValidatorStatistics {
     
     fn encode(&self) -> Vec<u8> {
 
@@ -58,11 +58,11 @@ impl Encode for ActivityRecords {
     }
 }
 
-impl Decode for ActivityRecords {
+impl Decode for ValidatorStatistics {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
         
-        let mut records= ActivityRecords::default();
+        let mut records= ValidatorStatistics::default();
 
         for record in records.records.iter_mut() {
             *record = ActivityRecord::decode(blob)?;
@@ -195,7 +195,8 @@ impl Encode for ServicesStatisticsMapEntry {
     fn encode(&self) -> Vec<u8> {
         let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
 
-        encode_unsigned(self.id as usize).encode_to(&mut blob);
+        //encode_unsigned(self.id as usize).encode_to(&mut blob);
+        self.id.encode_to(&mut blob);
         self.record.encode_to(&mut blob);
 
         return blob;
@@ -211,7 +212,7 @@ impl Decode for ServicesStatisticsMapEntry {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
         
         Ok(ServicesStatisticsMapEntry {
-            id: decode_unsigned(blob)? as ServiceId,
+            id: ServiceId::decode(blob)?,
             record: SeviceActivityRecord::decode(blob)?,
         })
     }
@@ -224,11 +225,12 @@ impl Encode for ServicesStatistics {
 
         encode_unsigned(self.records.len()).encode_to(&mut blob);
 
+        // TODO revisar esto
         let mut services_stats: Vec<(ServiceId, SeviceActivityRecord)> = self.records.iter().map(|(id, record)| (*id, record.clone())).collect();
         services_stats.sort_by_key(|(id, _)| *id);
         
         for (id, record) in services_stats.iter() {
-            encode_unsigned(*id as usize).encode_to(&mut blob);
+            id.encode_to(&mut blob);
             record.encode_to(&mut blob);
         }
 
@@ -248,7 +250,7 @@ impl Decode for ServicesStatistics {
         let mut map = ServicesStatistics::default();
         
         for _ in 0..len {
-            let id = decode_unsigned(blob)? as ServiceId;
+            let id = ServiceId::decode(blob)?;
             let record = SeviceActivityRecord::decode(blob)?;
             map.records.insert(id, record);
         }
@@ -281,8 +283,8 @@ impl Decode for Statistics {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
         Ok(Statistics {
-            curr: ActivityRecords::decode(blob)?,
-            prev: ActivityRecords::decode(blob)?,
+            curr: ValidatorStatistics::decode(blob)?,
+            prev: ValidatorStatistics::decode(blob)?,
             cores: CoresStatistics::decode(blob)?,
             services: ServicesStatistics::decode(blob)?,
         })

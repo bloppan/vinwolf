@@ -8,98 +8,14 @@
     of valid tickets, each of which is a tuple of an entry index (a natural number less than N) and a proof of ticket validity.
 */
 
-use ark_vrf::{reexports::ark_serialize::CanonicalDeserialize, suites::bandersnatch::Public};
+use ark_vrf::suites::bandersnatch::Public;
 
 use crate::blockchain::state::safrole::bandersnatch::Verifier;
 
 use crate::constants::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR};
-use crate::types::{
-    EntropyPool, Header, OpaqueHash, Safrole, SafroleErrorCode, TicketsOrKeys, TicketBody, TicketsExtrinsic, 
-    TimeSlot, ValidatorsData, ProcessError,
-};
+use crate::types::{EntropyPool, OpaqueHash, Safrole, SafroleErrorCode, TicketBody, TicketsExtrinsic,  TimeSlot, ProcessError};
 use crate::utils::codec::Encode;
 use crate::utils::common::{has_duplicates, bad_order};
-
-// Sealing using the ticket is of greater security, and we utilize this knowledge when determining a candidate block
-// on which to extend the chain.
-pub fn verify_seal(
-        safrole: &Safrole,
-        entropy: &EntropyPool,
-        current_validators: &ValidatorsData,
-        ring_set: Vec<Public>,
-        header: &Header
-) -> Result<OpaqueHash, ProcessError> {
-    // The header must contain a valid seal and valid vrf output. These are two signatures both using the current slot’s 
-    // seal key; the message data of the former is the header’s serialization omitting the seal component Hs, whereas the 
-    // latter is used as a bias-resistant entropy source and thus its message must already have been fixed: we use the entropy
-    // stemming from the vrf of the seal signature. 
-    let unsigned_header = header.unsigned.encode();
-    // Create the verifier object
-    let verifier = Verifier::new(ring_set.clone());
-    // Get the block author
-    let block_author = header.unsigned.author_index as usize;
-    let i = header.unsigned.slot % EPOCH_LENGTH as TimeSlot;
-
-    let seal_vrf_output = match &safrole.seal {
-        TicketsOrKeys::Tickets(tickets) => {
-            // The context is "jam_fallback_seal" + entropy[3] + ticket_attempt
-            let mut context = Vec::from(b"jam_ticket_seal");
-            entropy.buf[3].encode_to(&mut context);
-            tickets.tickets_mark[i as usize].attempt.encode_to(&mut context);
-            // Verify the seal
-            let seal_vrf_output = verifier.ietf_vrf_verify(
-                                                    &context,
-                                                    &unsigned_header,
-                                                    &header.seal,
-                                                    block_author,
-            ).map_err(|_| ProcessError::SafroleError(SafroleErrorCode::InvalidTicketSeal))?;
-
-            if tickets.tickets_mark[i as usize].id != seal_vrf_output {
-                return Err(ProcessError::SafroleError(SafroleErrorCode::TicketNotMatch));
-            }
-
-            seal_vrf_output
-        },
-        TicketsOrKeys::Keys(keys) => {
-            // The context is "jam_fallback_seal" + entropy[3]
-            let mut context = Vec::from(b"jam_fallback_seal");
-            entropy.buf[3].encode_to(&mut context);
-            // Verify the seal
-            let seal_vrf_output = verifier.ietf_vrf_verify(
-                                                        &context,
-                                                        &unsigned_header,
-                                                        &header.seal,
-                                                        block_author,
-            ).map_err(|_| ProcessError::SafroleError(SafroleErrorCode::InvalidKeySeal))?;
-            
-            if keys.0[i as usize] != current_validators.0[block_author].bandersnatch {
-                return Err(ProcessError::SafroleError(SafroleErrorCode::KeyNotMatch));
-            }
-
-            seal_vrf_output
-        },
-        TicketsOrKeys::None => {
-            return Err(ProcessError::SafroleError(SafroleErrorCode::TicketsOrKeysNone));
-        },
-    };
-    
-    // Verify the entropy source
-    let mut context = Vec::from(b"jam_entropy");
-    seal_vrf_output.encode_to(&mut context);
-    let entropy_source_vrf_result = verifier.ietf_vrf_verify(
-                                                                        &context,
-                                                                        &[],
-                                                                        &header.unsigned.entropy_source,
-                                                                        block_author);
-
-    let entropy_source_vrf_output = match entropy_source_vrf_result {
-        Ok(_) => entropy_source_vrf_result.unwrap(),
-        Err(_) => { return Err(ProcessError::SafroleError(SafroleErrorCode::InvalidEntropySource)) },
-    };
-
-    Ok(entropy_source_vrf_output)
-}
-
 
 impl TicketsExtrinsic {
 
@@ -108,6 +24,7 @@ impl TicketsExtrinsic {
         safrole_state: &mut Safrole,
         entropy_state: &mut EntropyPool,
         post_tau: &TimeSlot,
+        ring_set: Vec<Public>,
     ) -> Result<(), ProcessError> {
         
         if self.tickets.is_empty() {
@@ -130,30 +47,13 @@ impl TicketsExtrinsic {
                 return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketAttempt));
             }
         }
-    
-        // Create a bandersnatch ring keys
-        let ring_keys: Vec<_> = safrole_state.pending_validators.0
-                                            .iter()
-                                            .map(|validator| validator.bandersnatch.clone())
-                                            .collect();
-    
-        // Create a bandersnatch ring set 
-        let ring_set: Vec<Public> = ring_keys
-                                            .iter()
-                                            .map(|key| {
-                                                let point = Public::deserialize_compressed(&key[..])
-                                                .expect("Deserialization failed");
-                                                point
-                                            })
-                                            .collect();
-        
+            
         let verifier = Verifier::new(ring_set);
         let mut new_ticket_ids: Vec<OpaqueHash> = vec![];
         // Verify each ticket
         for i in 0..self.tickets.len() {
-            let mut vrf_input_data = Vec::from(b"jam_ticket_seal");
-            entropy_state.buf[2].encode_to(&mut vrf_input_data);
-            self.tickets[i].attempt.encode_to(&mut vrf_input_data);
+
+            let vrf_input_data = [&b"jam_ticket_seal"[..], &entropy_state.buf[2].encode(), &self.tickets[i].attempt.encode()].concat();
             let aux_data = vec![];
             // Verify ticket validity
             let res = verifier.ring_vrf_verify(&vrf_input_data, &aux_data, &self.tickets[i].signature);

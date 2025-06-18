@@ -3,8 +3,8 @@ use crate::types::{
     TicketBody, TicketsMark, EpochMark, Header, Entropy, UnsignedHeader
 };
 use crate::constants::{EPOCH_LENGTH, VALIDATORS_COUNT};
-use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
-use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
+use crate::utils::codec::{Encode, EncodeLen, EncodeSize, Decode, BytesReader, ReadError};
+use crate::utils::codec::generic::decode_unsigned;
 
 impl Encode for UnsignedHeader {
     fn encode(&self) -> Vec<u8> {
@@ -29,13 +29,10 @@ impl Encode for UnsignedHeader {
             (0u8).encode_to(&mut header_blob); // 0 = Mark there aren't tickets
         }
         
-        encode_unsigned(self.offenders_mark.len()).encode_to(&mut header_blob);
-        for mark in &self.offenders_mark {
-            mark.encode_to(&mut header_blob);
-        }
-
+        self.offenders_mark.encode_len().encode_to(&mut header_blob);
         self.author_index.encode_size(2).encode_to(&mut header_blob);
         self.entropy_source.encode_to(&mut header_blob);
+        
         return header_blob;
     }
 
@@ -171,7 +168,7 @@ impl Encode for TicketsMark {
     fn encode(&self) -> Vec<u8> {
 
         let mut tickets_mark_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<TicketBody>() * EPOCH_LENGTH);
-
+        
         for ticket in self.tickets_mark.iter() {
             ticket.encode_to(&mut tickets_mark_blob);
         }
@@ -227,39 +224,3 @@ impl Encode for TicketBody {
         into.extend_from_slice(&self.encode());
     }
 }
-
-impl Encode for Vec<TicketBody> {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let len = self.len();
-        let mut body_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Self>());
-        encode_unsigned(len).encode_to(&mut body_blob);
-
-        for ticket in self.iter() {
-            ticket.encode_to(&mut body_blob);
-        }
-
-        return body_blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-impl Decode for Vec<TicketBody> {
-
-    fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
-        
-        let len = decode_unsigned(blob)?;
-        let mut tickets_mark: Vec<TicketBody> = Vec::with_capacity(len);
-
-        for _ in 0..len {
-            tickets_mark.push(TicketBody::decode(blob)?);
-        }
-
-        return Ok(tickets_mark);
-    }
-}
-

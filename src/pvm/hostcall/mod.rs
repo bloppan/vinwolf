@@ -5,10 +5,10 @@ use crate::types::{
     RegSize, Registers, WorkExecResult, WorkExecError
 };
 
-use crate::pvm::{invoke_pvm, hostcall::program_init::init_std_program};
+use crate::pvm::{invoke_pvm, mm::program_init::init_std_program};
 use crate::utils::codec::ReadError;
 
-pub mod accumulate; pub mod refine; pub mod on_transfer; pub mod is_authorized; pub mod general_fn; pub mod program_init;
+pub mod accumulate; pub mod refine; pub mod on_transfer; pub mod is_authorized; pub mod general_fn;
 
 /// An extended version of the pvm invocation which is able to progress an inner host-call
 /// state-machine in the case of a host-call halt condition is defined as:
@@ -30,8 +30,7 @@ where
     // is sensible when the instruction is one which necessarily needs re-executing such as in the case of an out-of-gas or page
     // fault reason.
     let exit_reason = invoke_pvm(&mut pvm_ctx, program_code);
-
-    println!("Exit reason: {:?}", exit_reason);
+    
     if exit_reason == ExitReason::Halt 
         || exit_reason == ExitReason::panic 
         || exit_reason == ExitReason::OutOfGas  
@@ -77,6 +76,7 @@ where
     }
 
     println!("Hostcall exit: {:?}", exit_reason);
+    
     return (exit_reason, pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram, ctx);
 }
 
@@ -111,23 +111,46 @@ fn R(gas: Gas, hostcall_result: (ExitReason, RegSize, Gas, Registers, RamMemory,
     let gas_consumed = gas - std::cmp::max(post_gas, 0);
 
     if exit_reason == ExitReason::OutOfGas {
+        println!("R: Out of gas!!!");
         return (gas_consumed, WorkExecResult::Error(WorkExecError::OutOfGas), post_ctx);
     }
 
     let start_address = post_reg[7] as RamAddress;
-    //let end_address = (post_reg[7] + post_reg[8]) as RamAddress;
     let bytes_to_read = post_reg[8] as RamAddress;
 
     if exit_reason == ExitReason::Halt || exit_reason == ExitReason::halt { // TODO cambiar esto
         if post_ram.is_readable(start_address, bytes_to_read) {
             let data = post_ram.read(start_address, post_reg[8] as u32);
+            println!("ram is readable after halt");
             return (gas_consumed, WorkExecResult::Ok(data), post_ctx);
         } else {
+            println!("ram not readable after halt");
             return (gas_consumed, WorkExecResult::Ok(vec![]), post_ctx);
         }
     }   
 
     return (gas_consumed, WorkExecResult::Error(WorkExecError::Panic), post_ctx);
+}
+
+impl HostCallContext {
+
+    pub fn to_acc_ctx(self) -> (AccumulationContext, AccumulationContext)
+    {
+        let HostCallContext::Accumulate(ctx_x, ctx_y) = self else {
+            unreachable!("to_acc_ctx: We should never be here! Invalid acc context");
+        };
+
+        return (ctx_x, ctx_y);
+    }
+
+    pub fn to_xfer_ctx(self) -> Account
+    {
+        let HostCallContext::OnTransfer(account) = self else {
+            unreachable!("to_acc_ctx: We should never be here! Invalid xfer context");
+        };
+
+        return account;
+    } 
 }
 
 use std::convert::TryFrom;
@@ -177,22 +200,6 @@ pub enum HostCallContext {
     OnTransfer(Account),
     IsAuthorized(),
 }
-
-/*pub fn is_writable(ram: &RamMemory, start_page: &RamAddress, end_page: &RamAddress) -> Result<bool, ExitReason> {
-    
-    for i in *start_page..=*end_page {
-
-        if let Some(page) = ram.pages[i as usize].as_ref() {
-            if page.flags.access.get(&RamAccess::Write).is_none() {
-                return Err(ExitReason::panic);
-            }
-        } else {
-            return Err(ExitReason::PageFault(i));
-        }
-    }
-
-    return Ok(true);
-}*/
 
 mod tests {
     

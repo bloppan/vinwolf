@@ -1,6 +1,8 @@
-use crate::types::{Account, ExitReason, Gas, RamAddress, RamMemory, Registers, ServiceAccounts, ServiceId, OpaqueHash, RegSize};
+use crate::types::{Account, ExitReason, Gas, OpaqueHash, RamAddress, RamMemory, RegSize, Registers, ServiceAccounts, ServiceId, StateKey, StateKeyType};
 use crate::constants::{NONE, OK, FULL};
 use crate::utils::codec::Encode;
+use crate::utils::codec::generic::encode_unsigned;
+use crate::utils::codec::jam::global_state::{construct_storage_key, StateKeyTrait};
 
 use super::HostCallContext;
 
@@ -15,7 +17,7 @@ pub fn gas(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
     } 
  
     reg[7] = gas as RegSize;
-    
+
     return (ExitReason::Continue, gas, reg, ram, ctx);
 }
 
@@ -31,8 +33,8 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
 
     let a_account: Option<Account> = if reg[7] as ServiceId == service_id || reg[7] == u64::MAX {
         Some(account.clone())
-    } else if services.service_accounts.contains_key(&(reg[7] as ServiceId)) {
-        services.service_accounts.get(&(reg[7] as ServiceId)).cloned()
+    } else if services.contains_key(&(reg[7] as ServiceId)) {
+        services.get(&(reg[7] as ServiceId)).cloned()
     } else {
         None    
     };
@@ -93,42 +95,57 @@ pub fn read(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Accou
     } else {
         reg[7] as ServiceId
     };
-
+    println!("READ service id: {}", id);
     let target_account: Option<Account> = if service_id == id {
         Some(account.clone())
-    } else if services.service_accounts.contains_key(&id) {
-        services.service_accounts.get(&id).cloned()
+    } else if services.contains_key(&id) {
+        services.get(&id).cloned()
     } else {
         None
     };
-
+    println!("target_account: {:?}", target_account.is_some());
     let start_read_address = reg[8] as RamAddress;
     let bytes_to_read = reg[9] as RamAddress;
     let start_write_address = reg[10] as RamAddress;
 
     if !ram.is_readable(start_read_address, bytes_to_read) {
+        println!("READ PANIC");
         return (ExitReason::panic, gas, reg, ram, account);
     }
 
-    let key = sp_core::blake2_256(&[id.encode(), ram.read(start_read_address, bytes_to_read).encode()].concat());
-
+    let key= sp_core::blake2_256(&[id.encode(), ram.read(start_read_address, bytes_to_read).encode()].concat())[..31].try_into().unwrap();
+    println!("raw key: {:x?}", key);
+    let key = StateKeyType::Account(id, construct_storage_key(&key).to_vec()).construct();
+    println!("service: {:?} storage key: {:x?}", id, key);
+    
+    /*for item in target_account.as_ref().unwrap().storage.iter() {
+        println!("find key: {:x?}", item.0);
+    }*/
+    
     let value: Vec<u8> = if target_account.is_some() && target_account.as_ref().unwrap().storage.contains_key(&key) {
+        println!("key found: {:x?}", key);
         target_account.unwrap().storage.get(&key).unwrap().clone()
     } else {
         reg[7] = NONE;
+        println!("READ NONE");
+        println!("key: {:x?} not found", key);
+        println!("service_id: {} storage: {:x?}", id, target_account.unwrap().storage);
         return (ExitReason::Continue, gas, reg, ram, account);
     };
+    println!("value: {:x?}", value);
     // TODO revisar el orden de los return, no estoy seguro de si estan
-    let f = std::cmp::min(reg[11], value.len() as RegSize);
+    let f = std::cmp::min(reg[11], value.len() as RegSize); 
     let l = std::cmp::min(reg[12], value.len() as RegSize - f);
-
+    println!("start address: {start_write_address}");
+    println!("f: {f}, l: {l}");
     if !ram.is_writable(start_write_address, l as RamAddress) {
+        println!("READ PANIC");
         return (ExitReason::panic, gas, reg, ram, account);
     }
-
     reg[7] = value.len() as RegSize;
     ram.write(start_write_address, value[f as usize..(f + l) as usize].to_vec());
-
+    println!("READ OK. l: {l}, f: {f}");
+    println!("key: {:x?}, value: {:x?}", key, value[f as usize..(f + l) as usize].to_vec());
     return (ExitReason::Continue, gas, reg, ram, account);
 }
 
@@ -151,8 +168,14 @@ pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account,
         println!("panic: not readable");
         return (ExitReason::panic, gas, reg, ram, account);
     }
+    
+    println!("service_id: {}", service_id);
 
-    let key = sp_core::blake2_256(&[service_id.encode(), ram.read(key_start_address as RamAddress, key_size as RamAddress)].concat());
+    let key = sp_core::blake2_256(&[service_id.encode(), ram.read(key_start_address as RamAddress, key_size as RamAddress)].concat())[..31].try_into().unwrap();
+    println!("raw key: {:x?}", key);
+    let key = StateKeyType::Account(service_id, construct_storage_key(&key).to_vec()).construct();
+    println!("service: {:?} storage key: {:x?}", service_id, key);
+
     let mut s_account = account.clone();
 
     let modified_account = if value_size == 0 {
@@ -165,7 +188,7 @@ pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account,
         s_account.storage.insert(key, storage_data);
         s_account
     } else {
-        println!("panic");
+        println!("WRITE panic");
         return (ExitReason::panic, gas, reg, ram, account);
     };
 
@@ -173,18 +196,17 @@ pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account,
         println!("WRITE OK");
         storage_data.len() as RegSize
     } else {
-        println!("NONE");
+        println!("WRITE NONE");
         NONE as RegSize
     };
 
     let threshold = modified_account.get_footprint_and_threshold().2;
 
     if threshold > modified_account.balance {
-        println!("FULL");
+        println!("WRITE FULL");
         reg[7] = FULL as RegSize;
         return (ExitReason::Continue, gas, reg, ram, account);
     }
-
     reg[7] = l;
     return (ExitReason::Continue, gas, reg, ram, modified_account);
     
@@ -201,13 +223,13 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
     }   
 
     let account: Option<Account> = if reg[7] == u64::MAX {
-        if let Some(account) = accounts.service_accounts.get(&service_id).cloned() {
+        if let Some(account) = accounts.get(&service_id).cloned() {
             Some(account)
         } else {
             None
         }
     } else {
-        if let Some(account) = accounts.service_accounts.get(&(reg[7] as ServiceId)).cloned() {
+        if let Some(account) = accounts.get(&(reg[7] as ServiceId)).cloned() {
             Some(account)
         } else {
             None
@@ -217,13 +239,14 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
     let metadata = if let Some(account) = account.as_ref() {
 
         [account.code_hash.encode(), 
-         account.balance.encode(),
-         account.get_footprint_and_threshold().2.encode(),
-         account.gas.encode(),
-         account.min_gas.encode(),
-         account.get_footprint_and_threshold().1.encode(),
-         account.get_footprint_and_threshold().0.encode()].concat()
+         encode_unsigned(account.balance as usize),
+         encode_unsigned(account.get_footprint_and_threshold().2 as usize),
+         encode_unsigned(account.acc_min_gas as usize),
+         encode_unsigned(account.xfer_min_gas as usize),
+         encode_unsigned(account.get_footprint_and_threshold().0 as usize),
+         encode_unsigned(account.get_footprint_and_threshold().1 as usize)].concat()
     } else {
+        println!("Info: NONE");
         reg[7] = NONE;
         return (ExitReason::Continue, gas, reg, ram, Account::default());
     };
@@ -231,11 +254,52 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
     let start_address = reg[8] as RamAddress;
 
     if !ram.is_writable(start_address, metadata.len() as RamAddress) {
+        println!("Info: Panic");
         return (ExitReason::panic, gas, reg, ram, Account::default());
     }
 
+    println!("code_hash: {:x?}", account.as_ref().unwrap().code_hash);
+    println!("balance: {:?}", account.as_ref().unwrap().balance);
+    println!("balance footprint: {:?}", account.as_ref().unwrap().get_footprint_and_threshold().2);
+    println!("acc gas: {:?}", account.as_ref().unwrap().acc_min_gas);
+    println!("xfer gas: {:?}", account.as_ref().unwrap().xfer_min_gas);
+    println!("items: {:?}", account.as_ref().unwrap().get_footprint_and_threshold().0);
+    println!("octets: {:?}", account.as_ref().unwrap().get_footprint_and_threshold().1);
+    
+
+    println!("Info: OK");
+    println!("m: {:x?}", metadata);
+
     ram.write(start_address, metadata);
+
     reg[7] = OK;
 
     return (ExitReason::Continue, gas, reg, ram, account.unwrap());
+}
+
+pub fn log(reg: &Registers, ram: &RamMemory, service_id: &ServiceId) {
+
+    println!("Log hostcall");
+
+    let level = reg[7];
+    
+    let target_start_address = reg[8] as RamAddress;
+    let target_size = reg[9] as RamAddress;
+    
+    let msg_start_address = reg[10] as RamAddress;
+    let msg_size = reg[11] as RamAddress;
+
+    if !ram.is_readable(target_start_address, target_size) {
+        println!("Ram memory is not readable for target");
+    }
+
+    if !ram.is_readable(msg_start_address, msg_size) {
+        println!("Ram memory is not readable for message");
+    }
+
+    let target = ram.read(target_start_address, target_size);
+    let msg = ram.read(msg_start_address, msg_size);
+    let msg_str = String::from_utf8_lossy(&msg);
+    
+    println!(" \nLevel: {level} target: {:?} service: {service_id} msg: {:?}\n", target, msg_str);
 }

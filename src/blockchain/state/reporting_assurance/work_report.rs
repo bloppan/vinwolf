@@ -1,11 +1,13 @@
 use sp_core::blake2_256;
+use std::collections::HashMap;
 
 use crate::types::{
-    AvailabilityAssignment, CoreIndex, Ed25519Public, Entropy, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, 
-    WorkResult, AvailabilityAssignments, ReportedPackage, OutputDataReports, ReportErrorCode
+    AvailabilityAssignment, AvailabilityAssignments, CoreIndex, Ed25519Public, Entropy, EntropyPool, OutputDataReports, ReportErrorCode, 
+    ReportedPackage, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, WorkResult
 };
 use crate::constants::{ EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR };
-use crate::blockchain::state::{ ProcessError, ValidatorSet, get_entropy, get_validators, get_authpools, get_recent_history, get_disputes };
+use crate::blockchain::state::{ get_auth_pools, get_disputes, ProcessError};
+use crate::blockchain::state::recent_history::get_current_block_history;
 use crate::blockchain::state::reporting_assurance::add_assignment;
 use crate::utils::trie::mmr_super_peak;
 use crate::utils::shuffle::shuffle;
@@ -19,13 +21,16 @@ impl WorkReport {
         assurances_state: &mut AvailabilityAssignments,
         post_tau: &TimeSlot, 
         guarantee_slot: TimeSlot, 
-        validators_signatures: &[ValidatorSignature]) 
+        validators_signatures: &[ValidatorSignature],
+        entropy_pool: &EntropyPool,
+        prev_validators: &ValidatorsData,
+        curr_validators: &ValidatorsData) 
     -> Result<OutputDataReports, ProcessError> {
 
-        let authorizations = get_authpools();
+        let auth_pools = get_auth_pools();
         // A report is valid only if the authorizer hash is present in the authorizer pool of the core on which the
         // work is reported
-        if !authorizations.auth_pools[self.core_index as usize].auth_pool.contains(&self.authorizer_hash) {
+        if !auth_pools.0[self.core_index as usize].contains(&self.authorizer_hash) {
             return Err(ProcessError::ReportError(ReportErrorCode::CoreUnauthorized));
         }
 
@@ -52,24 +57,51 @@ impl WorkReport {
             return Err(ProcessError::ReportError(ReportErrorCode::BadLookupAnchorSlot));
         }
 
-        // TODO 11.36 
-        // TODO 11.37
+        // TODO 11.35
+        
+        // We require that the prerequisite work-packages, if present, and any work-packages mentioned in the segment-root lookup,
+        // be either in the extrinsic or in our recent history.
+        /*let mut wp_hashes_in_our_pipeline: HashSet<OpaqueHash> = HashSet::new();
+
+        let acc_queue = get_ready_queue();
+        for epoch in acc_queue.queue.iter() {
+            for ready_record in epoch.iter() {
+                wp_hashes_in_our_pipeline.extend(ready_record.dependencies.clone());
+            }
+        }
+        
+        let assurance_state = get_reporting_assurance();
+        for item in assurance_state.list.iter() {
+            if let Some(assignment) = item {
+                wp_hashes_in_our_pipeline.extend(&assignment.report.context.prerequisites);
+            }
+        }*/
 
         let OutputDataReports {
             reported: new_reported,
             reporters: new_reporters,
-        } = self.try_place(assurances_state, post_tau, guarantee_slot, validators_signatures)?;
+        } = self.try_place(
+                    assurances_state, 
+                    post_tau, 
+                    guarantee_slot, 
+                    validators_signatures, 
+                    entropy_pool,
+                    prev_validators,
+                    curr_validators)?;
 
         return Ok(OutputDataReports{reported: new_reported, reporters: new_reporters});
     }
 
     fn is_recent(&self) -> Result<bool, ProcessError> {
         
-        let block_history = get_recent_history();
+        let block_history = get_current_block_history().lock().unwrap().clone();
 
         for block in &block_history.blocks {
             if block.header_hash == self.context.anchor {
+                println!("block: {:x?}", block);
                 if block.state_root != self.context.state_root {
+                    println!("block state_root: {:x?}", block.state_root);
+                    println!("context state_root: {:x?}", self.context.state_root);
                     return Err(ProcessError::ReportError(ReportErrorCode::BadStateRoot));
                 }
 
@@ -84,61 +116,55 @@ impl WorkReport {
         Err(ProcessError::ReportError(ReportErrorCode::AnchorNotRecent))
     }
 
-    fn try_place(
-        &self,
-        assurances_state: &mut AvailabilityAssignments,
-        post_tau: &TimeSlot, 
-        guarantee_slot: TimeSlot, 
-        credentials: &[ValidatorSignature]) 
+    fn try_place(&self,
+                 assurances_state: &mut AvailabilityAssignments,
+                 post_tau: &TimeSlot, 
+                 guarantee_slot: TimeSlot, 
+                 credentials: &[ValidatorSignature],
+                 entropy_pool: &EntropyPool,
+                 prev_validators: &ValidatorsData,
+                 current_validators: &ValidatorsData) 
     -> Result<OutputDataReports, ProcessError> {
 
         let mut reported: Vec<ReportedPackage> = Vec::new();
         let mut reporters: Vec<Ed25519Public> = Vec::new();
 
         // No reports may be placed on cores with a report pending availability on it 
-        if assurances_state.0[self.core_index as usize].is_none() {
-
-            let chain_entropy = get_entropy();
-            let mut current_validators = get_validators(ValidatorSet::Current);
-            let prev_validators = get_validators(ValidatorSet::Previous);
-
+        if assurances_state.list[self.core_index as usize].is_none() {
             // Each core has three validators uniquely assigned to guarantee work-reports for it. This is ensured with 
             // VALIDATORS_COUNT and CORES_COUNT, since V/C = 3. The core index is assigned to each of the validators, 
-            // and the validator's Ed25519 public keys are denoted as 'guarantors_assignments'.
+            // and the validator's Ed25519 public keys are denoted as 'assignments'.
             // We determine the core to which any given validator is assigned through a shuffle using epochal entropy 
             // and a periodic rotation to help guard the security and liveness of the network. We use η2 (entropy_index 2) 
             // for the epochal entropy rather than η1 to avoid the possibility of fork-magnification where uncertainty 
             // about chain state at the end of an epoch could give rise to two established forks before it naturally resolves.
-            let (validators_data, guarantors_assignments) = if *post_tau / ROTATION_PERIOD == guarantee_slot / ROTATION_PERIOD {
-                let assignments = guarantor_assignments(&permute(&chain_entropy.buf[2], *post_tau), &mut current_validators);
-                (current_validators, assignments)
+            let (validators_data, assignments) = if *post_tau / ROTATION_PERIOD == guarantee_slot / ROTATION_PERIOD {
+                let mut validators = current_validators.clone();
+                let assignments = guarantor_assignments(&permute(&entropy_pool.buf[2], *post_tau), &mut validators);
+                (validators, assignments)
             } else {
                 // We also define the previous 'guarantors_assigments' as it would have been under the previous rotation
                 let epoch_diff = (*post_tau - ROTATION_PERIOD) / EPOCH_LENGTH as u32 == *post_tau / EPOCH_LENGTH as u32;
                 let entropy_index = if epoch_diff { 2 } else { 3 };
-                let mut validators = if epoch_diff { current_validators } else { prev_validators };
-                let assignments = guarantor_assignments(&permute(&chain_entropy.buf[entropy_index], *post_tau - ROTATION_PERIOD), &mut validators);
+                let mut validators = if epoch_diff { current_validators.clone() } else { prev_validators.clone() };
+                let assignments = guarantor_assignments(&permute(&entropy_pool.buf[entropy_index], *post_tau - ROTATION_PERIOD), &mut validators);
                 (validators, assignments)
             };
-
-            let guarantors_hashmap: std::collections::HashMap<Ed25519Public, CoreIndex> = guarantors_assignments
-                .iter()
-                .map(|(core_index, public_key)| (*public_key, *core_index))
-                .collect();
-
+            
             // The signature must be one whose public key is that of the validator identified in the credential, and whose
             // message is the serialization of the hash of the work-report.
-            let mut message = Vec::from(b"jam_guarantee");
-            message.extend_from_slice(&blake2_256(&self.encode()));
+            let message = [&b"jam_guarantee"[..], &blake2_256(&self.encode())].concat();
+
             for credential in credentials {
                 if credential.validator_index as usize >= VALIDATORS_COUNT {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadValidatorIndex));
                 }
-                let validator = &validators_data.0[credential.validator_index as usize];
+                let validator = &validators_data.list[credential.validator_index as usize];
+
                 if !credential.signature.verify_signature(&message, &validator.ed25519) {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadSignature));
                 }
-                if ROTATION_PERIOD * ((*post_tau / ROTATION_PERIOD) - 1) > guarantee_slot {
+                if ROTATION_PERIOD * ((*post_tau / ROTATION_PERIOD).saturating_sub(1)) > guarantee_slot {
                     return Err(ProcessError::ReportError(ReportErrorCode::ReportEpochBeforeLast));
                 }
                 if guarantee_slot > *post_tau {
@@ -146,7 +172,7 @@ impl WorkReport {
                 }
                 // The signing validators must be assigned to the core in question in either this block if the timeslot for the
                 // guarantee is in the same rotation as this block's timeslot, or in the most recent previous set of assigmments.
-                if let Some(&core_index) = guarantors_hashmap.get(&validator.ed25519) {
+                if let Some(&core_index) = assignments.get(&validator.ed25519) {
                     if core_index != self.core_index {
                         return Err(ProcessError::ReportError(ReportErrorCode::WrongAssignment));
                     }
@@ -207,14 +233,14 @@ fn permute(entropy: &Entropy, t: TimeSlot) -> Vec<u16> {
 fn guarantor_assignments(
     core_assignments: &[u16], 
     validators_set: &mut ValidatorsData
-) -> Box<[(CoreIndex, Ed25519Public); VALIDATORS_COUNT]> {
+) -> HashMap<Ed25519Public, CoreIndex> {
 
-    let mut guarantor_assignments: Box<[(CoreIndex, Ed25519Public); VALIDATORS_COUNT]> = Box::new([(0, Ed25519Public::default()); VALIDATORS_COUNT]);
+    let mut guarantor_assignments: HashMap<Ed25519Public, CoreIndex> = HashMap::new();
 
     set_offenders_null(validators_set, &get_disputes().offenders);
 
     for i in 0..VALIDATORS_COUNT {
-        guarantor_assignments[i] = (core_assignments[i], validators_set.0[i].ed25519.clone());
+        guarantor_assignments.insert(validators_set.list[i].ed25519.clone(), core_assignments[i]);
     }
 
     return guarantor_assignments;
