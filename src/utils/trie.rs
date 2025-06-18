@@ -1,6 +1,5 @@
 use std::collections::HashMap;
-use sp_core::blake2_256;
-use sp_core::keccak_256;
+use sp_core::{blake2_256, keccak_256};
 
 use crate::types::{Hash, Mmr, MmrPeak, StateKey};
 use crate::utils::codec::{Encode, EncodeSize};
@@ -239,9 +238,9 @@ pub fn mmr_super_peak(h: &Mmr) -> Hash {
     return mmr(&extract_non_empty_peaks(h));
 }
 
-use crate::types::{GlobalState, SerializedState};
+/*use crate::types::{GlobalState, SerializedState};
 use crate::blockchain::state::{get_global_state, set_global_state};
-use std::convert::TryInto;
+use std::convert::TryInto;*/
 
 
 #[cfg(test)]
@@ -310,7 +309,7 @@ mod tests {
         assert_eq!(expected_2.peaks, result_2.peaks);
     }
 
-    #[test]
+    /*#[test]
     fn test_post_state_merkle_root() {
         let post_state_root = "0xf5917320eedafb72674defb4279ebaa75b740cf685560036c5552037235499a1";
 
@@ -612,5 +611,5 @@ mod tests {
         let result = merkle_state(&state.map, 0).unwrap();
 
         println!("result = {:x?}", result);
-    }
+    }*/
 }

@@ -36,7 +36,6 @@ impl PreimagesExtrinsic {
             if services.contains_key(&preimage.requester) {
                 let account = services.get_mut(&preimage.requester).unwrap();
                 if account.preimages.contains_key(&hash) {
-                    println!("preimage unneeded. hash {:x?}", hash);
                     return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
                 }
                 if let Some(timeslots) = account.lookup.get(&lookup_key) {
