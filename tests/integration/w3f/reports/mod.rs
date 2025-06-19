@@ -5,11 +5,10 @@ use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
 use vinwolf::types::{DisputesRecords, OutputDataReports, ValidatorSet, ProcessError, Statistics, Extrinsic, ServiceAccounts, Account};
 use vinwolf::blockchain::state::{
-    get_global_state, set_reporting_assurance, get_reporting_assurance, set_auth_pools, get_auth_pools, 
-    set_entropy, get_entropy, set_validators, get_validators, set_recent_history, get_recent_history,
-    set_disputes, get_disputes, set_statistics, get_statistics, set_service_accounts, get_service_accounts
+    get_global_state, set_reporting_assurance, get_reporting_assurance, set_auth_pools, get_auth_pools, set_entropy, get_entropy, 
+    set_validators, get_validators, set_recent_history, get_recent_history, set_disputes, get_disputes, set_statistics, get_statistics,
+    set_service_accounts, get_service_accounts
 };
-use vinwolf::blockchain::state::reports::guarantee;
 use vinwolf::blockchain::state::statistics;
 use vinwolf::utils::codec::{Decode, BytesReader};
 

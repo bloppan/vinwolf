@@ -7,7 +7,7 @@
 */
 
 use sp_core::keccak_256;
-use {once_cell::sync::Lazy, sp_core::blake2_256, std::sync::Mutex};
+use {once_cell::sync::Lazy, std::sync::Mutex};
 
 use crate::types::{BlockHistory, BlockInfo, Hash, Mmr, ReportedWorkPackages};
 use crate::constants::RECENT_HISTORY_SIZE;

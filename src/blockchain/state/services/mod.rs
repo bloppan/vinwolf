@@ -4,7 +4,7 @@ use crate::constants::{MIN_BALANCE, MIN_BALANCE_PER_ITEM, MIN_BALANCE_PER_OCTET}
 use crate::blockchain::state::ProcessError;
 use crate::utils::codec::{BytesReader, ReadError};
 use crate::utils::codec::generic::decode_unsigned;
-use crate::utils::codec::jam::global_state::construct_lookup_key;
+use crate::utils::serialization::construct_lookup_key;
 
 pub fn process(
     services: &mut ServiceAccounts, 

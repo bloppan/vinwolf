@@ -5,8 +5,7 @@
 
 use std::collections::HashSet;
 use crate::types::{TimeSlot, ServiceAccounts, ProcessError, PreimagesExtrinsic, PreimagesErrorCode, StateKeyType};
-use crate::utils::codec::jam::global_state::construct_lookup_key;
-use crate::utils::codec::jam::global_state::StateKeyTrait;
+use crate::utils::serialization::{StateKeyTrait, construct_lookup_key};
 
 impl PreimagesExtrinsic {
 

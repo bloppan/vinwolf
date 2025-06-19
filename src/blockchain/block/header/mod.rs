@@ -170,8 +170,8 @@ impl Header {
             return Err(ProcessError::HeaderError(HeaderErrorCode::BadExtrinsicHash));
         }
 
-        println!("\nheader extrinsic expected: {:x?}", self.unsigned.extrinsic_hash );
-        println!("header extrinsic   result: {:x?}\n", sp_core::blake2_256(&a) );
+        //println!("\nheader extrinsic expected: {:x?}", self.unsigned.extrinsic_hash );
+        //println!("header extrinsic   result: {:x?}\n", sp_core::blake2_256(&a) );
         return Ok(());
     }
 

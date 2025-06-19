@@ -98,10 +98,7 @@ impl WorkReport {
 
         for block in &block_history.blocks {
             if block.header_hash == self.context.anchor {
-                println!("block: {:x?}", block);
                 if block.state_root != self.context.state_root {
-                    println!("block state_root: {:x?}", block.state_root);
-                    println!("context state_root: {:x?}", self.context.state_root);
                     return Err(ProcessError::ReportError(ReportErrorCode::BadStateRoot));
                 }
 

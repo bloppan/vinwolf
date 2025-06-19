@@ -1,8 +1,8 @@
-use crate::types::{Account, ExitReason, Gas, OpaqueHash, RamAddress, RamMemory, RegSize, Registers, ServiceAccounts, ServiceId, StateKey, StateKeyType};
+use crate::types::{Account, ExitReason, Gas, OpaqueHash, RamAddress, RamMemory, RegSize, Registers, ServiceAccounts, ServiceId, StateKeyType};
 use crate::constants::{NONE, OK, FULL};
 use crate::utils::codec::Encode;
 use crate::utils::codec::generic::encode_unsigned;
-use crate::utils::codec::jam::global_state::{construct_storage_key, StateKeyTrait};
+use crate::utils::serialization::{construct_storage_key, StateKeyTrait};
 
 use super::HostCallContext;
 

@@ -36,12 +36,12 @@ pub fn invoke_on_transfer(
     transfers: Vec<DeferredTransfer>) 
 -> (Account, Gas) {
     
-    println!("Invoke on transfer");
-    println!("Service ID: {:?}", service_id);
+    //println!("Invoke on transfer");
+    //println!("Service ID: {:?}", service_id);
     let mut s_account = service_accounts.get(service_id).unwrap().clone();
     
     if transfers.is_empty() {
-        println!("No transfers");
+        //println!("No transfers");
         return (s_account, 0);
     }
 

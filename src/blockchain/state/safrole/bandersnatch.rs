@@ -192,7 +192,7 @@ impl Verifier {
     ) -> Result<[u8; 32], ProcessError> {
         use ark_vrf::ietf::Verifier as _;
 
-        println!("signer_key index: {signer_key_index}, ring len: {:?}", self.ring.len());
+        //println!("signer_key index: {signer_key_index}, ring len: {:?}", self.ring.len());
         if signer_key_index >= self.ring.len()  {
             return Err(ProcessError::SafroleError(SafroleErrorCode::InvalidSignerKeyIndex));
         }

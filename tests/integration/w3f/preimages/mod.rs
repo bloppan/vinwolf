@@ -8,14 +8,12 @@ use codec::{InputPreimages, PreimagesState};
 use vinwolf::types::{Account, OutputPreimages, ServiceAccounts, Statistics, Extrinsic, ProcessError};
 use vinwolf::blockchain::state::{set_service_accounts, get_service_accounts, set_time, get_global_state, set_statistics, get_statistics};
 use vinwolf::blockchain::state::services::process;
-use vinwolf::blockchain::state::statistics::*;
+use vinwolf::blockchain::state::statistics;
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::utils::codec::jam::global_state::construct_lookup_key;
+use vinwolf::utils::serialization::construct_lookup_key;
 
 #[cfg(test)]
 mod tests {
-
-    use vinwolf::blockchain::state::statistics;
 
     use super::*;
 

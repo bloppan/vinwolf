@@ -24,7 +24,7 @@ use crate::blockchain::state::statistics;
 use crate::blockchain::state::{get_time, ProcessError};
 use crate::blockchain::state::time::get_current_block_slot;
 use crate::utils::codec::Encode;
-use crate::utils::codec::jam::global_state::construct_lookup_key;
+use crate::utils::serialization::construct_lookup_key;
 use crate::utils::trie;
 use crate::pvm::hostcall::accumulate::invoke_accumulation;
 use crate::pvm::hostcall::on_transfer::invoke_on_transfer;
@@ -95,7 +95,7 @@ fn outer_accumulation(
 
 ) -> Result<(u32, AccumulationPartialState, Vec<DeferredTransfer>, Vec<(ServiceId, OpaqueHash)>, Vec<(ServiceId, Gas)>), ProcessError>
 {
-    println!("Outer accumulation");
+    //println!("Outer accumulation");
 
     let mut i: u32 = 0;
     let mut gas_to_use = 0;
@@ -111,7 +111,7 @@ fn outer_accumulation(
     }
 
     if i == 0 {
-        println!("outer_accumulation: i = 0");
+        //println!("outer_accumulation: i = 0");
         return Ok((0, partial_state.clone(), vec![], vec![], vec![]));
     }
 
@@ -139,23 +139,23 @@ fn outer_accumulation(
 }
 
 fn parallelized_accumulation(
-    mut partial_state: AccumulationPartialState,
+    partial_state: AccumulationPartialState,
     reports: &[WorkReport],
     service_gas_dict: &HashMap<ServiceId, Gas>,
 ) -> Result<(AccumulationPartialState, Vec<DeferredTransfer>, Vec<(ServiceId, OpaqueHash)>, Vec<(ServiceId, Gas)>), ProcessError>
 {
-    println!("\nParallelized accumulation");
+    //println!("\nParallelized accumulation");
 
     let mut s_services: Vec<ServiceId> = Vec::new();
     for report in reports.iter() {
         for result in report.results.iter() {
-            println!("service: {}", result.service);
+            //println!("service: {}", result.service);
             s_services.push(result.service);
         }
     }
 
     for service_gas_dict in service_gas_dict.iter() {
-        println!("service gas dict: {}", service_gas_dict.0);
+        //println!("service gas dict: {}", service_gas_dict.0);
         s_services.push(service_gas_dict.0.clone());
     }
 
@@ -168,7 +168,7 @@ fn parallelized_accumulation(
     
     for service in s_services.iter() {
         
-        println!("Service: {}", *service);
+        //println!("Service: {}", *service);
         let (post_partial_state, 
             transfers, 
             service_hash, 
@@ -264,14 +264,7 @@ fn parallelized_accumulation(
                                             .collect();
 
     let final_services = preimage_integration(&result_services, &p_preimages);
-    
-    println!("\nfinal services:");
-    for service in final_services.iter() {
-        for item in service.1.storage.iter() {
-            println!("service {:?} storage key: {:x?}", service.0, item.0);
-        }
-    }
-    
+       
     
     let result_partial_state = AccumulationPartialState {
         service_accounts: final_services,
@@ -290,17 +283,15 @@ fn single_service_accumulation(
     service_id: &ServiceId,
 ) -> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(ServiceId, Vec<u8>)>)
 {
-    println!("\nsingle accumulation, service id: {}", *service_id);
-    
-    println!("reports: {:x?}", reports);
-    
+    //println!("\nsingle accumulation, service id: {}", *service_id);
+        
     let mut total_gas = 0;
     let mut accumulation_operands: Vec<AccumulationOperand> = vec![];
     for report in reports.iter() {
         for result in report.results.iter() {
             if *service_id == result.service {
                 total_gas += result.gas;
-                println!("total_gas: {:?}", total_gas);
+                //println!("total_gas: {:?}", total_gas);
                 accumulation_operands.push(AccumulationOperand {
                     result: result.result.clone(),
                     exports_root: report.package_spec.exports_root,
@@ -340,7 +331,7 @@ fn get_acc_root(service_hash_pairs: &mut Vec<(ServiceId, OpaqueHash)>) -> Opaque
         println!("encoded: {:x?}", pair);
     }*/
     let accumulation_root = trie::merkle_balanced(pairs_blob, sp_core::keccak_256);
-    println!("accumulation_root: {:x?}", accumulation_root);
+    //println!("accumulation_root: {:x?}", accumulation_root);
 
     return accumulation_root;
 }

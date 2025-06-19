@@ -16,9 +16,8 @@ use crate::blockchain::state::{services::decode_preimage, entropy, time};
 use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
 use crate::utils::codec::{Encode, EncodeLen, EncodeSize, DecodeSize, BytesReader};
 use crate::utils::codec::generic::{encode_unsigned, decode};
-use crate::utils::codec::jam::global_state::construct_lookup_key;
+use crate::utils::serialization::{StateKeyTrait, construct_lookup_key};
 use super::general_fn::{write, info, read, lookup, log};
-use crate::utils::codec::jam::global_state::StateKeyTrait;
 
 pub fn invoke_accumulation(
     partial_state: AccumulationPartialState,

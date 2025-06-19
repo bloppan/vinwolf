@@ -28,16 +28,10 @@ use {once_cell::sync::Lazy, sp_core::blake2_256, std::sync::Mutex};
 use crate::blockchain::state::recent_history::set_current_block_history;
 use crate::types::{
     AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesRecords, EntropyPool, GlobalState, 
-    OpaqueHash, Privileges, ProcessError, ReadyQueue, Safrole, SerializedState, ServiceAccounts, ServiceInfo, StateKeyType, 
-    Statistics, TimeSlot, ValidatorSet, ValidatorsData, 
+    OpaqueHash, Privileges, ProcessError, ReadyQueue, Safrole, ServiceAccounts, Statistics, TimeSlot, ValidatorSet, ValidatorsData, 
 };
-use crate::utils::codec::jam::global_state::StateKeyTrait;
-use crate::constants::{
-    ACCUMULATION_HISTORY, AUTH_POOLS, AUTH_QUEUE, AVAILABILITY, CURR_VALIDATORS, DISPUTES, ENTROPY, NEXT_VALIDATORS, PREV_VALIDATORS, PRIVILEGES, 
-    READY_QUEUE, RECENT_HISTORY, SAFROLE, STATISTICS, TIME
-};
-use crate::utils::codec::{Encode, EncodeLen};
-use crate::utils::codec::jam::global_state::construct_preimage_key;
+
+use crate::utils::codec::Encode;
 
 pub mod accumulation; pub mod authorization; pub mod disputes; pub mod entropy; pub mod safrole; pub mod recent_history; pub mod reports;
 pub mod services; pub mod time; pub mod statistics; pub mod validators; 
@@ -152,69 +146,6 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     set_global_state(new_state);    
 
     Ok(())
-}
-
-impl GlobalState {
-
-    pub fn serialize(&self) -> SerializedState {
-
-        let mut state = SerializedState::default();
-
-        state.map.insert(StateKeyType::U8(AUTH_POOLS).construct(), self.auth_pools.encode());
-        state.map.insert(StateKeyType::U8(AUTH_QUEUE).construct(), self.auth_queues.encode());
-        state.map.insert(StateKeyType::U8(RECENT_HISTORY).construct(), self.recent_history.encode());
-        state.map.insert(StateKeyType::U8(SAFROLE).construct(), self.safrole.encode());
-        state.map.insert(StateKeyType::U8(DISPUTES).construct(), self.disputes.encode());
-        state.map.insert(StateKeyType::U8(ENTROPY).construct(), self.entropy.encode());
-        state.map.insert(StateKeyType::U8(NEXT_VALIDATORS).construct(), self.next_validators.encode());
-        state.map.insert(StateKeyType::U8(CURR_VALIDATORS).construct(), self.curr_validators.encode());
-        state.map.insert(StateKeyType::U8(PREV_VALIDATORS).construct(), self.prev_validators.encode());
-        state.map.insert(StateKeyType::U8(AVAILABILITY).construct(), self.availability.encode());
-        state.map.insert(StateKeyType::U8(TIME).construct(), self.time.encode());
-        state.map.insert(StateKeyType::U8(PRIVILEGES).construct(), self.privileges.encode());
-        state.map.insert(StateKeyType::U8(STATISTICS).construct(), self.statistics.encode());
-        state.map.insert(StateKeyType::U8(READY_QUEUE).construct(), self.ready_queue.encode());
-        state.map.insert(StateKeyType::U8(ACCUMULATION_HISTORY).construct(), self.accumulation_history.encode());
-        
-        for (service_id, account) in self.service_accounts.iter() {
-            let key = StateKeyType::Service(255, *service_id).construct();       
-            let service_info = ServiceInfo {
-                balance: account.balance,
-                code_hash: account.code_hash,
-                acc_min_gas: account.acc_min_gas,
-                xfer_min_gas: account.xfer_min_gas,
-                bytes: account.get_footprint_and_threshold().1, // TODO bytes y items se calcula con la eq de threshold account (9.3)
-                items: account.get_footprint_and_threshold().0,
-            };
-            //println!("service: {} items: {} bytes: {}", service_id, service_info.items, service_info.bytes);
-            // TODO revisar esto y ver si se puede hacer con encode account
-            state.map.insert(key, service_info.encode());
-
-            for preimage in account.preimages.iter() {
-                let key = StateKeyType::Account(*service_id, construct_preimage_key(preimage.0).to_vec()).construct();
-                state.map.insert(key, preimage.1.encode());
-            }
-            
-            for lookup in account.lookup.iter() {
-                //let key = StateKeyType::Account(*service_id, construct_lookup_key(&lookup.0.0, lookup.0.1).to_vec()).construct();
-                state.map.insert(*lookup.0, lookup.1.encode_len());
-            }
-
-            for item in account.storage.iter() {
-                //let key = StateKeyType::Account(*service_id, construct_storage_key(item.0).to_vec()).construct();
-                //println!("insert serialized key: {:x?}", key);
-                state.map.insert(*item.0, item.1.encode());
-            }
-        }
-
-        /*for item in state.map.iter() {
-            println!("0x{}", item.0.iter().map(|b| format!("{:02x}", b)).collect::<String>());
-            println!("0x{}", item.1.iter().map(|b| format!("{:02x}", b)).collect::<String>());
-            println!("\n");
-        }*/
-        
-        return state;
-    }
 }
 
 // Global state

@@ -3,7 +3,7 @@ use crate::types::{
     AccumulateRoot, AccumulatedHistory, OutputAccumulation, ReadyQueue, ReadyRecord, WorkPackageHash, WorkReport, AccumulationOperand, 
     DeferredTransfer, ServiceId, Balance, Gas
 };
-use crate::utils::codec::{BytesReader, Decode, DecodeLen, Encode, EncodeLen, EncodeSize, ReadError};
+use crate::utils::codec::{BytesReader, Decode, DecodeLen, Encode, EncodeLen, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 
 impl Encode for DeferredTransfer {

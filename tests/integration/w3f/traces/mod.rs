@@ -1,8 +1,10 @@
 use crate::integration::w3f::read_test_file;
 
 use vinwolf::constants::{*};
-use vinwolf::types::{RawState, Block, AuthPools, AuthQueues, BlockHistory, Safrole, DisputesRecords, EntropyPool, ValidatorsData, AvailabilityAssignments,
-    Privileges, Statistics, ReadyQueue, AccumulatedHistory, OpaqueHash, Gas, ServiceId, Account, KeyValue};
+use vinwolf::types::{
+    RawState, Block, AuthPools, AuthQueues, BlockHistory, Safrole, DisputesRecords, EntropyPool, ValidatorsData, AvailabilityAssignments,
+    Privileges, Statistics, ReadyQueue, AccumulatedHistory, OpaqueHash, Gas, ServiceId, Account, KeyValue
+};
 use vinwolf::blockchain::state::{get_global_state, state_transition_function};
 use vinwolf::utils::codec::{Decode, DecodeLen, BytesReader};
 use vinwolf::utils::codec::generic::decode;
@@ -10,6 +12,14 @@ use vinwolf::utils::trie::merkle_state;
 use vinwolf::{blockchain::state::set_global_state, types::{GlobalState, TimeSlot}};
 
 pub mod codec;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TestCase {
+
+    pub pre_state: RawState,
+    pub block: Block,
+    pub post_state: RawState,
+}
 
 
 #[cfg(test)]
