@@ -1,5 +1,5 @@
 use sp_core::blake2_256;
-use crate::blockchain::state::reporting_assurance::{add_assignment, remove_assignment};
+use crate::blockchain::state::reports::{add_assignment, remove_assignment};
 use crate::types::{
     AssurancesErrorCode, OutputDataAssurances, ValidatorIndex, AssurancesExtrinsic, Hash, TimeSlot, 
     AvailabilityAssignment, CoreIndex, AvailabilityAssignments, ProcessError, ValidatorSet

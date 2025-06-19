@@ -8,7 +8,7 @@ use codec::{InputAssurances, StateAssurances};
 use vinwolf::constants::{CORES_COUNT, VALIDATORS_COUNT};
 use vinwolf::types::{OutputDataAssurances, OutputAssurances, ValidatorSet, ProcessError};
 use vinwolf::blockchain::state::{get_global_state, set_reporting_assurance, get_reporting_assurance, set_validators, get_validators};
-use vinwolf::blockchain::state::reporting_assurance::process_assurances;
+use vinwolf::blockchain::state::reports::assurance;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
@@ -58,7 +58,7 @@ mod tests {
         let current_state = get_global_state().lock().unwrap().clone();
         let mut assurances_state = current_state.availability.clone();
 
-        let output_result = process_assurances(
+        let output_result = assurance::process(
                                                                             &mut assurances_state, 
                                                                             &input.assurances, 
                                                                             &input.slot,

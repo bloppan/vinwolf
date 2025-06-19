@@ -35,36 +35,49 @@ pub fn remove_assignment(core_index: &CoreIndex, state: &mut AvailabilityAssignm
     state.list[*core_index as usize] = None;
 }
 
-pub fn process_assurances(
-    assurances_state: &mut AvailabilityAssignments, 
-    assurances: &AssurancesExtrinsic, 
-    post_tau: &TimeSlot,
-    parent: &Hash) 
--> Result<OutputDataAssurances, ProcessError> {
-    
-    let output_data = assurances.process(assurances_state, post_tau, parent)?;
+pub mod assurance {
 
-    Ok(OutputDataAssurances {
-        reported: output_data.reported,
-    })
+    use super::*;
+
+    pub fn process(
+        assurances_state: &mut AvailabilityAssignments, 
+        assurances: &AssurancesExtrinsic, 
+        post_tau: &TimeSlot,
+        parent: &Hash) 
+    -> Result<OutputDataAssurances, ProcessError> {
+        
+        let output_data = assurances.process(assurances_state, post_tau, parent)?;
+
+        Ok(OutputDataAssurances {
+            reported: output_data.reported,
+        })
+    }
 }
 
-pub fn process_guarantees(
-    assurances_state: &mut AvailabilityAssignments, 
-    guarantees_extrinsic: &GuaranteesExtrinsic, 
-    post_tau: &TimeSlot,
-    entropy_pool: &EntropyPool,
-    prev_validators: &ValidatorsData,
-    curr_validators: &ValidatorsData) 
--> Result<OutputDataReports, ProcessError> {
+pub mod guarantee {
 
-    let output_data = guarantees_extrinsic.process(assurances_state, post_tau, entropy_pool, prev_validators, curr_validators)?;
+    use super::*;
 
-    Ok(OutputDataReports {
-        reported: output_data.reported,
-        reporters: output_data.reporters,
-    })
+    pub fn process(
+        assurances_state: &mut AvailabilityAssignments, 
+        guarantees_extrinsic: &GuaranteesExtrinsic, 
+        post_tau: &TimeSlot,
+        entropy_pool: &EntropyPool,
+        prev_validators: &ValidatorsData,
+        curr_validators: &ValidatorsData) 
+    -> Result<OutputDataReports, ProcessError> {
+
+        let output_data = guarantees_extrinsic.process(assurances_state, post_tau, entropy_pool, prev_validators, curr_validators)?;
+
+        Ok(OutputDataReports {
+            reported: output_data.reported,
+            reporters: output_data.reporters,
+        })
+    }
 }
+
+
+
 
 impl AvailabilityAssignments {
 

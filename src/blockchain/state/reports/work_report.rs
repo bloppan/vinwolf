@@ -8,7 +8,7 @@ use crate::types::{
 use crate::constants::{ EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, CORES_COUNT, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR };
 use crate::blockchain::state::{ get_auth_pools, get_disputes, ProcessError};
 use crate::blockchain::state::recent_history::get_current_block_history;
-use crate::blockchain::state::reporting_assurance::add_assignment;
+use crate::blockchain::state::reports::add_assignment;
 use crate::utils::trie::mmr_super_peak;
 use crate::utils::shuffle::shuffle;
 use crate::utils::codec::Encode;

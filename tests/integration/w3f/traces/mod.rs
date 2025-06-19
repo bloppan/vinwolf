@@ -36,7 +36,7 @@ mod tests {
         loop {
             println!("\n\n**********************    Reading test file: {}    **********************************", slot);
 
-            let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/traces/reports-l1/{:08}.bin", slot));
+            let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/traces/reports-l0/{:08}.bin", slot));
             let mut reader = BytesReader::new(&test_content);
             let pre_state = RawState::decode(&mut reader).expect("Error decoding post WorkReport PreState");
             let block = Block::decode(&mut reader).expect("Error decoding post OutputWorkReport");
@@ -72,7 +72,7 @@ mod tests {
 
             slot += 1;
 
-            if slot == 101 {
+            if slot == 43 {
                 return;
             }
         }

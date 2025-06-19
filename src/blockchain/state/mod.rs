@@ -39,7 +39,7 @@ use crate::constants::{
 use crate::utils::codec::{Encode, EncodeLen};
 use crate::utils::codec::jam::global_state::construct_preimage_key;
 
-pub mod accumulation; pub mod authorization; pub mod disputes; pub mod entropy; pub mod safrole; pub mod recent_history; pub mod reporting_assurance;
+pub mod accumulation; pub mod authorization; pub mod disputes; pub mod entropy; pub mod safrole; pub mod recent_history; pub mod reports;
 pub mod services; pub mod time; pub mod statistics; pub mod validators; 
 
 static GLOBAL_STATE: Lazy<Mutex<GlobalState>> = Lazy::new(|| {
@@ -90,14 +90,14 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &block.extrinsic.tickets,
         &new_state.disputes.offenders)?;
 
-    let new_available_workreports = reporting_assurance::process_assurances(
+    let new_available_workreports = reports::assurance::process(
         &mut new_state.availability,
         &block.extrinsic.assurances,
         &block.header.unsigned.slot,
         &block.header.unsigned.parent,
     )?;
 
-    let _ = reporting_assurance::process_guarantees(
+    let _ = reports::guarantee::process(
         &mut new_state.availability, 
         &block.extrinsic.guarantees,
         &block.header.unsigned.slot,

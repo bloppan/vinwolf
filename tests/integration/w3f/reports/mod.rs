@@ -9,8 +9,8 @@ use vinwolf::blockchain::state::{
     set_entropy, get_entropy, set_validators, get_validators, set_recent_history, get_recent_history,
     set_disputes, get_disputes, set_statistics, get_statistics, set_service_accounts, get_service_accounts
 };
-use vinwolf::blockchain::state::reporting_assurance::process_guarantees;
-use vinwolf::blockchain::state::statistics::process;
+use vinwolf::blockchain::state::reports::guarantee;
+use vinwolf::blockchain::state::statistics;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
 use codec::{InputWorkReport, WorkReportState, OutputWorkReport};
@@ -38,6 +38,8 @@ mod tests {
             }
         }
     }
+
+    use vinwolf::blockchain::state::reports::guarantee;
 
     use super::*;
 
@@ -96,7 +98,7 @@ mod tests {
         let current_state = get_global_state().lock().unwrap().clone();
         let mut assurances_state = current_state.availability.clone();
 
-        let output_result = process_guarantees(&mut assurances_state, 
+        let output_result = guarantee::process(&mut assurances_state, 
                                                                              &input.guarantees, 
                                                                              &input.slot,
                                                                             &get_entropy(),
@@ -109,7 +111,7 @@ mod tests {
                 let mut extrinsic = Extrinsic::default();
                 extrinsic.guarantees = input.guarantees.clone();
                 let reports = input.guarantees.report_guarantee.iter().map(|guarantee| guarantee.report.clone()).collect::<Vec<_>>();
-                process(&mut statistics_state, &input.slot, &0, &extrinsic, &reports);
+                statistics::process(&mut statistics_state, &input.slot, &0, &extrinsic, &reports);
                 set_statistics(statistics_state.clone());
             },
             Err(_) => { /*println!("Error processing guarantees: {:?}", output_result)*/ },
