@@ -1,33 +1,34 @@
-/// Jam's block production mechanism, termed Safrole after the novel Sassafras production mechanism of which it is 
-/// a simplified variant, is a stateful system rather more complex than the Nakamoto consensus described in the YP.
-///
-/// The chief purpose of a block production consensus mechanism is to limit the rate at which new blocks may be
-/// authored and, ideally, preclude the possibility of "forks": multiple blocks with equal numbers of ancestors.
-///
-/// To achieve this, Safrole limits the possible author of any block within any given six-second timeslot to a single 
-/// key-holder from within a prespecified set of validators. Furthermore, under normal operation, the identity of the
-/// key-holder of any future timeslot will have a very high degree of anonymity. As a side effect of its operation, we
-/// can generate a high-quality pool of entropy which may be used by other parts of the protocol and is accessible to
-/// services running on it. 
-///
-/// Because of its tightly scoped role, the core of Safrole's state, "gamma", is independent of the 
-/// rest of the protocol. It interacts with other portions of the protocol through "iota" and "kappa", the prospective 
-/// and active sets of validator keys respectively; "tau" , the most recent block's timeslot; and "eta", the entropy 
-/// accumulator.
-///
-/// The Safrole protocol generates, once per epoch, a sequence of "EPOCH_LENGTH" sealing keys, one for each potential 
-/// block within a whole epoch. Each block header includes its timeslot index Ht (the number of six-second periods since the 
-/// Jam Common Era began) and a valid seal signature Hs, signed by the sealing key corresponding to the timeslot within 
-/// the aforementioned sequence. Each sealing key is in fact a pseudonym for some validator which was agreed the privilege 
-/// of authoring a block in the corresponding timeslot.
-///
-/// In order to generate this sequence of sealing keys in regular operation, and in particular to do so without making 
-/// public the correspondence relation between them and the validator set, we use a novel cryptographic structure known as 
-/// a Ringvrf, utilizing the Bandersnatch curve. Bandersnatch Ringvrf allows for a proof to be provided which simultaneously 
-/// guarantees the author controlled a key within a set (in our case validators), and secondly provides an output, an 
-/// unbiasable deterministic hash giving us a secure verifiable random function (vrf). This anonymous and secure random 
-/// output is a ticket and validators' tickets with the best score define the new sealing keys allowing the chosen validators 
-/// to exercise their privilege and create a new block at the appropriate time.
+/*
+    Jam's block production mechanism, termed Safrole after the novel Sassafras production mechanism of which it is 
+    a simplified variant, is a stateful system rather more complex than the Nakamoto consensus described in the YP.
+    The chief purpose of a block production consensus mechanism is to limit the rate at which new blocks may be
+    authored and, ideally, preclude the possibility of "forks": multiple blocks with equal numbers of ancestors.
+    
+    To achieve this, Safrole limits the possible author of any block within any given six-second timeslot to a single 
+    key-holder from within a prespecified set of validators. Furthermore, under normal operation, the identity of the
+    key-holder of any future timeslot will have a very high degree of anonymity. As a side effect of its operation, we
+    can generate a high-quality pool of entropy which may be used by other parts of the protocol and is accessible to
+    services running on it. 
+    
+    Because of its tightly scoped role, the core of Safrole's state, "gamma", is independent of the 
+    rest of the protocol. It interacts with other portions of the protocol through "iota" and "kappa", the prospective 
+    and active sets of validator keys respectively; "tau" , the most recent block's timeslot; and "eta", the entropy 
+    accumulator.
+    
+    The Safrole protocol generates, once per epoch, a sequence of "EPOCH_LENGTH" sealing keys, one for each potential 
+    block within a whole epoch. Each block header includes its timeslot index Ht (the number of six-second periods since the 
+    Jam Common Era began) and a valid seal signature Hs, signed by the sealing key corresponding to the timeslot within 
+    the aforementioned sequence. Each sealing key is in fact a pseudonym for some validator which was agreed the privilege 
+    of authoring a block in the corresponding timeslot.
+    
+    In order to generate this sequence of sealing keys in regular operation, and in particular to do so without making 
+    public the correspondence relation between them and the validator set, we use a novel cryptographic structure known as 
+    a Ringvrf, utilizing the Bandersnatch curve. Bandersnatch Ringvrf allows for a proof to be provided which simultaneously 
+    guarantees the author controlled a key within a set (in our case validators), and secondly provides an output, an 
+    unbiasable deterministic hash giving us a secure verifiable random function (vrf). This anonymous and secure random 
+    output is a ticket and validators' tickets with the best score define the new sealing keys allowing the chosen validators 
+    to exercise their privilege and create a new block at the appropriate time.
+*/
 
 use ark_vrf::reexports::ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_vrf::suites::bandersnatch::Public;
@@ -49,15 +50,38 @@ use crate::utils::codec::Encode;
 
 pub mod bandersnatch;
 
-static RING_SET: Lazy<Mutex<Vec<Public>>> = Lazy::new(|| { Mutex::new(vec![]) });
+static RING_SET: Lazy<Mutex<Option<(u32, Vec<Public>)>>> = Lazy::new(|| { Mutex::new(None) });
 
-fn set_ring_set(ring_set: Vec<Public>) {
+fn set_ring_set(epoch: u32, ring_set: Vec<Public>) {
     let mut ring_set_lock = RING_SET.lock().unwrap();
-    *ring_set_lock = ring_set;
+    *ring_set_lock = Some((epoch, ring_set));
 }
-fn get_ring_set() -> Vec<Public> {
+
+fn get_ring_set_cached() -> Option<(u32, Vec<Public>)> {
     let ring_set_lock = RING_SET.lock().unwrap();
-    ring_set_lock.clone()
+    ring_set_lock.as_ref().map(|(epoch, vec)| (*epoch, vec.clone()))
+}
+
+fn get_ring_set(epoch: u32, curr_validators: &ValidatorsData) -> Vec<Public> {
+
+    let ring_set_cached = get_ring_set_cached();
+
+    if ring_set_cached.is_none() {
+        let new_ring_set = create_ring_set(&curr_validators);
+        set_ring_set(epoch, new_ring_set.clone());
+        return new_ring_set;
+    }
+
+    let epoch_ring_set_chached = ring_set_cached.as_ref().unwrap().0;
+    let ring_set_cached = ring_set_cached.unwrap().1;
+
+    if epoch_ring_set_chached != epoch {
+        let new_ring_set = create_ring_set(&curr_validators);
+        set_ring_set(epoch, new_ring_set.clone());
+        return new_ring_set;
+    }
+    
+    return ring_set_cached;
 }
 
 // Process Safrole state
@@ -74,7 +98,7 @@ pub fn process(
 
     // tau defines de most recent block
     // post_tau defines the block being processed
-    let post_tau = header.unsigned.slot.clone();
+    let post_tau = header.unsigned.slot;
     // Timeslot must be strictly monotonic
     if post_tau <= *tau {
         return Err(ProcessError::SafroleError(SafroleErrorCode::BadSlot));
@@ -90,13 +114,6 @@ pub fn process(
     let mut epoch_mark: Option<EpochMark> = None;
     let mut tickets_mark: Option<TicketsMark> = None;
 
-    if get_ring_set().is_empty() {
-        set_ring_set(create_ring_set(&curr_validators
-            .list
-            .iter()
-            .map(|validator| validator.bandersnatch.clone())
-            .collect::<Vec<BandersnatchPublic>>()));
-    }
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
         // On an epoch transition, we therefore rotate the accumulator value into the history eta1, eta2 eta3
@@ -104,17 +121,9 @@ pub fn process(
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
         key_rotation(safrole_state, curr_validators, prev_validators, offenders);
         // Create the ring set
-        set_ring_set(create_ring_set(&curr_validators
-            .list
-            .iter()
-            .map(|validator| validator.bandersnatch.clone())
-            .collect::<Vec<BandersnatchPublic>>()));
+        set_ring_set(epoch, create_ring_set(&curr_validators));
         // Create the epoch root
-        let next_ring_set = create_ring_set(&safrole_state.pending_validators
-            .list
-            .iter()
-            .map(|validator| validator.bandersnatch.clone())
-            .collect::<Vec<BandersnatchPublic>>());
+        let next_ring_set = create_ring_set(&safrole_state.pending_validators);
         // Create the epoch root and update the safrole state
         safrole_state.epoch_root = create_root_epoch(next_ring_set);
         // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
@@ -129,13 +138,21 @@ pub fn process(
                 .map(|validator| validator.bandersnatch.clone())
                 .collect();
 
-                let array: [(BandersnatchPublic, Ed25519Public); VALIDATORS_COUNT] =
+                let ed25519_keys: Vec<Ed25519Public> = safrole_state.pending_validators
+                .list
+                .iter()
+                .map(|validator| validator.ed25519.clone())
+                .collect();
+
+                let validator_keys: [(BandersnatchPublic, Ed25519Public); VALIDATORS_COUNT] =
                     std::array::from_fn(|i| {
-                        let key = bandersnatch_keys[i];
-                        (key, key)
+                        let bandersnatch_key = bandersnatch_keys[i];
+                        let ed25519_key = ed25519_keys[i];
+
+                        (bandersnatch_key, ed25519_key)
                     });
 
-                Box::new(array)
+                Box::new(validator_keys)
             }
         });
         // gamma_s is the current epoch's slot-sealer series, which is either a full complement of EPOCH_LENGTH tickets
@@ -160,29 +177,30 @@ pub fn process(
         // gamma_a is the ticket accumulator, a series of highestscoring ticket identifiers to be used for the next epoch.
         tickets_mark = Some(outside_in_sequencer(&safrole_state.ticket_accumulator));
     }
+
+    // Get the ring set
+    let ring_set = get_ring_set(post_epoch, curr_validators);
     // Process tickets extrinsic
-    tickets_extrinsic.process(safrole_state, entropy_pool, &post_tau, get_ring_set())?;
-    
+    tickets_extrinsic.process(safrole_state, entropy_pool, &post_tau, ring_set.clone())?;
     // update tau which defines the most recent block's index
     *tau = post_tau;
-
-    let entropy_source_vrf_output = header.seal_verify(&safrole_state, &entropy_pool, &curr_validators, get_ring_set())?;
+    //Verify the header's seal
+    let entropy_source_vrf_output = header.seal_verify(&safrole_state, &entropy_pool, &curr_validators, ring_set)?;
     // Update recent entropy eta0
     entropy_pool.update_recent(entropy_source_vrf_output);
     
     return Ok(OutputDataSafrole {epoch_mark, tickets_mark});
 }
 
-pub fn create_ring_set(keys: &[BandersnatchPublic]) -> Vec<Public> {
-    keys.iter()
-        .map(|key| {
-            let point = Public::deserialize_compressed(&key[..])
-                .unwrap_or_else(|_| {
-                    // In the case a key has no corresponding Bandersnatch point when constructing the ring, then 
-                    // the Bandersnatch padding point as stated by Hosseini and Galassi 2024 should be substituted
-                    Public::from(RingProofParams::padding_point())
-                });
-            point
+pub fn create_ring_set(validators: &ValidatorsData) -> Vec<Public> {
+    validators
+        .list
+        .iter()
+        .map(|v| {
+            Public::deserialize_compressed(&v.bandersnatch[..])
+                // In the case a key has no corresponding Bandersnatch point when constructing the ring, then 
+                // the Bandersnatch padding point as stated by Hosseini and Galassi 2024 should be substituted
+                .unwrap_or_else(|_| Public::from(RingProofParams::padding_point()))
         })
         .collect()
 }

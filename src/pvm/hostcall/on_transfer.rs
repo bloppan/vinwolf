@@ -55,7 +55,6 @@ pub fn invoke_on_transfer(
         let arg = [slot.encode(), service_id.encode(), transfers.encode_len()].concat();
         set_service_accounts(service_accounts.clone());
         set_service(service_id.clone());
-        println!("\nexec hostcall_argument\n");
         let (gas_used, 
              _result, 
              ctx) = hostcall_argument(&preimage_data.code, 10, gas, &arg, dispatch_xfer, HostCallContext::OnTransfer(s_account.clone()));
@@ -67,7 +66,7 @@ pub fn invoke_on_transfer(
 
         return (modified_account, gas_used);
     }
-    println!("No preimage code found");
+
     return (s_account, 0);
 }
 
@@ -75,42 +74,42 @@ fn dispatch_xfer(n: HostCallFn, mut gas: Gas, mut reg: Registers, ram: RamMemory
 
 -> (ExitReason, Gas, Registers, RamMemory, HostCallContext) 
 {
-    println!("ON TRANSFER DISPATCHER!!! ");
+    //println!("ON TRANSFER DISPATCHER!!! ");
     let service_accounts = get_service_accounts().lock().unwrap().clone();
     let service_id = get_service().lock().unwrap().clone();
 
     match n {
         HostCallFn::Lookup => {
-            println!("Lookup");
+            //println!("Lookup");
             let account = ctx.to_xfer_ctx();
             let (exit_reason, gas, reg, ram, modified_account) = lookup(gas, reg, ram, account, service_id, service_accounts);
             return (exit_reason, gas, reg, ram, HostCallContext::OnTransfer(modified_account));
         }
         HostCallFn::Read => {
-            println!("Read");
+            //println!("Read");
             let account = ctx.to_xfer_ctx();
             let (exit_reason, gas, reg, ram, modified_account) = read(gas, reg, ram, account, service_id, service_accounts);
             return (exit_reason, gas, reg, ram, HostCallContext::OnTransfer(modified_account));
         }
         HostCallFn::Write => {
-            println!("Write");
+            //println!("Write");
             let account = ctx.to_xfer_ctx();
             let (exit_reason, gas, reg, ram, modified_account) = write(gas, reg, ram, account, service_id);
             return (exit_reason, gas, reg, ram, HostCallContext::OnTransfer(modified_account));
         }
         HostCallFn::Gas => {
-            println!("Gas");
+            //println!("Gas");
             let (exit_reason, gas, reg, ram, ctx) = pvm::hostcall::general_fn::gas(gas, reg, ram, ctx);
             let account = ctx.to_xfer_ctx();
             return (exit_reason, gas, reg, ram, HostCallContext::OnTransfer(account));
         }
         HostCallFn::Info => {
-            println!("Info");
+            //println!("Info");
             let (exit_reason, gas, reg, ram, modified_account) = info(gas, reg, ram, service_id, service_accounts);
             return (exit_reason, gas, reg, ram, HostCallContext::OnTransfer(modified_account));
         }
         HostCallFn::Log => {
-            println!("Log");
+            //println!("Log");
             let account = ctx.to_xfer_ctx();
             return (ExitReason::Continue, gas, reg, ram, HostCallContext::OnTransfer(account));
         }
