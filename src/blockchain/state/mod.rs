@@ -66,6 +66,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &blake2_256(&block.header.encode()), 
         &block.header.unsigned.parent_state_root,
         &reported_work_packages);
+        
     set_current_block_history(curr_block_history);
 
     let _ = disputes::process(
@@ -80,8 +81,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &mut new_state.curr_validators,
         &mut new_state.prev_validators,
         &mut new_state.time,
-        &block.header,
-        &block.extrinsic.tickets,
+        &block,
         &new_state.disputes.offenders)?;
 
     let new_available_workreports = reports::assurance::process(

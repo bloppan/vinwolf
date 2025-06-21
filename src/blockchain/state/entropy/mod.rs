@@ -32,7 +32,7 @@ impl EntropyPool {
         self.buf[1] = self.buf[0].clone();
     }
 
-    pub fn update_recent(&mut self, entropy_source: [u8; 32]) {
+    pub fn update_recent(&mut self, entropy_source: OpaqueHash) {
         // eta0 defines the state of the randomness accumulator to which the provably random output of the vrf, the signature over 
         // some unbiasable input, is combined each block. eta1 and eta2 meanwhile retain the state of this accumulator at the end 
         // of the two most recently ended epochs in order.

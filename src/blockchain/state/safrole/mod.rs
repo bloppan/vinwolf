@@ -40,7 +40,7 @@ use std::sync::Mutex;
 use sp_core::blake2_256;
 
 use crate::types::{
-    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, Entropy, EntropyPool, EpochMark, Header, 
+    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, Entropy, EntropyPool, EpochMark, Header, Block,
     OutputDataSafrole, Safrole, SafroleErrorCode, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorsData
 };
 use crate::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
@@ -91,14 +91,13 @@ pub fn process(
     curr_validators: &mut ValidatorsData,
     prev_validators: &mut ValidatorsData,
     tau: &mut TimeSlot,
-    header: &Header,
-    tickets_extrinsic: &TicketsExtrinsic,
+    block: &Block,
     offenders: &[Ed25519Public],
 ) -> Result<OutputDataSafrole, ProcessError> {
 
     // tau defines de most recent block
     // post_tau defines the block being processed
-    let post_tau = header.unsigned.slot;
+    let post_tau = block.header.unsigned.slot;
     // Timeslot must be strictly monotonic
     if post_tau <= *tau {
         return Err(ProcessError::SafroleError(SafroleErrorCode::BadSlot));
@@ -113,6 +112,9 @@ pub fn process(
     // Output marks
     let mut epoch_mark: Option<EpochMark> = None;
     let mut tickets_mark: Option<TicketsMark> = None;
+
+    // Get the ring set
+    let ring_set = get_ring_set(post_epoch, curr_validators);
 
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
@@ -148,7 +150,6 @@ pub fn process(
                     std::array::from_fn(|i| {
                         let bandersnatch_key = bandersnatch_keys[i];
                         let ed25519_key = ed25519_keys[i];
-
                         (bandersnatch_key, ed25519_key)
                     });
 
@@ -177,17 +178,15 @@ pub fn process(
         // gamma_a is the ticket accumulator, a series of highestscoring ticket identifiers to be used for the next epoch.
         tickets_mark = Some(outside_in_sequencer(&safrole_state.ticket_accumulator));
     }
-
-    // Get the ring set
-    let ring_set = get_ring_set(post_epoch, curr_validators);
+   
     // Process tickets extrinsic
-    tickets_extrinsic.process(safrole_state, entropy_pool, &post_tau, ring_set.clone())?;
+    block.extrinsic.tickets.process(safrole_state, entropy_pool, &post_tau, ring_set.clone())?;
     // update tau which defines the most recent block's index
     *tau = post_tau;
     //Verify the header's seal
-    let entropy_source_vrf_output = header.seal_verify(&safrole_state, &entropy_pool, &curr_validators, ring_set)?;
+    //let entropy_source_vrf_output = header.seal_verify(&safrole_state, &entropy_pool, &curr_validators, ring_set)?;
     // Update recent entropy eta0
-    entropy_pool.update_recent(entropy_source_vrf_output);
+    //entropy_pool.update_recent(entropy_source_vrf_output);
     
     return Ok(OutputDataSafrole {epoch_mark, tickets_mark});
 }
