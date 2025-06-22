@@ -99,7 +99,6 @@ mod tests {
                                                                         , &mut state.time,
                                                                         &block,
                                                                         &mut state.disputes.offenders);
-                                                                        
         
         match output_result {
             Ok(_) => { 
@@ -112,7 +111,7 @@ mod tests {
                 set_safrole(state.safrole.clone());        
             },
             Err(_) => { 
-                //println!("ERROR: {:?}", output_result);
+                println!("ERROR: {:?}", output_result);
             },
         }
 
@@ -212,7 +211,7 @@ mod tests {
             // One of the keys is just invalid (i.e. it can't be decoded into a valid Bandersnatch point).
             // Both the invalid keys are replaced with the padding point during ring commitment computation.
             "enact-epoch-change-with-padding-1.bin", // OK
-            ];
+        ];
         
         for file in test_files {
             println!("Running test: {}", file);

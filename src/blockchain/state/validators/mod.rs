@@ -1,4 +1,5 @@
-use crate::types::{Ed25519Public, Safrole, ValidatorSet, ValidatorsData};
+use crate::constants::VALIDATORS_COUNT;
+use crate::types::{Ed25519Public, Safrole, ValidatorSet, ValidatorsData, ValidatorData};
 use crate::blockchain::state::get_validators;
 use crate::utils::common::set_offenders_null;
 
@@ -18,4 +19,10 @@ pub fn key_rotation(safrole_state: &mut Safrole,
     // The posterior queued validator key set "pending_validators" is defined such that incoming keys belonging to the offenders 
     // are replaced with a null key containing only zeroes.
     set_offenders_null(&mut safrole_state.pending_validators, offenders); 
+}
+
+impl ValidatorsData {
+    pub fn extract_keys<T: Clone, F: Fn(&ValidatorData) -> T>(&self, selector: F) -> Box<[T; VALIDATORS_COUNT]> {
+        Box::new(std::array::from_fn(|i| selector(&self.list[i]).clone()))
+    }
 }

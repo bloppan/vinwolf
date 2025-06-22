@@ -46,9 +46,7 @@ impl Header {
         let seal_vrf_output = match &safrole.seal {
             TicketsOrKeys::Tickets(tickets) => {
                 // The context is "jam_fallback_seal" + entropy[3] + ticket_attempt
-                let mut context = Vec::from(b"jam_ticket_seal");
-                entropy.buf[3].encode_to(&mut context);
-                tickets.tickets_mark[i as usize].attempt.encode_to(&mut context);
+                let context = [&b"jam_ticket_seal"[..], &entropy.buf[3].encode(), &tickets.tickets_mark[i as usize].attempt.encode()].concat();
                 // Verify the seal
                 let seal_vrf_output = verifier.ietf_vrf_verify(
                                                         &context,
@@ -65,8 +63,7 @@ impl Header {
             },
             TicketsOrKeys::Keys(keys) => {
                 // The context is "jam_fallback_seal" + entropy[3]
-                let mut context = Vec::from(b"jam_fallback_seal");
-                entropy.buf[3].encode_to(&mut context);
+                let context = [&b"jam_fallback_seal"[..], &entropy.buf[3].encode()].concat();
                 // Verify the seal
                 let seal_vrf_output = verifier.ietf_vrf_verify(
                                                             &context,
@@ -87,8 +84,7 @@ impl Header {
         };
         
         // Verify the entropy source
-        let mut context = Vec::from(b"jam_entropy");
-        seal_vrf_output.encode_to(&mut context);
+        let context = [&b"jam_entropy"[..], &seal_vrf_output.encode()].concat();
         let entropy_source_vrf_result = verifier.ietf_vrf_verify(
                                                                                 &context,
                                                                                 &[],
