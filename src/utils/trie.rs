@@ -309,6 +309,13 @@ mod tests {
         assert_eq!(expected_2.peaks, result_2.peaks);
     }
 
+    #[test]
+    fn test_blake2_hash() {
+        use std::fs;
+        let input = fs::read("input.txt").unwrap();
+        let result = sp_core::blake2_256(&input);
+        println!("blake_2 hash: {}", hex::encode(result));
+    }
     /*#[test]
     fn test_post_state_merkle_root() {
         let post_state_root = "0xf5917320eedafb72674defb4279ebaa75b740cf685560036c5552037235499a1";

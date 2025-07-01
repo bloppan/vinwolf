@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-bitslice = "0.1.2"
 bitvec = "1.0.1"
 serde_json = "1.0"
 ark-vrf ={ version = "0.1.0", features = ["bandersnatch", "ring"] }
