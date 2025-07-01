@@ -4,6 +4,7 @@ use crate::types::{Account, DeferredTransfer, ExitReason, Gas, Balance, HostCall
 use crate::constants::{WHAT, MAX_SERVICE_CODE_SIZE};
 use crate::blockchain::state::services::decode_preimage;
 use crate::pvm;
+use crate::utils::codec::generic::encode_unsigned;
 use super::general_fn::{write, info, read, lookup};
 use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
 use crate::utils::codec::{Encode, EncodeLen};
@@ -56,7 +57,7 @@ pub fn invoke_on_transfer(
         }
 
         let gas = transfers.iter().map(|transfer| transfer.gas_limit).sum::<Gas>();
-        let arg = [slot.encode(), service_id.encode(), transfers.encode_len()].concat();
+        let arg = [slot.encode(), service_id.encode(), encode_unsigned(transfers.len())].concat();
         set_service_accounts(service_accounts.clone());
         set_service(service_id.clone());
         let (gas_used, 
