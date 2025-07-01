@@ -87,6 +87,8 @@ pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 14_400;
 // The period in timeslots after which an unreferenced preimage may be expunged.
 pub const MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE: u32 = 19_200;
 
+// The maximum size of service code in octets
+pub const MAX_SERVICE_CODE_SIZE: usize = 4_000_000;
 
 // The number of the registers in the PVM
 pub const NUM_REG: usize = 13;

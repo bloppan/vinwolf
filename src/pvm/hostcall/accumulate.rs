@@ -10,7 +10,7 @@ use crate::types::{
 };
 use crate::constants::{
     CASH, CORE, CORES_COUNT, FULL, HUH, LOW, MAX_ITEMS_AUTHORIZATION_QUEUE, MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE, NONE, OK, TRANSFER_MEMO_SIZE, 
-    VALIDATORS_COUNT, WHAT, WHO
+    VALIDATORS_COUNT, WHAT, WHO, MAX_SERVICE_CODE_SIZE
 };
 use crate::blockchain::state::{services::decode_preimage, entropy, time};
 use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
@@ -43,6 +43,10 @@ pub fn invoke_accumulation(
     let args = [encode_unsigned(*slot as usize), encode_unsigned(*service_id as usize), operands.encode_len()].concat();
     println!("args: {:x?}", args);
     let preimage_data = decode_preimage(&preimage_code).unwrap(); // TODO handle error
+
+    if preimage_data.code.len() > MAX_SERVICE_CODE_SIZE {
+        return (partial_state.clone(), vec![], None, 0, vec![]);
+    }
 
     let hostcall_arg_result = hostcall_argument(
                                 &preimage_data.code, 
