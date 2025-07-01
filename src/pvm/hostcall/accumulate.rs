@@ -40,7 +40,7 @@ pub fn invoke_accumulation(
 
     //let args = [slot.encode(), service_id.encode(), operands.encode_len()].concat();
     println!("slot: {:?}, service_id: {:?}", *slot, *service_id);
-    let args = [encode_unsigned(*slot as usize), encode_unsigned(*service_id as usize), operands.encode_len()].concat();
+    let args = [encode_unsigned(*slot as usize), encode_unsigned(*service_id as usize), encode_unsigned(operands.len())].concat();
     println!("args: {:x?}", args);
     let preimage_data = decode_preimage(&preimage_code).unwrap(); // TODO handle error
 
