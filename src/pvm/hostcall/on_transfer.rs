@@ -1,7 +1,7 @@
 use {once_cell::sync::Lazy, std::sync::Mutex};
 
 use crate::types::{Account, DeferredTransfer, ExitReason, Gas, Balance, HostCallFn, RamMemory, Registers, ServiceId, TimeSlot, ServiceAccounts};
-use crate::constants::WHAT;
+use crate::constants::{WHAT, MAX_SERVICE_CODE_SIZE};
 use crate::blockchain::state::services::decode_preimage;
 use crate::pvm;
 use super::general_fn::{write, info, read, lookup};
@@ -50,6 +50,10 @@ pub fn invoke_on_transfer(
     if let Some(preimage_code) = s_account.preimages.get(&s_account.code_hash) {
 
         let preimage_data = decode_preimage(&preimage_code).unwrap(); // TODO handle error
+
+        if preimage_data.code.len() > MAX_SERVICE_CODE_SIZE {
+            return (s_account, 0);
+        }
 
         let gas = transfers.iter().map(|transfer| transfer.gas_limit).sum::<Gas>();
         let arg = [slot.encode(), service_id.encode(), transfers.encode_len()].concat();
