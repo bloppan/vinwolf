@@ -13,7 +13,7 @@ use crate::constants::{
     CASH, CORE, CORES_COUNT, FULL, HUH, LOW, MAX_ITEMS_AUTHORIZATION_QUEUE, MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE, NONE, OK, TRANSFER_MEMO_SIZE, 
     VALIDATORS_COUNT, WHAT, WHO, MAX_SERVICE_CODE_SIZE
 };
-use crate::blockchain::state::{services::decode_preimage, entropy, time};
+use crate::blockchain::state::{services::decode_preimage, services::parse_preimage, entropy, time};
 use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
 use crate::utils::codec::{Encode, EncodeLen, EncodeSize, DecodeSize, BytesReader};
 use crate::utils::codec::generic::{encode_unsigned, decode};
@@ -42,30 +42,26 @@ pub fn invoke_accumulation(
     operands: &[AccumulationOperand]
 ) -> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(ServiceId, Vec<u8>)>) {
     
-    let preimage_code = if let Some(code) = partial_state
-        .service_accounts
-        .get(service_id)
-        .and_then(|account| account.preimages.get(&account.code_hash).cloned())
-    {
-        code
-    } else {
-        return (partial_state.clone(), vec![], None, 0, vec![]);
+    let preimage = match parse_preimage(&partial_state.service_accounts, service_id) {
+        Ok(preimage) => {
+            if preimage.is_none() {
+                return (partial_state.clone(), vec![], None, 0, vec![]);
+            }
+            preimage.unwrap()
+        },
+        Err(_) => { return (partial_state.clone(), vec![], None, 0, vec![]); },
     };
-    //println!("Wrangled results: {:x?}", operands);
 
-    //println!("slot: {:?}, service_id: {:?}, operands len: {:?}", *slot, *service_id, operands.len());
-    let args = [encode_unsigned(*slot as usize), encode_unsigned(*service_id as usize), encode_unsigned(operands.len())].concat();
-    //println!("args: {:x?}", args);
-    let preimage_data = decode_preimage(&preimage_code).unwrap(); // TODO handle error
-
-    if preimage_data.code.len() > MAX_SERVICE_CODE_SIZE {
+    if preimage.code.len() > MAX_SERVICE_CODE_SIZE {
         return (partial_state.clone(), vec![], None, 0, vec![]);
     }
 
+    let args = [encode_unsigned(*slot as usize), encode_unsigned(*service_id as usize), encode_unsigned(operands.len())].concat();
+
     set_operands(operands);
 
-    let hostcall_arg_result = hostcall_argument(
-                                &preimage_data.code, 
+    let hostcall_arg_result: (i64, WorkExecResult, HostCallContext) = hostcall_argument(
+                                &preimage.code, 
                                 5, 
                                 gas, 
                                 &args, 

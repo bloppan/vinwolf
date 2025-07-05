@@ -1,5 +1,5 @@
 
-use crate::types::{OpaqueHash, OutputPreimages, PreimagesExtrinsic, ServiceAccounts, Account, TimeSlot, PreimageData, Balance};
+use crate::types::{OpaqueHash, OutputPreimages, PreimagesExtrinsic, ServiceAccounts, Account, TimeSlot, PreimageData, Balance, ServiceId};
 use crate::constants::{MIN_BALANCE, MIN_BALANCE_PER_ITEM, MIN_BALANCE_PER_OCTET};
 use crate::blockchain::state::ProcessError;
 use crate::utils::codec::{BytesReader, ReadError};
@@ -41,16 +41,31 @@ impl Account {
     }   
 }
 
-pub fn decode_preimage(preimage: &[u8]) -> Result<PreimageData, ReadError> {
+pub fn parse_preimage(service_accounts: &ServiceAccounts, service_id: &ServiceId) -> Result<Option<PreimageData>, ReadError> {
+
+    let preimage_blob = if let Some(account) = service_accounts.get(service_id) {
+        if let Some(preimage) = account.preimages.get(&account.code_hash) {
+            preimage
+        } else {
+            return Ok(None);
+        }
+    } else {
+        return Ok(None);
+    };
+
+    let preimage = decode_preimage(&preimage_blob)?;
+
+    return Ok(Some(preimage));
+}
+
+pub fn decode_preimage(preimage_blob: &[u8]) -> Result<PreimageData, ReadError> {
     
-    let mut preimage_reader = BytesReader::new(preimage);
+    let mut preimage_reader = BytesReader::new(preimage_blob);
     let metadata_len = decode_unsigned(&mut preimage_reader)?;
     let metadata = preimage_reader.read_bytes(metadata_len as usize)?.to_vec();
     let preimage_len = preimage_reader.data.len(); 
     let code = preimage_reader.read_bytes(preimage_len - metadata_len as usize - 1)?.to_vec();
 
-    /*println!("total bytes preimage: {:?}", preimage_len);
-    println!("bytes readd preimage: {:?}", preimage_reader.get_position());*/
     Ok(PreimageData {
         metadata,
         code,

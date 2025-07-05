@@ -2,7 +2,7 @@ use {once_cell::sync::Lazy, std::sync::Mutex};
 
 use crate::types::{Account, DeferredTransfer, ExitReason, Gas, Balance, HostCallFn, RamMemory, Registers, ServiceId, TimeSlot, ServiceAccounts};
 use crate::constants::{WHAT, MAX_SERVICE_CODE_SIZE};
-use crate::blockchain::state::services::decode_preimage;
+use crate::blockchain::state::services::{decode_preimage, parse_preimage};
 use crate::pvm;
 use crate::utils::codec::generic::encode_unsigned;
 use super::general_fn::{write, info, read, lookup};
@@ -37,7 +37,7 @@ pub fn invoke_on_transfer(
     transfers: Vec<DeferredTransfer>) 
 -> (Account, Gas) {
     
-    //println!("Invoke on transfer");
+    println!("Invoke on transfer");
     //println!("Service ID: {:?}", service_id);
     let mut s_account = service_accounts.get(service_id).unwrap().clone();
     
@@ -45,24 +45,27 @@ pub fn invoke_on_transfer(
         //println!("No transfers");
         return (s_account, 0);
     }
-
+    println!("Hay transfers!");
     s_account.balance += transfers.iter().map(|transfer| transfer.amount).sum::<Balance>();
 
-    if let Some(preimage_code) = s_account.preimages.get(&s_account.code_hash) {
+    if let Some(preimage_blob) = s_account.preimages.get(&s_account.code_hash) {
 
-        let preimage_data = decode_preimage(&preimage_code).unwrap(); // TODO handle error
+        let preimage = match decode_preimage(&preimage_blob) {
+            Ok(preimage_data) => { preimage_data },
+            Err(_) => { return (s_account, 0); },
+        };
 
-        if preimage_data.code.len() > MAX_SERVICE_CODE_SIZE {
+        if preimage.code.len() > MAX_SERVICE_CODE_SIZE {
             return (s_account, 0);
         }
 
         let gas = transfers.iter().map(|transfer| transfer.gas_limit).sum::<Gas>();
-        let arg = [slot.encode(), service_id.encode(), encode_unsigned(transfers.len())].concat();
+        let arg = [encode_unsigned(*slot as usize), encode_unsigned(*service_id as usize), encode_unsigned(transfers.len())].concat();
         set_service_accounts(service_accounts.clone());
         set_service(service_id.clone());
         let (gas_used, 
              _result, 
-             ctx) = hostcall_argument(&preimage_data.code, 10, gas, &arg, dispatch_xfer, HostCallContext::OnTransfer(s_account.clone()));
+             ctx) = hostcall_argument(&preimage.code, 10, gas, &arg, dispatch_xfer, HostCallContext::OnTransfer(s_account.clone()));
     
         //println!("ctx storage: {:x?}", ctx)
         let HostCallContext::OnTransfer(modified_account) = ctx else {
