@@ -155,18 +155,18 @@ impl Encode for AccumulationOperand {
         self.code_hash.encode_to(&mut blob);
         self.exports_root.encode_to(&mut blob);
         self.authorizer_hash.encode_to(&mut blob);
-        self.auth_output.encode_len().encode_to(&mut blob);
         self.payload_hash.encode_to(&mut blob);
         
         encode_unsigned(self.gas_limit as usize).encode_to(&mut blob);
-        //self.gas_limit.encode_size(8).encode_to(&mut blob);
-        self.result[0].encode_to(&mut blob);
 
+        self.result[0].encode_to(&mut blob);
         if self.result[0] == 0 {
             let result_len = encode_unsigned(self.result.len() - 1);
             result_len.encode_to(&mut blob);
             self.result[1..].encode_to(&mut blob);
         } 
+
+        self.auth_output.encode_len().encode_to(&mut blob);
 
         return blob;
     }

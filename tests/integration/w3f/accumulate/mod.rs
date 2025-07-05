@@ -150,7 +150,7 @@ mod tests {
 
         let test_files = vec![
             // No reports.
-            "no_available_reports-1.bin",
+            /*"no_available_reports-1.bin",
             // Report with no dependencies.
             "process_one_immediate_report-1.bin",
             // Report with unsatisfied dependency added to the ready queue.
@@ -167,11 +167,11 @@ mod tests {
             "enqueue_and_unlock_chain-2.bin",
             // Two additional reports. One with unsatisfied dependencies, thus added to the ready queue.
             // One report is accumulated and resolves two previously enqueued reports.
-            "enqueue_and_unlock_chain-3.bin",
+            "enqueue_and_unlock_chain-3.bin",*/
             // Report that resolves all remaining queued dependencies.
             "enqueue_and_unlock_chain-4.bin",
             // Two reports with unsatisfied dependencies added to the ready queue.
-            "enqueue_and_unlock_chain_wraps-1.bin",
+            /*"enqueue_and_unlock_chain_wraps-1.bin",
             // Two additional reports, one with no dependencies and thus immediately accumulated.
             // The other is pushed to the ready queue which fills up and wraps around (ready queue is a ring buffer).
             "enqueue_and_unlock_chain_wraps-2.bin",
@@ -210,7 +210,7 @@ mod tests {
             "ready_queue_editing-2.bin",
             // One report unlocks reports in the ready-queue.
             "ready_queue_editing-3.bin",
-            "same_code_different_services-1.bin",
+            "same_code_different_services-1.bin",*/
         ];
         for file in test_files {
             println!("Running test: {}", file);

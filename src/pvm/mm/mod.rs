@@ -1,4 +1,4 @@
-use crate::constants::{NUM_PAGES, PAGE_SIZE};
+use crate::constants::{NUM_PAGES, PAGE_SIZE, LOWEST_ACCESIBLE_PAGE};
 use crate::types::{RamMemory, RamAddress, RamAccess, Page};
 pub mod program_init;
 
@@ -63,11 +63,11 @@ impl RamMemory {
         for page in from_page..=to_page {
 
             // Check if the page is in the range of the highest inaccessible page (0xFFFF0000)
-            /*if (page % NUM_PAGES) < LOWEST_ACCESIBLE_PAGE {
+            if (page % NUM_PAGES) < LOWEST_ACCESIBLE_PAGE {
                 println!("Page target {:?} out of bounds", page);
                 // TODO
                 return false;
-            }*/
+            }
 
             if let Some(page) = self.pages[(page % NUM_PAGES) as usize].as_ref() {
                 if page.flags.access.get(&access).is_none() {
@@ -94,7 +94,7 @@ impl RamMemory {
         }*/
 
         for page in from_page..=to_page {
-            println!("allocate page: {:?}", page);
+            //println!("allocate page: {:?}", page);
             let mut new_page = Some(Page::default());
             new_page.as_mut().unwrap().flags.access.insert(RamAccess::Write);
             new_page.as_mut().unwrap().flags.access.insert(RamAccess::Read);

@@ -49,6 +49,8 @@ pub fn decode_preimage(preimage: &[u8]) -> Result<PreimageData, ReadError> {
     let preimage_len = preimage_reader.data.len(); 
     let code = preimage_reader.read_bytes(preimage_len - metadata_len as usize - 1)?.to_vec();
 
+    /*println!("total bytes preimage: {:?}", preimage_len);
+    println!("bytes readd preimage: {:?}", preimage_reader.get_position());*/
     Ok(PreimageData {
         metadata,
         code,

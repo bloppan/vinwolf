@@ -81,14 +81,33 @@ pub const WORK_PACKAGE_REFINE_GAS: Gas = 5_000_000_000;
 // The total gas allocated across for all Accumulation.
 pub const TOTAL_GAS_ALLOCATED: Gas = 3_500_000_000;
 
-// The maximum age of a lookup anchor in timeslots.
+// The maximum age in timeslots of the lookup anchor.
 pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 14_400;
 
 // The period in timeslots after which an unreferenced preimage may be expunged.
-pub const MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE: u32 = 19_200;
+//pub const MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE: u32 = 19_200;
+pub const MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE: u32 = 32;
 
 // The maximum size of service code in octets
 pub const MAX_SERVICE_CODE_SIZE: usize = 4_000_000;
+
+// The slot period, in seconds.
+pub const SLOT_PERIOD: usize = 6;
+
+// The maximum number of entries in the accumulation queue.
+pub const MAX_ENTRIES_IN_ACC_QUEUE: usize = 1024;
+
+// The maximum number of extrinsics in a work-package.
+pub const MAX_EXTRINSICS_IN_WP: usize = 128;
+
+// The period in timeslots after which reported but unavailable work may be replaced.
+pub const REPORTED_WORK_REPLACEMENT_PERIOD: usize = 5;
+
+// The maximum size of is-authorized code in octets.
+pub const MAX_IS_AUTHORIZED_SIZE: usize = 64_000;
+
+// The maximum size of an encoded work-package together with its extrinsic data and import implications, in octets.
+pub const MAX_ENCODED_WORK_PACKAGE_SIZE: u64 = 12 * (1 << 20);
 
 // The number of the registers in the PVM
 pub const NUM_REG: usize = 13;
@@ -129,8 +148,19 @@ pub const PIECE_SIZE: usize = 684;
 // The size of a segment in octets.
 pub const SEGMENT_SIZE: usize = PIECE_SIZE * SEGMENT_PIECES;
 
+// The maximum number of imports in a work-package.
+pub const MAX_WORK_PACKAGE_IMPORTS: usize = 3_072;
+
+// The maximum total size of all unbounded blobs in a work-report, in octets.
+pub const MAX_WORK_REPORT_TOTAL_SIZE: u64 = 48 * (1 << 10);
+
+// The maximum number of exports in a work-package.
+pub const MAX_WORK_PACKAGE_EXPORTS: usize = 3_072;
+
 // The size of a transfer memo in octets
 pub const TRANSFER_MEMO_SIZE: usize = 128;
+
+
 
 // Host Call result constants
 pub const NONE: u64 = u64::MAX;
