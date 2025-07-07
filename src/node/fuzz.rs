@@ -1,92 +1,153 @@
-use crate::integration::w3f::read_test_file;
-
-use vinwolf::constants::{*};
-use vinwolf::types::{
+use std::fs::File;
+use std::io::Read;
+use crate::constants::{*};
+use crate::types::{
     RawState, Block, AuthPools, AuthQueues, BlockHistory, Safrole, DisputesRecords, EntropyPool, ValidatorsData, AvailabilityAssignments,
     Privileges, Statistics, ReadyQueue, AccumulatedHistory, OpaqueHash, Gas, ServiceId, Account, KeyValue
 };
-use vinwolf::blockchain::state::{get_global_state, state_transition_function};
-use vinwolf::utils::codec::{Decode, DecodeLen, BytesReader};
-use vinwolf::utils::codec::generic::decode;
-use vinwolf::utils::trie::merkle_state;
-use vinwolf::{blockchain::state::set_global_state, types::{GlobalState, TimeSlot}};
+use crate::blockchain::state::{get_global_state, state_transition_function};
+use crate::utils::codec::{ReadError, Decode, DecodeLen, BytesReader};
+use crate::utils::codec::generic::decode;
+use crate::utils::trie::merkle_state;
+use crate::{blockchain::state::set_global_state, types::{GlobalState, TimeSlot}};
+
+use std::fs;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TestCase {
-
     pub pre_state: RawState,
     pub block: Block,
     pub post_state: RawState,
 }
 
-
-#[cfg(test)]
-mod tests {
+pub fn read_bin_file(path: &Path) -> Result<Vec<u8>, ()> {
     
-    use super::*;
+    let mut file = match File::open(path) {
+        Ok(file) => file,
+        Err(e) => { log::error!("Failed to open file {}: {}", path.display(), e); return Err(()) },
+    };
 
-    #[test]
-    fn run_traces_tests() {
+    let mut test_content = Vec::new();
 
-        /*let test_body: Vec<TestBody> = vec![TestBody::RawState,
-                                            TestBody::Block,
-                                            TestBody::RawState];
+    match file.read_to_end(&mut test_content) {
+        Ok(_) => { return Ok(test_content) },
+        Err(e) => { log::error!("Failed to read file {}: {}", path.display(), e); return Err(()) },
+    }
+}
 
-        let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/traces/reports-l0/00000000.bin"));
-        let _ = encode_decode_test(&test_content, &test_body);
-        let mut reader = BytesReader::new(&test_content);
-        let pre_state = RawState::decode(&mut reader).expect("Error decoding post WorkReport PreState");
-        let block = Block::decode(&mut reader).expect("Error decoding post OutputWorkReport");
-        let post_state = RawState::decode(&mut reader).expect("Error decoding post WorkReport PostState");*/
-        
-        let mut slot = 1;
-        
-        loop {
-            println!("\n\n**********************    Reading trace test file: {}    **********************************", slot);
+pub fn read_files_in_directory(dir: &str) -> Result<Vec<PathBuf>, ()> {
 
-            let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/traces/reports-l1/{:08}.bin", slot));
-            let mut reader = BytesReader::new(&test_content);
-            let pre_state = RawState::decode(&mut reader).expect("Error decoding post WorkReport PreState");
-            let block = Block::decode(&mut reader).expect("Error decoding post OutputWorkReport");
-            let post_state = RawState::decode(&mut reader).expect("Error decoding post WorkReport PostState");
+    let path = Path::new(dir);
 
-            let mut state = GlobalState::default();
-            let mut expected_state = GlobalState::default();
+    let entries = match fs::read_dir(path) {
+        Ok(res) => { res },
+        Err(_) => { log::error!("Failed to read directory {:?}", path); return Err(()); },
+    };
 
-            set_raw_state(pre_state.clone(), &mut state);
-            set_raw_state(post_state.clone(), &mut expected_state);
+    let mut files = Vec::new();
 
-            assert_eq!(pre_state.state_root.clone(), merkle_state(&state.serialize().map, 0).unwrap());
-            assert_eq!(post_state.state_root.clone(), merkle_state(&expected_state.serialize().map, 0).unwrap());
+    for entry in entries.filter_map(Result::ok) {
+        let entry_path = entry.path();
 
-            set_global_state(state.clone());
-
-            let error = state_transition_function(&block);
-            
-            if error.is_err() {
-                println!("****************************************************** Error: {:?}", error);
-                return;
-            }
-
-            let result_state = get_global_state().lock().unwrap().clone();
-            
-            assert_eq_state(&expected_state, &result_state);
-
-            println!("post_sta state_root: {:x?}", post_state.state_root);
-            println!("expected state_root: {:x?}", merkle_state(&expected_state.serialize().map, 0).unwrap());
-            println!("result   state_root: {:x?}", merkle_state(&result_state.serialize().map, 0).unwrap());
-            
-            assert_eq!(post_state.state_root, merkle_state(&result_state.serialize().map, 0).unwrap());
-
-            slot += 1;
-
-            if slot == 10 {
-                return;
-            }
+        if entry_path.is_file() && entry_path.extension().map(|e| e == "bin").unwrap_or(false) {
+            log::info!("New file found: {:?}", entry_path);
+            files.push(entry_path);
         }
     }
 
-    fn set_raw_state(raw_state: RawState, state: &mut GlobalState) {
+    Ok(files)
+}
+
+pub fn decode_test_bin_file(file_content: &[u8]) -> Result<(RawState, Block, RawState), ReadError> {
+
+    let mut reader = BytesReader::new(&file_content);
+    let pre_state = RawState::decode(&mut reader)?;
+    let block = Block::decode(&mut reader)?;
+    let post_state = RawState::decode(&mut reader)?;
+
+    return Ok((pre_state, block, post_state));
+}
+
+pub fn import_state_block(path: &Path) -> Result<(), ()> {
+    
+    let test_content = read_bin_file(path)?;
+    let (pre_state, block, post_state) = match decode_test_bin_file(&test_content) {
+        Ok(result) => result,
+        Err(_) => { log::error!("Failed to decode {:?}", path); return Err(()) },
+    };
+
+    let mut state = GlobalState::default();
+    let mut expected_state = GlobalState::default();
+
+    set_raw_state(pre_state.clone(), &mut state);
+    set_raw_state(post_state.clone(), &mut expected_state);
+
+    assert_eq!(pre_state.state_root.clone(), merkle_state(&state.serialize().map, 0).unwrap());
+    assert_eq!(post_state.state_root.clone(), merkle_state(&expected_state.serialize().map, 0).unwrap());
+
+    set_global_state(state.clone());
+
+    let error = state_transition_function(&block);
+    
+    if error.is_err() {
+        println!("****************************************************** Error: {:?}", error);
+        return Err(());
+    }
+
+    let result_state = get_global_state().lock().unwrap().clone();
+    
+    assert_eq_state(&expected_state, &result_state);
+
+    println!("post_sta state_root: {:x?}", post_state.state_root);
+    println!("expected state_root: {:x?}", merkle_state(&expected_state.serialize().map, 0).unwrap());
+    println!("result   state_root: {:x?}", merkle_state(&result_state.serialize().map, 0).unwrap());
+    
+    assert_eq!(post_state.state_root, merkle_state(&result_state.serialize().map, 0).unwrap());
+
+    Ok(())
+}
+
+pub fn run_traces_tests(file: &PathBuf) -> Result<(), ()> {
+
+    let test_content = read_bin_file(file)?;
+    let (pre_state, block, post_state) = match decode_test_bin_file(&test_content) {
+        Ok(result) => result,
+        Err(_) => { log::error!("File {:?} failed to decode", file); return Err(()) },
+    };
+
+    let mut state = GlobalState::default();
+    let mut expected_state = GlobalState::default();
+
+    set_raw_state(pre_state.clone(), &mut state);
+    set_raw_state(post_state.clone(), &mut expected_state);
+
+    assert_eq!(pre_state.state_root.clone(), merkle_state(&state.serialize().map, 0).unwrap());
+    assert_eq!(post_state.state_root.clone(), merkle_state(&expected_state.serialize().map, 0).unwrap());
+
+    set_global_state(state.clone());
+
+    let error = state_transition_function(&block);
+    
+    if error.is_err() {
+        println!("****************************************************** Error: {:?}", error);
+        return Err(());
+    }
+
+    let result_state = get_global_state().lock().unwrap().clone();
+    
+    assert_eq_state(&expected_state, &result_state);
+
+    println!("post_sta state_root: {:x?}", post_state.state_root);
+    println!("expected state_root: {:x?}", merkle_state(&expected_state.serialize().map, 0).unwrap());
+    println!("result   state_root: {:x?}", merkle_state(&result_state.serialize().map, 0).unwrap());
+    
+    assert_eq!(post_state.state_root, merkle_state(&result_state.serialize().map, 0).unwrap());
+
+    Ok(())
+}
+
+pub fn set_raw_state(raw_state: RawState, state: &mut GlobalState) {
 
         for keyval in raw_state.keyvals.iter() {
             
@@ -216,7 +277,7 @@ mod tests {
         }
     }
 
-    fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
+pub fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
         assert_eq!(expected_state.time, result_state.time);
         assert_eq!(expected_state.safrole, result_state.safrole);
         assert_eq!(expected_state.entropy, result_state.entropy);
@@ -305,4 +366,3 @@ mod tests {
         
         !is_simple_key(keyval) && !is_service_info_key(keyval) && !is_storage_key(keyval) && !is_preimage_key(keyval)
     }*/
-}

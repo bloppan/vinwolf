@@ -49,6 +49,7 @@ static STATE_ROOT: Lazy<Mutex<OpaqueHash>> = Lazy::new(|| {
 // dependency graph where possible. 
 pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
+    log::info!("asi se ve la info");
     block.header.verify(&block.extrinsic)?;
 
     let mut new_state = get_global_state().lock().unwrap().clone();
