@@ -37,7 +37,7 @@ pub fn invoke_on_transfer(
     transfers: Vec<DeferredTransfer>) 
 -> (Account, Gas) {
     
-    println!("Invoke on transfer");
+    //println!("Invoke on transfer");
     //println!("Service ID: {:?}", service_id);
     let mut s_account = service_accounts.get(service_id).unwrap().clone();
     
@@ -45,7 +45,7 @@ pub fn invoke_on_transfer(
         //println!("No transfers");
         return (s_account, 0);
     }
-    println!("Hay transfers!");
+    //println!("Hay transfers!");
     s_account.balance += transfers.iter().map(|transfer| transfer.amount).sum::<Balance>();
 
     if let Some(preimage_blob) = s_account.preimages.get(&s_account.code_hash) {

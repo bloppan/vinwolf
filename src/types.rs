@@ -1132,10 +1132,11 @@ pub type DataSegments = Vec<DataSegment>;
 
 pub type StateKey = [u8; 31];
 pub type StorageKey = [u8; 31];
+pub type TrieKey = [u8; 31];
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct KeyValue {
-    pub key: StorageKey,
+    pub key: TrieKey,
     pub value: Vec<u8>,
 }
 
@@ -1145,3 +1146,4 @@ pub struct RawState {
     pub state_root: StateRoot,
     pub keyvals: Vec<KeyValue>,
 }
+

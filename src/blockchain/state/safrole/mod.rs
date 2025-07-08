@@ -100,6 +100,7 @@ pub fn process(
     let post_tau = block.header.unsigned.slot;
     // Timeslot must be strictly monotonic
     if post_tau <= *tau {
+        log::error!("Bad block slot: {:?}. The previous slot is: {:?}. Timeslot must be strictly monotonic", post_tau, tau);
         return Err(ProcessError::SafroleError(SafroleErrorCode::BadSlot));
     }
     
@@ -115,6 +116,7 @@ pub fn process(
 
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
+        log::info!("We are in a new epoch");
         // On an epoch transition, we therefore rotate the accumulator value into the history eta1, eta2 eta3
         entropy_pool.rotate();
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
@@ -127,6 +129,7 @@ pub fn process(
         safrole_state.epoch_root = create_root_epoch(next_ring_set);
         // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
         // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
+        log::info!("New epoch mark");
         epoch_mark = Some(EpochMark {
             entropy: entropy_pool.buf[1].clone(),
             tickets_entropy: entropy_pool.buf[2].clone(),
@@ -150,11 +153,13 @@ pub fn process(
         if post_epoch == epoch + 1 && m >= TICKET_SUBMISSION_ENDS as u32 && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
             // If the block is the first after the end of the submission period for tickets and if the ticket accumulator 
             // is saturated, then the final sequence of ticket identifiers
+            log::info!("The block is the first after the end of submission period for tickets and the ticket accumulator is saturated");
             safrole_state.seal = TicketsOrKeys::Tickets(outside_in_sequencer(&safrole_state.ticket_accumulator));
         } else if post_epoch == epoch {
             // gamma_s' = gamma_s
         } else {
             // Otherwise, it takes the value of the fallback key sequence
+            log::warn!("Fallback mode!");
             let bandersnatch_keys = curr_validators.extract_keys(|v| v.bandersnatch);
             safrole_state.seal = TicketsOrKeys::Keys(fallback(&entropy_pool.buf[2], &bandersnatch_keys));
         } 
@@ -179,6 +184,7 @@ pub fn process(
 }
 
 pub fn create_ring_set(validators: &ValidatorsData) -> Vec<Public> {
+    log::info!("Create ring set");
     validators
         .list
         .iter()
@@ -192,6 +198,7 @@ pub fn create_ring_set(validators: &ValidatorsData) -> Vec<Public> {
 }
 
 pub fn create_root_epoch(ring_set: Vec<Public>) -> BandersnatchRingCommitment {
+    log::info!("Create root epoch");
     let verifier = Verifier::new(ring_set);
     let mut proof: BandersnatchRingCommitment = [0u8; std::mem::size_of::<BandersnatchRingCommitment>()];
     verifier.commitment.serialize_compressed(&mut proof[..]).unwrap();

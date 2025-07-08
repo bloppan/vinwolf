@@ -258,7 +258,7 @@ where
         }
 
         let len = decode_unsigned(reader)?;  
-        let mut result = Vec::with_capacity(len);
+        let mut result = vec![];
 
         for _ in 0..len {
             result.push(T::decode(reader)?);

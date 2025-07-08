@@ -72,9 +72,9 @@ mod tests {
             
             assert_eq_state(&expected_state, &result_state);
 
-            println!("post_sta state_root: {:x?}", post_state.state_root);
+            /*println!("post_sta state_root: {:x?}", post_state.state_root);
             println!("expected state_root: {:x?}", merkle_state(&expected_state.serialize().map, 0).unwrap());
-            println!("result   state_root: {:x?}", merkle_state(&result_state.serialize().map, 0).unwrap());
+            println!("result   state_root: {:x?}", merkle_state(&result_state.serialize().map, 0).unwrap());*/
             
             assert_eq!(post_state.state_root, merkle_state(&result_state.serialize().map, 0).unwrap());
 

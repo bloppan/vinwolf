@@ -26,6 +26,7 @@
 use {once_cell::sync::Lazy, sp_core::blake2_256, std::sync::Mutex};
 
 use crate::blockchain::state::recent_history::set_current_block_history;
+use crate::utils::trie::merkle_state;
 use crate::types::{
     AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesRecords, EntropyPool, GlobalState, 
     OpaqueHash, Privileges, ProcessError, ReadyQueue, Safrole, ServiceAccounts, Statistics, TimeSlot, ValidatorSet, ValidatorsData, 
@@ -49,7 +50,8 @@ static STATE_ROOT: Lazy<Mutex<OpaqueHash>> = Lazy::new(|| {
 // dependency graph where possible. 
 pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
-    log::info!("asi se ve la info");
+    println!();
+    log::info!("Process new block");
     block.header.verify(&block.extrinsic)?;
 
     let mut new_state = get_global_state().lock().unwrap().clone();
@@ -144,7 +146,8 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &new_available_workreports.reported,
     );
     
-    set_global_state(new_state);    
+    set_state_root(merkle_state(&new_state.serialize().map, 0).unwrap());
+    set_global_state(new_state);
 
     Ok(())
 }
@@ -160,9 +163,8 @@ pub fn set_global_state(new_state: GlobalState) {
 pub fn set_state_root(new_root: OpaqueHash) {
     *STATE_ROOT.lock().unwrap() = new_root;
 }
-pub fn get_state_root() -> OpaqueHash {
-    let state = STATE_ROOT.lock().unwrap();
-    state.clone()
+pub fn get_state_root() -> &'static Mutex<OpaqueHash> {
+    &STATE_ROOT
 }
 // Time
 pub fn set_time(new_time: TimeSlot) {
