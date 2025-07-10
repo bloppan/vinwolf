@@ -21,6 +21,5 @@ fn get_imm(pc: &RegSize, program: &Program) -> RegSize {
      let value_imm = get_imm(&pvm_ctx.pc, program) as u8;
      pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
      let hostcall_fn = HostCallFn::try_from(value_imm).unwrap_or(HostCallFn::Unknown);
-     println!("hostcall type: {:?}", hostcall_fn);
      ExitReason::HostCall(hostcall_fn)
  }

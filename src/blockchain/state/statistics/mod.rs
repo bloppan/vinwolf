@@ -57,6 +57,8 @@ pub fn process(
     extrinsic: &Extrinsic,
     new_available_wr: &[WorkReport],
 ) {
+    
+    log::debug!("Process statistics");
 
     let tau = get_time();
 

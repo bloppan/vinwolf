@@ -2,12 +2,11 @@ use {once_cell::sync::Lazy, std::sync::Mutex};
 
 use crate::types::{Account, DeferredTransfer, ExitReason, Gas, Balance, HostCallFn, RamMemory, Registers, ServiceId, TimeSlot, ServiceAccounts};
 use crate::constants::{WHAT, MAX_SERVICE_CODE_SIZE};
-use crate::blockchain::state::services::{decode_preimage, parse_preimage};
+use crate::blockchain::state::services::decode_preimage;
 use crate::pvm;
 use crate::utils::codec::generic::encode_unsigned;
 use super::general_fn::{write, info, read, lookup};
 use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
-use crate::utils::codec::{Encode, EncodeLen};
 
 static SERVICE_ACCOUNTS: Lazy<Mutex<ServiceAccounts>> = Lazy::new(|| {
     Mutex::new(ServiceAccounts::default())
@@ -37,25 +36,28 @@ pub fn invoke_on_transfer(
     transfers: Vec<DeferredTransfer>) 
 -> (Account, Gas) {
     
-    //println!("Invoke on transfer");
-    //println!("Service ID: {:?}", service_id);
+    log::debug!("Invoke on transfer for service {:?}", *service_id);
     let mut s_account = service_accounts.get(service_id).unwrap().clone();
     
     if transfers.is_empty() {
-        //println!("No transfers");
+        log::debug!("No transfers");
         return (s_account, 0);
     }
-    //println!("Hay transfers!");
+    
     s_account.balance += transfers.iter().map(|transfer| transfer.amount).sum::<Balance>();
 
     if let Some(preimage_blob) = s_account.preimages.get(&s_account.code_hash) {
 
         let preimage = match decode_preimage(&preimage_blob) {
             Ok(preimage_data) => { preimage_data },
-            Err(_) => { return (s_account, 0); },
+            Err(_) => { 
+                log::error!("Failed to decode preimage");
+                return (s_account, 0); 
+            },
         };
 
         if preimage.code.len() > MAX_SERVICE_CODE_SIZE {
+            log::error!("The preimage code len is greater than the max service code size allowed");
             return (s_account, 0);
         }
 
@@ -67,14 +69,15 @@ pub fn invoke_on_transfer(
              _result, 
              ctx) = hostcall_argument(&preimage.code, 10, gas, &arg, dispatch_xfer, HostCallContext::OnTransfer(s_account.clone()));
     
-        //println!("ctx storage: {:x?}", ctx)
         let HostCallContext::OnTransfer(modified_account) = ctx else {
             unreachable!("Invalid context");
         };
 
+        log::debug!("Exit on transfer invokation");
         return (modified_account, gas_used);
     }
 
+    log::error!("Preimage code hash 0x{} not found", hex::encode(s_account.code_hash));
     return (s_account, 0);
 }
 
@@ -82,9 +85,9 @@ fn dispatch_xfer(n: HostCallFn, mut gas: Gas, mut reg: Registers, ram: RamMemory
 
 -> (ExitReason, Gas, Registers, RamMemory, HostCallContext) 
 {
-    //println!("ON TRANSFER DISPATCHER!!! ");
     let service_accounts = get_service_accounts().lock().unwrap().clone();
     let service_id = get_service().lock().unwrap().clone();
+    log::debug!("Dispatch on transfer hostcall {:?} for service {:?}", n, service_id);
 
     match n {
         HostCallFn::Lookup => {
@@ -122,7 +125,7 @@ fn dispatch_xfer(n: HostCallFn, mut gas: Gas, mut reg: Registers, ram: RamMemory
             return (ExitReason::Continue, gas, reg, ram, HostCallContext::OnTransfer(account));
         }
         _ => {
-            println!("Unknown on transfer hostcall function: {:?}", n);
+            log::error!("Unknown on transfer hostcall function: {:?}", n);
             gas -= 10;
             reg[7] = WHAT;
             let account = ctx.to_xfer_ctx();

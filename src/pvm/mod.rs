@@ -20,39 +20,42 @@ pub mod mm;
 pub mod hostcall;
 
 pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
-    //println!("Invoke PVM");
+
+    log::debug!("Invoke inner pvm");
     let program = Program::decode(&mut BytesReader::new(program_blob)).unwrap(); // TODO handle error
-    let mut pc_copy = pvm_ctx.pc.clone();
+    //let mut pc_copy = pvm_ctx.pc.clone();
     let mut opcode_copy = program.code[pvm_ctx.pc.clone() as usize];
-    //println!("pc = {:?}, opcode = {:?} \t, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), program.code[pvm_ctx.pc.clone() as usize], pvm_ctx.gas, pvm_ctx.reg);
+
     loop {
         
         let exit_reason = single_step_pvm(pvm_ctx, &program);
-        //println!("exit reason = {:?}", exit_reason);
         
         match exit_reason {
             ExitReason::Continue => {
                 // continue
             },
             ExitReason::OutOfGas => {
+                 log::debug!("Exit: pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg);
+                log::error!("PVM: Out of gas!");
                 return ExitReason::OutOfGas;
             },
             // TODO arreglar esto
             /*ExitReason::panic |*/ ExitReason::Halt => {
-                //println!("pc = {:?}, opcode = {:?}\t, reg = {:?}", pvm_ctx.pc.clone(), program.code[pvm_ctx.pc.clone() as usize], pvm_ctx.reg);
-                //pvm_ctx.pc = 0; // Esto pone en el GP que deberia ser 0 (con panic tambien)
+                log::debug!("Exit: pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg);
+                log::debug!("PVM: Halt");
+                //pvm_ctx.pc = 0; // Esto pone en el GP que deberia ser 0 (con panic tambien) TODO
                 return ExitReason::halt;
             },
             _ => { 
                 //println!("pc = {:?}, opcode = {:?}\t, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg); 
                 //println!("")
+                log::debug!("Exit: pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg);
+                log::debug!("Exit reason: {:?}", exit_reason);
                 return exit_reason; 
             },
         }
-        //println!("pc = {:?}, opcode = {:?}\t, gas = {:?}, reg = {:?}", pc_copy, opcode_copy, pvm_ctx.gas, pvm_ctx.reg); 
-        
-        
-        //println!("pc = {:?}, opcode = {:?},\tgas = {:?},\treg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg); 
+       
+        log::trace!("pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg);
         //pc_copy = pvm_ctx.pc.clone();
         opcode_copy = program.code[pvm_ctx.pc.clone() as usize];
     }

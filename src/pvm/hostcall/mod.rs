@@ -18,7 +18,7 @@ fn hostcall<F>(program_code: &[u8], pc: RegSize, gas: Gas, reg: Registers, ram: 
 where 
     F: Fn(HostCallFn, Gas, Registers, RamMemory, HostCallContext) -> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
 {
-    //println!("Hostcall");
+    log::debug!("Execute hostcall");
     let mut pvm_ctx = Context::default();
     pvm_ctx.pc = pc;
     pvm_ctx.gas = gas;
@@ -35,7 +35,8 @@ where
         || exit_reason == ExitReason::panic 
         || exit_reason == ExitReason::OutOfGas  
         || matches!(exit_reason, ExitReason::PageFault(_page)) {
-
+        
+        log::error!("Exit reason: {:?}", exit_reason);
         return (exit_reason, pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram, ctx);
     } 
     
@@ -56,6 +57,7 @@ where
 
         match hostcall_exit_reason {
             ExitReason::PageFault(hostcall_page_fault) => {
+                log::error!("Page fault: {:?}", hostcall_page_fault);
                 return (ExitReason::PageFault(hostcall_page_fault), pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram, ctx);
             },
             ExitReason::Continue => {
@@ -65,18 +67,17 @@ where
             | ExitReason::Halt
             | ExitReason::halt
             | ExitReason::OutOfGas => {
-                println!("Hostcall exit reason: {:?}", hostcall_exit_reason);
+                log::error!("Hostcall exit reason: {:?}", hostcall_exit_reason);
                 return (hostcall_exit_reason, pvm_ctx.pc, post_gas, post_reg, post_ram, post_ctx);
             },
             _ => {
-                println!("Incorrect Hostcall exit reason: {:?}", hostcall_exit_reason);
+                log::error!("Incorrect hostcall exit reason: {:?}", hostcall_exit_reason);
                 return (hostcall_exit_reason, pvm_ctx.pc, post_gas, post_reg, post_ram, post_ctx);
             }
         }
     }
 
-    println!("Hostcall exit: {:?}", exit_reason);
-    
+    log::debug!("Hostcall exit: {:?}", exit_reason);   
     return (exit_reason, pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram, ctx);
 }
 
@@ -88,15 +89,19 @@ fn hostcall_argument<F>(program_code: &[u8], pc: RegSize, gas: Gas, arg: &[u8], 
 where 
     F: Fn(HostCallFn, Gas, Registers, RamMemory, HostCallContext) -> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
 {
-    //println!("Hostcall argument");
+    log::debug!("Execute hostcall argument function");
     let std_program_decoded = match init_std_program(&program_code, &arg) {
         Ok(program) => {
             if program.is_none() {
+                log::error!("Panic: Program decoded is none");
                 return (gas, WorkExecResult::Error(WorkExecError::Panic), ctx);
             }
             program.unwrap()
         }
-        Err(_) => return (gas, WorkExecResult::Error(WorkExecError::Panic), ctx),
+        Err(_) => {
+            log::error!("Panic: Failed to decode the program");
+            return (gas, WorkExecResult::Error(WorkExecError::Panic), ctx);
+        },
     };
 
     R(gas, hostcall(&std_program_decoded.code, pc, gas, std_program_decoded.reg, std_program_decoded.ram, f, ctx))
@@ -111,7 +116,7 @@ fn R(gas: Gas, hostcall_result: (ExitReason, RegSize, Gas, Registers, RamMemory,
     let gas_consumed = gas - std::cmp::max(post_gas, 0);
 
     if exit_reason == ExitReason::OutOfGas {
-        println!("R: Out of gas!!!");
+        log::error!("R: Out of gas!");
         return (gas_consumed, WorkExecResult::Error(WorkExecError::OutOfGas), post_ctx);
     }
 
@@ -121,14 +126,15 @@ fn R(gas: Gas, hostcall_result: (ExitReason, RegSize, Gas, Registers, RamMemory,
     if exit_reason == ExitReason::Halt || exit_reason == ExitReason::halt { // TODO cambiar esto
         if post_ram.is_readable(start_address, bytes_to_read) {
             let data = post_ram.read(start_address, post_reg[8] as u32);
-            //println!("ram is readable after halt");
+            log::debug!("The ram is readable after halt");
             return (gas_consumed, WorkExecResult::Ok(data), post_ctx);
         } else {
-            println!("ram not readable after halt");
+            log::error!("The ram is not readable after halt");
             return (gas_consumed, WorkExecResult::Ok(vec![]), post_ctx);
         }
     }   
 
+    log::error!("R: Work exec result panic for exit reason {:?}", exit_reason);
     return (gas_consumed, WorkExecResult::Error(WorkExecError::Panic), post_ctx);
 }
 

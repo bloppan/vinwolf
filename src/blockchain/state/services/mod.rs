@@ -13,11 +13,14 @@ pub fn process(
 ) -> Result<OutputPreimages, ProcessError> {
 
     if preimages_extrinsic.preimages.len() == 0 {
+        log::debug!("No preimages to process");
         return Ok(OutputPreimages::Ok());
     }
 
+    log::debug!("Process the preimages extrinsic");
     preimages_extrinsic.process(services, post_tau)?;
 
+    log::debug!("Preimages extrinsic processed successfully");
     Ok(OutputPreimages::Ok())
 }
 
@@ -36,7 +39,8 @@ impl Account {
         }
 
         let threshold = MIN_BALANCE + items as Balance * MIN_BALANCE_PER_ITEM + octets as Balance * MIN_BALANCE_PER_OCTET;
-
+        
+        log::debug!("Items: {:?}, octets: {:?}, threshold: {:?}", items, octets, threshold);
         return (items, octets, threshold);
     }   
 }

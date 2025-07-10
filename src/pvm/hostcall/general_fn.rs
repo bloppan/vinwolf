@@ -21,11 +21,13 @@ pub fn gas(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
     gas -= 10;
 
     if gas < 0 {
+        log::error!("Out of gas!");
         return (ExitReason::OutOfGas, gas, reg, ram, ctx);
     } 
  
     reg[7] = gas as RegSize;
 
+    log::debug!("gas: {gas}");
     return (ExitReason::Continue, gas, reg, ram, ctx);
 }
 
@@ -46,6 +48,7 @@ pub fn fetch(mut gas: Gas,
     gas -= 10;
 
     if gas < 0 {
+        log::debug!("Out of gas!");
         return (ExitReason::OutOfGas, gas, reg, ram, ctx);
     } 
     //println!("bernux reg_10: {:?}", reg[10]);
@@ -120,39 +123,23 @@ pub fn fetch(mut gas: Gas,
     let start_address = reg[7] as RamAddress;
     let f = std::cmp::min(reg[8] as usize, value_len);
     let l = std::cmp::min(reg[9] as usize, value_len - f);
-
-    /*println!("start_address: {:?}", start_address);
-    println!("f: {:?} l: {:?}", f, l);
-    println!("value_len: {value_len}");
-    println!("value: {:x?}", value);*/
+    log::debug!("value_len: {:?}, start_address: {start_address}, f: {f}, l: {l}", value_len);
 
     if !ram.is_writable(start_address, l as RamAddress) {
-        //println!("fetch: panic!!!");
+        log::error!("Panic: The RAM is not readable from address: {start_address} num_bytes: {l}");
         return (ExitReason::panic, gas, reg, ram, ctx);
     }
 
     if value.is_none() {
-        //println!("fetch: NONE");
         reg[7] = NONE;
+        log::debug!("Exit: NONE");
         return (ExitReason::Continue, gas, reg, ram, ctx);
     }
 
     reg[7] = value_len as RegSize;
     ram.write(start_address, value.unwrap()[f as usize..(f + l) as usize].to_vec());
     
-    println!();
-    /*println!("AFTER");
-    for i in 0..(4096 / 32) {
-        print!("{:08}:\t", (i * 32) as u64 + (4096 as u64 * 1044447 as u64) as u64);
-        for j in 0..32 {
-            let index = i * 32 + j;
-            print!("{:02x?} ", ram.pages[1044447].as_ref().unwrap().data[index as usize]);
-        }
-        println!();
-    }
-    println!();*/
-
-    //println!("fetch: OK");
+    log::debug!("Exit: OK");
     return (ExitReason::Continue, gas, reg, ram, ctx);
 }
 
@@ -164,6 +151,7 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
     gas -= 10;
 
     if gas < 0 {
+        log::debug!("Out of gas!");
         return (ExitReason::OutOfGas, gas, reg, ram, account);
     }  
 
@@ -172,6 +160,7 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
     } else if services.contains_key(&(reg[7] as ServiceId)) {
         services.get(&(reg[7] as ServiceId)).cloned()
     } else {
+        log::debug!("The account is none");
         None    
     };
 
@@ -179,10 +168,12 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
     let write_start_address = reg[9] as RamAddress;
 
     if !ram.is_readable(read_start_address, 32) {
+        log::debug!("Panic: The RAM is not readable from address: {read_start_address} num_bytes: 32");
         return (ExitReason::panic, gas, reg, ram, account);
     }
 
     let hash: OpaqueHash = ram.read(read_start_address, 32).try_into().unwrap();
+    log::debug!("hash: 0x{}", hex::encode(hash));
 
     let preimage_blob: Option<Vec<u8>> = if a_account.is_none() {
         None
@@ -198,21 +189,24 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
     let l = std::cmp::min(reg[11], preimage_len - f);
 
     if !ram.is_writable(write_start_address, 32) {
+        log::error!("Panic: The RAM is not writable from address: {write_start_address} num_bytes: 32");
         return (ExitReason::panic, gas, reg, ram, account);
     }
 
     if preimage_blob.is_none() {
-        //println!("NONE");
         reg[7] = NONE;
+        log::debug!("Exit: NONE");
         return (ExitReason::Continue, gas, reg, ram, account);
     }
 
     reg[7] = preimage_len;
+    log::debug!("preimage len: {preimage_len}");
 
     if let Some(blob) = preimage_blob {
         ram.write(write_start_address, blob[f as usize..(f + l) as usize].to_vec());
     }
-    //println!("OK");
+    
+    log::debug!("Exit: OK");
     return (ExitReason::Continue, gas, reg, ram, account);
 }
 
@@ -223,6 +217,7 @@ pub fn read(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Accou
     gas -= 10;
 
     if gas < 0 {
+        log::error!("Out of gas!");
         return (ExitReason::OutOfGas, gas, reg, ram, account);
     }   
 
@@ -231,57 +226,56 @@ pub fn read(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Accou
     } else {
         reg[7] as ServiceId
     };
-    //println!("READ service id: {}", id);
+    
+    log::debug!("service id: {id}");
+
     let target_account: Option<Account> = if service_id == id {
         Some(account.clone())
     } else if services.contains_key(&id) {
         services.get(&id).cloned()
     } else {
+        log::debug!("target account is none");
         None
     };
-    //println!("target_account: {:?}", target_account.is_some());
+    
     let start_read_address = reg[8] as RamAddress;
     let bytes_to_read = reg[9] as RamAddress;
     let start_write_address = reg[10] as RamAddress;
 
     if !ram.is_readable(start_read_address, bytes_to_read) {
-        //println!("READ PANIC");
+        log::error!("Panic: The RAM is not readable from address: {start_read_address} num_bytes: {bytes_to_read}");
         return (ExitReason::panic, gas, reg, ram, account);
     }
 
     let key= sp_core::blake2_256(&[id.encode(), ram.read(start_read_address, bytes_to_read).encode()].concat())[..31].try_into().unwrap();
-    //println!("raw key: {:x?}", key);
+    log::debug!("raw key: 0x{}", hex::encode(key));
     let key = StateKeyType::Account(id, construct_storage_key(&key).to_vec()).construct();
-    //println!("service: {:?} storage key: {:x?}", id, key);
-    
-    /*for item in target_account.as_ref().unwrap().storage.iter() {
-        println!("find key: {:x?}", item.0);
-    }*/
-    
+    log::debug!("service: {:?} storage key: 0x{}", id, hex::encode(key));
+        
     let value: Vec<u8> = if target_account.is_some() && target_account.as_ref().unwrap().storage.contains_key(&key) {
-        //println!("key found: {:x?}", key);
         target_account.unwrap().storage.get(&key).unwrap().clone()
     } else {
         reg[7] = NONE;
-        /*println!("READ NONE");
-        println!("key: {:x?} not found", key);
-        println!("service_id: {} storage: {:x?}", id, target_account.unwrap().storage);*/
+        log::debug!("key not found");
+        log::debug!("Exit: NONE");
         return (ExitReason::Continue, gas, reg, ram, account);
     };
-    //println!("value: {:x?}", value);
+
+    
     // TODO revisar el orden de los return, no estoy seguro de si estan
     let f = std::cmp::min(reg[11], value.len() as RegSize); 
     let l = std::cmp::min(reg[12], value.len() as RegSize - f);
-    /*println!("start address: {start_write_address}");
-    println!("f: {f}, l: {l}");*/
+    log::debug!("f: {f}, l: {l}, value: {}", hex::encode(&value));
+    
     if !ram.is_writable(start_write_address, l as RamAddress) {
-        //println!("READ PANIC");
+        log::error!("Panic: The RAM is not writable from address: {start_write_address} num_bytes: {l}");
         return (ExitReason::panic, gas, reg, ram, account);
     }
+
     reg[7] = value.len() as RegSize;
     ram.write(start_write_address, value[f as usize..(f + l) as usize].to_vec());
-    /*println!("READ OK. l: {l}, f: {f}");
-    println!("key: {:x?}, value: {:x?}", key, value[f as usize..(f + l) as usize].to_vec());*/
+
+    log::debug!("Exit: OK");
     return (ExitReason::Continue, gas, reg, ram, account);
 }
 
@@ -292,6 +286,7 @@ pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account,
     gas -= 10;
 
     if gas < 0 {
+        log::debug!("Out of gas!");
         return (ExitReason::OutOfGas, gas, reg, ram, account);
     }   
 
@@ -301,51 +296,50 @@ pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account,
     let value_size = reg[10];
 
     if !ram.is_readable(key_start_address as RamAddress, key_size as RamAddress) {
-        //println!("panic: not readable");
+        log::error!("Panic: The RAM is not readable from address: {key_start_address} num_bytes: {key_size}");
         return (ExitReason::panic, gas, reg, ram, account);
     }
     
-    //println!("service_id: {}", service_id);
-
+    log::debug!("service_id: {}", service_id);
     let key = sp_core::blake2_256(&[service_id.encode(), ram.read(key_start_address as RamAddress, key_size as RamAddress)].concat())[..31].try_into().unwrap();
-    //println!("raw key: {:x?}", key);
+    log::debug!("raw key: 0x{}", hex::encode(key));
     let key = StateKeyType::Account(service_id, construct_storage_key(&key).to_vec()).construct();
-    //println!("service: {:?} storage key: {:x?}", service_id, key);
+    log::debug!("service: {:?} storage key: 0x{}", service_id, hex::encode(key));
 
     let mut s_account = account.clone();
 
     let modified_account = if value_size == 0 {
-        //println!("remove key: {:x?}", key);
+        log::debug!("remove key: 0x{}", hex::encode(key));
         s_account.storage.remove(&key);
         s_account
     } else if ram.is_readable(value_start_address as RamAddress, value_size as RamAddress) {
         let storage_data = ram.read(value_start_address as RamAddress, value_size as RamAddress);
-        //println!("insert key: {:x?} | value = {:x?}", key, storage_data);
+        log::debug!("insert key: 0x{}, value = 0x{}", hex::encode(key), hex::encode(&storage_data));
         s_account.storage.insert(key, storage_data);
         s_account
     } else {
-        //println!("WRITE panic");
+        log::error!("Panic: The RAM is not readable from address: {value_start_address}, num_bytes: {value_size}");
         return (ExitReason::panic, gas, reg, ram, account);
     };
 
     let l: RegSize = if let Some(storage_data) = account.storage.get(&key) {
-        //println!("WRITE OK");
         storage_data.len() as RegSize
     } else {
-        //println!("WRITE NONE");
         NONE as RegSize
     };
 
     let threshold = modified_account.get_footprint_and_threshold().2;
 
     if threshold > modified_account.balance {
-        //println!("WRITE FULL");
         reg[7] = FULL as RegSize;
+        log::debug!("Exit: FULL");
         return (ExitReason::Continue, gas, reg, ram, account);
     }
+
     reg[7] = l;
+
+    log::debug!("l: {:?}", l);
     return (ExitReason::Continue, gas, reg, ram, modified_account);
-    
 }
 
 pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: ServiceId, accounts: ServiceAccounts)
@@ -355,6 +349,7 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
     gas -= 10;
 
     if gas < 0 {
+        log::error!("Out of gas!");
         return (ExitReason::OutOfGas, gas, reg, ram, Account::default());
     }   
 
@@ -383,40 +378,31 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
          encode_unsigned(account.get_footprint_and_threshold().0 as usize),
          ].concat()
     } else {
-        //println!("Info: NONE");
         reg[7] = NONE;
+        log::debug!("Exit: NONE");
         return (ExitReason::Continue, gas, reg, ram, Account::default());
     };
 
     let start_address = reg[8] as RamAddress;
 
     if !ram.is_writable(start_address, metadata.len() as RamAddress) {
-        //println!("Info: Panic");
+        log::debug!("Panic: The RAM is not writable from address: {start_address} num_bytes: {:?}", metadata.len());
         return (ExitReason::panic, gas, reg, ram, Account::default());
     }
 
-    /*println!("code_hash: {:x?}", account.as_ref().unwrap().code_hash);
-    println!("balance: {:?}", account.as_ref().unwrap().balance);
-    println!("balance footprint: {:?}", account.as_ref().unwrap().get_footprint_and_threshold().2);
-    println!("acc gas: {:?}", account.as_ref().unwrap().acc_min_gas);
-    println!("xfer gas: {:?}", account.as_ref().unwrap().xfer_min_gas);
-    println!("items: {:?}", account.as_ref().unwrap().get_footprint_and_threshold().0);
-    println!("octets: {:?}", account.as_ref().unwrap().get_footprint_and_threshold().1);
-    
-
-    println!("Info: OK");
-    println!("m: {:x?}", metadata);*/
+    log::debug!("code_hash: 0x{}", hex::encode(account.as_ref().unwrap().code_hash));
+    log::debug!("balance: {:?}, balance footprint: {:?}, acc gas: {:?}, xfer gas: {:?}, items: {:?}, octets: {:?}", 
+                account.as_ref().unwrap().balance, account.as_ref().unwrap().get_footprint_and_threshold().2, account.as_ref().unwrap().acc_min_gas,
+                account.as_ref().unwrap().xfer_min_gas, account.as_ref().unwrap().get_footprint_and_threshold().0, account.as_ref().unwrap().get_footprint_and_threshold().1);
 
     ram.write(start_address, metadata);
-
     reg[7] = OK;
 
+    log::debug!("Exit: OK");
     return (ExitReason::Continue, gas, reg, ram, account.unwrap());
 }
 
 pub fn log(reg: &Registers, ram: &RamMemory, service_id: &ServiceId) {
-
-    //println!("Log hostcall");
 
     let level = reg[7];
     
@@ -427,16 +413,23 @@ pub fn log(reg: &Registers, ram: &RamMemory, service_id: &ServiceId) {
     let msg_size = reg[11] as RamAddress;
 
     if !ram.is_readable(target_start_address, target_size) {
-        println!("Ram memory is not readable for target");
+        log::error!("The RAM memory is not readable from address: {target_start_address} num_bytes: {target_size}");
     }
 
     if !ram.is_readable(msg_start_address, msg_size) {
-        println!("Ram memory is not readable for message");
+        log::error!("The RAM memory is not readable from address: {msg_start_address} num_bytes: {msg_size}");
     }
 
     let target = ram.read(target_start_address, target_size);
     let msg = ram.read(msg_start_address, msg_size);
     let msg_str = String::from_utf8_lossy(&msg);
     
-    println!(" \nLevel: {level} target: {:?} service: {service_id} msg: {:?}\n", target, msg_str);
+    match level {
+        0 => { log::error!("LOG target: {:?} service: {service_id} msg: {:?}", target, msg_str); },
+        1 => { log::warn!("LOG target: {:?} service: {service_id} msg: {:?}", target, msg_str); },
+        2 => { log::info!("LOG target: {:?} service: {service_id} msg: {:?}", target, msg_str); },
+        3 => { log::debug!("LOG target: {:?} service: {service_id} msg: {:?}", target, msg_str); },
+        4 => { log::debug!("LOG target: {:?} service: {service_id} msg: {:?}", target, msg_str); },
+        _ => { log::debug!("LOG unknown level: {:?}", level); },
+    }
 }

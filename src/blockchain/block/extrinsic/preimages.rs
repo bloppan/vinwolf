@@ -20,11 +20,13 @@ impl PreimagesExtrinsic {
         // without duplicates.
         let pairs = self.preimages.iter().map(|preimage| (preimage.requester, preimage.blob.clone())).collect::<Vec<_>>();
         if has_duplicates(&pairs) {
+            log::error!("Preimages has duplicates");
             return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
         }
         let pairs = pairs.iter().map(|(requester, blob)| (*requester, blob.as_slice())).collect::<Vec<_>>();
         //println!("pairs: {:x?}", pairs);
         if !is_sorted_preimages(&pairs) {
+            log::error!("Preimages not sorted");
             return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
         }
 
@@ -35,19 +37,23 @@ impl PreimagesExtrinsic {
             if services.contains_key(&preimage.requester) {
                 let account = services.get_mut(&preimage.requester).unwrap();
                 if account.preimages.contains_key(&hash) {
+                    log::error!("Preimage unneeded. The key 0x{} is already contained in this account", crate::print_hash!(hash));
                     return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
                 }
                 if let Some(timeslots) = account.lookup.get(&lookup_key) {
                     if timeslots.len() > 0 {
+                        log::error!("Preimage unneeded");
                         return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
                     }
                 } else {
+                    log::error!("Preimage unneeded: Lookup key 0x{} not found", crate::print_hash!(lookup_key));
                     return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
                 }
                 account.preimages.insert(hash, preimage.blob.clone());
                 let timeslot_values = vec![post_tau.clone()];
                 account.lookup.insert(lookup_key, timeslot_values);
             } else {
+                log::error!("Requester {:?} not found", preimage.requester);
                 return Err(ProcessError::PreimagesError(PreimagesErrorCode::RequesterNotFound));
             }
         }

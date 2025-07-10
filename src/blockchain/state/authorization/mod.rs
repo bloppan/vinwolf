@@ -40,6 +40,8 @@ pub fn process(
 
     // We utilize the code_authorizers (from guarantees extrinsic) to remove the oldest authorizer which has 
     // been used to justify a guaranteed work-package in the current block.
+
+    log::debug!("Process authorizations");
     'next_report: for report in guarantees_extrinsic.report_guarantee.iter() {
                         for i in 0..auth_pools.0[report.report.core_index as usize].len() {
                             if auth_pools.0[report.report.core_index as usize][i] == report.report.authorizer_hash {

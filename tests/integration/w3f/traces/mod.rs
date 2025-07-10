@@ -28,6 +28,10 @@ mod tests {
     #[test]
     fn run_traces_tests() {
 
+        use dotenv::dotenv;
+        dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+
         /*let test_body: Vec<TestBody> = vec![TestBody::RawState,
                                             TestBody::Block,
                                             TestBody::RawState];
@@ -42,7 +46,8 @@ mod tests {
         let mut slot = 1;
         
         loop {
-            println!("\n\n**********************    Reading trace test file: {}    **********************************", slot);
+
+            log::info!("\n\n**********************    Reading trace test file: {}    **********************************\n\n", slot);
 
             let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/traces/reports-l1/{:08}.bin", slot));
             let mut reader = BytesReader::new(&test_content);
@@ -64,7 +69,7 @@ mod tests {
             let error = state_transition_function(&block);
             
             if error.is_err() {
-                println!("****************************************************** Error: {:?}", error);
+                log::error!("****************************************************** Error: {:?}", error);
                 return;
             }
 
@@ -80,7 +85,7 @@ mod tests {
 
             slot += 1;
 
-            if slot == 10 {
+            if slot == 4 {
                 return;
             }
         }
@@ -234,7 +239,7 @@ mod tests {
         for service_account in expected_state.service_accounts.iter() {
             if let Some(account) = result_state.service_accounts.get(&service_account.0) {
                 //assert_eq!(service_account.1, account);
-                println!("TESTING service {:?}", service_account.0);
+                //println!("TESTING service {:?}", service_account.0);
                 //println!("Account: {:x?}", account);
                 let (_items, _octets, _threshold) = account.get_footprint_and_threshold();
                 for item in service_account.1.storage.iter() {
