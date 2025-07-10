@@ -27,10 +27,13 @@ impl WorkReport {
         curr_validators: &ValidatorsData) 
     -> Result<OutputDataReports, ProcessError> {
 
+        log::debug!("Processing work report 0x{}", crate::print_hash!(self.package_spec.hash));
+
         let auth_pools = get_auth_pools();
         // A report is valid only if the authorizer hash is present in the authorizer pool of the core on which the
         // work is reported
         if !auth_pools.0[self.core_index as usize].contains(&self.authorizer_hash) {
+            log::error!("Core {:?} unauthorized. Could not found 0x{} auth hash", self.core_index, crate::print_hash!(self.authorizer_hash));
             return Err(ProcessError::ReportError(ReportErrorCode::CoreUnauthorized));
         }
 
@@ -49,11 +52,14 @@ impl WorkReport {
         // In order to ensure fair use of a block’s extrinsic space, work-reports are limited in the maximum total size of 
         // the successful output blobs together with the authorizer output blob, effectively limiting their overall size
         if work_report_size + self.auth_output.len() > MAX_OUTPUT_BLOB_SIZE {
+            log::error!("Work report too big: {:?}. The max output blob size is {:?}", work_report_size + self.auth_output.len(), MAX_OUTPUT_BLOB_SIZE);
             return Err(ProcessError::ReportError(ReportErrorCode::WorkReportTooBig));
         }
 
         // We require that each lookup-anchor block be within the last MAX_AGE_LOOKUP_ANCHOR timeslots
         if *post_tau > self.context.lookup_anchor_slot + MAX_AGE_LOOKUP_ANCHOR {
+            log::error!("Bad lookup anchor slot. Current slot {:?} > lookup anchor slot + MAX AGE LOOKUP ANCHOR {:?}", 
+                        *post_tau, self.context.lookup_anchor_slot + MAX_AGE_LOOKUP_ANCHOR);
             return Err(ProcessError::ReportError(ReportErrorCode::BadLookupAnchorSlot));
         }
 
@@ -89,6 +95,7 @@ impl WorkReport {
                     prev_validators,
                     curr_validators)?;
 
+        log::debug!("Work report 0x{} processed successfully", crate::print_hash!(self.package_spec.hash));
         return Ok(OutputDataReports{reported: new_reported, reporters: new_reporters});
     }
 
@@ -99,17 +106,22 @@ impl WorkReport {
         for block in &block_history.blocks {
             if block.header_hash == self.context.anchor {
                 if block.state_root != self.context.state_root {
+                    log::error!("Bad state root. Block state root 0x{} != Context state root 0x{}", 
+                                crate::print_hash!(block.state_root), crate::print_hash!(self.context.state_root));
                     return Err(ProcessError::ReportError(ReportErrorCode::BadStateRoot));
                 }
 
                 if mmr_super_peak(&block.mmr) != self.context.beefy_root {
+                    log::error!("Bad beefy MMR Root");
                     return Err(ProcessError::ReportError(ReportErrorCode::BadBeefyMmrRoot));
                 }
-
+        
+                log::debug!("The block anchor is recent");
                 return Ok(true);
             }
         }
 
+        log::error!("Anchor not recent");
         Err(ProcessError::ReportError(ReportErrorCode::AnchorNotRecent))
     }
 
@@ -123,6 +135,8 @@ impl WorkReport {
                  current_validators: &ValidatorsData) 
     -> Result<OutputDataReports, ProcessError> {
 
+        log::debug!("Try place work report 0x{}", crate::print_hash!(self.package_spec.hash));
+        
         let mut reported: Vec<ReportedPackage> = Vec::new();
         let mut reporters: Vec<Ed25519Public> = Vec::new();
 
@@ -154,26 +168,32 @@ impl WorkReport {
 
             for credential in credentials {
                 if credential.validator_index as usize >= VALIDATORS_COUNT {
+                    log::error!("Bad validator index: {:?}", credential.validator_index);
                     return Err(ProcessError::ReportError(ReportErrorCode::BadValidatorIndex));
                 }
                 let validator = &validators_data.list[credential.validator_index as usize];
 
                 if !credential.signature.verify_signature(&message, &validator.ed25519) {
+                    log::error!("Bad signature");
                     return Err(ProcessError::ReportError(ReportErrorCode::BadSignature));
                 }
                 if ROTATION_PERIOD * ((*post_tau / ROTATION_PERIOD).saturating_sub(1)) > guarantee_slot {
+                    log::error!("Report epoch before last");
                     return Err(ProcessError::ReportError(ReportErrorCode::ReportEpochBeforeLast));
                 }
                 if guarantee_slot > *post_tau {
+                    log::error!("Future report slot: {:?}. The current block slot is {:?}", guarantee_slot, *post_tau);
                     return Err(ProcessError::ReportError(ReportErrorCode::FutureReportSlot));
                 }
                 // The signing validators must be assigned to the core in question in either this block if the timeslot for the
                 // guarantee is in the same rotation as this block's timeslot, or in the most recent previous set of assigmments.
                 if let Some(&core_index) = assignments.get(&validator.ed25519) {
                     if core_index != self.core_index {
+                        log::error!("Wrong assignment {:?} != {:?}", core_index, self.core_index);
                         return Err(ProcessError::ReportError(ReportErrorCode::WrongAssignment));
                     }
                 } else {
+                    log::error!("Guarantor not found");
                     return Err(ProcessError::ReportError(ReportErrorCode::GuarantorNotFound));
                 }
                 // We note that the Ed25519 key of each validator whose signature is in a credential is placed in the reporters set.
@@ -196,9 +216,12 @@ impl WorkReport {
 
             // Update the reporting assurance state
             add_assignment(&assignment, assurances_state);
+
+            log::debug!("The work report was placed successfully");
             return Ok(OutputDataReports{reported: reported, reporters: reporters});
         } 
         
+        log::error!("Core {:?} engaged", self.core_index);
         return Err(ProcessError::ReportError(ReportErrorCode::CoreEngaged));
     }
 }

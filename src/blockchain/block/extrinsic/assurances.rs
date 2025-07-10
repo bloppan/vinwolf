@@ -24,12 +24,14 @@ impl AssurancesExtrinsic {
         parent: &Hash) 
     -> Result<OutputDataAssurances, ProcessError> {
 
+        log::debug!("Processing assurances extrinsic...");
         // TODO no se si poner esto
         /*if self.assurances.is_empty() {
             return Ok(OutputDataAssurances { reported: Vec::new() });
         }*/
         // The assurances extrinsic is a sequence of assurance values, at most one per validator
         if self.assurances.len() > VALIDATORS_COUNT {
+            log::error!("Too many extrinsic assurances: {:?}", self.assurances.len());
             return Err(ProcessError::AssurancesError(AssurancesErrorCode::TooManyAssurances));
         }
 
@@ -41,12 +43,14 @@ impl AssurancesExtrinsic {
         // The index can not be greater or equal than the total number of validators
         for index in &validator_indexes {
             if *index as usize >= VALIDATORS_COUNT {
+                log::error!("Bad validator index: {:?}", *index);
                 return Err(ProcessError::AssurancesError(AssurancesErrorCode::BadValidatorIndex));
             }
         }                       
 
         // The assurances must all be ordered by validator index
         if !is_sorted_and_unique(&validator_indexes) {
+            log::error!("Not sorted or unique assurers");
             return Err(ProcessError::AssurancesError(AssurancesErrorCode::NotSortedOrUniqueAssurers));
         }
         
@@ -56,6 +60,7 @@ impl AssurancesExtrinsic {
         for assurance in &self.assurances {
             // The assurances must all be anchored on the parent
             if assurance.anchor != *parent {
+                log::error!("Bad attestation parent: 0x{} Block parent: 0x{}", crate::print_hash!(assurance.anchor), crate::print_hash!(*parent));
                 return Err(ProcessError::AssurancesError(AssurancesErrorCode::BadAttestationParent));
             }
             // The signature must be one whose public key is that of the validator assuring and whose message is the
@@ -67,9 +72,11 @@ impl AssurancesExtrinsic {
             message.extend_from_slice(&blake2_256(&serialization));
             let validator = &current_validators.list[assurance.validator_index as usize]; 
             if !assurance.signature.verify_signature(&message, &validator.ed25519) {
+                log::error!("Bad signature");
                 return Err(ProcessError::AssurancesError(AssurancesErrorCode::BadSignature));
             }
             if assurance.bitfield.len() != AVAIL_BITFIELD_BYTES {
+                log::error!("Wrong bitfield length");
                 return Err(ProcessError::AssurancesError(AssurancesErrorCode::WrongBitfieldLength));
             }
             
@@ -78,6 +85,7 @@ impl AssurancesExtrinsic {
                 if bitfield {
                     // A bit may only be set if the corresponding core has a report pending availability on it
                     if assurances_state.list[core as usize].is_none() {
+                        log::error!("Core {:?} not engaged", core);
                         return Err(ProcessError::AssurancesError(AssurancesErrorCode::CoreNotEngaged));
                     }
                     core_marks[core as usize] += 1;
@@ -102,6 +110,7 @@ impl AssurancesExtrinsic {
         // The Availability Assignments are equivalents except for the removal of items which are now available
         for core in &to_remove {
             if let Some(assignment) = &assurances_state.list[*core as usize] {
+                log::debug!("New assignment 0x{} added to core {:?} with timeout: {:?}", crate::print_hash!(assignment.report.package_spec.hash), *core, post_tau);
                 add_assignment(&AvailabilityAssignment {
                     report: assignment.report.clone(),
                     timeout: post_tau.clone(),
@@ -110,9 +119,12 @@ impl AssurancesExtrinsic {
         }
 
         for core in to_remove {
+            log::debug!("Remove assignment from core {:?}", core);
             remove_assignment(&core, assurances_state);
         }
-    
+        
+        log::debug!("Assurances extrinsic processed successfully");
+
         Ok(OutputDataAssurances { reported } )
     }
 

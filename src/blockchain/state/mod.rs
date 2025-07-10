@@ -50,8 +50,9 @@ static STATE_ROOT: Lazy<Mutex<OpaqueHash>> = Lazy::new(|| {
 // dependency graph where possible. 
 pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
-    println!();
-    log::info!("Process new block");
+    let header_hash = blake2_256(&block.header.encode());
+    log::info!("Importing new block: 0x{}", hex::encode(header_hash));
+    
     block.header.verify(&block.extrinsic)?;
 
     let mut new_state = get_global_state().lock().unwrap().clone();
@@ -66,7 +67,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
 
     let curr_block_history = recent_history::process(
         &mut new_state.recent_history,
-        &blake2_256(&block.header.encode()), 
+        &header_hash, 
         &block.header.unsigned.parent_state_root,
         &reported_work_packages);
         
@@ -124,7 +125,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
     recent_history::finalize(
         &mut new_state.recent_history,
-        &blake2_256(&block.header.encode()),
+        &header_hash,
         &accumulation_root,
         &reported_work_packages);
 

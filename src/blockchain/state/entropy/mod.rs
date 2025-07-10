@@ -21,8 +21,6 @@ pub fn set_recent_entropy(entropy: OpaqueHash) {
     *recent_entropy = entropy;
 }
 
-
-
 impl EntropyPool {
 
     pub fn rotate(&mut self) {

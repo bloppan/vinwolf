@@ -33,6 +33,7 @@
 use ark_vrf::reexports::ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_vrf::suites::bandersnatch::Public;
 use crate::blockchain::state::safrole::bandersnatch::Verifier;
+use crate::print_hash;
 use ark_vrf::suites::bandersnatch::RingProofParams;
 
 use once_cell::sync::Lazy;
@@ -116,7 +117,7 @@ pub fn process(
 
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
-        log::info!("We are in a new epoch");
+        log::info!("We are in a new epoch: {:?}", post_epoch);
         // On an epoch transition, we therefore rotate the accumulator value into the history eta1, eta2 eta3
         entropy_pool.rotate();
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
@@ -129,7 +130,7 @@ pub fn process(
         safrole_state.epoch_root = create_root_epoch(next_ring_set);
         // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
         // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
-        log::info!("New epoch mark");
+        log::debug!("New epoch mark");
         epoch_mark = Some(EpochMark {
             entropy: entropy_pool.buf[1].clone(),
             tickets_entropy: entropy_pool.buf[2].clone(),
@@ -153,7 +154,7 @@ pub fn process(
         if post_epoch == epoch + 1 && m >= TICKET_SUBMISSION_ENDS as u32 && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
             // If the block is the first after the end of the submission period for tickets and if the ticket accumulator 
             // is saturated, then the final sequence of ticket identifiers
-            log::info!("The block is the first after the end of submission period for tickets and the ticket accumulator is saturated");
+            log::debug!("First block after the end of submission period for tickets and the ticket accumulator is saturated");
             safrole_state.seal = TicketsOrKeys::Tickets(outside_in_sequencer(&safrole_state.ticket_accumulator));
         } else if post_epoch == epoch {
             // gamma_s' = gamma_s
@@ -177,6 +178,7 @@ pub fn process(
     *tau = post_tau;
     //Verify the header's seal
     let entropy_source_vrf_output = block.header.seal_verify(&safrole_state, &entropy_pool, &curr_validators, ring_set)?;
+    log::debug!("vrf output: 0x{}", crate::print_hash!(entropy_source_vrf_output));
     // Update recent entropy eta0
     entropy_pool.update_recent(entropy_source_vrf_output);
     
@@ -184,7 +186,7 @@ pub fn process(
 }
 
 pub fn create_ring_set(validators: &ValidatorsData) -> Vec<Public> {
-    log::info!("Create ring set");
+    log::debug!("Create ring set");
     validators
         .list
         .iter()
@@ -198,10 +200,10 @@ pub fn create_ring_set(validators: &ValidatorsData) -> Vec<Public> {
 }
 
 pub fn create_root_epoch(ring_set: Vec<Public>) -> BandersnatchRingCommitment {
-    log::info!("Create root epoch");
     let verifier = Verifier::new(ring_set);
     let mut proof: BandersnatchRingCommitment = [0u8; std::mem::size_of::<BandersnatchRingCommitment>()];
     verifier.commitment.serialize_compressed(&mut proof[..]).unwrap();
+    log::debug!("Create root epoch: 0x{}", print_hash!(proof));
     return proof;
 }
 
