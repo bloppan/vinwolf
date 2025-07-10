@@ -25,8 +25,10 @@ impl GuaranteesExtrinsic {
         curr_validators: &ValidatorsData) 
     -> Result<OutputDataReports, ProcessError> {
 
+        log::debug!("Processing guarantees extrinsic...");
         // At most one guarantee for each core
         if self.report_guarantee.len() > CORES_COUNT {
+            log::error!("Too many guarantees: {:?}", self.report_guarantee.len());
             return Err(ProcessError::ReportError(ReportErrorCode::TooManyGuarantees));
         }
 
@@ -36,17 +38,22 @@ impl GuaranteesExtrinsic {
                                                                         .collect::<Vec<_>>();
         packages_hashes.sort(); 
         if !is_sorted_and_unique(&packages_hashes) {
+            log::error!("Duplicate package in guarantees extrinsic");
             return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
         }
         
         // Therefore, we require the cardinality of all work-packages to be the length of the work-report sequence
         if packages_hashes.len() != self.report_guarantee.len() {
+            log::error!("Length not equal in guarantees extrinsic: packages hashes length {:?} != guarantees length {:?}", 
+                        packages_hashes.len(), self.report_guarantee.len());
             return Err(ProcessError::ReportError(ReportErrorCode::LengthNotEqual));
         }
 
         // We limit the sum of the number of items in the segment-root lookup dictionary and the number of prerequisites to MAX_DEPENDENCY_ITEMS
         for guarantee in &self.report_guarantee {
             if guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.len() > MAX_DEPENDENCY_ITEMS {
+                log::error!("Too many dependencies: {:?} > MAX_DEPENDENCY_ITEMS: {:?}", 
+                            guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.len(), MAX_DEPENDENCY_ITEMS);
                 return Err(ProcessError::ReportError(ReportErrorCode::TooManyDependencies));
             }
         }
@@ -98,33 +105,39 @@ impl GuaranteesExtrinsic {
             // The core index of each guarantee must be unique and guarantees must be in ascending order of this
             core_index.push(guarantee.report.core_index);
             if !is_sorted_and_unique(&core_index) {
+                log::error!("Out of order guarantee");
                 return Err(ProcessError::ReportError(ReportErrorCode::OutOfOrderGuarantee));
             }
 
             if guarantee.report.core_index > CORES_COUNT as CoreIndex {
+                log::error!("Bad core index: {:?}. The total of cores is {:?}", guarantee.report.core_index, CORES_COUNT);
                 return Err(ProcessError::ReportError(ReportErrorCode::BadCoreIndex));
             }
 
             // The credential is a sequence of two or three tuples of a unique validator index and a signature
             if guarantee.signatures.len() < 2 || guarantee.signatures.len() > 3 {
+                log::error!("Insufficient guarantees signatures: {:?}", guarantee.signatures.len());
                 return Err(ProcessError::ReportError(ReportErrorCode::InsufficientGuarantees));
             }
 
             // Credentials must be ordered by their validator index
             let validator_indexes: Vec<ValidatorIndex> = guarantee.signatures.iter().map(|i| i.validator_index).collect();
             if !is_sorted_and_unique(&validator_indexes) {
+                log::error!("Not sorted or unique guarantors");
                 return Err(ProcessError::ReportError(ReportErrorCode::NotSortedOrUniqueGuarantors));
             }
 
             // We require that the work-package of the report not be the work-package of some other report made in the past.
             // We ensure that the work-package not appear anywhere within our pipeline.
             if wp_hashes_in_our_pipeline.contains(&guarantee.report.package_spec.hash) {
+                log::error!("Duplicate package 0x{}", crate::print_hash!(guarantee.report.package_spec.hash));
                 return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
             }
  
             // We require that the prerequisite work-packages, if present, be either in the extrinsic or in our recent history 
             for prerequisite in &guarantee.report.context.prerequisites {
                 if !packages_map.contains_key(prerequisite) && !recent_history_map.contains_key(prerequisite) {
+                    log::error!("Dependency missing 0x{}", crate::print_hash!(*prerequisite));
                     return Err(ProcessError::ReportError(ReportErrorCode::DependencyMissing));
                 }
             }
@@ -138,7 +151,10 @@ impl GuaranteesExtrinsic {
                 // recent work-package history and the present block
                 match segment_root {
                     Some(&value) if value == segment.segment_tree_root => continue,
-                    _ => return Err(ProcessError::ReportError(ReportErrorCode::SegmentRootLookupInvalid)),
+                    _ => {
+                        log::error!("Segment root lookup invalid");
+                        return Err(ProcessError::ReportError(ReportErrorCode::SegmentRootLookupInvalid));
+                    },
                 }
             }
 
@@ -163,7 +179,8 @@ impl GuaranteesExtrinsic {
         reporters.sort();
         /*reported.sort_by(|a, b| a.work_package_hash.cmp(&b.work_package_hash));
         reporters.sort();*/
-    
+        log::debug!("Guarantees extrinsic processed successfully");
+
         Ok(OutputDataReports { reported, reporters })
     }
     

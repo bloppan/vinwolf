@@ -177,17 +177,20 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), io::Error>  {
 
     loop {
         match listener.accept().await {
+
             Ok((mut socket, _)) => {
 
+                log::info!("New incomming connection accepted...");
+
                 loop {
-                    let mut buffer = vec![0; 102400];
+                    let mut buffer = vec![0; 1024000];
                     match socket.read(&mut buffer).await {
                         
                         Ok(0) => {
                             // Si el cliente cierra la conexión
-                            println!("no bytes received");
+                            //println!("no bytes received");
                             tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-                            //break;
+                            break;
                         }
                         Ok(n) => {
                             // Mostrar lo que se recibe del cliente
@@ -195,8 +198,7 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), io::Error>  {
 
                             let msg_len = u32::decode(&mut reader).unwrap();
                             let msg_type: Message = reader.read_byte().unwrap().into();
-                            log::info!("Total bytes received: {:?} bytes", n);
-                            log::info!("Message length: {:?} bytes", msg_len);
+                            log::info!("New message. Total bytes received: {:?} bytes. Message length: {:?} bytes", n, msg_len);
                             match msg_type {
                                 Message::PeerInfo => { 
                                     let peer_info = PeerInfo::decode(&mut reader).unwrap();
@@ -220,19 +222,21 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), io::Error>  {
                                                 vinwolf_info.app_version.major, vinwolf_info.app_version.minor, vinwolf_info.app_version.patch,
                                                 vinwolf_info.jam_version.major, vinwolf_info.jam_version.minor, vinwolf_info.jam_version.patch, 
                                     );
+                                    log::info!("(Actually the target info that I'm sending is 'jamzig-fuzzer version: 0.1.0 protocol version: 0.6.6', in order to have the fuzzer accepting the handshake)");
                                 },
                                 Message::SetState => {
                                     log::info!("SetState frame received");
                                     let header = Header::decode(&mut reader).unwrap();
                                     //log::info!("SET STATE - Header: {:?}", header);
                                     let serialized_state = Vec::<KeyValue>::decode_len(&mut reader).unwrap();
+                                    log::debug!("{:?} key-values received", serialized_state.len());
                                     let mut global_state = GlobalState::default();
                                     set_state(serialized_state, &mut global_state);
                                     set_global_state(global_state.clone());
                                     let state_root = merkle_state(&global_state.serialize().map, 0).unwrap();
                                     crate::blockchain::state::set_state_root(state_root.clone());
                                     socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)).await?;
-                                    log::info!("SetState - state root: 0x{}", hex::encode(state_root));
+                                    log::info!("SetState - send to fuzzer the state root setted: 0x{}", hex::encode(state_root));
                                 },
                                 Message::ImportBlock => {
                                     log::info!("ImportBlock frame received");
@@ -249,16 +253,24 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), io::Error>  {
                                         },
                                     }
                                     let state_root = get_state_root().lock().unwrap().clone();
-                                    log::info!("Send state root: 0x{}", hex::encode(state_root));
+                                    log::info!("Send to fuzzer the state root result: 0x{}", hex::encode(state_root));
                                     socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)).await?;
                                 },
                                 Message::GetState => {
                                     log::info!("GetState frame received");
                                     let hash = OpaqueHash::decode(&mut reader).unwrap();
                                     log::info!("Header hash received: 0x{}", hex::encode(hash));
+                                    let raw_state = get_global_state().lock().unwrap().clone().serialize();
                                     let serialized_state = get_global_state().lock().unwrap().clone().serialize().map.encode();
+                                    //log::info!("len raw_state: {:?}", raw_state.map.len());
+                                    let msg = [encode_unsigned(raw_state.map.len()), serialized_state].concat();
                                     log::info!("Send serialized state");
-                                    socket.write_all(&construct_fuzz_msg(Message::State, &serialized_state)).await?;
+                                    let key_values = get_global_state().lock().unwrap().clone().serialize();
+                                    for item in key_values.map.iter() {
+                                        log::debug!("key: {} val: {}", hex::encode(item.0), hex::encode(item.1));
+                                    }
+                                    //socket.write_all(&construct_fuzz_msg(Message::State, &serialized_state)).await?;
+                                    socket.write_all(&construct_fuzz_msg(Message::State, &msg)).await?;
                                 },
                                 _ => {
                                     log::info!("Message type not supported: {:?}", msg_type);
