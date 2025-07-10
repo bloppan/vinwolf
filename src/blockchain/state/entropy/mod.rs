@@ -1,6 +1,7 @@
 use sp_core::blake2_256;
 use std::sync::Mutex;
 use once_cell::sync::Lazy;
+use crate::{print_hash, print_hash_start};
 
 use crate::types::{Entropy, EntropyPool, OpaqueHash};
 
@@ -20,6 +21,8 @@ pub fn set_recent_entropy(entropy: OpaqueHash) {
     *recent_entropy = entropy;
 }
 
+
+
 impl EntropyPool {
 
     pub fn rotate(&mut self) {
@@ -30,14 +33,20 @@ impl EntropyPool {
         self.buf[3] = self.buf[2].clone();
         self.buf[2] = self.buf[1].clone();
         self.buf[1] = self.buf[0].clone();
+        log::debug!("Rotate entropy pool η=[{}, {}, {}, {}]", 
+                    print_hash_start!(self.buf[0].entropy), 
+                    print_hash_start!(self.buf[1].entropy), 
+                    print_hash_start!(self.buf[2].entropy),
+                    print_hash_start!(self.buf[3].entropy));
     }
 
-    pub fn update_recent(&mut self, entropy_source: [u8; 32]) {
+    pub fn update_recent(&mut self, entropy_source: OpaqueHash) {
         // eta0 defines the state of the randomness accumulator to which the provably random output of the vrf, the signature over 
         // some unbiasable input, is combined each block. eta1 and eta2 meanwhile retain the state of this accumulator at the end 
         // of the two most recently ended epochs in order.
         self.buf[0] = Entropy { entropy: blake2_256(&[self.buf[0].entropy, entropy_source].concat())};
         set_recent_entropy(self.buf[0].entropy);
+        log::debug!("Update recent entropy η0: 0x{}", print_hash!(self.buf[0].entropy));
     }
 }
 

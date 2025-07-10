@@ -1,5 +1,4 @@
-use vinwolf::types::{AccumulatedHistory, Entropy, OpaqueHash, PreimagesMapEntry, Privileges, ReadyQueue, ServiceId, ServiceInfo, ServicesStatistics, TimeSlot, WorkReport};
-use vinwolf::utils::codec::generic::{decode_unsigned, encode_unsigned};
+use vinwolf::types::{AccumulatedHistory, OpaqueHash, PreimagesMapEntry, Privileges, ReadyQueue, ServiceId, ServiceInfo, ServicesStatistics, TimeSlot, WorkReport};
 use vinwolf::utils::codec::{BytesReader, Decode, DecodeLen, Encode, EncodeLen, ReadError};
 
 #[derive(Debug, Clone, PartialEq)]

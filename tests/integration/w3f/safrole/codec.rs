@@ -65,7 +65,7 @@ impl Encode for SafroleState {
         self.kappa.encode_to(&mut state_encoded);
         self.gamma_k.encode_to(&mut state_encoded);
         self.iota.encode_to(&mut state_encoded);
-        self.gamma_a.encode_to(&mut state_encoded);
+        self.gamma_a.encode_len().encode_to(&mut state_encoded);
         self.gamma_s.encode_to(&mut state_encoded);
         self.gamma_z.encode_to(&mut state_encoded);
         self.post_offenders.encode_len().encode_to(&mut state_encoded);

@@ -18,7 +18,7 @@ fn hostcall<F>(program_code: &[u8], pc: RegSize, gas: Gas, reg: Registers, ram: 
 where 
     F: Fn(HostCallFn, Gas, Registers, RamMemory, HostCallContext) -> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
 {
-    println!("Hostcall");
+    //println!("Hostcall");
     let mut pvm_ctx = Context::default();
     pvm_ctx.pc = pc;
     pvm_ctx.gas = gas;
@@ -88,7 +88,7 @@ fn hostcall_argument<F>(program_code: &[u8], pc: RegSize, gas: Gas, arg: &[u8], 
 where 
     F: Fn(HostCallFn, Gas, Registers, RamMemory, HostCallContext) -> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
 {
-    println!("Hostcall argument");
+    //println!("Hostcall argument");
     let std_program_decoded = match init_std_program(&program_code, &arg) {
         Ok(program) => {
             if program.is_none() {
@@ -121,7 +121,7 @@ fn R(gas: Gas, hostcall_result: (ExitReason, RegSize, Gas, Registers, RamMemory,
     if exit_reason == ExitReason::Halt || exit_reason == ExitReason::halt { // TODO cambiar esto
         if post_ram.is_readable(start_address, bytes_to_read) {
             let data = post_ram.read(start_address, post_reg[8] as u32);
-            println!("ram is readable after halt");
+            //println!("ram is readable after halt");
             return (gas_consumed, WorkExecResult::Ok(data), post_ctx);
         } else {
             println!("ram not readable after halt");

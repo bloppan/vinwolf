@@ -1114,10 +1114,10 @@ pub struct AccumulationOperand {
     pub code_hash: OpaqueHash,
     pub exports_root: OpaqueHash,
     pub authorizer_hash: OpaqueHash,
-    pub auth_output: Vec<u8>,
     pub payload_hash: OpaqueHash,
     pub gas_limit: Gas,
     pub result: Vec<u8>,
+    pub auth_output: Vec<u8>,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct RefineMemory {
@@ -1128,13 +1128,15 @@ pub struct RefineMemory {
 
 // The set of data segments, equivalent to octet sequences of length WG.(4104)
 pub type DataSegment = [u8; SEGMENT_SIZE];
+pub type DataSegments = Vec<DataSegment>;
 
 pub type StateKey = [u8; 31];
 pub type StorageKey = [u8; 31];
+pub type TrieKey = [u8; 31];
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct KeyValue {
-    pub key: StorageKey,
+    pub key: TrieKey,
     pub value: Vec<u8>,
 }
 
@@ -1144,3 +1146,4 @@ pub struct RawState {
     pub state_root: StateRoot,
     pub keyvals: Vec<KeyValue>,
 }
+

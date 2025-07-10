@@ -2,19 +2,28 @@ use once_cell::sync::Lazy;
 use crate::integration::w3f::{read_test_file, FromProcessError};
 use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
-use vinwolf::types::{Safrole, OutputSafrole, DisputesRecords, ValidatorSet, ProcessError};
-use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, TICKET_ENTRIES_PER_VALIDATOR};
-use vinwolf::blockchain::state::{set_time, set_entropy, set_validators, set_safrole,set_disputes};
+use vinwolf::types::{Safrole, OutputSafrole, DisputesRecords, ValidatorSet, ProcessError, Block, Header, Extrinsic, OutputDataSafrole};
+use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, TICKET_ENTRIES_PER_VALIDATOR, MAX_TICKETS_PER_EXTRINSIC};
+use vinwolf::blockchain::state::{
+    set_time, set_entropy, set_validators, set_safrole, set_disputes, get_global_state, set_global_state, get_time, get_entropy,
+    get_validators, get_safrole, get_disputes,
+
+};
+use vinwolf::blockchain::state::safrole;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
 use crate::integration::w3f::safrole::codec::SafroleState;
 
 pub mod codec;
 
+use codec::InputSafrole;
+
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
-    if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && TICKET_SUBMISSION_ENDS == 10 && TICKET_ENTRIES_PER_VALIDATOR == 3 {
+    if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && TICKET_SUBMISSION_ENDS == 10 
+    && TICKET_ENTRIES_PER_VALIDATOR == 3 && MAX_TICKETS_PER_EXTRINSIC == 3 {
         "tiny"
-    } else if VALIDATORS_COUNT == 1023 && EPOCH_LENGTH == 600 && TICKET_SUBMISSION_ENDS == 500 && TICKET_ENTRIES_PER_VALIDATOR == 2 {
+    } else if VALIDATORS_COUNT == 1023 && EPOCH_LENGTH == 600 && TICKET_SUBMISSION_ENDS == 500 
+    && TICKET_ENTRIES_PER_VALIDATOR == 2 && MAX_TICKETS_PER_EXTRINSIC == 16 {
         "full"
     } else {
         panic!("Invalid configuration for tiny nor full tests");
@@ -47,10 +56,10 @@ mod tests {
         let _ = encode_decode_test(&test_content, &test_body);
 
         let mut reader = BytesReader::new(&test_content);
-        //let input = InputSafrole::decode(&mut reader).expect("Error decoding InputSafrole");
+        let input = InputSafrole::decode(&mut reader).expect("Error decoding InputSafrole");
         let pre_state = SafroleState::decode(&mut reader).expect("Error decoding pre_state Safrole");
-        //let expected_output = OutputSafrole::decode(&mut reader).expect("Error decoding OutputSafrole");       
-        //let expected_state = SafroleState::decode(&mut reader).expect("Error decoding expected_state Safrole");
+        let expected_output = OutputSafrole::decode(&mut reader).expect("Error decoding OutputSafrole");       
+        let expected_state = SafroleState::decode(&mut reader).expect("Error decoding expected_state Safrole");
 
         let pre_state_safrole = Safrole {
             pending_validators: pre_state.gamma_k,
@@ -73,19 +82,27 @@ mod tests {
         set_safrole(pre_state_safrole);
         set_disputes(disputes);
 
-        //let mut state = get_global_state().lock().unwrap().clone();
+        let mut state = get_global_state().lock().unwrap().clone();
 
-        /*let output_result = process_safrole(&mut state.safrole
+        let mut header = Header::default();
+        header.unsigned.slot = input.slot;
+
+        let mut extrinsic = Extrinsic::default();
+        extrinsic.tickets = input.tickets_extrinsic;
+
+        let block = Block {header, extrinsic};
+
+        let output_result = safrole::process(&mut state.safrole
                                                                         , &mut state.entropy
                                                                         , &mut state.curr_validators
                                                                         , &mut state.prev_validators
-                                                                        , &mut state.time
-                                                                        , &input.slot
-                                                                        , &input.entropy
-                                                                        , &input.tickets_extrinsic);
+                                                                        , &mut state.time,
+                                                                        &block,
+                                                                        &mut state.disputes.offenders);
         
         match output_result {
             Ok(_) => { 
+                state.entropy.update_recent(input.entropy.entropy.clone());
                 set_time(state.time.clone());
                 set_entropy(state.entropy.clone());
                 set_validators(state.prev_validators.clone(), ValidatorSet::Previous);
@@ -93,7 +110,9 @@ mod tests {
                 set_validators(state.next_validators.clone(), ValidatorSet::Next);
                 set_safrole(state.safrole.clone());        
             },
-            Err(_) => { },
+            Err(_) => { 
+                println!("ERROR: {:?}", output_result);
+            },
         }
 
         let expected_safrole_state = Safrole {
@@ -126,7 +145,7 @@ mod tests {
             Err(error) => {
                 assert_eq!(expected_output, OutputSafrole::from_process_error(error));
             }
-        }*/
+        }
     }
 
     #[test]
@@ -192,7 +211,7 @@ mod tests {
             // One of the keys is just invalid (i.e. it can't be decoded into a valid Bandersnatch point).
             // Both the invalid keys are replaced with the padding point during ring commitment computation.
             "enact-epoch-change-with-padding-1.bin", // OK
-            ];
+        ];
         
         for file in test_files {
             println!("Running test: {}", file);

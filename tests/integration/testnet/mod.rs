@@ -1,247 +1,270 @@
-use serde::Deserialize;
-use std::fs::File;
-use std::io::Read;
-use std::path::PathBuf;
-use crate::integration::w3f::codec::{TestBody, encode_decode_test};
+use crate::integration::w3f::read_test_file;
+
+use vinwolf::constants::{*};
+use vinwolf::types::{
+    RawState, Block, AuthPools, AuthQueues, BlockHistory, Safrole, DisputesRecords, EntropyPool, ValidatorsData, AvailabilityAssignments,
+    Privileges, Statistics, ReadyQueue, AccumulatedHistory, OpaqueHash, Gas, ServiceId, Account, KeyValue
+};
+use vinwolf::blockchain::state::{get_global_state, state_transition_function};
+use vinwolf::utils::codec::{Decode, DecodeLen, BytesReader};
+use vinwolf::utils::codec::generic::decode;
+use vinwolf::utils::trie::merkle_state;
+use vinwolf::{blockchain::state::set_global_state, types::{GlobalState, TimeSlot}};
 
 pub mod codec;
-pub mod parser;
-use parser::{deserialize_state_transition_file, deserialize_state};
 
-extern crate vinwolf;
+#[derive(Debug, Clone, PartialEq)]
+pub struct TestCase {
 
-use vinwolf::types::{
-    Block, GlobalState, OpaqueHash, EpochMark, Judgement, Verdict, Culprit, Fault, TicketsMark, Ed25519Public, TicketBody, AvailAssurance, TicketEnvelope
-};
-use vinwolf::constants::{*};
-use vinwolf::blockchain::state::{get_global_state, state_transition_function};
-use vinwolf::blockchain::state::set_global_state;
-use vinwolf::utils::codec::{Decode, BytesReader};
-
-use vinwolf::utils::trie::merkle_state;
-
-#[derive(Debug, Deserialize)]
-struct TestnetState {
-    pub state_root: String,
-    pub keyvals: Vec<(String, String, String, String)>, 
+    pub pre_state: RawState,
+    pub block: Block,
+    pub post_state: RawState,
 }
 
-#[derive(Debug, Deserialize)]
-struct TestData {
-    pub pre_state: TestnetState,
-    pub post_state: TestnetState,
-}
-#[derive(Debug, Deserialize)]
-struct TestFuzzedData {
-    pub pre_state: TestnetState,
-}
-
-#[allow(dead_code)]
-#[derive(Debug)]
-pub struct ParsedTransitionFile {
-    pub pre_state_root: OpaqueHash,
-    pub pre_state: GlobalState,
-    pub post_state_root: OpaqueHash,
-    pub post_state: GlobalState,
-}
-
-#[allow(dead_code)]
-#[derive(Debug)]
-pub struct ParsedStateFile {
-    pub pre_state_root: OpaqueHash,
-    pub pre_state: GlobalState,
-}
-
-pub fn read_test(filename: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(filename);
-    println!("Reading test file: {:?}", path);
-    let mut file = match File::open(&path) {
-        Ok(file) => file,
-        Err(e) => {
-            return Err(Box::new(e));
-        }
-    };
-    let mut test_content = Vec::new();
-    let _ = file.read_to_end(&mut test_content);
-    Ok(test_content)
-}
 
 #[cfg(test)]
 mod tests {
-
+    
     use super::*;
-    use serde_json::*;
 
     #[test]
-    fn run_testnet() {
+    fn run_javajam_tests() {
 
-        //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/fallback");
-        //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/safrole");
+        /*let test_body: Vec<TestBody> = vec![TestBody::RawState,
+                                            TestBody::Block,
+                                            TestBody::RawState];
+
+        let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/traces/reports-l0/00000000.bin"));
+        let _ = encode_decode_test(&test_content, &test_body);
+        let mut reader = BytesReader::new(&test_content);
+        let pre_state = RawState::decode(&mut reader).expect("Error decoding post WorkReport PreState");
+        let block = Block::decode(&mut reader).expect("Error decoding post OutputWorkReport");
+        let post_state = RawState::decode(&mut reader).expect("Error decoding post WorkReport PostState");*/
         
-        //run_jamduna_blocks_fuzzed("tests/test_vectors/testnet/jamtestnet/data/safrole/state_transitions_fuzzed/");
+        let mut slot = 1995079;
         
-        //run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/assurances");
-        
-        //run_jamduna_blocks_fuzzed("tests/test_vectors/testnet/jamtestnet/data/assurances/state_transitions_fuzzed/");
-        
-        run_jamduna_blocks("tests/test_vectors/testnet/jamtestnet/data/orderedaccumulation");
-        //run_javajam_blocks("tests/test_vectors/testnet/javajam-trace/stf");
+        loop {
+            println!("\n\n**********************    Reading JAVAJAM test file: {}    **********************************", slot);
 
-        //run_jamduna_blocks_disputes("tests/test_vectors/testnet/jamtestnet/data/disputes/state_transitions/");
-    }
+            let test_content = read_test_file(&format!("tests/test_vectors/testnet/javajam-trace/stf/state_transitions/{:?}.bin", slot));
+            let mut reader = BytesReader::new(&test_content);
+            let pre_state = RawState::decode(&mut reader).expect("Error decoding post WorkReport PreState");
+            let block = Block::decode(&mut reader).expect("Error decoding post OutputWorkReport");
+            let post_state = RawState::decode(&mut reader).expect("Error decoding post WorkReport PostState");
 
-    fn decode_hex(json_str: &str) -> Vec<u8> {
-        hex::decode(&json_str[2..]).unwrap().try_into().unwrap()
-    }
-    
-    fn parse_block(dir: &str, filename: &str) -> Block {
-        println!("parse block file: {:?}", filename);
-        let mut block = Block::default();
+            let mut state = GlobalState::default();
+            let mut expected_state = GlobalState::default();
 
-        let raw = std::fs::read_to_string(&format!("{}/{}", dir, filename)).unwrap();
-        let json: Value = serde_json::from_str(&raw).unwrap();
+            set_raw_state(pre_state.clone(), &mut state);
+            set_raw_state(post_state.clone(), &mut expected_state);
 
-        block.header.unsigned.parent = decode_hex(json["block"]["header"]["parent"].as_str().unwrap()).try_into().unwrap();
-        block.header.unsigned.parent_state_root = decode_hex(json["block"]["header"]["parent_state_root"].as_str().unwrap()).try_into().unwrap();
-        block.header.unsigned.extrinsic_hash = decode_hex(json["block"]["header"]["extrinsic_hash"].as_str().unwrap()).try_into().unwrap();
-        block.header.unsigned.slot = json["block"]["header"]["slot"].as_u64().unwrap() as u32;
-        
-        let epoch_mark: Option<EpochMark> = if json["block"]["header"]["epoch_mark"].is_null(){
-            None
-        } else {
-            Some(EpochMark::default())
-        };
+            assert_eq!(pre_state.state_root.clone(), merkle_state(&state.serialize().map, 0).unwrap());
+            assert_eq!(post_state.state_root.clone(), merkle_state(&expected_state.serialize().map, 0).unwrap());
 
-        let tickets_mark: Option<EpochMark> = if json["block"]["header"]["tickets_mark"].is_null(){
-            None
-        } else {
-            Some(EpochMark::default())
-        };
+            set_global_state(state.clone());
 
-        let mut offenders_mark: Vec<Ed25519Public> = Vec::new();
-        block.header.unsigned.author_index = json["block"]["header"]["author_index"].as_u64().unwrap() as u16;
-        block.header.unsigned.entropy_source = decode_hex(json["block"]["header"]["entropy_source"].as_str().unwrap()).try_into().unwrap();
-        block.header.seal = decode_hex(json["block"]["header"]["seal"].as_str().unwrap()).try_into().unwrap();
-        
-        for ticket in json["block"]["extrinsic"]["tickets"].as_array().unwrap() {
-            let attempt = ticket["attempt"].as_u64().unwrap() as u8;
-            let signature_vec = decode_hex(ticket["signature"].as_str().unwrap());
-            let mut signature = [0u8; 784];
-            signature.copy_from_slice(&signature_vec);
-            let mark = TicketEnvelope { signature, attempt };
-            block.extrinsic.tickets.tickets.push(mark);
-        }   
-
-        for assurance in json["block"]["extrinsic"]["assurances"].as_array().unwrap() {
-            let anchor: [u8; 32] = decode_hex(assurance["anchor"].as_str().unwrap()).try_into().unwrap();
-            let bitfield: [u8; AVAIL_BITFIELD_BYTES] = decode_hex(assurance["bitfield"].as_str().unwrap()).try_into().unwrap();
-            let validator_index = assurance["validator_index"].as_u64().unwrap() as u16;
-            let signature: [u8; 64] = decode_hex(assurance["signature"].as_str().unwrap()).try_into().unwrap();
-            block.extrinsic.assurances.assurances.push(AvailAssurance {anchor, bitfield, validator_index, signature});
-        }
-
-        for verdict in json["block"]["extrinsic"]["disputes"]["verdicts"].as_array().unwrap() {
-            let target: [u8; 32] = decode_hex(verdict["target"].as_str().unwrap()).try_into().unwrap();
-            let age = verdict["age"].as_u64().unwrap() as u32;
-            let mut votes = Vec::new();
-            for v in verdict["votes"].as_array().unwrap() {
-                let vote: bool = v["vote"].as_bool().unwrap();
-                let index: u16 = v["index"].as_u64().unwrap() as u16;
-                let signature: [u8; 64] = decode_hex(v["signature"].as_str().unwrap()).try_into().unwrap();
-                votes.push(Judgement{vote, index, signature});
+            let error = state_transition_function(&block);
+            
+            if error.is_err() {
+                println!("****************************************************** Error: {:?}", error);
+                return;
             }
-            block.extrinsic.disputes.verdicts.push(Verdict{target, age, votes});
-        }
 
-        for culprit in json["block"]["extrinsic"]["disputes"]["culprits"].as_array().unwrap() {
-            let target: [u8; 32] = decode_hex(culprit["target"].as_str().unwrap()).try_into().unwrap();
-            let key: [u8; 32] = decode_hex(culprit["key"].as_str().unwrap()).try_into().unwrap();
-            let signature: [u8; 64] = decode_hex(culprit["signature"].as_str().unwrap()).try_into().unwrap();
-            block.extrinsic.disputes.culprits.push(Culprit { target, key, signature });
-        }
+            let result_state = get_global_state().lock().unwrap().clone();
+            
+            assert_eq_state(&expected_state, &result_state);
 
-        for faults in json["block"]["extrinsic"]["disputes"]["faults"].as_array().unwrap() {
-            let target: [u8; 32] = decode_hex(faults["target"].as_str().unwrap()).try_into().unwrap();
-            let vote: bool = faults["vote"].as_bool().unwrap();
-            let key: [u8; 32] = decode_hex(faults["key"].as_str().unwrap()).try_into().unwrap();
-            let signature: [u8; 64] = decode_hex(faults["signature"].as_str().unwrap()).try_into().unwrap();
-            block.extrinsic.disputes.faults.push(Fault {target, vote, key, signature});
-        }
+            println!("post_sta state_root: {:x?}", post_state.state_root);
+            println!("expected state_root: {:x?}", merkle_state(&expected_state.serialize().map, 0).unwrap());
+            println!("result   state_root: {:x?}", merkle_state(&result_state.serialize().map, 0).unwrap());
+            
+            assert_eq!(post_state.state_root, merkle_state(&result_state.serialize().map, 0).unwrap());
 
-        return block;
-    }
+            slot += 1;
 
-    use std::fs;
-    use std::path::Path;
-
-    #[allow(dead_code)]
-    fn run_jamduna_blocks_disputes(dir: &str) {
-        let paths = fs::read_dir(dir).unwrap();
-        for entry in paths {
-            let entry = entry.unwrap();
-            let path = entry.path();
-
-            if path.is_file() && path.extension().map(|ext| ext == "json").unwrap_or(false) {
-                let filename = path.file_name().unwrap().to_str().unwrap();
-                // println!("Running test: {}", filename);
-                run_dispute_test(dir, filename);
+            if slot == 1995100 {
+                return;
             }
         }
+
     }
 
-    #[allow(dead_code)]
-    fn run_dispute_test(dir: &str, filename: &str) {
-        let block = parse_block(dir, filename);
-        let json_file = deserialize_state_transition_file(dir, "1_005.json").unwrap();
-        set_global_state(json_file.pre_state.clone());
-        let error = state_transition_function(&block);
-        if error.is_err() {
-            println!("{:?} \t\t-> error: {:?}", filename, error);
-        } else {
-            println!("\nNO ERROR!!!: {:?}", filename);
-        }
-        let state = get_global_state().lock().unwrap().clone();
-        
-        assert_eq!(json_file.post_state.time, state.time);
-        assert_eq!(json_file.post_state.safrole, state.safrole);
-        assert_eq!(json_file.post_state.entropy, state.entropy);
-        assert_eq!(json_file.post_state.curr_validators, state.curr_validators);
-        assert_eq!(json_file.post_state.prev_validators, state.prev_validators);
-        assert_eq!(json_file.post_state.disputes.offenders, state.disputes.offenders);
-        assert_eq!(json_file.post_state.availability, state.availability);
-        assert_eq!(json_file.post_state.ready_queue, state.ready_queue);
-        assert_eq!(json_file.post_state.accumulation_history, state.accumulation_history);
-        assert_eq!(json_file.post_state.privileges, state.privileges);
-        assert_eq!(json_file.post_state.next_validators, state.next_validators);
-        assert_eq!(json_file.post_state.auth_queues, state.auth_queues);
+    fn set_raw_state(raw_state: RawState, state: &mut GlobalState) {
 
-        for (i, block) in json_file.post_state.recent_history.blocks.iter().enumerate() {
-            assert_eq!(*block, state.recent_history.blocks[i]);
-            assert_eq!(block.header_hash, state.recent_history.blocks[i].header_hash);
-            assert_eq!(block.mmr, state.recent_history.blocks[i].mmr);
-            assert_eq!(block.reported_wp, state.recent_history.blocks[i].reported_wp);
-            assert_eq!(block.state_root, state.recent_history.blocks[i].state_root);
-        }
-        assert_eq!(json_file.post_state.recent_history.blocks, state.recent_history.blocks);           
+        for keyval in raw_state.keyvals.iter() {
+            
+            if is_simple_key(keyval) {
 
-        for service_account in json_file.post_state.service_accounts.iter() {
-            if let Some(account) = state.service_accounts.get(&service_account.0) {
-                //assert_eq!(service_account, state.service_accounts.service_accounts.get_key_value(&service_account.0).unwrap());
+                let mut reader = BytesReader::new(&keyval.value);
+                let key = keyval.key[0] & 0xFF;
+
+                match key {
+                    AUTH_POOLS => {
+                        state.auth_pools = AuthPools::decode(&mut reader).expect("Error decoding AuthPools");
+                    },
+                    AUTH_QUEUE => {
+                        state.auth_queues = AuthQueues::decode(&mut reader).expect("Error decoding AuthQueues");
+                    },
+                    RECENT_HISTORY => {
+                        state.recent_history = BlockHistory::decode(&mut reader).expect("Error decoding BlockHistory");
+                    },
+                    SAFROLE => {
+                        state.safrole = Safrole::decode(&mut reader).expect("Error decoding Safrole");
+                    },
+                    DISPUTES => {
+                        state.disputes = DisputesRecords::decode(&mut reader).expect("Error decoding Disputes");
+                    },
+                    ENTROPY => {
+                        state.entropy = EntropyPool::decode(&mut reader).expect("Error decoding Entropy");
+                    },
+                    NEXT_VALIDATORS => {
+                        state.next_validators = ValidatorsData::decode(&mut reader).expect("Error decoding NextValidators");
+                    },
+                    CURR_VALIDATORS => {
+                        state.curr_validators = ValidatorsData::decode(&mut reader).expect("Error decoding CurrValidators");
+                    },
+                    PREV_VALIDATORS => {
+                        state.prev_validators = ValidatorsData::decode(&mut reader).expect("Error decoding PrevValidators");
+                    },
+                    AVAILABILITY => {
+                        state.availability = AvailabilityAssignments::decode(&mut reader).expect("Error decoding Availability");
+                    },
+                    TIME => {
+                        state.time = TimeSlot::decode(&mut reader).expect("Error decoding Time");
+                    },
+                    PRIVILEGES => {
+                        state.privileges = Privileges::decode(&mut reader).expect("Error decoding Privileges");
+                    },
+                    STATISTICS => {
+                        state.statistics = Statistics::decode(&mut reader).expect("Error decoding Statistics");
+                    },
+                    READY_QUEUE => {
+                        state.ready_queue = ReadyQueue::decode(&mut reader).expect("Error decoding ReadyQueue");
+                    },
+                    ACCUMULATION_HISTORY => {
+                        state.accumulation_history = AccumulatedHistory::decode(&mut reader).expect("Error decoding AccumulationHistory");
+                    },
+                    _ => {
+                        panic!("Key {:?} not supported", key);
+                    },
+                }
+
+            } else if is_service_info_key(keyval) {
+
+                let mut service_reader = BytesReader::new(&keyval.key[1..]);
+                let service_id = ServiceId::decode(&mut service_reader).expect("Error decoding service id");
+
+                if state.service_accounts.get(&service_id).is_none() {
+                    let account = Account::default();
+                    state.service_accounts.insert(service_id, account);
+                }
+                let mut account_reader = BytesReader::new(&keyval.value);
+                let mut account = state.service_accounts.get(&service_id).unwrap().clone();
+                account.code_hash = OpaqueHash::decode(&mut account_reader).expect("Error decoding code_hash");
+                account.balance = Gas::decode(&mut account_reader).expect("Error decoding balance") as u64;
+                account.acc_min_gas = Gas::decode(&mut account_reader).expect("Error decoding acc_min_gas");
+                account.xfer_min_gas = Gas::decode(&mut account_reader).expect("Error decoding xfer_min_gas");
+                // TODO bytes and items
+                state.service_accounts.insert(service_id, account);
+            } else {
+                let service_id_vec = vec![keyval.key[0], keyval.key[2], keyval.key[4], keyval.key[6]];
+                let service_id = decode::<ServiceId>(&service_id_vec, std::mem::size_of::<ServiceId>());
+                let mut key_hash = vec![keyval.key[1], keyval.key[3], keyval.key[5]];
+                key_hash.extend_from_slice(&keyval.key[7..]);
+
+                // Preimage
+                if is_preimage_key(keyval) { 
+                    
+                    if state.service_accounts.get(&service_id).is_none() {
+                        state.service_accounts.insert(service_id, Account::default());
+                    }
+                    let hash = sp_core::blake2_256(&keyval.value);
+                    state.service_accounts.get_mut(&service_id).unwrap().preimages.insert(hash, keyval.value.clone());
+                    /*println!("preimage key: {:x?}", hash);
+                    println!("preimage len: {:?}", keyval.value.len());
+                    println!("----------------------------------------------------------------------");*/
+
+                // Storage
+                } else if is_storage_key(keyval) {
+                    
+                    if state.service_accounts.get(&service_id).is_none() {
+                        state.service_accounts.insert(service_id, Account::default());
+                    }
+
+                    let mut storage_key  = [0u8; 31];
+                    storage_key.copy_from_slice(&keyval.key);
+                    //println!("insert to service: {:?} storage key: {:x?}", service_id, storage_key);
+                    //println!("insert value: {:x?}", keyval.value);
+                    state.service_accounts.get_mut(&service_id).unwrap().storage.insert(storage_key, keyval.value.clone());
+                    /*println!("storage key: {:x?}", storage_key);
+                    println!("storage val: {:x?}", keyval.value);
+                    println!("----------------------------------------------------------------------");*/
+
+                // Lookup
+                } else {
+                    let service_id_vec = vec![keyval.key[0], keyval.key[2], keyval.key[4], keyval.key[6]];
+                    let service_id = decode::<ServiceId>(&service_id_vec, std::mem::size_of::<ServiceId>());
+                    
+                    let mut timeslots_reader = BytesReader::new(&keyval.value);
+                    let timeslots = Vec::<u32>::decode_len(&mut timeslots_reader).expect("Error decoding timeslots");
+                    
+                    if state.service_accounts.get(&service_id).is_none() {
+                        state.service_accounts.insert(service_id, Account::default());
+                    }
+                    
+                    let account = state.service_accounts.get_mut(&service_id).unwrap();
+                    account.lookup.insert(keyval.key, timeslots.clone());
+                }
+            }
+        }
+    }
+
+    fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
+        assert_eq!(expected_state.time, result_state.time);
+        assert_eq!(expected_state.safrole, result_state.safrole);
+        assert_eq!(expected_state.entropy, result_state.entropy);
+        assert_eq!(expected_state.curr_validators, result_state.curr_validators);
+        assert_eq!(expected_state.prev_validators, result_state.prev_validators);
+        assert_eq!(expected_state.disputes.offenders, result_state.disputes.offenders);
+        assert_eq!(expected_state.availability, result_state.availability);
+        assert_eq!(expected_state.ready_queue, result_state.ready_queue);
+        assert_eq!(expected_state.accumulation_history, result_state.accumulation_history);
+        assert_eq!(expected_state.privileges, result_state.privileges);
+        assert_eq!(expected_state.next_validators, result_state.next_validators);
+        assert_eq!(expected_state.auth_queues, result_state.auth_queues);
+        assert_eq!(expected_state.recent_history.blocks, result_state.recent_history.blocks);           
+        //assert_eq!(expected_state.service_accounts, result_state.service_accounts);
+        for service_account in expected_state.service_accounts.iter() {
+            if let Some(account) = result_state.service_accounts.get(&service_account.0) {
+                //assert_eq!(service_account.1, account);
                 println!("TESTING service {:?}", service_account.0);
                 //println!("Account: {:x?}", account);
-                let (items, octets, _threshold) = account.get_footprint_and_threshold();
-
+                let (_items, _octets, _threshold) = account.get_footprint_and_threshold();
                 for item in service_account.1.storage.iter() {
                     if let Some(value) = account.storage.get(item.0) {
                         assert_eq!(item.1, value);
-                        //println!("Comparing {:x?} with {:x?}", item.1, value);
+                        //println!("storage Key {:x?} ", item.0);
                     } else {
-                        panic!("Key storage not found: {:?}", *item.0);
+                        panic!("Key storage not found : {:x?}", *item.0);
                     }
                 }
-                
-                println!("items: {items}, octets: {octets}");
+
                 assert_eq!(service_account.1.storage, account.storage);
+                //println!("items: {items}, octets: {octets}");
+                /*println!("Lookup expected");
+                for item in expected_state.service_accounts.get(&service_account.0).unwrap().lookup.iter() {
+                    println!("{:x?} | {:?}", item.0, item.1);
+                }
+                println!("Lookup result");
+                for item in account.lookup.iter() {
+                    println!("{:x?} | {:?}", item.0, item.1);
+                }
+                println!("Lookup pre_state");
+                for item in test_state.service_accounts.get(&service_account.0).unwrap().lookup.iter() {
+                    println!("{:x?} | {:?}", item.0, item.1);
+                }
+
+                assert_eq!(service_account.1.lookup, account.lookup);*/
                 assert_eq!(service_account.1.lookup, account.lookup);
                 assert_eq!(service_account.1.preimages, account.preimages);
                 assert_eq!(service_account.1.code_hash, account.code_hash);
@@ -253,243 +276,36 @@ mod tests {
                 panic!("Service account not found in state: {:?}", service_account.0);
             }
         }
-        assert_eq!(json_file.post_state.service_accounts, state.service_accounts);
-        assert_eq!(json_file.post_state.auth_pools, state.auth_pools);
-        assert_eq!(json_file.post_state.statistics.curr, state.statistics.curr);
-        assert_eq!(json_file.post_state.statistics.prev, state.statistics.prev);
-        assert_eq!(json_file.post_state.statistics.cores, state.statistics.cores);
-        assert_eq!(json_file.post_state.statistics.services, state.statistics.services);
-        assert_eq!(json_file.post_state_root, merkle_state(&state.serialize().map, 0).unwrap());
-        //println!("filename: {:?}", filename);
-        //println!("block: {:x?}", block);
-        //println!("\nassurances: {:x?}", block.extrinsic.assurances);
-        //println!("\ndisputes: {:x?}", block.extrinsic.disputes);
+        assert_eq!(expected_state.service_accounts, result_state.service_accounts);
+        assert_eq!(expected_state.auth_pools, result_state.auth_pools);
+        assert_eq!(expected_state.statistics.curr, result_state.statistics.curr);
+        assert_eq!(expected_state.statistics.prev, result_state.statistics.prev);
+        assert_eq!(expected_state.statistics.cores, result_state.statistics.cores);
+        assert_eq!(expected_state.statistics.services, result_state.statistics.services);
     }
 
-    #[allow(dead_code)]
-    fn run_jamduna_blocks_fuzzed(dir: &str) {
-        let paths = fs::read_dir(dir).unwrap();
+    fn is_simple_key(keyval: &KeyValue) -> bool {
 
-        for entry in paths {
-            let entry = entry.unwrap();
-            let path = entry.path();
-
-            if path.is_file() && path.extension().map(|ext| ext == "json").unwrap_or(false) {
-                let filename = path.file_name().unwrap().to_str().unwrap();
-                // println!("Running test: {}", filename);
-                run_fuzzed_test(dir, filename);
-            }
-        }
+        keyval.key[0] <= 0x0F && keyval.key[1..].iter().all(|&b| b == 0)
     }
- 
 
-    #[allow(dead_code)]
-    fn run_fuzzed_test(dir: &str, filename: &str) {
+    fn is_service_info_key(keyval: &KeyValue) -> bool {
+
+        keyval.key[0] == 0xFF && keyval.key[1..].iter().all(|&b| b == 0)
+    }
+
+    fn is_storage_key(keyval: &KeyValue) -> bool {
+
+        keyval.key[1] == 0xFF && keyval.key[3] == 0xFF && keyval.key[5] == 0xFF && keyval.key[7] == 0xFF
+    }
+
+    fn is_preimage_key(keyval: &KeyValue) -> bool {
+
+        keyval.key[1] == 0xFE && keyval.key[3] == 0xFF && keyval.key[5] == 0xFF && keyval.key[7] == 0xFF
+    }
+
+    /*fn is_lookup_key(keyval: &KeyValue) -> bool {
         
-        let block = parse_block(dir, filename);
-        let wrapped_json_file = deserialize_state(dir, filename).unwrap();
-        let mut state = GlobalState::default();
-        state = wrapped_json_file.pre_state.clone();
-        set_global_state(state.clone());
-        let error = state_transition_function(&block);
-
-        if error.is_err() {
-            println!("{:?} \t\t-> error: {:?}", filename, error);
-        } else {
-            println!("\nNO ERROR!!!: {:?}", filename);
-            panic!("");
-        }
-
-        /*println!("block: {:?}", block);
-        println!("\n state: {:x?}", wrapped_json_file);*/
-
-    }
-
-    #[allow(dead_code)]
-    fn run_jamduna_blocks(dir: &str) {
-
-        println!("Running blocks in {} mode", dir);
-
-        let json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), "1_000.json").unwrap();
-        set_global_state(json_file.pre_state.clone());
-
-        let body_block: Vec<TestBody> = vec![TestBody::Block];
-    
-        let mut epoch = 1;
-        let mut slot = 0;
-
-        loop {
-
-            let filename = format!("{}_{}.bin", epoch, format!("{:03}", slot));
-            let block_content = read_test(&format!("{}/blocks/{}", dir, filename));
-
-            if block_content.is_err() {
-                return;
-            }
-
-            let state_json_filename = format!("{}_{}.json", epoch, format!("{:03}", slot));
-            let wrapped_json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), &state_json_filename);
-
-            if wrapped_json_file.is_err() {
-                return;
-            }
-
-            let json_file = wrapped_json_file.unwrap();
-            
-            println!("Importing block {}/{}", format!("{}/state_transitions", dir), state_json_filename);
-            let block_content = block_content.unwrap();
-            let encode_decode= encode_decode_test(&block_content.clone(), &body_block);
-            if encode_decode.is_err() {
-                println!("Error encoding/decoding block: {:?}", encode_decode);
-                return;
-            }
-            let mut block_reader = BytesReader::new(&block_content);
-            let block = Block::decode(&mut block_reader).expect("Error decoding Block");
-
-            let error = state_transition_function(&block);
-            if error.is_err() {
-                println!("****************************************************** Error: {:?}", error);
-                return;
-            }
-            let state = get_global_state().lock().unwrap().clone();
-            
-            assert_eq!(json_file.post_state.time, state.time);
-            assert_eq!(json_file.post_state.safrole, state.safrole);
-            assert_eq!(json_file.post_state.entropy, state.entropy);
-            assert_eq!(json_file.post_state.curr_validators, state.curr_validators);
-            assert_eq!(json_file.post_state.prev_validators, state.prev_validators);
-            assert_eq!(json_file.post_state.disputes.offenders, state.disputes.offenders);
-            assert_eq!(json_file.post_state.availability, state.availability);
-            assert_eq!(json_file.post_state.ready_queue, state.ready_queue);
-            assert_eq!(json_file.post_state.accumulation_history, state.accumulation_history);
-            assert_eq!(json_file.post_state.privileges, state.privileges);
-            assert_eq!(json_file.post_state.next_validators, state.next_validators);
-            assert_eq!(json_file.post_state.auth_queues, state.auth_queues);
-
-            for (i, block) in json_file.post_state.recent_history.blocks.iter().enumerate() {
-                //assert_eq!(*block, state.recent_history.blocks[i]);
-                assert_eq!(block.header_hash, state.recent_history.blocks[i].header_hash);
-                assert_eq!(block.mmr, state.recent_history.blocks[i].mmr);
-                assert_eq!(block.reported_wp, state.recent_history.blocks[i].reported_wp);
-                assert_eq!(block.state_root, state.recent_history.blocks[i].state_root);
-            }
-            assert_eq!(json_file.post_state.recent_history.blocks, state.recent_history.blocks);           
-
-            for service_account in json_file.post_state.service_accounts.iter() {
-                if let Some(account) = state.service_accounts.get(&service_account.0) {
-                    //assert_eq!(service_account, state.service_accounts.service_accounts.get_key_value(&service_account.0).unwrap());
-                    println!("TESTING service {:?}", service_account.0);
-                    //println!("Account: {:x?}", account);
-                    let (items, octets, _threshold) = account.get_footprint_and_threshold();
-
-                    for item in service_account.1.storage.iter() {
-                        if let Some(value) = account.storage.get(item.0) {
-                            assert_eq!(item.1, value);
-                            //println!("Comparing {:x?} with {:x?}", item.1, value);
-                        } else {
-                            panic!("Key storage not found: {:?}", *item.0);
-                        }
-                    }
-                    
-                    println!("items: {items}, octets: {octets}");
-                    assert_eq!(service_account.1.storage, account.storage);
-                    assert_eq!(service_account.1.lookup, account.lookup);
-                    assert_eq!(service_account.1.preimages, account.preimages);
-                    assert_eq!(service_account.1.code_hash, account.code_hash);
-                    assert_eq!(service_account.1.balance, account.balance);
-                    assert_eq!(service_account.1.acc_min_gas, account.acc_min_gas);
-                    assert_eq!(service_account.1.xfer_min_gas, account.xfer_min_gas);
-
-                } else {
-                    panic!("Service account not found in state: {:?}", service_account.0);
-                }
-            }
-            assert_eq!(json_file.post_state.service_accounts, state.service_accounts);
-            assert_eq!(json_file.post_state.auth_pools, state.auth_pools);
-            assert_eq!(json_file.post_state.statistics.curr, state.statistics.curr);
-            assert_eq!(json_file.post_state.statistics.prev, state.statistics.prev);
-            assert_eq!(json_file.post_state.statistics.cores, state.statistics.cores);
-            assert_eq!(json_file.post_state.statistics.services, state.statistics.services);
-
-            /*println!("Statistics curr: {:?}", state.statistics.curr);
-            println!("Statistics prev: {:?}", state.statistics.prev);
-            println!("Statistics cores: {:?}", state.statistics.cores);
-            println!("Statistics services: {:?}", state.statistics.services);*/
-
-            assert_eq!(json_file.post_state_root, merkle_state(&state.serialize().map, 0).unwrap());
-
-            println!("state root: {:x?}", merkle_state(&state.serialize().map, 0).unwrap());
-            slot += 1;
-
-            if slot == EPOCH_LENGTH {
-                slot = 0;
-                epoch += 1;
-            } 
-
-        }
-    }
-
-    #[allow(dead_code)]
-    fn run_javajam_blocks(dir: &str) {
-
-        let body_block: Vec<TestBody> = vec![TestBody::Block];
-        println!("Running JavaJAM blocks");
-        let json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), "1350458.json").unwrap();
-        set_global_state(json_file.pre_state.clone());
-        let mut filenumber = 1350458;
-        println!("Importing block sequence");
-
-        loop {
-
-            let bin_filename = format!("{}/blocks/{}.bin", dir, filenumber);
-            let block_content = read_test(&bin_filename);
-
-            if block_content.is_err() {
-                return;
-            }
-
-            println!("Importing block {}", bin_filename);
-            let state_json_filename = format!("{}.json", filenumber);
-            let json_file = deserialize_state_transition_file(&format!("{}/state_transitions", dir), &state_json_filename).unwrap();
-            let block_content = block_content.unwrap();
-            let _ = encode_decode_test(&block_content.clone(), &body_block);
-            let mut block_reader = BytesReader::new(&block_content);
-            let block = Block::decode(&mut block_reader).expect("Error decoding Block");
-
-            let error = state_transition_function(&block);
-            if error.is_err() {
-                println!("****************************************************** Error: {:?}", error);
-                return;
-            }
-
-            let state = get_global_state().lock().unwrap().clone();
-
-            assert_eq!(json_file.post_state.auth_pools, state.auth_pools);
-            assert_eq!(json_file.post_state.auth_queues, state.auth_queues);
-            assert_eq!(json_file.post_state.recent_history, state.recent_history);
-            assert_eq!(json_file.post_state.safrole, state.safrole);            
-            assert_eq!(json_file.post_state.disputes.offenders, state.disputes.offenders);
-            assert_eq!(json_file.post_state.entropy, state.entropy);
-            assert_eq!(json_file.post_state.next_validators, state.next_validators);
-            assert_eq!(json_file.post_state.curr_validators, state.curr_validators);
-            assert_eq!(json_file.post_state.prev_validators, state.prev_validators);
-            assert_eq!(json_file.post_state.availability, state.availability);
-            assert_eq!(json_file.post_state.time, state.time);
-            assert_eq!(json_file.post_state.privileges, state.privileges);
-            assert_eq!(json_file.post_state.statistics, state.statistics);
-            assert_eq!(json_file.post_state.accumulation_history, state.accumulation_history);
-            assert_eq!(json_file.post_state.ready_queue, state.ready_queue);
-            assert_eq!(json_file.post_state.service_accounts, state.service_accounts);        
-
-            assert_eq!(json_file.post_state_root, merkle_state(&state.serialize().map, 0).unwrap());
-
-            filenumber += 1;
-        }
-    }
-
+        !is_simple_key(keyval) && !is_service_info_key(keyval) && !is_storage_key(keyval) && !is_preimage_key(keyval)
+    }*/
 }
-
-
-
-
-

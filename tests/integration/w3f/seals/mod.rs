@@ -105,10 +105,11 @@ mod tests {
         entropy_pool.buf[3] = Entropy { entropy: test_decoded.eta3 };
         set_entropy(entropy_pool.clone());
 
-        let mut public_keys: Box<[BandersnatchPublic; VALIDATORS_COUNT]> = Box::new([BandersnatchPublic::default(); VALIDATORS_COUNT]);
-        public_keys[header.unsigned.author_index as usize] = test_decoded.bandersnatch_pub;
-        
-        let ring_set: Vec<Public> = create_ring_set(public_keys.as_ref());
+        let mut validators = ValidatorsData::default();
+
+        validators.list[header.unsigned.author_index as usize].bandersnatch = test_decoded.bandersnatch_pub;
+
+        let ring_set: Vec<Public> = create_ring_set(&validators);
         let ring_root = create_root_epoch(ring_set.clone());
 
         let mut current_validators = ValidatorsData::default();

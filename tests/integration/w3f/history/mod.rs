@@ -2,7 +2,7 @@ use crate::integration::w3f::read_test_file;
 //use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::types::{BlockHistory, ReportedWorkPackages, ReportedWorkPackage};
+use vinwolf::types::{BlockHistory, ReportedWorkPackages};
 use vinwolf::blockchain::state::{set_recent_history, get_recent_history};
 use vinwolf::blockchain::state::recent_history::{process, finalize};
 use codec::InputHistory;

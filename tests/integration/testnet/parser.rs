@@ -12,7 +12,7 @@ use vinwolf::types::{
 
 use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::utils::codec::jam::global_state::construct_lookup_key;
+use vinwolf::utils::serialization::construct_lookup_key;
 
 use super::{read_test, TestnetState, TestData, ParsedTransitionFile, ParsedStateFile, TestFuzzedData};
 

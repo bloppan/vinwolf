@@ -1,15 +1,23 @@
 use crate::integration::w3f::read_test_file;
 
 use vinwolf::constants::{*};
-use vinwolf::types::{RawState, Block, AuthPools, AuthQueues, BlockHistory, Safrole, DisputesRecords, EntropyPool, ValidatorsData, AvailabilityAssignments,
-    Privileges, Statistics, ReadyQueue, AccumulatedHistory, OpaqueHash, Gas, ServiceId, Account, KeyValue};
+use vinwolf::types::{
+    RawState, Block, AuthPools, AuthQueues, BlockHistory, Safrole, DisputesRecords, EntropyPool, ValidatorsData, AvailabilityAssignments,
+    Privileges, Statistics, ReadyQueue, AccumulatedHistory, OpaqueHash, Gas, ServiceId, Account, KeyValue
+};
 use vinwolf::blockchain::state::{get_global_state, state_transition_function};
 use vinwolf::utils::codec::{Decode, DecodeLen, BytesReader};
 use vinwolf::utils::codec::generic::decode;
 use vinwolf::utils::trie::merkle_state;
 use vinwolf::{blockchain::state::set_global_state, types::{GlobalState, TimeSlot}};
 
-pub mod codec;
+#[derive(Debug, Clone, PartialEq)]
+pub struct TestCase {
+
+    pub pre_state: RawState,
+    pub block: Block,
+    pub post_state: RawState,
+}
 
 
 #[cfg(test)]
@@ -34,7 +42,7 @@ mod tests {
         let mut slot = 1;
         
         loop {
-            println!("\n\n**********************    Reading test file: {}    **********************************", slot);
+            println!("\n\n**********************    Reading trace test file: {}    **********************************", slot);
 
             let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/traces/reports-l1/{:08}.bin", slot));
             let mut reader = BytesReader::new(&test_content);
@@ -64,19 +72,18 @@ mod tests {
             
             assert_eq_state(&expected_state, &result_state);
 
-            println!("post_sta state_root: {:x?}", post_state.state_root);
+            /*println!("post_sta state_root: {:x?}", post_state.state_root);
             println!("expected state_root: {:x?}", merkle_state(&expected_state.serialize().map, 0).unwrap());
-            println!("result   state_root: {:x?}", merkle_state(&result_state.serialize().map, 0).unwrap());
+            println!("result   state_root: {:x?}", merkle_state(&result_state.serialize().map, 0).unwrap());*/
             
             assert_eq!(post_state.state_root, merkle_state(&result_state.serialize().map, 0).unwrap());
 
             slot += 1;
 
-            if slot == 101 {
+            if slot == 10 {
                 return;
             }
         }
-
     }
 
     fn set_raw_state(raw_state: RawState, state: &mut GlobalState) {

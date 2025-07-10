@@ -124,6 +124,10 @@ impl RamMemory {
                 self.pages[(i % NUM_PAGES) as usize] = Some(Page::default());
             }
         }
+
+        if 50 >= start_page && 50 <= end_page {
+            //println!("ram page 50: {:x?}", self.pages[50].as_ref().unwrap().data);
+        }
         //println!("Initializing RAM section: {:?} | Start: {} | End: {}", section, start, end);
         match section {
             RamSection::Zone1 => {
@@ -147,15 +151,16 @@ impl RamMemory {
                     self.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Read);
                     self.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.rw_data[i as usize - (2 * Zz + zone(params.ro_data.len()) as u64) as usize];
                 }
-                println!("END: {:?}", end);
+               //println!("END: {:?}", end);
                 self.curr_heap_pointer = page(end as usize) as RamAddress;
-                println!("init heap pointer: {:?}", self.curr_heap_pointer);
+                //println!("init heap pointer: {:?}", self.curr_heap_pointer);
             },
             RamSection::Zone4 => {
                 for page in start_page..=end_page {
                     self.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Write);
                     self.pages[page as usize].as_mut().unwrap().flags.access.insert(RamAccess::Read);
                 }
+                //println!("ram zone 4 page 50: {:x?}", self.pages[50].as_ref().unwrap().data);
             },
             RamSection::Zone5 => {
                 for page in start_page..=end_page {
@@ -179,7 +184,7 @@ impl RamMemory {
         }
 
         /*for i in start_page..=end_page {
-            println!("Page {}: {:x?}", i, ram.pages[i as usize].as_ref().unwrap().data);
+            println!("Page {}: {:x?}", i, self.pages[i as usize].as_ref().unwrap().data);
         }*/
 
     }

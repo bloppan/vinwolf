@@ -31,14 +31,8 @@ fn ring_proof_params() -> &'static RingProofParams {
     static PARAMS: OnceLock<RingProofParams> = OnceLock::new();
     PARAMS.get_or_init(|| {
         use bandersnatch::PcsParams;
-        use std::{fs::File, io::Read};
-        let manifest_dir =
-            std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not set");
-        let filename = format!("{}/tests/test_vectors/w3f/jamtestvectors/safrole/zcash-srs-2-11-uncompressed.bin", manifest_dir);
-        let mut file = File::open(filename).unwrap();
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf).unwrap();
-        let pcs_params = PcsParams::deserialize_uncompressed_unchecked(&mut &buf[..]).unwrap();
+        let file_data: &[u8] = include_bytes!("../../../../tests/test_vectors/w3f/jamtestvectors/safrole/zcash-srs-2-11-uncompressed.bin");
+        let pcs_params = PcsParams::deserialize_uncompressed_unchecked(&mut &file_data[..]).unwrap();
         RingProofParams::from_pcs_params(RING_SIZE, pcs_params).unwrap()
     })
 }
@@ -192,7 +186,7 @@ impl Verifier {
     ) -> Result<[u8; 32], ProcessError> {
         use ark_vrf::ietf::Verifier as _;
 
-        println!("signer_key index: {signer_key_index}, ring len: {:?}", self.ring.len());
+        //println!("signer_key index: {signer_key_index}, ring len: {:?}", self.ring.len());
         if signer_key_index >= self.ring.len()  {
             return Err(ProcessError::SafroleError(SafroleErrorCode::InvalidSignerKeyIndex));
         }

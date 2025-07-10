@@ -26,17 +26,19 @@ impl TicketsExtrinsic {
         post_tau: &TimeSlot,
         ring_set: Vec<Public>,
     ) -> Result<(), ProcessError> {
-        
+
         if self.tickets.is_empty() {
             return Ok(());
         }
         // Towards the end of the epoch, ticket submission ends implying successive blocks within the same epoch
         // must have an empty tickets extrinsic
         if (*post_tau % EPOCH_LENGTH as TimeSlot) >= TICKET_SUBMISSION_ENDS as TimeSlot {
+            log::error!("Unexpected ticket. Block slot: {:?}", post_tau);
             return Err(ProcessError::SafroleError(SafroleErrorCode::UnexpectedTicket));
         }
 
         if self.tickets.len() > MAX_TICKETS_PER_EXTRINSIC {
+            log::error!("Too many tickets: {:?}", self.tickets.len());
             return Err(ProcessError::SafroleError(SafroleErrorCode::TooManyTickets));
         }
 
@@ -44,6 +46,7 @@ impl TicketsExtrinsic {
         // natural number less than TICKET_ENTRIES_PER_VALIDATOR) and a proof of ticket validity.
         for i in 0..self.tickets.len() {
             if self.tickets[i].attempt >= TICKET_ENTRIES_PER_VALIDATOR {
+                log::error!("Bad ticket attempt: {:?}", self.tickets[i].attempt);
                 return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketAttempt));
             }
         }
@@ -65,16 +68,21 @@ impl TicketsExtrinsic {
                         attempt: self.tickets[i].attempt,
                     });
                 },
-                Err(_) => { println!("Bad ticket {}", i); return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketProof)); }
+                Err(_) => { 
+                    log::error!("Bad ticket proof: {:?}", i); 
+                    return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketProof)); 
+                }
             }
         }
         // Check tickets order
         if bad_order(&new_ticket_ids) {
+            log::error!("Bad tickets order");
             return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketOrder));
         }
         // Check if there are duplicate tickets
         let ids: Vec<OpaqueHash> = safrole_state.ticket_accumulator.iter().map(|ticket| ticket.id.clone()).collect();
         if has_duplicates(&ids) {
+            log::error!("Duplicate ticket");
             return Err(ProcessError::SafroleError(SafroleErrorCode::DuplicateTicket));
         }
         // Sort tickets
@@ -85,6 +93,7 @@ impl TicketsExtrinsic {
             safrole_state.ticket_accumulator.drain(EPOCH_LENGTH..);
         }
 
+        log::info!("Extrinsic tickets processed succesfully");
         // Return ok
         Ok(())
     }

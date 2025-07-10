@@ -37,7 +37,7 @@ fn get_address(pvm_ctx: &Context, program: &Program) -> RamAddress {
     let reg_a = get_reg(&pvm_ctx.pc, program);
     let addr_reg_a = pvm_ctx.reg[reg_a as usize];
     let vx = get_x_imm(&pvm_ctx.pc, program);
-    ((addr_reg_a + vx) % RAM_SIZE) as RamAddress
+    ((addr_reg_a.wrapping_add(vx)) % RAM_SIZE) as RamAddress
 }
 
 fn get_value<T>(pc: &RegSize, program: &Program) -> RegSize {

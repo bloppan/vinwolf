@@ -45,50 +45,68 @@ impl Header {
 
         let seal_vrf_output = match &safrole.seal {
             TicketsOrKeys::Tickets(tickets) => {
+                log::debug!("Verify seal tickets");
                 // The context is "jam_fallback_seal" + entropy[3] + ticket_attempt
-                let mut context = Vec::from(b"jam_ticket_seal");
-                entropy.buf[3].encode_to(&mut context);
-                tickets.tickets_mark[i as usize].attempt.encode_to(&mut context);
+                let context = [&b"jam_ticket_seal"[..], &entropy.buf[3].encode(), &tickets.tickets_mark[i as usize].attempt.encode()].concat();
                 // Verify the seal
-                let seal_vrf_output = verifier.ietf_vrf_verify(
+                let seal_vrf_output_result = verifier.ietf_vrf_verify(
                                                         &context,
                                                         &unsigned_header,
                                                         &self.seal,
                                                         block_author,
-                ).map_err(|_| ProcessError::SafroleError(SafroleErrorCode::InvalidTicketSeal))?;
+                );
+
+                let seal_vrf_output = match seal_vrf_output_result {
+                    Ok(vrf_output) => vrf_output,
+                    Err(_) => {
+                        log::error!("Invalid ticket seal");
+                        return Err(ProcessError::SafroleError(SafroleErrorCode::InvalidTicketSeal));
+                    }
+                };
 
                 if tickets.tickets_mark[i as usize].id != seal_vrf_output {
+                    log::error!("Ticket not match");
                     return Err(ProcessError::SafroleError(SafroleErrorCode::TicketNotMatch));
                 }
-
+                log::debug!("Seal tickets verified successfully");
                 seal_vrf_output
             },
             TicketsOrKeys::Keys(keys) => {
+                log::debug!("Verify seal keys");
                 // The context is "jam_fallback_seal" + entropy[3]
-                let mut context = Vec::from(b"jam_fallback_seal");
-                entropy.buf[3].encode_to(&mut context);
+                let context = [&b"jam_fallback_seal"[..], &entropy.buf[3].encode()].concat();
                 // Verify the seal
-                let seal_vrf_output = verifier.ietf_vrf_verify(
+                let seal_vrf_output_result = verifier.ietf_vrf_verify(
                                                             &context,
                                                             &unsigned_header,
                                                             &self.seal,
                                                             block_author,
-                ).map_err(|_| ProcessError::SafroleError(SafroleErrorCode::InvalidKeySeal))?;
+                );
+
+                let seal_vrf_output = match seal_vrf_output_result {
+                    Ok(vrf_output) => vrf_output,
+                    Err(_) => {
+                        log::error!("Invalid ticket seal");
+                        return Err(ProcessError::SafroleError(SafroleErrorCode::InvalidTicketSeal));
+                    }
+                };
                 
                 if keys.epoch[i as usize] != current_validators.list[block_author].bandersnatch {
+                    log::error!("Key not match");
                     return Err(ProcessError::SafroleError(SafroleErrorCode::KeyNotMatch));
                 }
 
+                log::debug!("Seal keys verified successfully");
                 seal_vrf_output
             },
             TicketsOrKeys::None => {
+                log::error!("None tickets or keys");
                 return Err(ProcessError::SafroleError(SafroleErrorCode::TicketsOrKeysNone));
             },
         };
         
         // Verify the entropy source
-        let mut context = Vec::from(b"jam_entropy");
-        seal_vrf_output.encode_to(&mut context);
+        let context = [&b"jam_entropy"[..], &seal_vrf_output.encode()].concat();
         let entropy_source_vrf_result = verifier.ietf_vrf_verify(
                                                                                 &context,
                                                                                 &[],
@@ -97,9 +115,13 @@ impl Header {
 
         let entropy_source_vrf_output = match entropy_source_vrf_result {
             Ok(_) => entropy_source_vrf_result.unwrap(),
-            Err(_) => { return Err(ProcessError::SafroleError(SafroleErrorCode::InvalidEntropySource)) },
+            Err(_) => { 
+                log::error!("Invalid entropy source");
+                return Err(ProcessError::SafroleError(SafroleErrorCode::InvalidEntropySource)) 
+            },
         };
 
+        log::debug!("Seal header verified successfully");
         Ok(entropy_source_vrf_output)
     }
 
@@ -109,6 +131,7 @@ impl Header {
         self.validator_index_verify()?;
         self.offenders_verify(extrinsic)?;
         // TODO verify parent state root
+        log::debug!("Header verified successfully");
         return Ok(());
     }
 
@@ -116,6 +139,7 @@ impl Header {
         
         //The offenders markers must contain exactly the keys of all new offenders, respectively
         if self.unsigned.offenders_mark.encode() != [extrinsic.disputes.culprits.encode(), extrinsic.disputes.faults.encode()].concat() {
+            log::error!("Bad offenders");
             return Err(ProcessError::HeaderError(HeaderErrorCode::BadOffenders));
         }
 
@@ -124,9 +148,10 @@ impl Header {
 
     pub fn state_root_verify(&self) -> Result<(), ProcessError> {
 
-        let parent_state_root = get_state_root();
+        let parent_state_root = get_state_root().lock().unwrap();
 
-        if self.unsigned.parent_state_root != parent_state_root {
+        if self.unsigned.parent_state_root != *parent_state_root {
+            log::error!("Bad parent state root");
             return Err(ProcessError::HeaderError(HeaderErrorCode::BadParentStateRoot));
         }
 
@@ -136,6 +161,7 @@ impl Header {
     pub fn validator_index_verify(&self) -> Result<(), ProcessError> { 
 
         if self.unsigned.author_index >= VALIDATORS_COUNT as u16 {
+            log::error!("Bad validator index: {:?}", self.unsigned.author_index);
             return Err(ProcessError::HeaderError(HeaderErrorCode::BadValidatorIndex));
         }
     
@@ -167,40 +193,13 @@ impl Header {
                                sp_core::blake2_256(&extrinsic.disputes.encode())].concat();
     
         if self.unsigned.extrinsic_hash != sp_core::blake2_256(&a) {
+            log::error!("Bad extrinsic hash");
             return Err(ProcessError::HeaderError(HeaderErrorCode::BadExtrinsicHash));
         }
 
-        println!("\nheader extrinsic expected: {:x?}", self.unsigned.extrinsic_hash );
-        println!("header extrinsic   result: {:x?}\n", sp_core::blake2_256(&a) );
+        //println!("\nheader extrinsic expected: {:x?}", self.unsigned.extrinsic_hash );
+        //println!("header extrinsic   result: {:x?}\n", sp_core::blake2_256(&a) );
         return Ok(());
     }
 
 }
-
-
-/*impl Encode for GuaranteesExtrinsicHeader {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut guarantees_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Self>() * self.report_guarantee.len());
-        encode_unsigned(self.report_guarantee.len()).encode_to(&mut guarantees_blob);
-
-        for guarantee in &self.report_guarantee {
-
-            guarantee.report.encode_to(&mut guarantees_blob);
-            guarantee.slot.encode_size(4).encode_to(&mut guarantees_blob);
-            encode_unsigned(guarantee.signatures.len()).encode_to(&mut guarantees_blob);
-
-            for signature in &guarantee.signatures {
-                signature.validator_index.encode_to(&mut guarantees_blob);
-                signature.signature.encode_to(&mut guarantees_blob);
-            }
-        }
-
-        return guarantees_blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode()); 
-    }
-}*/
