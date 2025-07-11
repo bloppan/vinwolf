@@ -17,7 +17,7 @@ use crate::blockchain::state::{services::parse_preimage, entropy, time};
 use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
 use crate::utils::codec::{Encode, EncodeSize, DecodeSize, BytesReader};
 use crate::utils::codec::generic::{encode_unsigned, decode};
-use crate::utils::serialization::{StateKeyTrait, construct_lookup_key};
+use crate::utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 use super::general_fn::{fetch, write, info, read, lookup, log};
 
 static OPERANDS: Lazy<Mutex<Vec<AccumulationOperand>>> = Lazy::new(|| {
@@ -734,7 +734,7 @@ fn forget(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
         log::debug!("slot: {slot}, timeslots: {:?}", timeslot);
         if timeslot.len() == 0 || (timeslot.len() == 2 && (timeslot[1] < slot.saturating_sub(MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE))) {
             account.lookup.remove(&lookup_key);
-            account.preimages.remove(&hash);
+            account.preimages.remove(&StateKeyType::Account(ctx_x.service_id, construct_preimage_key(&hash).to_vec()).construct());
             log::debug!("remove lookup: 0x{}, remove preimage: 0x{}", hex::encode(lookup_key), hex::encode(hash));
         } else if timeslot.len() == 1 {
             log::debug!("Insert to lookup key 0x{} slot: {:?}", hex::encode(lookup_key), slot);

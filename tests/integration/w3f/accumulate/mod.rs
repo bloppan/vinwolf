@@ -5,7 +5,7 @@ use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 pub mod codec;
 use codec::{InputAccumulate, StateAccumulate};
 
-use vinwolf::types::{EntropyPool, ServiceAccounts, OutputAccumulation, Account, Statistics, Extrinsic};
+use vinwolf::types::{EntropyPool, ServiceAccounts, OutputAccumulation, Account, Statistics, Extrinsic, StateKeyType};
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH};
 use vinwolf::blockchain::state::{
     set_service_accounts, set_entropy, set_time, get_global_state, set_accumulation_history, set_privileges, set_ready_queue
@@ -14,7 +14,7 @@ use vinwolf::blockchain::state::{time::set_current_slot, entropy::set_recent_ent
 use vinwolf::blockchain::state::accumulation::process;
 use vinwolf::blockchain::state::statistics::process as process_statistics;
 use vinwolf::utils::codec::{Decode, BytesReader};
-
+use vinwolf::utils::serialization::{StateKeyTrait, construct_preimage_key};
 extern crate vinwolf;
 
 static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
@@ -73,7 +73,8 @@ mod tests {
             new_account.acc_min_gas = account.data.service.acc_min_gas.clone();
             new_account.xfer_min_gas = account.data.service.xfer_min_gas.clone();
             for preimage in account.data.preimages.iter() {
-                new_account.preimages.insert(preimage.hash.clone(), preimage.blob.clone());
+                let preimage_key = StateKeyType::Account(account.id, construct_preimage_key(&preimage.hash).to_vec()).construct();
+                new_account.preimages.insert(preimage_key, preimage.blob.clone());
             }
             service_accounts.insert(account.id.clone(), new_account);
         }
@@ -124,7 +125,8 @@ mod tests {
             assert_eq!(account.data.service.xfer_min_gas, result_account.xfer_min_gas);
             // TODO assert bytes and items
             for preimage in account.data.preimages.iter() {
-                assert_eq!(&preimage.blob, result_account.preimages.get(&preimage.hash).unwrap());
+                let preimage_key = StateKeyType::Account(account.id, construct_preimage_key(&preimage.hash).to_vec()).construct();
+                assert_eq!(&preimage.blob, result_account.preimages.get(&preimage_key).unwrap());
             }
 
             //assert_eq!(account.data.storage, result_account.storage); // TODO

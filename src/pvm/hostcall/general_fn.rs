@@ -10,7 +10,7 @@ use crate::constants::{
 };
 use crate::utils::codec::{Encode, EncodeSize, EncodeLen};
 use crate::utils::codec::generic::encode_unsigned;
-use crate::utils::serialization::{construct_storage_key, StateKeyTrait};
+use crate::utils::serialization::{construct_storage_key, construct_preimage_key, StateKeyTrait};
 
 use super::HostCallContext;
 
@@ -34,11 +34,11 @@ pub fn gas(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
 pub fn fetch(mut gas: Gas, 
              mut reg: Registers, 
              mut ram: RamMemory, 
-             pkg: Option<WorkPackage>,
+             _pkg: Option<WorkPackage>,
              n: Option<OpaqueHash>,
-             result: Option<WorkExecResult>,
-             segments: Option<Vec<DataSegments>>,
-             work_items: Option<Vec<WorkItem>>,
+             _result: Option<WorkExecResult>,
+             _segments: Option<Vec<DataSegments>>,
+             _work_items: Option<Vec<WorkItem>>,
              operands: Option<Vec<AccumulationOperand>>,
              transfers: Option<Vec<DeferredTransfer>>,
              ctx: HostCallContext) 
@@ -174,13 +174,15 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
 
     let hash: OpaqueHash = ram.read(read_start_address, 32).try_into().unwrap();
     log::debug!("hash: 0x{}", hex::encode(hash));
+    let preimage_key = StateKeyType::Account(service_id, construct_preimage_key(&hash).to_vec()).construct();
+    log::debug!("preimage_key: 0x{}", hex::encode(preimage_key));
 
     let preimage_blob: Option<Vec<u8>> = if a_account.is_none() {
         None
-    } else if !a_account.as_ref().unwrap().preimages.contains_key(&hash) {
+    } else if !a_account.as_ref().unwrap().preimages.contains_key(&preimage_key) {
         None
     } else {
-        a_account.unwrap().preimages.get(&hash).cloned()
+        a_account.unwrap().preimages.get(&preimage_key).cloned()
     };
 
     let preimage_len = preimage_blob.as_ref().map(|v| v.len()).unwrap_or(0) as RegSize;

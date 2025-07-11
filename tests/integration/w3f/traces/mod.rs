@@ -180,8 +180,8 @@ mod tests {
                     if state.service_accounts.get(&service_id).is_none() {
                         state.service_accounts.insert(service_id, Account::default());
                     }
-                    let hash = sp_core::blake2_256(&keyval.value);
-                    state.service_accounts.get_mut(&service_id).unwrap().preimages.insert(hash, keyval.value.clone());
+                    //let hash = sp_core::blake2_256(&keyval.value);
+                    state.service_accounts.get_mut(&service_id).unwrap().preimages.insert(keyval.key, keyval.value.clone());
                     /*println!("preimage key: {:x?}", hash);
                     println!("preimage len: {:?}", keyval.value.len());
                     println!("----------------------------------------------------------------------");*/

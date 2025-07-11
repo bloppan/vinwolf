@@ -649,7 +649,7 @@ pub struct Account {
     // Storage dictionary
     pub storage: HashMap<StorageKey, Vec<u8>>,
     // Preimages dictionary
-    pub preimages: HashMap<OpaqueHash, Vec<u8>>,
+    pub preimages: HashMap<StorageKey, Vec<u8>>,
     // Lookup dictionary
     pub lookup: HashMap<StorageKey, Vec<TimeSlot>>,
     // Code hash

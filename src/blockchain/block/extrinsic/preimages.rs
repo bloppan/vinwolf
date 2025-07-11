@@ -5,7 +5,7 @@
 
 use std::collections::HashSet;
 use crate::types::{TimeSlot, ServiceAccounts, ProcessError, PreimagesExtrinsic, PreimagesErrorCode, StateKeyType};
-use crate::utils::serialization::{StateKeyTrait, construct_lookup_key};
+use crate::utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 
 impl PreimagesExtrinsic {
 
@@ -35,9 +35,10 @@ impl PreimagesExtrinsic {
             let length = preimage.blob.len() as u32;
             log::debug!("length: {length}, hash: 0x{}", crate::print_hash!(hash));
             let lookup_key = StateKeyType::Account(preimage.requester, construct_lookup_key(&hash, length).to_vec()).construct();
+            let preimage_key = StateKeyType::Account(preimage.requester, construct_preimage_key(&hash).to_vec()).construct();
             if services.contains_key(&preimage.requester) {
                 let account = services.get_mut(&preimage.requester).unwrap();
-                if account.preimages.contains_key(&hash) {
+                if account.preimages.contains_key(&preimage_key) {
                     log::error!("Preimage unneeded. The key 0x{} is already contained in this account", crate::print_hash!(hash));
                     return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
                 }
@@ -50,7 +51,7 @@ impl PreimagesExtrinsic {
                     log::error!("Preimage unneeded: Lookup key 0x{} not found", crate::print_hash!(lookup_key));
                     return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
                 }
-                account.preimages.insert(hash, preimage.blob.clone());
+                account.preimages.insert(preimage_key, preimage.blob.clone());
                 let timeslot_values = vec![post_tau.clone()];
                 account.lookup.insert(lookup_key, timeslot_values);
             } else {

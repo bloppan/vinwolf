@@ -62,7 +62,8 @@ pub fn parse_account(json_data: &DeltaEntry) -> Account {
         for (i, byte) in hash.iter().enumerate() {
             hash_storage[i] = *byte;
         }
-        account.preimages.insert(hash_storage, value);
+
+        //account.preimages.insert(hash_storage, value);
     }
 
     return account;

@@ -10,7 +10,7 @@ use vinwolf::blockchain::state::{set_service_accounts, get_service_accounts, set
 use vinwolf::blockchain::state::services::process;
 use vinwolf::blockchain::state::statistics;
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::utils::serialization::{StateKeyTrait, construct_lookup_key};
+use vinwolf::utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 
 #[cfg(test)]
 mod tests {
@@ -50,9 +50,10 @@ mod tests {
 
         let mut service_accounts = ServiceAccounts::default();
         for account in pre_state.accounts.iter() {
-            let mut preimages_map = HashMap::new();
+            let mut preimages_map: HashMap<[u8; 31], Vec<u8>> = HashMap::new();
             for preimage in account.data.preimages.iter() {
-                preimages_map.insert(preimage.hash.clone(), preimage.blob.clone());
+                let preimage_key = StateKeyType::Account(account.id, construct_preimage_key(&preimage.hash).to_vec()).construct();
+                preimages_map.insert(preimage_key, preimage.blob.clone());
             }
             let mut lookup_map = HashMap::new();
             for lookup_meta in account.data.lookup_meta.iter() {     
@@ -99,8 +100,9 @@ mod tests {
         for account in expected_state.accounts.iter() {
             let result_account = result_service_accounts.get(&account.id).unwrap();
             for preimage in account.data.preimages.iter() {
-                if let Some(_) = result_account.preimages.get(&preimage.hash) {
-                    assert_eq!(preimage.blob, *result_account.preimages.get(&preimage.hash).unwrap());
+                let preimage_key = StateKeyType::Account(account.id, construct_preimage_key(&preimage.hash).to_vec()).construct();
+                if let Some(_) = result_account.preimages.get(&preimage_key) {
+                    assert_eq!(preimage.blob, *result_account.preimages.get(&preimage_key).unwrap());
                 }
             }
             for lookup_meta in account.data.lookup_meta.iter() {

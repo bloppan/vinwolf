@@ -53,8 +53,8 @@ impl GlobalState {
             state.map.insert(key, service_info.encode());
 
             for preimage in account.preimages.iter() {
-                let key = StateKeyType::Account(*service_id, construct_preimage_key(preimage.0).to_vec()).construct();
-                state.map.insert(key, preimage.1.encode());
+                //let key = StateKeyType::Account(*service_id, construct_preimage_key(preimage.0).to_vec()).construct();
+                state.map.insert(*preimage.0, preimage.1.encode());
             }
             
             for lookup in account.lookup.iter() {

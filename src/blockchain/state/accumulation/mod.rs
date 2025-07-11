@@ -18,13 +18,13 @@ use crate::constants::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT,
 use crate::types::{
     AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, OpaqueHash, Privileges, 
     ReadyQueue, ReadyRecord, ServiceAccounts, TimeSlot, ValidatorsData, WorkPackageHash, WorkReport, ServiceId, Gas, Account, 
-    AccumulateErrorCode, 
+    AccumulateErrorCode, StateKeyType
 };
 use crate::blockchain::state::statistics;
 use crate::blockchain::state::{get_time, ProcessError};
 use crate::blockchain::state::time::get_current_block_slot;
 use crate::utils::codec::Encode;
-use crate::utils::serialization::construct_lookup_key;
+use crate::utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 use crate::utils::trie;
 use crate::pvm::hostcall::accumulate::invoke_accumulation;
 use crate::pvm::hostcall::on_transfer::invoke_on_transfer;
@@ -366,10 +366,12 @@ fn preimage_integration(services: &ServiceAccounts, preimages: &[(ServiceId, Vec
                                .lookup
                                .insert(construct_lookup_key(&sp_core::blake2_256(&pair.1), pair.1.len() as u32), vec![get_current_block_slot()]);
                 
+                let preimage_hash = sp_core::blake2_256(&pair.1);
+                let preimage_key = StateKeyType::Account(pair.0, construct_preimage_key(&preimage_hash).to_vec()).construct();
                 services_result.get_mut(&pair.0)
                                .unwrap()
                                .preimages
-                               .insert(sp_core::blake2_256(&pair.1), pair.1.clone());
+                               .insert(preimage_key, pair.1.clone());
             }
         } 
     }

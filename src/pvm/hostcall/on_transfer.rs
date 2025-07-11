@@ -1,9 +1,10 @@
 use {once_cell::sync::Lazy, std::sync::Mutex};
 
-use crate::types::{Account, DeferredTransfer, ExitReason, Gas, Balance, HostCallFn, RamMemory, Registers, ServiceId, TimeSlot, ServiceAccounts};
+use crate::types::{Account, DeferredTransfer, ExitReason, Gas, Balance, HostCallFn, RamMemory, Registers, ServiceId, TimeSlot, ServiceAccounts, StateKeyType};
 use crate::constants::{WHAT, MAX_SERVICE_CODE_SIZE};
 use crate::blockchain::state::services::decode_preimage;
 use crate::pvm;
+use crate::utils::serialization::{StateKeyTrait, construct_preimage_key};
 use crate::utils::codec::generic::encode_unsigned;
 use super::general_fn::{write, info, read, lookup};
 use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
@@ -45,8 +46,9 @@ pub fn invoke_on_transfer(
     }
     
     s_account.balance += transfers.iter().map(|transfer| transfer.amount).sum::<Balance>();
+    let preimage_key = StateKeyType::Account(*service_id, construct_preimage_key(&s_account.code_hash).to_vec()).construct();
 
-    if let Some(preimage_blob) = s_account.preimages.get(&s_account.code_hash) {
+    if let Some(preimage_blob) = s_account.preimages.get(&preimage_key) {
 
         let preimage = match decode_preimage(&preimage_blob) {
             Ok(preimage_data) => { preimage_data },
