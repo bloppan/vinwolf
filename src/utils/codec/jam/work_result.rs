@@ -53,10 +53,11 @@ impl Decode for WorkResult {
                     1 => WorkExecResult::Error(WorkExecError::OutOfGas),
                     2 => WorkExecResult::Error(WorkExecError::Panic),
                     3 => WorkExecResult::Error(WorkExecError::BadNumberExports),
-                    4 => WorkExecResult::Error(WorkExecError::BadCode),
-                    5 => WorkExecResult::Error(WorkExecError::CodeOversize),
+                    4 => WorkExecResult::Error(WorkExecError::ServiceCodeNotAvailableForLookup),
+                    5 => WorkExecResult::Error(WorkExecError::BadCode),
+                    6 => WorkExecResult::Error(WorkExecError::CodeOversize),
                     _ => { 
-                        println!("Invalid value in WorkExecResult: {}", exec_result);
+                        log::error!("Invalid value in WorkExecResult: {}", exec_result);
                         return Err(ReadError::InvalidData);
                     }
                 };

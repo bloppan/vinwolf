@@ -320,8 +320,9 @@ pub enum WorkExecError {
     OutOfGas = 1,
     Panic = 2,
     BadNumberExports = 3,
-    BadCode = 4,
-    CodeOversize = 5,
+    ServiceCodeNotAvailableForLookup = 4,
+    BadCode = 5,
+    CodeOversize = 6,
 }
 
 #[derive(Debug, Clone, PartialEq)]
