@@ -1,6 +1,7 @@
 use once_cell::sync::Lazy;
 use crate::integration::w3f::{read_test_file, FromProcessError};
 use crate::integration::w3f::codec::{TestBody, encode_decode_test};
+use dotenv::dotenv;
 
 pub mod codec;
 use codec::{InputAssurances, StateAssurances};
@@ -87,7 +88,9 @@ mod tests {
     #[test]
     fn run_assurances_tests() {
         
-        println!("Assurances tests in {} mode", *TEST_TYPE);
+        dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        log::info!("Assurances tests in {} mode", *TEST_TYPE);
 
         let test_files = vec![
             // Progress with an empty assurances extrinsic.
@@ -114,7 +117,8 @@ mod tests {
             "assurers_not_sorted_or_unique-2.bin",
         ];
         for file in test_files {
-            println!("Running test: {}", file);
+            log::info!("");
+            log::info!("Running test: {}", file);
             run_test(file);
         }
     }

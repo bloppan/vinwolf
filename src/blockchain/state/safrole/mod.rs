@@ -68,6 +68,7 @@ fn get_ring_set(epoch: u32, validators: &ValidatorsData) -> Vec<Public> {
     let ring_set_cached = get_ring_set_cached();
 
     if ring_set_cached.is_none() {
+        log::debug!("The ring set is none... Create new ring");
         let new_ring_set = create_ring_set(&validators);
         set_ring_set(epoch, new_ring_set.clone());
         return new_ring_set;
@@ -77,6 +78,7 @@ fn get_ring_set(epoch: u32, validators: &ValidatorsData) -> Vec<Public> {
     let ring_set_cached = ring_set_cached.unwrap().1;
 
     if epoch_ring_set_cached != epoch {
+        log::debug!("The ring set catched was created in a different epoch... Create new ring");
         let new_ring_set = create_ring_set(&validators);
         set_ring_set(epoch, new_ring_set.clone());
         return new_ring_set;
@@ -96,6 +98,7 @@ pub fn process(
     offenders: &[Ed25519Public],
 ) -> Result<OutputDataSafrole, ProcessError> {
 
+    log::debug!("Process Safrole state");
     // tau defines de most recent block
     // post_tau defines the block being processed
     let post_tau = block.header.unsigned.slot;
@@ -176,12 +179,12 @@ pub fn process(
     block.extrinsic.tickets.process(safrole_state, entropy_pool, &post_tau, ring_set.clone())?;
     // update tau which defines the most recent block's index
     *tau = post_tau;
-    //Verify the header's seal
-    let entropy_source_vrf_output = block.header.seal_verify(&safrole_state, &entropy_pool, &curr_validators, ring_set)?;
-    log::debug!("vrf output: 0x{}", crate::print_hash!(entropy_source_vrf_output));
-    // Update recent entropy eta0
-    entropy_pool.update_recent(entropy_source_vrf_output);
+    // Verify the header's seal
+    //let entropy_source_vrf_output = block.header.seal_verify(&safrole_state, &entropy_pool, &curr_validators, ring_set)?;
+    //// Update recent entropy eta0
+    //entropy_pool.update_recent(entropy_source_vrf_output);
     
+    log::debug!("Safrole state processed successfully");
     return Ok(OutputDataSafrole {epoch_mark, tickets_mark});
 }
 

@@ -11,13 +11,13 @@ use vinwolf::utils::codec::generic::decode;
 use vinwolf::utils::trie::merkle_state;
 use vinwolf::{blockchain::state::set_global_state, types::{GlobalState, TimeSlot}};
 
-#[derive(Debug, Clone, PartialEq)]
+/*#[derive(Debug, Clone, PartialEq)]
 pub struct TestCase {
 
     pub pre_state: RawState,
     pub block: Block,
     pub post_state: RawState,
-}
+}*/
 
 
 #[cfg(test)]
@@ -47,7 +47,7 @@ mod tests {
         
         loop {
 
-            log::info!("\n\n**********************    Reading trace test file: {}    **********************************\n\n", slot);
+            log::info!("\n\nProcess trace test file: {}\n", slot);
 
             let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/traces/reports-l1/{:08}.bin", slot));
             let mut reader = BytesReader::new(&test_content);
@@ -77,15 +77,15 @@ mod tests {
             
             assert_eq_state(&expected_state, &result_state);
 
-            /*println!("post_sta state_root: {:x?}", post_state.state_root);
-            println!("expected state_root: {:x?}", merkle_state(&expected_state.serialize().map, 0).unwrap());
-            println!("result   state_root: {:x?}", merkle_state(&result_state.serialize().map, 0).unwrap());*/
+            log::info!("post_sta state_root: 0x{}", hex::encode(post_state.state_root));
+            log::info!("expected state_root: 0x{}", hex::encode(merkle_state(&expected_state.serialize().map, 0).unwrap()));
+            log::info!("result   state_root: 0x{}", hex::encode(merkle_state(&result_state.serialize().map, 0).unwrap()));
             
             assert_eq!(post_state.state_root, merkle_state(&result_state.serialize().map, 0).unwrap());
 
             slot += 1;
 
-            if slot == 4 {
+            if slot == 101 {
                 return;
             }
         }

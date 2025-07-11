@@ -103,7 +103,9 @@ mod test {
     #[test]
     fn run_disputes_tests() {
         
-        println!("Dispute tests in {} mode", *TEST_TYPE);
+        dotenv::dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        log::info!("Dispute tests in {} mode", *TEST_TYPE);
 
         let test_files = vec![
             // No verdicts, nothing special happens
@@ -166,7 +168,8 @@ mod test {
             "progress_with_invalid_keys-2.bin",
         ];
         for file in test_files {
-            println!("Running test: {}", file);
+            log::info!("");
+            log::info!("Running test: {}", file);
             run_test(file);
         }
     }

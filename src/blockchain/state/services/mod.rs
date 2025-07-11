@@ -12,12 +12,13 @@ pub fn process(
     preimages_extrinsic: &PreimagesExtrinsic
 ) -> Result<OutputPreimages, ProcessError> {
 
+    log::debug!("Process the preimages extrinsic");
+
     if preimages_extrinsic.preimages.len() == 0 {
         log::debug!("No preimages to process");
         return Ok(OutputPreimages::Ok());
     }
-
-    log::debug!("Process the preimages extrinsic");
+    
     preimages_extrinsic.process(services, post_tau)?;
 
     log::debug!("Preimages extrinsic processed successfully");

@@ -54,8 +54,10 @@ mod tests {
     #[test]
     fn run_recent_history_tests() {
         
-        println!("Recent history tests");
-
+        dotenv::dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        log::info!("Recent history tests");
+        
         let test_files = vec![
             // Empty history queue.
             "progress_blocks_history-1.bin",
@@ -67,7 +69,8 @@ mod tests {
             "progress_blocks_history-4.bin",
         ];
         for file in test_files {
-            println!("Running test: {}", file);
+            log::info!("");
+            log::info!("Running test: {}", file);
             run_test(file);
         }
     }

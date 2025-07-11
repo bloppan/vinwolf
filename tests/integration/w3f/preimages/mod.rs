@@ -5,12 +5,12 @@ use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 pub mod codec;
 use codec::{InputPreimages, PreimagesState};
 
-use vinwolf::types::{Account, OutputPreimages, ServiceAccounts, Statistics, Extrinsic, ProcessError};
+use vinwolf::types::{Account, OutputPreimages, ServiceAccounts, Statistics, Extrinsic, ProcessError, StateKeyType, StateKey};
 use vinwolf::blockchain::state::{set_service_accounts, get_service_accounts, set_time, get_global_state, set_statistics, get_statistics};
 use vinwolf::blockchain::state::services::process;
 use vinwolf::blockchain::state::statistics;
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::utils::serialization::construct_lookup_key;
+use vinwolf::utils::serialization::{StateKeyTrait, construct_lookup_key};
 
 #[cfg(test)]
 mod tests {
@@ -60,7 +60,8 @@ mod tests {
                 for timeslot in lookup_meta.value.iter() {
                     timeslot_values.push(timeslot.clone());
                 }   
-                lookup_map.insert(construct_lookup_key(&lookup_meta.key.hash.clone(), lookup_meta.key.length.clone()), timeslot_values.clone());
+                lookup_map.insert(StateKeyType::Account(account.id, construct_lookup_key(&lookup_meta.key.hash, lookup_meta.key.length).to_vec()).construct(), timeslot_values.clone());
+                //lookup_map.insert(construct_lookup_key(&lookup_meta.key.hash.clone(), lookup_meta.key.length.clone()), timeslot_values.clone());
             }
             let mut new_account = Account::default();
             new_account.preimages = preimages_map.clone();
@@ -91,7 +92,7 @@ mod tests {
                 set_service_accounts(state.service_accounts);
                 set_statistics(statistics.clone());
             },
-            Err(_) => { /*println!("Error: {:?}", output_result);*/ },
+            Err(_) => { log::error!("Error: {:?}", output_result); },
         }
 
         let result_service_accounts = get_service_accounts();
@@ -103,7 +104,7 @@ mod tests {
                 }
             }
             for lookup_meta in account.data.lookup_meta.iter() {
-                let timeslot_values = result_account.lookup.get(&construct_lookup_key(&lookup_meta.key.hash.clone(), lookup_meta.key.length.clone())).unwrap();
+                let timeslot_values = result_account.lookup.get(&StateKeyType::Account(account.id, construct_lookup_key(&lookup_meta.key.hash, lookup_meta.key.length).to_vec()).construct()).unwrap();
                 assert_eq!(lookup_meta.value.len(), timeslot_values.len());
                 for (i, byte) in lookup_meta.value.iter().enumerate() {
                     assert_eq!(byte.clone(), timeslot_values[i].clone());
@@ -134,6 +135,8 @@ mod tests {
     fn run_preimages_tests() {
         
         println!("Preimages tests");
+        dotenv::dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
 
         let test_files = vec![
             // Nothing is provided.
@@ -154,7 +157,8 @@ mod tests {
             "preimages_order_check-4.bin",
         ];
         for file in test_files {
-            println!("Running test: {}", file);
+            log::info!("");
+            log::info!("Running test: {}", file);
             run_test(file);
         }
     }

@@ -33,6 +33,7 @@ impl PreimagesExtrinsic {
         for preimage in self.preimages.iter() {
             let hash = sp_core::blake2_256(&preimage.blob);
             let length = preimage.blob.len() as u32;
+            log::debug!("length: {length}, hash: 0x{}", crate::print_hash!(hash));
             let lookup_key = StateKeyType::Account(preimage.requester, construct_lookup_key(&hash, length).to_vec()).construct();
             if services.contains_key(&preimage.requester) {
                 let account = services.get_mut(&preimage.requester).unwrap();

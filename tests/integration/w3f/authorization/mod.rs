@@ -1,6 +1,7 @@
 use once_cell::sync::Lazy;
 use crate::integration::w3f::read_test_file;
 use crate::integration::w3f::codec::{TestBody, encode_decode_test};
+use dotenv::dotenv;
 
 pub mod codec;
 use codec::{InputAuthorizations, StateAuthorizations};
@@ -70,7 +71,9 @@ mod tests {
     #[test]
     fn run_authorizations_tests() {
         
-        println!("Authorizations tests in {} mode", *TEST_TYPE);
+        dotenv::dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        log::info!("Authorizations tests in {} mode", *TEST_TYPE);
 
         let test_files = vec![
             // No guarantees.
@@ -85,7 +88,8 @@ mod tests {
             "progress_authorizations-3.bin",
         ];
         for file in test_files {
-            println!("Running test: {}", file);
+            log::info!("");
+            log::info!("Running test: {}", file);
             run_test(file);
         }
     }

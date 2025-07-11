@@ -111,7 +111,7 @@ mod tests {
                 set_safrole(state.safrole.clone());        
             },
             Err(_) => { 
-                println!("ERROR: {:?}", output_result);
+                log::error!("{:?}", output_result);
             },
         }
 
@@ -151,7 +151,10 @@ mod tests {
     #[test]
     fn run_safrole_tests() {
         
-        println!("Safrole tests in {} mode", *TEST_TYPE);
+        dotenv::dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        log::info!("Safrole tests in {} mode", *TEST_TYPE);
+
         let test_files = vec![
             // Progress by one slot.
             // Randomness accumulator is updated.
@@ -214,7 +217,8 @@ mod tests {
         ];
         
         for file in test_files {
-            println!("Running test: {}", file);
+            log::info!("");
+            log::info!("Running test: {}", file);
             run_test(file);
         }
     }
