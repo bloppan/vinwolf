@@ -22,8 +22,15 @@ pub mod hostcall;
 pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
 
     log::debug!("Invoke inner pvm");
-    let program = Program::decode(&mut BytesReader::new(program_blob)).unwrap(); // TODO handle error
-    //let mut pc_copy = pvm_ctx.pc.clone();
+
+    let program = match Program::decode(&mut BytesReader::new(program_blob)) {
+        Ok(program) => { program },
+        Err(_) => { 
+            log::error!("Panic: Decoding program");
+            return ExitReason::panic; 
+        }
+    };
+
     let mut opcode_copy = program.code[pvm_ctx.pc.clone() as usize];
 
     loop {
@@ -35,7 +42,7 @@ pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
                 // continue
             },
             ExitReason::OutOfGas => {
-                 log::debug!("Exit: pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg);
+                log::debug!("Exit: pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg);
                 log::error!("PVM: Out of gas!");
                 return ExitReason::OutOfGas;
             },
@@ -47,16 +54,13 @@ pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
                 return ExitReason::halt;
             },
             _ => { 
-                //println!("pc = {:?}, opcode = {:?}\t, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg); 
-                //println!("")
                 log::debug!("Exit: pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg);
-                log::debug!("Exit reason: {:?}", exit_reason);
+                log::debug!("PVM: {:?}", exit_reason);
                 return exit_reason; 
             },
         }
        
         log::trace!("pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg);
-        //pc_copy = pvm_ctx.pc.clone();
         opcode_copy = program.code[pvm_ctx.pc.clone() as usize];
     }
 }
