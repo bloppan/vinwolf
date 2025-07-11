@@ -19,7 +19,7 @@ use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use std::collections::{HashMap, HashSet};
 
-use crate::types::{
+use crate::jam_types::{
     ValidatorStatistics, CoresStatistics, Extrinsic, ServicesStatistics, SeviceActivityRecord, Statistics, TimeSlot, ValidatorIndex, 
     WorkReport, Gas, ServiceId
 };

@@ -17,7 +17,7 @@ use crate::blockchain::state::get_state_root;
 use crate::blockchain::state::safrole::bandersnatch::Verifier;
 
 use crate::constants::{EPOCH_LENGTH, VALIDATORS_COUNT};
-use crate::types::{
+use crate::jam_types::{
     EntropyPool, Header, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, TicketsOrKeys, TimeSlot, Extrinsic, 
     ValidatorsData};
 use crate::utils::codec::{Encode, EncodeSize};

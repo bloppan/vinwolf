@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::types::{Privileges, ServiceId};
+use crate::jam_types::{Privileges, ServiceId};
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
 impl Encode for Privileges {

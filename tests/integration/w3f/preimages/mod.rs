@@ -5,7 +5,7 @@ use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 pub mod codec;
 use codec::{InputPreimages, PreimagesState};
 
-use vinwolf::types::{Account, OutputPreimages, ServiceAccounts, Statistics, Extrinsic, ProcessError, StateKeyType, StateKey};
+use vinwolf::jam_types::{Account, OutputPreimages, ServiceAccounts, Statistics, Extrinsic, ProcessError, StateKeyType, StateKey};
 use vinwolf::blockchain::state::{set_service_accounts, get_service_accounts, set_time, get_global_state, set_statistics, get_statistics};
 use vinwolf::blockchain::state::services::process;
 use vinwolf::blockchain::state::statistics;

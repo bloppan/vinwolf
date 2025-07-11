@@ -3,7 +3,7 @@
 */
 
 use std::cmp::min;
-use crate::types::{Context, ExitReason, Program};
+use crate::jam_types::{Context, ExitReason, Program};
 use crate::utils::codec::generic::decode_integer;
 use crate::utils::codec::BytesReader;
 use crate::pvm::isa::{skip, _branch, signed};

@@ -6,7 +6,7 @@ pub mod codec;
 use codec::{InputStatistics, StateStatistics};
 
 use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, VALIDATORS_COUNT};
-use vinwolf::types::ValidatorSet;
+use vinwolf::jam_types::ValidatorSet;
 use vinwolf::blockchain::state::{set_statistics, set_time, set_validators, get_validators, get_global_state};
 use vinwolf::blockchain::state::statistics::process;
 use vinwolf::utils::codec::{Decode, BytesReader};
@@ -24,7 +24,7 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
 #[cfg(test)]
 mod tests {
 
-    use vinwolf::{blockchain::state::get_time, types::Statistics};
+    use vinwolf::{blockchain::state::get_time, jam_types::Statistics};
 
     use super::*;
 

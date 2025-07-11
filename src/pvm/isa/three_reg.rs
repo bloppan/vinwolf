@@ -2,7 +2,7 @@
     Instructions with Arguments of Three Registers.
 */
 
-use crate::types::{Context, ExitReason, Program, RegSize};
+use crate::jam_types::{Context, ExitReason, Program, RegSize};
 use crate::pvm::isa::{extend_sign, signed, unsigned};
 use crate::pvm::isa::skip;
 

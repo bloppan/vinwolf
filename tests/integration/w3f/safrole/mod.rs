@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 use crate::integration::w3f::{read_test_file, FromProcessError};
 use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
-use vinwolf::types::{Safrole, OutputSafrole, DisputesRecords, ValidatorSet, ProcessError, Block, Header, Extrinsic, OutputDataSafrole};
+use vinwolf::jam_types::{Safrole, OutputSafrole, DisputesRecords, ValidatorSet, ProcessError, Block, Header, Extrinsic, OutputDataSafrole};
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, TICKET_ENTRIES_PER_VALIDATOR, MAX_TICKETS_PER_EXTRINSIC};
 use vinwolf::blockchain::state::{
     set_time, set_entropy, set_validators, set_safrole, set_disputes, get_global_state, set_global_state, get_time, get_entropy,

@@ -1,4 +1,4 @@
-use crate::types::{
+use crate::jam_types::{
     OpaqueHash, ValidatorIndex, Ed25519Signature, Ed25519Public, WorkReportHash, OffendersMark, OutputDataDisputes, 
     DisputesRecords, DisputesExtrinsic, Verdict, Judgement, Culprit, Fault
 };

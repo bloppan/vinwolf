@@ -1,5 +1,5 @@
 
-use crate::types::{OpaqueHash, OutputPreimages, PreimagesExtrinsic, ServiceAccounts, Account, TimeSlot, PreimageData, Balance, ServiceId, StateKeyType};
+use crate::jam_types::{OpaqueHash, OutputPreimages, PreimagesExtrinsic, ServiceAccounts, Account, TimeSlot, PreimageData, Balance, ServiceId, StateKeyType};
 use crate::constants::{MIN_BALANCE, MIN_BALANCE_PER_ITEM, MIN_BALANCE_PER_OCTET};
 use crate::blockchain::state::ProcessError;
 use crate::utils::codec::{BytesReader, ReadError};
@@ -124,7 +124,7 @@ fn check_preimage_availability(timeslot_record: &[TimeSlot], slot: &TimeSlot) ->
 mod tests {
 
     use super::*;
-    use crate::types::{PreimagesErrorCode, Preimage};
+    use crate::jam_types::{PreimagesErrorCode, Preimage};
 
     #[test]
     fn test_preimages_extrinsic_process() {

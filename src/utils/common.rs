@@ -2,7 +2,7 @@ use std::collections::{HashSet, HashMap};
 use std::hash::Hash;
 use sp_core::{ed25519, Pair};
 
-use crate::types::{BandersnatchPublic, BlsPublic, Ed25519Public, Ed25519Signature, Metadata, ValidatorsData};
+use crate::jam_types::{BandersnatchPublic, BlsPublic, Ed25519Public, Ed25519Signature, Metadata, ValidatorsData};
 
 pub fn dict_subtract<K: Eq + std::hash::Hash + Clone, V: Clone>(
     d: &HashMap<K, V>,

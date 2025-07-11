@@ -1,4 +1,4 @@
-use vinwolf::types::{
+use vinwolf::jam_types::{
     AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, BlockHistory, DisputesRecords, EntropyPool, 
     HeaderHash, PreimagesMapEntry, Privileges, ReadyQueue, Safrole, ServiceId, ServiceInfo, Statistics, TimeSlot, 
     ValidatorsData, 

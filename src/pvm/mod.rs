@@ -3,7 +3,7 @@ pub mod mm;
 pub mod hostcall;
 pub mod pvm_constants;
 
-use crate::types::{Context, ExitReason, Program};
+use crate::jam_types::{Context, ExitReason, Program};
 use crate::utils::codec::{BytesReader, Decode};
 
 use isa::one_offset::*;

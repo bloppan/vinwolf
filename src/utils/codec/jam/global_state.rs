@@ -1,4 +1,4 @@
-use crate::types::{KeyValue, StorageKey, RawState, StateRoot};
+use crate::jam_types::{KeyValue, StorageKey, RawState, StateRoot};
 use crate::utils::codec::{Encode, EncodeLen, Decode, DecodeLen, ReadError, BytesReader};
 
 impl Encode for KeyValue {

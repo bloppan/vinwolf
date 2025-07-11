@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use crate::constants::MAX_ITEMS_AUTHORIZATION_QUEUE;
-use crate::types::{AuthPool, AuthPools, AuthQueue, AuthQueues, Authorizer, AuthorizerHash, CodeAuthorizer, CodeAuthorizers, CoreIndex, OpaqueHash};
+use crate::jam_types::{AuthPool, AuthPools, AuthQueue, AuthQueues, Authorizer, AuthorizerHash, CodeAuthorizer, CodeAuthorizers, CoreIndex, OpaqueHash};
 use crate::utils::codec::{BytesReader, Decode, DecodeLen, Encode, EncodeLen, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 

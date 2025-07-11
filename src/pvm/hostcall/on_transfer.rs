@@ -1,6 +1,6 @@
 use {once_cell::sync::Lazy, std::sync::Mutex};
 
-use crate::types::{Account, DeferredTransfer, ExitReason, Gas, Balance, HostCallFn, RamMemory, Registers, ServiceId, TimeSlot, ServiceAccounts, StateKeyType};
+use crate::jam_types::{Account, DeferredTransfer, ExitReason, Gas, Balance, HostCallFn, RamMemory, Registers, ServiceId, TimeSlot, ServiceAccounts, StateKeyType};
 use crate::pvm::pvm_constants::WHAT;
 use crate::constants::MAX_SERVICE_CODE_SIZE;
 use crate::blockchain::state::services::decode_preimage;

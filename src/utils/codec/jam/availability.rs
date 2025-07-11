@@ -1,5 +1,5 @@
 
-use crate::types::{AvailabilityAssignment, AvailabilityAssignments, AvailabilityAssignmentsItem, WorkReport};
+use crate::jam_types::{AvailabilityAssignment, AvailabilityAssignments, AvailabilityAssignmentsItem, WorkReport};
 use crate::constants::CORES_COUNT;
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 

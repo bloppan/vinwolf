@@ -5,7 +5,7 @@ use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 pub mod codec;
 use codec::{InputAccumulate, StateAccumulate};
 
-use vinwolf::types::{EntropyPool, ServiceAccounts, OutputAccumulation, Account, Statistics, Extrinsic, StateKeyType};
+use vinwolf::jam_types::{EntropyPool, ServiceAccounts, OutputAccumulation, Account, Statistics, Extrinsic, StateKeyType};
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH};
 use vinwolf::blockchain::state::{
     set_service_accounts, set_entropy, set_time, get_global_state, set_accumulation_history, set_privileges, set_ready_queue

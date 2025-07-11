@@ -7,7 +7,7 @@ use vinwolf::blockchain::state::{
     set_time, set_validators,
 };
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, CORES_COUNT};
-use vinwolf::types::{DisputesExtrinsic, OutputDataDisputes, ValidatorSet, ProcessError};
+use vinwolf::jam_types::{DisputesExtrinsic, OutputDataDisputes, ValidatorSet, ProcessError};
 use vinwolf::blockchain::state::disputes::process;
 use vinwolf::utils::codec::{Decode, BytesReader};
 

@@ -1,4 +1,4 @@
-use crate::types::{
+use crate::jam_types::{
     OpaqueHash, Ed25519Public, WorkPackageHash, RefineContext, WorkResult, SegmentRootLookupItem, WorkReport, WorkPackageSpec, 
     ReportedPackage, OutputDataReports, Gas
 };

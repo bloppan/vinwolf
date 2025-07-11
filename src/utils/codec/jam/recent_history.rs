@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::types::{BlockHistory, BlockInfo, Hash, Mmr, MmrPeak, ReportedWorkPackages};
+use crate::jam_types::{BlockHistory, BlockInfo, Hash, Mmr, MmrPeak, ReportedWorkPackages};
 use crate::utils::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 

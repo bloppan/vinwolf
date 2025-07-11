@@ -4,7 +4,7 @@ use std::array::from_fn;
 
 use crate::constants::{EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT};
 use crate::pvm::pvm_constants::{NUM_PAGES, NUM_REG, PAGE_SIZE};
-use crate::types::{
+use crate::jam_types::{
     Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, ValidatorStatistics, AssurancesExtrinsic, AuthPool, AuthPools, AuthQueues, 
     AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, CodeAuthorizer, 
     CodeAuthorizers, Context, CoreActivityRecord, CoresStatistics, Culprit, DeferredTransfer, DisputesExtrinsic, DisputesRecords, Ed25519Public, Ed25519Signature,

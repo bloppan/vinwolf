@@ -1,4 +1,4 @@
-use crate::types::{TicketsExtrinsic, DisputesExtrinsic, PreimagesExtrinsic, AssurancesExtrinsic, GuaranteesExtrinsic, Extrinsic};
+use crate::jam_types::{TicketsExtrinsic, DisputesExtrinsic, PreimagesExtrinsic, AssurancesExtrinsic, GuaranteesExtrinsic, Extrinsic};
 use crate::utils::codec::{Encode, Decode, ReadError, BytesReader};
 
 pub mod assurances;

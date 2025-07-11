@@ -1,4 +1,4 @@
-use crate::types::{ServiceId, PreimagesExtrinsic, Preimage, PreimagesMapEntry, HeaderHash, PreimagesErrorCode, OutputPreimages};
+use crate::jam_types::{ServiceId, PreimagesExtrinsic, Preimage, PreimagesMapEntry, HeaderHash, PreimagesErrorCode, OutputPreimages};
 use crate::utils::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 
 // Preimages are static data which is presently being requested to be available for workloads to be able to 

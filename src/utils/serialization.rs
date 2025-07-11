@@ -6,7 +6,7 @@
 */
 
 use sp_core::blake2_256;
-use crate::types::{OpaqueHash, StateKeyType, StateKey, SerializedState, GlobalState, ServiceInfo, StorageKey};
+use crate::jam_types::{OpaqueHash, StateKeyType, StateKey, SerializedState, GlobalState, ServiceInfo, StorageKey};
 use crate::utils::codec::{Encode, EncodeLen};
 use crate::constants::{
     ACCUMULATION_HISTORY, AUTH_POOLS, AUTH_QUEUE, AVAILABILITY, CURR_VALIDATORS, DISPUTES, ENTROPY, NEXT_VALIDATORS, PREV_VALIDATORS, PRIVILEGES, 

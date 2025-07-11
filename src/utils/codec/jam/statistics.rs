@@ -1,4 +1,4 @@
-use crate::types::{
+use crate::jam_types::{
     ActivityRecord, ValidatorStatistics, CoreActivityRecord, Statistics, CoresStatistics, SeviceActivityRecord, ServicesStatisticsMapEntry,
     ServicesStatistics, ServiceId
 };

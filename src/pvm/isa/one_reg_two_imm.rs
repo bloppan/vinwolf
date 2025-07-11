@@ -4,7 +4,7 @@
 
 use std::cmp::{min, max};
 use crate::pvm::pvm_constants::RAM_SIZE;
-use crate::types::{Context, ExitReason, Program, RamAddress, RegSize};
+use crate::jam_types::{Context, ExitReason, Program, RamAddress, RegSize};
 use crate::pvm::isa::{skip, extend_sign, _store};
 
 fn get_reg(pc: &RegSize, program: &Program) -> RegSize {

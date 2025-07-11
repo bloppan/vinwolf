@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Read;
 use crate::constants::{*};
-use crate::types::{
+use crate::jam_types::{
     RawState, Block, AuthPools, AuthQueues, BlockHistory, Safrole, DisputesRecords, EntropyPool, ValidatorsData, AvailabilityAssignments,
     Privileges, Statistics, ReadyQueue, AccumulatedHistory, OpaqueHash, Gas, ServiceId, Account, KeyValue, Header
 };
@@ -9,7 +9,7 @@ use crate::blockchain::state::{get_global_state, get_state_root, state_transitio
 use crate::utils::codec::{ReadError, Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 use crate::utils::codec::generic::{decode, encode_unsigned};
 use crate::utils::trie::merkle_state;
-use crate::{blockchain::state::set_global_state, types::{GlobalState, TimeSlot}};
+use crate::{blockchain::state::set_global_state, jam_types::{GlobalState, TimeSlot}};
 
 use bitvec::vec;
 use tokio::net::UnixListener;

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 extern crate vinwolf;
-use vinwolf::constants::{NUM_REG, PAGE_SIZE};
-use vinwolf::types::{Account, Context, OpaqueHash, Page, PageFlags, RamAccess, RamMemory, ServiceAccounts, StorageKey};
+use vinwolf::pvm::pvm_constants::{NUM_REG, PAGE_SIZE};
+use vinwolf::jam_types::{Account, Context, OpaqueHash, Page, PageFlags, RamAccess, RamMemory, ServiceAccounts, StorageKey};
 use vinwolf::utils::serialization::construct_lookup_key;
 
 use super::{DeltaEntry, InitialMemory, HostCallTestFile};

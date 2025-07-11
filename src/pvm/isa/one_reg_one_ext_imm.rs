@@ -3,7 +3,7 @@
 */
 
 use std::cmp::min;
-use crate::types::{Context, ExitReason, Program, RegSize};
+use crate::jam_types::{Context, ExitReason, Program, RegSize};
 use crate::utils::codec::generic::decode;
 use crate::pvm::isa::skip;
 

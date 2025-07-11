@@ -1,4 +1,4 @@
-use crate::types::RamAddress;
+use crate::jam_types::RamAddress;
 
 // The number of the registers in the PVM
 pub const NUM_REG: usize = 13;

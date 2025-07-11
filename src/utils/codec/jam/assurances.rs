@@ -1,4 +1,4 @@
-use crate::types::{
+use crate::jam_types::{
     OpaqueHash, Ed25519Signature, ValidatorIndex, AssurancesExtrinsic, AvailAssurance, WorkReport, 
     OutputDataAssurances, OutputAssurances, AssurancesErrorCode
 };

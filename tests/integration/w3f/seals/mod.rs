@@ -8,7 +8,7 @@ use std::convert::TryInto;
 extern crate vinwolf;
 
 use vinwolf::constants::{EPOCH_LENGTH, VALIDATORS_COUNT};  
-use vinwolf::types::{
+use vinwolf::jam_types::{
     Header, BandersnatchVrfSignature, Entropy, EntropyPool, Safrole, BandersnatchEpoch, TicketsOrKeys, TimeSlot, BandersnatchPublic, 
     TicketsMark, ValidatorsData, ValidatorSet
 };

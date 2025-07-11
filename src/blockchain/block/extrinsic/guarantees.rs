@@ -6,7 +6,7 @@
     workreport, which similarly comprises several work outputs and then presented on-chain within the guarantees extrinsic.
 */
 use crate::constants::{CORES_COUNT, MAX_DEPENDENCY_ITEMS};
-use crate::types::{
+use crate::jam_types::{
     AvailabilityAssignments, CoreIndex, EntropyPool, GuaranteesExtrinsic, Hash, OutputDataReports, ProcessError, ReportErrorCode, TimeSlot, ValidatorIndex, 
     ValidatorsData, OpaqueHash
 };

@@ -1,7 +1,7 @@
 use sp_core::blake2_256;
 use std::collections::HashMap;
 
-use crate::types::{
+use crate::jam_types::{
     AvailabilityAssignment, AvailabilityAssignments, CoreIndex, Ed25519Public, Entropy, EntropyPool, OutputDataReports, ReportErrorCode, 
     ReportedPackage, TimeSlot, ValidatorSignature, ValidatorsData, WorkReport, WorkResult
 };

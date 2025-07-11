@@ -40,7 +40,7 @@ use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use sp_core::blake2_256;
 
-use crate::types::{
+use crate::jam_types::{
     BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, Entropy, EntropyPool, EpochMark, Header, Block,
     OutputDataSafrole, Safrole, SafroleErrorCode, TicketBody, ValidatorData, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorsData
 };

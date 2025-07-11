@@ -4,7 +4,7 @@ use {once_cell::sync::Lazy, std::sync::Mutex};
 
 use crate::blockchain::state::{entropy::get_recent_entropy, time::get_current_block_slot};
 use crate::pvm;
-use crate::types::{
+use crate::jam_types::{
     Account, AccumulationContext, AccumulationOperand, AccumulationPartialState, CoreIndex, DeferredTransfer, ExitReason, Gas, HostCallFn, OpaqueHash, 
     RamAddress, RamMemory, RegSize, Registers, ServiceId, TimeSlot, ValidatorsData, WorkExecResult, StateKeyType,
 };

@@ -24,7 +24,7 @@
     work-package is legitimately able to utilize that resource. It is this subsystem we will now define.
 */
 use crate::constants::{CORES_COUNT, MAX_ITEMS_AUTHORIZATION_POOL, MAX_ITEMS_AUTHORIZATION_QUEUE};
-use crate::types::{AuthPools, GuaranteesExtrinsic, TimeSlot};
+use crate::jam_types::{AuthPools, GuaranteesExtrinsic, TimeSlot};
 use crate::blockchain::state::get_auth_queues;
 
 pub fn process(

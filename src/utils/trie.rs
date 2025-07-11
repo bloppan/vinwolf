@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use sp_core::{blake2_256, keccak_256};
 
-use crate::types::{Hash, Mmr, MmrPeak, StateKey};
+use crate::jam_types::{Hash, Mmr, MmrPeak, StateKey};
 use crate::utils::codec::{Encode, EncodeSize};
 
 // State Merklization involves transforming the serialized mapping into a cryptographic commitment. 

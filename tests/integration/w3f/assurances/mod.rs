@@ -7,7 +7,7 @@ pub mod codec;
 use codec::{InputAssurances, StateAssurances};
 
 use vinwolf::constants::{CORES_COUNT, VALIDATORS_COUNT};
-use vinwolf::types::{OutputDataAssurances, OutputAssurances, ValidatorSet, ProcessError};
+use vinwolf::jam_types::{OutputDataAssurances, OutputAssurances, ValidatorSet, ProcessError};
 use vinwolf::blockchain::state::{get_global_state, set_reporting_assurance, get_reporting_assurance, set_validators, get_validators};
 use vinwolf::blockchain::state::reports::assurance;
 use vinwolf::utils::codec::{Decode, BytesReader};

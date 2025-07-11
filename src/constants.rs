@@ -1,4 +1,4 @@
-use crate::types::{Gas, RamAddress, Balance};
+use crate::jam_types::{Gas, RamAddress, Balance};
 /*
     TINY CONFIG
 */

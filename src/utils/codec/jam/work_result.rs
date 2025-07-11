@@ -1,4 +1,4 @@
-use crate::types::{ServiceId, OpaqueHash, Gas, WorkResult, WorkExecResult, WorkExecError, RefineLoad};
+use crate::jam_types::{ServiceId, OpaqueHash, Gas, WorkResult, WorkExecResult, WorkExecError, RefineLoad};
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
 

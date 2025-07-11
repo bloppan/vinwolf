@@ -4,7 +4,7 @@ use ark_vrf::suites::bandersnatch;
 use bandersnatch::{BandersnatchSha512Ell2, IetfProof, Input, Output, Public, RingProof, RingProofParams, Secret};
 
 use crate::constants::VALIDATORS_COUNT;
-use crate::types::{ProcessError, SafroleErrorCode};
+use crate::jam_types::{ProcessError, SafroleErrorCode};
 const RING_SIZE: usize = VALIDATORS_COUNT;
 
 

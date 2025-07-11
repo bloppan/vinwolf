@@ -25,7 +25,7 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
 #[cfg(test)]
 mod tests {
 
-    use vinwolf::types::{GuaranteesExtrinsic, ReportGuarantee, WorkReport};
+    use vinwolf::jam_types::{GuaranteesExtrinsic, ReportGuarantee, WorkReport};
 
     use super::*;
 

@@ -1,4 +1,4 @@
-use crate::types::{BandersnatchPublic, Ed25519Public, BlsPublic, Metadata, ValidatorData, ValidatorsData};
+use crate::jam_types::{BandersnatchPublic, Ed25519Public, BlsPublic, Metadata, ValidatorData, ValidatorsData};
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
 impl Encode for ValidatorData {

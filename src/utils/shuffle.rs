@@ -1,7 +1,7 @@
 use sp_core::blake2_256;
 use std::convert::TryInto;
 
-use crate::types::Entropy;
+use crate::jam_types::Entropy;
 use crate::utils::codec::{Encode, EncodeSize};
 
 // The Fisher-Yates shuffle function is defined formally as:

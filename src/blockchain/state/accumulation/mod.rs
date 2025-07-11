@@ -15,7 +15,7 @@ use std::collections::{HashSet, HashMap};
 use ark_vrf::reexports::ark_std::iterable::Iterable;
 
 use crate::constants::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT, CORES_COUNT};
-use crate::types::{
+use crate::jam_types::{
     AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, OpaqueHash, Privileges, 
     ReadyQueue, ReadyRecord, ServiceAccounts, TimeSlot, ValidatorsData, WorkPackageHash, WorkReport, ServiceId, Gas, Account, 
     AccumulateErrorCode, StateKeyType

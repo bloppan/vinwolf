@@ -1,5 +1,5 @@
 use crate::constants::VALIDATORS_COUNT;
-use crate::types::{Ed25519Public, Safrole, ValidatorSet, ValidatorsData, ValidatorData};
+use crate::jam_types::{Ed25519Public, Safrole, ValidatorSet, ValidatorsData, ValidatorData};
 use crate::blockchain::state::get_validators;
 use crate::utils::common::set_offenders_null;
 

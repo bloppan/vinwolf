@@ -1,4 +1,4 @@
-use crate::types::{
+use crate::jam_types::{
     Account, AccumulationOperand, DataSegments, DeferredTransfer, ExitReason, Gas, OpaqueHash, RamAddress, RamMemory, RegSize, 
     Registers, ServiceAccounts, ServiceId, StateKeyType, WorkPackage, WorkExecResult, WorkItem};
 use crate::pvm::pvm_constants::*;

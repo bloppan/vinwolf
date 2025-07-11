@@ -3,7 +3,7 @@
 */
 
 use std::cmp::{min, max};
-use crate::types::{Context, ExitReason, Program, RegSize, HostCallFn};
+use crate::jam_types::{Context, ExitReason, Program, RegSize, HostCallFn};
 use crate::pvm::isa::{skip, extend_sign};
 
 

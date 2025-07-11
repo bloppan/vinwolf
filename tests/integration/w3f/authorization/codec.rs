@@ -1,4 +1,4 @@
-use vinwolf::types::{TimeSlot, AuthPools, AuthQueues, CodeAuthorizers};
+use vinwolf::jam_types::{TimeSlot, AuthPools, AuthQueues, CodeAuthorizers};
 use vinwolf::utils::codec::{BytesReader, Decode, Encode, ReadError};
 
 #[derive(Debug, Clone, PartialEq)]

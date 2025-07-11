@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
-use crate::types::TimeSlot;
+use crate::jam_types::TimeSlot;
 
 // eta0
 static CURRENT_SLOT: Lazy<Mutex<TimeSlot>> = Lazy::new(|| {

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 extern crate vinwolf;
 
-use vinwolf::types::{GlobalState, Gas};
+use vinwolf::jam_types::{GlobalState, Gas};
 
 mod parser;
 use parser::{parse_account, parse_context, parse_service_accounts, TestPart};

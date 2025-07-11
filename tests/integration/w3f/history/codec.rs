@@ -1,4 +1,4 @@
-use vinwolf::types::{Hash, ReportedWorkPackage};
+use vinwolf::jam_types::{Hash, ReportedWorkPackage};
 use vinwolf::utils::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 
 #[derive(Debug)]

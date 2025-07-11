@@ -1,4 +1,4 @@
-use vinwolf::types::{DisputesRecords, AvailabilityAssignments, TimeSlot, ValidatorsData, DisputesErrorCode, OutputDataDisputes};
+use vinwolf::jam_types::{DisputesRecords, AvailabilityAssignments, TimeSlot, ValidatorsData, DisputesErrorCode, OutputDataDisputes};
 use vinwolf::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
 #[derive(Debug, Clone, PartialEq)]

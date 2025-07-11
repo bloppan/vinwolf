@@ -27,7 +27,7 @@ use {once_cell::sync::Lazy, sp_core::blake2_256, std::sync::Mutex};
 
 use crate::blockchain::state::recent_history::set_current_block_history;
 use crate::utils::trie::merkle_state;
-use crate::types::{
+use crate::jam_types::{
     AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesRecords, EntropyPool, GlobalState, 
     OpaqueHash, Privileges, ProcessError, ReadyQueue, Safrole, ServiceAccounts, Statistics, TimeSlot, ValidatorSet, ValidatorsData, 
 };
