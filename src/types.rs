@@ -3,10 +3,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use serde::Deserialize;
 
 use crate::utils::codec::ReadError;
-use crate::constants::{
-    ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH,
-    NUM_REG, PAGE_SIZE, SEGMENT_SIZE, 
-};
+use crate::constants::{ ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH, SEGMENT_SIZE };
+use crate::pvm::pvm_constants::{NUM_REG, PAGE_SIZE};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
 // ----------------------------------------------------------------------------------------------------------
@@ -1142,7 +1140,6 @@ pub struct KeyValue {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawState {
-
     pub state_root: StateRoot,
     pub keyvals: Vec<KeyValue>,
 }

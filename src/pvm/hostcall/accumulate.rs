@@ -1,5 +1,4 @@
-use log::debug;
-use std::{collections::HashMap, mem::min_align_of};
+use std::collections::HashMap;
 use sp_core::blake2_256;
 use {once_cell::sync::Lazy, std::sync::Mutex};
 
@@ -9,9 +8,10 @@ use crate::types::{
     Account, AccumulationContext, AccumulationOperand, AccumulationPartialState, CoreIndex, DeferredTransfer, ExitReason, Gas, HostCallFn, OpaqueHash, 
     RamAddress, RamMemory, RegSize, Registers, ServiceId, TimeSlot, ValidatorsData, WorkExecResult, StateKeyType,
 };
+use pvm::pvm_constants::*;
+
 use crate::constants::{
-    CASH, CORE, CORES_COUNT, FULL, HUH, LOW, MAX_ITEMS_AUTHORIZATION_QUEUE, MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE, NONE, OK, TRANSFER_MEMO_SIZE, 
-    VALIDATORS_COUNT, WHAT, WHO, MAX_SERVICE_CODE_SIZE
+    CORES_COUNT, MAX_ITEMS_AUTHORIZATION_QUEUE, MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE, TRANSFER_MEMO_SIZE, VALIDATORS_COUNT, MAX_SERVICE_CODE_SIZE
 };
 use crate::blockchain::state::{services::parse_preimage, entropy, time};
 use crate::pvm::hostcall::{hostcall_argument, HostCallContext};
