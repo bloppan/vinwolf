@@ -40,10 +40,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     error!("este es un mensaje de error");*/
 
     match args[1].as_ref() { 
-        "--prueba" => {
+        /*"--prueba" => {
             let mut array = [1, 2, 3, 4, 5, 6, 7];
             println!("array: {:02x?}", array[0..4].to_vec());
-        },
+        },*/
         "--help" | "-h" => {
             print_help();
             return Ok(())
@@ -52,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("vinwolf GP version: 0.6.6");
             return Ok(())
         },
-        "--dir_test" => {
+        /*"--dir_test" => {
             let files = match read_files_in_directory(&args[2]) {
                 Ok(files) => files,
                 Err(_) => return Ok(())
@@ -65,7 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "--file_test" => {
             let file_path = std::path::Path::new(&args[2]);
             let _ = import_state_block(&file_path);
-        },
+        },*/
         "--fuzz" => {
 
             let mut path: PathBuf = PathBuf::from("/tmp/jam_conformance.sock");
