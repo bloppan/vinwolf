@@ -1,7 +1,7 @@
 /*
     Instructions with Arguments of One Offset.
 */
-use crate::types::{Context, Program, ExitReason};
+use crate::jam_types::{Context, Program, ExitReason};
 use crate::pvm::isa::skip;
 
 pub fn trap() -> ExitReason {

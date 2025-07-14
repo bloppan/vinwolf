@@ -3,12 +3,13 @@ use crate::integration::w3f::{read_test_file, FromProcessError};
 use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
-use vinwolf::types::{DisputesRecords, OutputDataReports, ValidatorSet, ProcessError, Statistics, Extrinsic, ServiceAccounts, Account};
+use vinwolf::jam_types::{DisputesRecords, OutputDataReports, ValidatorSet, ProcessError, Statistics, Extrinsic, ServiceAccounts, Account};
 use vinwolf::blockchain::state::{
     get_global_state, set_reporting_assurance, get_reporting_assurance, set_auth_pools, get_auth_pools, set_entropy, get_entropy, 
     set_validators, get_validators, set_recent_history, get_recent_history, set_disputes, get_disputes, set_statistics, get_statistics,
     set_service_accounts, get_service_accounts
 };
+use vinwolf::blockchain::state::recent_history::set_current_block_history;
 use vinwolf::blockchain::state::statistics;
 use vinwolf::utils::codec::{Decode, BytesReader};
 
@@ -76,6 +77,7 @@ mod tests {
         set_validators(pre_state.curr_validators, ValidatorSet::Current);
         set_validators(pre_state.prev_validators, ValidatorSet::Previous);
         set_entropy(pre_state.entropy.clone());
+        set_current_block_history(pre_state.recent_blocks.clone());
         set_recent_history(pre_state.recent_blocks);
         set_auth_pools(pre_state.auth_pools);
         
@@ -113,7 +115,7 @@ mod tests {
                 statistics::process(&mut statistics_state, &input.slot, &0, &extrinsic, &reports);
                 set_statistics(statistics_state.clone());
             },
-            Err(_) => { /*println!("Error processing guarantees: {:?}", output_result)*/ },
+            Err(_) => { log::error!("{:?}", output_result) },
         }
 
         let result_disputes = get_disputes();
@@ -123,7 +125,6 @@ mod tests {
         let result_entropy = get_entropy();
         let result_history = get_recent_history();
         let result_authpool = get_auth_pools();
-        //let result_services = get_services_state();
         let result_services = get_service_accounts();
         let result_statistics = get_statistics();
 
@@ -171,8 +172,10 @@ mod tests {
     #[test]
     fn run_work_report_tests() {
         
-        println!("Work report tests in {} mode", *TEST_TYPE);
-
+        dotenv::dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        log::info!("Work report tests in {} mode", *TEST_TYPE);
+        
         let test_files = vec![
             // Report uses current guarantors rotation
             "report_curr_rotation-1.bin",
@@ -258,7 +261,8 @@ mod tests {
             "with_avail_assignments-1.bin",
         ];
         for file in test_files {
-            println!("Running test: {}", file);
+            log::info!("");
+            log::info!("Running test: {}", file);
             run_test(file);
         }
     }

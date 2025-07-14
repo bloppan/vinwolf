@@ -4,7 +4,7 @@ use ark_vrf::suites::bandersnatch;
 use bandersnatch::{BandersnatchSha512Ell2, IetfProof, Input, Output, Public, RingProof, RingProofParams, Secret};
 
 use crate::constants::VALIDATORS_COUNT;
-use crate::types::{ProcessError, SafroleErrorCode};
+use crate::jam_types::{ProcessError, SafroleErrorCode};
 const RING_SIZE: usize = VALIDATORS_COUNT;
 
 
@@ -160,7 +160,7 @@ impl Verifier {
         let verifier_key = params.verifier_key_from_commitment(self.commitment.clone());
         let verifier = params.verifier(verifier_key);
         if Public::verify(input, output, aux_data, &signature.proof, &verifier).is_err() {
-            println!("Ring signature verification failure");
+            log::debug!("Ring signature verification failure");
             return Err(ProcessError::SafroleError(SafroleErrorCode::RingSignatureVerificationFail));
         }
         //println!("Ring signature verified");

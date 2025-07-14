@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Read;
 use crate::constants::{*};
-use crate::types::{
+use crate::jam_types::{
     RawState, Block, AuthPools, AuthQueues, BlockHistory, Safrole, DisputesRecords, EntropyPool, ValidatorsData, AvailabilityAssignments,
     Privileges, Statistics, ReadyQueue, AccumulatedHistory, OpaqueHash, Gas, ServiceId, Account, KeyValue, Header
 };
@@ -9,7 +9,7 @@ use crate::blockchain::state::{get_global_state, get_state_root, state_transitio
 use crate::utils::codec::{ReadError, Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 use crate::utils::codec::generic::{decode, encode_unsigned};
 use crate::utils::trie::merkle_state;
-use crate::{blockchain::state::set_global_state, types::{GlobalState, TimeSlot}};
+use crate::{blockchain::state::set_global_state, jam_types::{GlobalState, TimeSlot}};
 
 use bitvec::vec;
 use tokio::net::UnixListener;
@@ -183,7 +183,7 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), io::Error>  {
                 log::info!("New incomming connection accepted...");
 
                 loop {
-                    let mut buffer = vec![0; 1024000];
+                    let mut buffer = vec![0; 10240000];
                     match socket.read(&mut buffer).await {
                         
                         Ok(0) => {
@@ -195,7 +195,6 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), io::Error>  {
                         Ok(n) => {
                             // Mostrar lo que se recibe del cliente
                             let mut reader = BytesReader::new(&buffer);
-
                             let msg_len = u32::decode(&mut reader).unwrap();
                             let msg_type: Message = reader.read_byte().unwrap().into();
                             log::info!("New message. Total bytes received: {:?} bytes. Message length: {:?} bytes", n, msg_len);
@@ -222,14 +221,22 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), io::Error>  {
                                                 vinwolf_info.app_version.major, vinwolf_info.app_version.minor, vinwolf_info.app_version.patch,
                                                 vinwolf_info.jam_version.major, vinwolf_info.jam_version.minor, vinwolf_info.jam_version.patch, 
                                     );
-                                    log::info!("(Actually the target info that I'm sending is 'jamzig-fuzzer version: 0.1.0 protocol version: 0.6.6', in order to have the fuzzer accepting the handshake)");
+                                    //log::info!("(Actually the target info that I'm sending is 'jamzig-fuzzer version: 0.1.0 protocol version: 0.6.6', in order to have the fuzzer accepting the handshake)");
                                 },
                                 Message::SetState => {
                                     log::info!("SetState frame received");
+                                    
+                                    /*println!("");
+                                    for i in 0..n {
+                                        print!("{:02x?} ", buffer[i]);
+                                    }
+                                    println!("");*/
+
                                     let header = Header::decode(&mut reader).unwrap();
                                     //log::info!("SET STATE - Header: {:?}", header);
                                     let serialized_state = Vec::<KeyValue>::decode_len(&mut reader).unwrap();
-                                    log::debug!("{:?} key-values received", serialized_state.len());
+                                    /*log::debug!("{:?} key-values received", serialized_state.len());
+                                    log::debug!("{:02x?}", serialized_state);*/
                                     let mut global_state = GlobalState::default();
                                     set_state(serialized_state, &mut global_state);
                                     set_global_state(global_state.clone());
@@ -258,22 +265,29 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), io::Error>  {
                                 },
                                 Message::GetState => {
                                     log::info!("GetState frame received");
+                                    
+                                    /*println!("");
+                                    for i in 0..n {
+                                        print!("{:02x?} ", buffer[i]);
+                                    }
+                                    println!("");*/
+
                                     let hash = OpaqueHash::decode(&mut reader).unwrap();
                                     log::info!("Header hash received: 0x{}", hex::encode(hash));
                                     let raw_state = get_global_state().lock().unwrap().clone().serialize();
                                     let serialized_state = get_global_state().lock().unwrap().clone().serialize().map.encode();
                                     //log::info!("len raw_state: {:?}", raw_state.map.len());
-                                    let msg = [encode_unsigned(raw_state.map.len()), serialized_state].concat();
+                                    //let msg = [serialized_state].concat();
                                     log::info!("Send serialized state");
                                     let key_values = get_global_state().lock().unwrap().clone().serialize();
-                                    for item in key_values.map.iter() {
+                                    /*for item in key_values.map.iter() {
                                         log::debug!("key: {} val: {}", hex::encode(item.0), hex::encode(item.1));
-                                    }
+                                    }*/
                                     //socket.write_all(&construct_fuzz_msg(Message::State, &serialized_state)).await?;
-                                    socket.write_all(&construct_fuzz_msg(Message::State, &msg)).await?;
+                                    socket.write_all(&construct_fuzz_msg(Message::State, &serialized_state)).await?;
                                 },
                                 _ => {
-                                    log::info!("Message type not supported: {:?}", msg_type);
+                                    log::error!("Message type not supported: {:?}", msg_type);
                                  },
                             };
 
@@ -299,8 +313,7 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), io::Error>  {
 
 fn construct_fuzz_msg(msg_type: Message, msg: &[u8]) -> Vec<u8> {
     let mut buffer: Vec<u8> = vec![];
-    let msg_len = (msg.len() + 1) as u32;
-    buffer.extend_from_slice(&[msg_len.encode(), vec![msg_type as u8], msg.encode()].concat());
+    buffer.extend_from_slice(&[(msg.len() as u32 + 1).encode(), vec![msg_type as u8], msg.encode()].concat());
     return buffer;
 }
 
@@ -527,8 +540,8 @@ pub fn set_state(raw_state: Vec<KeyValue>, state: &mut GlobalState) {
                     if state.service_accounts.get(&service_id).is_none() {
                         state.service_accounts.insert(service_id, Account::default());
                     }
-                    let hash = sp_core::blake2_256(&keyval.value);
-                    state.service_accounts.get_mut(&service_id).unwrap().preimages.insert(hash, keyval.value.clone());
+                    //let hash = sp_core::blake2_256(&keyval.value);
+                    state.service_accounts.get_mut(&service_id).unwrap().preimages.insert(keyval.key, keyval.value.clone());
                     /*println!("preimage key: {:x?}", hash);
                     println!("preimage len: {:?}", keyval.value.len());
                     println!("----------------------------------------------------------------------");*/
@@ -657,8 +670,8 @@ pub fn set_raw_state(raw_state: RawState, state: &mut GlobalState) {
                     if state.service_accounts.get(&service_id).is_none() {
                         state.service_accounts.insert(service_id, Account::default());
                     }
-                    let hash = sp_core::blake2_256(&keyval.value);
-                    state.service_accounts.get_mut(&service_id).unwrap().preimages.insert(hash, keyval.value.clone());
+                    //let hash = sp_core::blake2_256(&keyval.value);
+                    state.service_accounts.get_mut(&service_id).unwrap().preimages.insert(keyval.key, keyval.value.clone());
                     /*println!("preimage key: {:x?}", hash);
                     println!("preimage len: {:?}", keyval.value.len());
                     println!("----------------------------------------------------------------------");*/

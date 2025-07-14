@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use once_cell::sync::Lazy;
 use crate::{print_hash, print_hash_start};
 
-use crate::types::{Entropy, EntropyPool, OpaqueHash};
+use crate::jam_types::{Entropy, EntropyPool, OpaqueHash};
 
 // eta0
 static RECENT_ENTROPY: Lazy<Mutex<OpaqueHash>> = Lazy::new(|| {

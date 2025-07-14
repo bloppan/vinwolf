@@ -1,4 +1,4 @@
-use crate::types::{OpaqueHash, TimeSlot, RefineContext};
+use crate::jam_types::{OpaqueHash, TimeSlot, RefineContext};
 use crate::utils::codec::{BytesReader, Decode, DecodeLen, Encode, EncodeLen, EncodeSize, ReadError};
 
 impl Encode for RefineContext {

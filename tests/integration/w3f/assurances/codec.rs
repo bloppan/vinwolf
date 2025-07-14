@@ -1,4 +1,4 @@
-use vinwolf::types::{TimeSlot, ValidatorsData, HeaderHash, AvailabilityAssignments, AssurancesExtrinsic};
+use vinwolf::jam_types::{TimeSlot, ValidatorsData, HeaderHash, AvailabilityAssignments, AssurancesExtrinsic};
 use vinwolf::utils::codec::{BytesReader, Decode, Encode, ReadError};
 
 #[derive(Debug, Clone, PartialEq)]

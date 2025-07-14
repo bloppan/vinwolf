@@ -27,7 +27,7 @@ use {once_cell::sync::Lazy, sp_core::blake2_256, std::sync::Mutex};
 
 use crate::blockchain::state::recent_history::set_current_block_history;
 use crate::utils::trie::merkle_state;
-use crate::types::{
+use crate::jam_types::{
     AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Block, BlockHistory, DisputesRecords, EntropyPool, GlobalState, 
     OpaqueHash, Privileges, ProcessError, ReadyQueue, Safrole, ServiceAccounts, Statistics, TimeSlot, ValidatorSet, ValidatorsData, 
 };
@@ -51,7 +51,7 @@ static STATE_ROOT: Lazy<Mutex<OpaqueHash>> = Lazy::new(|| {
 pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
     let header_hash = blake2_256(&block.header.encode());
-    log::info!("Importing new block: 0x{}", hex::encode(header_hash));
+    log::info!("Importing new block: 0x{}", crate::print_hash!(header_hash));
     
     block.header.verify(&block.extrinsic)?;
 
@@ -150,6 +150,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     set_state_root(merkle_state(&new_state.serialize().map, 0).unwrap());
     set_global_state(new_state);
 
+    log::info!("Block 0x{} processed succesfully", crate::print_hash!(header_hash));
     Ok(())
 }
 

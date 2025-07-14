@@ -1,4 +1,4 @@
-use crate::types::{Program, ProgramFormat};
+use crate::jam_types::{Program, ProgramFormat};
 use crate::utils::codec::{Decode, DecodeSize, BytesReader, ReadError};
 use crate::utils::codec::generic::{decode_integer, decode_to_bits, decode_unsigned};
 

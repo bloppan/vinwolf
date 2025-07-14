@@ -2,7 +2,7 @@ use crate::integration::w3f::read_test_file;
 //use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
 use vinwolf::utils::codec::{Decode, BytesReader};
-use vinwolf::types::{BlockHistory, ReportedWorkPackages};
+use vinwolf::jam_types::{BlockHistory, ReportedWorkPackages};
 use vinwolf::blockchain::state::{set_recent_history, get_recent_history};
 use vinwolf::blockchain::state::recent_history::{process, finalize};
 use codec::InputHistory;
@@ -54,8 +54,10 @@ mod tests {
     #[test]
     fn run_recent_history_tests() {
         
-        println!("Recent history tests");
-
+        dotenv::dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        log::info!("Recent history tests");
+        
         let test_files = vec![
             // Empty history queue.
             "progress_blocks_history-1.bin",
@@ -67,7 +69,8 @@ mod tests {
             "progress_blocks_history-4.bin",
         ];
         for file in test_files {
-            println!("Running test: {}", file);
+            log::info!("");
+            log::info!("Running test: {}", file);
             run_test(file);
         }
     }

@@ -3,9 +3,9 @@
 */
 
 use std::cmp::min;
-use crate::constants::PAGE_SIZE;
+use crate::pvm::pvm_constants::PAGE_SIZE;
 use crate::pvm::mm::program_init;
-use crate::types::{Context, ExitReason, Program, RamAddress, RegSize};
+use crate::jam_types::{Context, ExitReason, Program, RamAddress, RegSize};
 use crate::pvm::isa::skip;
 use crate::pvm::isa::{signed, unsigned};
 

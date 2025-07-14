@@ -2,14 +2,19 @@ use std::collections::VecDeque;
 use std::collections::{HashMap, HashSet};
 use std::array::from_fn;
 
-use crate::constants::{
-    EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, NUM_PAGES, NUM_REG, PAGE_SIZE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT
+use crate::constants::{EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT};
+use crate::pvm::pvm_constants::{NUM_PAGES, NUM_REG, PAGE_SIZE};
+use crate::jam_types::{
+    Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, ValidatorStatistics, AssurancesExtrinsic, AuthPool, AuthPools, AuthQueues, 
+    AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, CodeAuthorizer, 
+    CodeAuthorizers, Context, CoreActivityRecord, CoresStatistics, Culprit, DeferredTransfer, DisputesExtrinsic, DisputesRecords, Ed25519Public, Ed25519Signature,
+    Entropy, EntropyPool, Extrinsic, ExtrinsicSpec, Fault, GlobalState, GuaranteesExtrinsic, ImportSpec, Judgement, MemoryChunk, Metadata, OpaqueHash, Page, 
+    PageFlags, PageMap, PreimagesExtrinsic, Privileges, Program, RamMemory, ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportGuarantee, ReportedPackage,
+    ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, 
+    SeviceActivityRecord, Statistics, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, UnsignedHeader, ValidatorData, ValidatorsData, Verdict, 
+    WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, Header, Block, EpochMark, KeyValue, Preimage, PreimagesMapEntry 
 };
-use crate::types::{
-    Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, ValidatorStatistics, AssurancesExtrinsic, AuthPool, AuthPools, AuthQueues, AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, CodeAuthorizer, CodeAuthorizers, Context, CoreActivityRecord, CoresStatistics, Culprit, DeferredTransfer, DisputesExtrinsic, DisputesRecords, Ed25519Public, Ed25519Signature, Entropy, EntropyPool, Extrinsic, ExtrinsicSpec, Fault, GlobalState, GuaranteesExtrinsic, ImportSpec, Judgement, MemoryChunk, Metadata, OpaqueHash, Page, PageFlags, PageMap, PreimagesExtrinsic, Privileges, Program, RamMemory, ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportGuarantee, ReportedPackage, ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsExtrinsic, TicketsMark, TicketsOrKeys, TimeSlot, UnsignedHeader, ValidatorData, ValidatorsData, Verdict, WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult,
-    Header, Block, EpochMark, KeyValue, Preimage, PreimagesMapEntry 
-}
-;
+
 // ----------------------------------------------------------------------------------------------------------
 // Jam Types
 // ----------------------------------------------------------------------------------------------------------

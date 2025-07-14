@@ -1,4 +1,4 @@
-use crate::types::{ ServiceId, Gas, OpaqueHash, ServiceInfo, ServiceItem, Services };
+use crate::jam_types::{ ServiceId, Gas, OpaqueHash, ServiceInfo, ServiceItem, Services };
 use crate::utils::codec::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
 
 impl Encode for ServiceInfo {

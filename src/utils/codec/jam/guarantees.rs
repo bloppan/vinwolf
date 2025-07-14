@@ -1,6 +1,6 @@
 use crate::utils::codec::{Encode, EncodeSize, Decode, BytesReader, ReadError};
 use crate::utils::codec::generic::{encode_unsigned, decode_unsigned};
-use crate::types::{
+use crate::jam_types::{
     TimeSlot, WorkReport, ValidatorIndex, Ed25519Signature, ReportGuarantee, ValidatorSignature, GuaranteesExtrinsic
 };
 

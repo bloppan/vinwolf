@@ -15,16 +15,16 @@ use std::collections::{HashSet, HashMap};
 use ark_vrf::reexports::ark_std::iterable::Iterable;
 
 use crate::constants::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT, CORES_COUNT};
-use crate::types::{
+use crate::jam_types::{
     AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, OpaqueHash, Privileges, 
     ReadyQueue, ReadyRecord, ServiceAccounts, TimeSlot, ValidatorsData, WorkPackageHash, WorkReport, ServiceId, Gas, Account, 
-    AccumulateErrorCode, 
+    AccumulateErrorCode, StateKeyType
 };
 use crate::blockchain::state::statistics;
 use crate::blockchain::state::{get_time, ProcessError};
 use crate::blockchain::state::time::get_current_block_slot;
 use crate::utils::codec::Encode;
-use crate::utils::serialization::construct_lookup_key;
+use crate::utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 use crate::utils::trie;
 use crate::pvm::hostcall::accumulate::invoke_accumulation;
 use crate::pvm::hostcall::on_transfer::invoke_on_transfer;
@@ -48,6 +48,7 @@ pub fn process(
     new_available_reports: &[WorkReport],
 ) -> Result<(OpaqueHash, ServiceAccounts, ValidatorsData, AuthQueues, Privileges), ProcessError> {
   
+    log::debug!("Process accumulation");
     // We define the final state of the ready queue and the accumulated map by integrating those work-reports which were accumulated in this 
     // block and shifting any from the prior state with the oldest such items being dropped entirely:
     let current_block_accumulatable = get_current_block_accumulatable(new_available_reports, ready_queue, accumulated_history, post_tau);
@@ -71,6 +72,7 @@ pub fn process(
     )?;
 
     let accumulation_root = get_acc_root(&mut service_hash_pairs);
+    log::debug!("Accumulation root: 0x{}", crate::print_hash!(accumulation_root));
 
     accumulated_history.update(map_workreports(&current_block_accumulatable));
     // The newly available work-reports, are partitioned into two sequences based on the condition of having zero prerequisite work-reports.
@@ -95,7 +97,8 @@ fn outer_accumulation(
 
 ) -> Result<(u32, AccumulationPartialState, Vec<DeferredTransfer>, Vec<(ServiceId, OpaqueHash)>, Vec<(ServiceId, Gas)>), ProcessError>
 {
-    //println!("Outer accumulation");
+
+    log::debug!("Outer accumulation");
 
     let mut i: u32 = 0;
     let mut gas_to_use = 0;
@@ -111,7 +114,7 @@ fn outer_accumulation(
     }
 
     if i == 0 {
-        //println!("outer_accumulation: i = 0");
+        log::debug!("Exit outer accumulation: i = 0");
         return Ok((0, partial_state.clone(), vec![], vec![], vec![]));
     }
 
@@ -131,6 +134,8 @@ fn outer_accumulation(
                                                             star_partial_state, 
                                                             &HashMap::<ServiceId, Gas>::new())?;
 
+    
+    log::debug!("Finalized outer accumulation");
     return Ok((i + j, 
                prime_partial_state, 
                [star_deferred_transfers, t_deferred_transfers].concat(), 
@@ -219,6 +224,7 @@ fn parallelized_accumulation(
     // In the unlikely event it does happen, the block must be considered invalid.
     for key in n_service_accounts.keys() {
         if m_service_accounts.contains(key) {
+            log::error!("Service conflict: key {:?}", *key);
             return Err(ProcessError::AccumulateError(AccumulateErrorCode::ServiceConflict)); // Collision
         }
     }
@@ -273,6 +279,7 @@ fn parallelized_accumulation(
         privileges: post_privileges,
     };
 
+    log::debug!("Finalized paralellized accumulation");
     return Ok((result_partial_state, t_deferred_transfers, b_service_hash_pairs, u_gas_used));
 }
 
@@ -283,8 +290,8 @@ fn single_service_accumulation(
     service_id: &ServiceId,
 ) -> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(ServiceId, Vec<u8>)>)
 {
-    //println!("\nsingle accumulation, service id: {}", *service_id);
-        
+    log::debug!("Single service accumulation. Service {:?}", *service_id);
+    
     let mut total_gas = 0;
     let mut accumulation_operands: Vec<AccumulationOperand> = vec![];
     for report in reports.iter() {
@@ -359,10 +366,12 @@ fn preimage_integration(services: &ServiceAccounts, preimages: &[(ServiceId, Vec
                                .lookup
                                .insert(construct_lookup_key(&sp_core::blake2_256(&pair.1), pair.1.len() as u32), vec![get_current_block_slot()]);
                 
+                let preimage_hash = sp_core::blake2_256(&pair.1);
+                let preimage_key = StateKeyType::Account(pair.0, construct_preimage_key(&preimage_hash).to_vec()).construct();
                 services_result.get_mut(&pair.0)
                                .unwrap()
                                .preimages
-                               .insert(sp_core::blake2_256(&pair.1), pair.1.clone());
+                               .insert(preimage_key, pair.1.clone());
             }
         } 
     }

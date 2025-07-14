@@ -17,7 +17,7 @@ use crate::blockchain::state::get_state_root;
 use crate::blockchain::state::safrole::bandersnatch::Verifier;
 
 use crate::constants::{EPOCH_LENGTH, VALIDATORS_COUNT};
-use crate::types::{
+use crate::jam_types::{
     EntropyPool, Header, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, TicketsOrKeys, TimeSlot, Extrinsic, 
     ValidatorsData};
 use crate::utils::codec::{Encode, EncodeSize};
@@ -45,7 +45,7 @@ impl Header {
 
         let seal_vrf_output = match &safrole.seal {
             TicketsOrKeys::Tickets(tickets) => {
-                log::debug!("Verify seal tickets");
+                log::debug!("Verify tickets seal");
                 // The context is "jam_fallback_seal" + entropy[3] + ticket_attempt
                 let context = [&b"jam_ticket_seal"[..], &entropy.buf[3].encode(), &tickets.tickets_mark[i as usize].attempt.encode()].concat();
                 // Verify the seal
@@ -59,7 +59,7 @@ impl Header {
                 let seal_vrf_output = match seal_vrf_output_result {
                     Ok(vrf_output) => vrf_output,
                     Err(_) => {
-                        log::error!("Invalid ticket seal");
+                        log::error!("Invalid tickets seal");
                         return Err(ProcessError::SafroleError(SafroleErrorCode::InvalidTicketSeal));
                     }
                 };
@@ -72,7 +72,7 @@ impl Header {
                 seal_vrf_output
             },
             TicketsOrKeys::Keys(keys) => {
-                log::debug!("Verify seal keys");
+                log::debug!("Verify keys seal");
                 // The context is "jam_fallback_seal" + entropy[3]
                 let context = [&b"jam_fallback_seal"[..], &entropy.buf[3].encode()].concat();
                 // Verify the seal
@@ -86,7 +86,7 @@ impl Header {
                 let seal_vrf_output = match seal_vrf_output_result {
                     Ok(vrf_output) => vrf_output,
                     Err(_) => {
-                        log::error!("Invalid ticket seal");
+                        log::error!("Invalid key seal");
                         return Err(ProcessError::SafroleError(SafroleErrorCode::InvalidTicketSeal));
                     }
                 };
@@ -121,7 +121,7 @@ impl Header {
             },
         };
 
-        log::debug!("Seal header verified successfully");
+        log::debug!("Seal header verified successfully. vrf output: 0x{}", crate::print_hash!(entropy_source_vrf_output));
         Ok(entropy_source_vrf_output)
     }
 

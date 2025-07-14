@@ -31,7 +31,7 @@
 // disputes cannot be raised in the future of the chain.
 
 
-use crate::types::{
+use crate::jam_types::{
     AvailabilityAssignments, DisputesExtrinsic, DisputesRecords, Offenders, OutputDataDisputes, WorkReportHash,DisputesErrorCode 
 };
 use crate::utils::common::has_duplicates;

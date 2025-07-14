@@ -1,6 +1,6 @@
 
 use vinwolf::utils::codec::{BytesReader, Decode, DecodeLen, EncodeLen, Encode, ReadError};
-use vinwolf::types::{
+use vinwolf::jam_types::{
     AuthPools, AvailabilityAssignments, BlockHistory, CoresStatistics, Ed25519Public, EntropyPool, GuaranteesExtrinsic, Offenders, OutputDataReports, ReportErrorCode, Services, ServicesStatistics, TimeSlot, ValidatorsData, WorkPackageHash
 };
 

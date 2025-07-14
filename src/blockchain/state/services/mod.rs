@@ -1,10 +1,10 @@
 
-use crate::types::{OpaqueHash, OutputPreimages, PreimagesExtrinsic, ServiceAccounts, Account, TimeSlot, PreimageData, Balance, ServiceId};
+use crate::jam_types::{OpaqueHash, OutputPreimages, PreimagesExtrinsic, ServiceAccounts, Account, TimeSlot, PreimageData, Balance, ServiceId, StateKeyType};
 use crate::constants::{MIN_BALANCE, MIN_BALANCE_PER_ITEM, MIN_BALANCE_PER_OCTET};
 use crate::blockchain::state::ProcessError;
 use crate::utils::codec::{BytesReader, ReadError};
 use crate::utils::codec::generic::decode_unsigned;
-use crate::utils::serialization::construct_lookup_key;
+use crate::utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 
 pub fn process(
     services: &mut ServiceAccounts, 
@@ -12,12 +12,16 @@ pub fn process(
     preimages_extrinsic: &PreimagesExtrinsic
 ) -> Result<OutputPreimages, ProcessError> {
 
+    log::debug!("Process the preimages extrinsic");
+
     if preimages_extrinsic.preimages.len() == 0 {
+        log::debug!("No preimages to process");
         return Ok(OutputPreimages::Ok());
     }
-
+    
     preimages_extrinsic.process(services, post_tau)?;
 
+    log::debug!("Preimages extrinsic processed successfully");
     Ok(OutputPreimages::Ok())
 }
 
@@ -36,7 +40,8 @@ impl Account {
         }
 
         let threshold = MIN_BALANCE + items as Balance * MIN_BALANCE_PER_ITEM + octets as Balance * MIN_BALANCE_PER_OCTET;
-
+        
+        log::debug!("Items: {:?}, octets: {:?}, threshold: {:?}", items, octets, threshold);
         return (items, octets, threshold);
     }   
 }
@@ -44,7 +49,8 @@ impl Account {
 pub fn parse_preimage(service_accounts: &ServiceAccounts, service_id: &ServiceId) -> Result<Option<PreimageData>, ReadError> {
 
     let preimage_blob = if let Some(account) = service_accounts.get(service_id) {
-        if let Some(preimage) = account.preimages.get(&account.code_hash) {
+        let preimage_key = StateKeyType::Account(*service_id, construct_preimage_key(&account.code_hash).to_vec()).construct();
+        if let Some(preimage) = account.preimages.get(&preimage_key) {
             preimage
         } else {
             return Ok(None);
@@ -72,9 +78,16 @@ pub fn decode_preimage(preimage_blob: &[u8]) -> Result<PreimageData, ReadError> 
     })
 }
 
-pub fn historical_preimage_lookup(account: &Account, slot: &TimeSlot, hash: &OpaqueHash) -> Option<Vec<u8>> {
+pub fn historical_preimage_lookup(
+            service_id: &ServiceId, 
+            account: &Account, 
+            slot: &TimeSlot, 
+            hash: &OpaqueHash
+    ) -> Option<Vec<u8>> {
 
-    if let Some(preimage) = account.preimages.get(hash) {
+    let preimage_key = StateKeyType::Account(*service_id, construct_preimage_key(hash).to_vec()).construct();
+
+    if let Some(preimage) = account.preimages.get(&preimage_key) {
         let length = preimage.len() as u32;
         if let Some(timeslot_record) = account.lookup.get(&construct_lookup_key(hash, length)) {
             if check_preimage_availability(timeslot_record, slot) {
@@ -111,7 +124,7 @@ fn check_preimage_availability(timeslot_record: &[TimeSlot], slot: &TimeSlot) ->
 mod tests {
 
     use super::*;
-    use crate::types::{PreimagesErrorCode, Preimage};
+    use crate::jam_types::{PreimagesErrorCode, Preimage};
 
     #[test]
     fn test_preimages_extrinsic_process() {

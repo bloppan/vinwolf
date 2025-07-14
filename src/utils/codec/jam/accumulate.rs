@@ -1,5 +1,5 @@
 use crate::constants::{EPOCH_LENGTH, TRANSFER_MEMO_SIZE};
-use crate::types::{
+use crate::jam_types::{
     AccumulateRoot, AccumulatedHistory, OutputAccumulation, ReadyQueue, ReadyRecord, WorkPackageHash, WorkReport, AccumulationOperand, 
     DeferredTransfer, ServiceId, Balance, Gas
 };

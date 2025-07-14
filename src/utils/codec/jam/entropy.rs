@@ -1,4 +1,4 @@
-use crate::types::{OpaqueHash, Entropy, EntropyPool};
+use crate::jam_types::{OpaqueHash, Entropy, EntropyPool};
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
 impl Encode for Entropy {

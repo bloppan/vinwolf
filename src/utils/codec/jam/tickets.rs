@@ -1,4 +1,4 @@
-use crate::types::{
+use crate::jam_types::{
     BandersnatchPublic, BandersnatchRingVrfSignature, TicketAttempt, TicketBody, TicketEnvelope, TicketsExtrinsic, TicketsMark, TicketsOrKeys,
     BandersnatchEpoch
 };

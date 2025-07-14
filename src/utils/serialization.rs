@@ -6,7 +6,7 @@
 */
 
 use sp_core::blake2_256;
-use crate::types::{OpaqueHash, StateKeyType, StateKey, SerializedState, GlobalState, ServiceInfo, StorageKey};
+use crate::jam_types::{OpaqueHash, StateKeyType, StateKey, SerializedState, GlobalState, ServiceInfo, StorageKey};
 use crate::utils::codec::{Encode, EncodeLen};
 use crate::constants::{
     ACCUMULATION_HISTORY, AUTH_POOLS, AUTH_QUEUE, AVAILABILITY, CURR_VALIDATORS, DISPUTES, ENTROPY, NEXT_VALIDATORS, PREV_VALIDATORS, PRIVILEGES, 
@@ -53,8 +53,8 @@ impl GlobalState {
             state.map.insert(key, service_info.encode());
 
             for preimage in account.preimages.iter() {
-                let key = StateKeyType::Account(*service_id, construct_preimage_key(preimage.0).to_vec()).construct();
-                state.map.insert(key, preimage.1.encode());
+                //let key = StateKeyType::Account(*service_id, construct_preimage_key(preimage.0).to_vec()).construct();
+                state.map.insert(*preimage.0, preimage.1.encode());
             }
             
             for lookup in account.lookup.iter() {

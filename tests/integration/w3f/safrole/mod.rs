@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 use crate::integration::w3f::{read_test_file, FromProcessError};
 use crate::integration::w3f::codec::{TestBody, encode_decode_test};
 
-use vinwolf::types::{Safrole, OutputSafrole, DisputesRecords, ValidatorSet, ProcessError, Block, Header, Extrinsic, OutputDataSafrole};
+use vinwolf::jam_types::{Safrole, OutputSafrole, DisputesRecords, ValidatorSet, ProcessError, Block, Header, Extrinsic, OutputDataSafrole};
 use vinwolf::constants::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, TICKET_ENTRIES_PER_VALIDATOR, MAX_TICKETS_PER_EXTRINSIC};
 use vinwolf::blockchain::state::{
     set_time, set_entropy, set_validators, set_safrole, set_disputes, get_global_state, set_global_state, get_time, get_entropy,
@@ -111,7 +111,7 @@ mod tests {
                 set_safrole(state.safrole.clone());        
             },
             Err(_) => { 
-                println!("ERROR: {:?}", output_result);
+                log::error!("{:?}", output_result);
             },
         }
 
@@ -151,7 +151,10 @@ mod tests {
     #[test]
     fn run_safrole_tests() {
         
-        println!("Safrole tests in {} mode", *TEST_TYPE);
+        dotenv::dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        log::info!("Safrole tests in {} mode", *TEST_TYPE);
+
         let test_files = vec![
             // Progress by one slot.
             // Randomness accumulator is updated.
@@ -214,7 +217,8 @@ mod tests {
         ];
         
         for file in test_files {
-            println!("Running test: {}", file);
+            log::info!("");
+            log::info!("Running test: {}", file);
             run_test(file);
         }
     }

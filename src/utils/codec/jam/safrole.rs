@@ -1,4 +1,4 @@
-use crate::types::{
+use crate::jam_types::{
     TicketsOrKeys ,EpochMark, OutputDataSafrole, OutputSafrole, Safrole, SafroleErrorCode, TicketsMark, ValidatorsData, BandersnatchRingCommitment,
     TicketBody
 };

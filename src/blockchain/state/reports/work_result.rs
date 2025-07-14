@@ -1,5 +1,5 @@
 use crate::constants::{WORK_REPORT_GAS_LIMIT, MAX_WORK_ITEMS};
-use crate::types::{Gas, WorkResult, ReportErrorCode};
+use crate::jam_types::{Gas, WorkResult, ReportErrorCode};
 use crate::blockchain::state::ProcessError;
 use crate::blockchain::state::get_service_accounts;
 

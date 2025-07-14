@@ -6,7 +6,7 @@ pub mod codec;
 use codec::{InputStatistics, StateStatistics};
 
 use vinwolf::constants::{CORES_COUNT, EPOCH_LENGTH, VALIDATORS_COUNT};
-use vinwolf::types::ValidatorSet;
+use vinwolf::jam_types::ValidatorSet;
 use vinwolf::blockchain::state::{set_statistics, set_time, set_validators, get_validators, get_global_state};
 use vinwolf::blockchain::state::statistics::process;
 use vinwolf::utils::codec::{Decode, BytesReader};
@@ -24,7 +24,7 @@ static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
 #[cfg(test)]
 mod tests {
 
-    use vinwolf::{blockchain::state::get_time, types::Statistics};
+    use vinwolf::{blockchain::state::get_time, jam_types::Statistics};
 
     use super::*;
 
@@ -65,7 +65,9 @@ mod tests {
     #[test]
     fn run_statistics_tests() {
         
-        println!("Statitstics tests in {} mode", *TEST_TYPE);
+        dotenv::dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        log::info!("Statitstics tests in {} mode", *TEST_TYPE);
 
         let test_files = vec![
             // Empty extrinsic with no epoch change.
@@ -79,7 +81,8 @@ mod tests {
             "stats_with_some_extrinsic-1.bin",
         ];
         for file in test_files {
-            println!("Running test: {}", file);
+            log::info!("");
+            log::info!("Running test: {}", file);
             run_test(file);
         }
     }

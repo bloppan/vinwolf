@@ -4,7 +4,7 @@ extern crate vinwolf;
 
 use crate::integration::w3f::read_test_file;
 
-use vinwolf::types::{
+use vinwolf::jam_types::{
     RefineContext, WorkItem, WorkPackage, WorkResult, TicketsExtrinsic, DisputesExtrinsic, PreimagesExtrinsic, AssurancesExtrinsic, 
     GuaranteesExtrinsic, Header, Block, BlockHistory, WorkReport, OutputAssurances, OutputSafrole, OutputPreimages, OutputAccumulation,
     AuthPools, AuthQueues, Safrole, DisputesRecords, EntropyPool, ValidatorsData, AvailabilityAssignments, TimeSlot, Privileges, Statistics,

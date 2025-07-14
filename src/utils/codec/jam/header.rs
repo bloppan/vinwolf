@@ -1,4 +1,4 @@
-use crate::types::{
+use crate::jam_types::{
     OpaqueHash, TimeSlot, Ed25519Public, ValidatorIndex, BandersnatchVrfSignature, BandersnatchPublic,
     TicketBody, TicketsMark, EpochMark, Header, Entropy, UnsignedHeader
 };

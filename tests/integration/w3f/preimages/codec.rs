@@ -1,4 +1,4 @@
-use vinwolf::types::{HeaderHash, OpaqueHash, ServicesStatisticsMapEntry, PreimagesExtrinsic, PreimagesMapEntry, ServiceId, TimeSlot};
+use vinwolf::jam_types::{HeaderHash, OpaqueHash, ServicesStatisticsMapEntry, PreimagesExtrinsic, PreimagesMapEntry, ServiceId, TimeSlot};
 use vinwolf::utils::codec::{BytesReader, Decode, Encode, EncodeLen, DecodeLen, ReadError};
 
 #[derive(Debug, Clone, PartialEq)]

@@ -1,4 +1,4 @@
-use crate::types::{Header, Extrinsic, Block};
+use crate::jam_types::{Header, Extrinsic, Block};
 use crate::utils::codec::{Encode, Decode, BytesReader, ReadError};
 
 pub mod header;

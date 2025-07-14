@@ -3,10 +3,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use serde::Deserialize;
 
 use crate::utils::codec::ReadError;
-use crate::constants::{
-    ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH,
-    NUM_REG, PAGE_SIZE, SEGMENT_SIZE, 
-};
+use crate::constants::{ ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH, SEGMENT_SIZE };
+use crate::pvm::pvm_constants::{NUM_REG, PAGE_SIZE};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
 // ----------------------------------------------------------------------------------------------------------
@@ -322,8 +320,9 @@ pub enum WorkExecError {
     OutOfGas = 1,
     Panic = 2,
     BadNumberExports = 3,
-    BadCode = 4,
-    CodeOversize = 5,
+    ServiceCodeNotAvailableForLookup = 4,
+    BadCode = 5,
+    CodeOversize = 6,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -649,7 +648,7 @@ pub struct Account {
     // Storage dictionary
     pub storage: HashMap<StorageKey, Vec<u8>>,
     // Preimages dictionary
-    pub preimages: HashMap<OpaqueHash, Vec<u8>>,
+    pub preimages: HashMap<StorageKey, Vec<u8>>,
     // Lookup dictionary
     pub lookup: HashMap<StorageKey, Vec<TimeSlot>>,
     // Code hash
@@ -1142,7 +1141,6 @@ pub struct KeyValue {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawState {
-
     pub state_root: StateRoot,
     pub keyvals: Vec<KeyValue>,
 }

@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::path::PathBuf;
 
-use vinwolf::types::Entropy;
+use vinwolf::jam_types::Entropy;
 use vinwolf::utils::shuffle::shuffle;
 
 // Test case struct
@@ -16,7 +16,7 @@ struct TestCase<T> {
 // Entropy deserializer module
 mod hex_array {
     use serde::{self, Deserialize, Deserializer};
-    use vinwolf::types::Entropy;
+    use vinwolf::jam_types::Entropy;
     use hex;
     use std::fmt;
 

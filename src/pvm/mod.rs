@@ -1,4 +1,9 @@
-use crate::types::{Context, ExitReason, Program};
+pub mod isa;
+pub mod mm;
+pub mod hostcall;
+pub mod pvm_constants;
+
+use crate::jam_types::{Context, ExitReason, Program};
 use crate::utils::codec::{BytesReader, Decode};
 
 use isa::one_offset::*;
@@ -14,46 +19,50 @@ use isa::two_imm::*;
 use isa::one_reg_one_imm::*;
 use isa::one_reg_two_imm::*;
 use isa::one_reg_one_imm_one_offset::*;
-
-pub mod isa;
-pub mod mm;
-pub mod hostcall;
+use pvm_constants::*;
 
 pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
-    //println!("Invoke PVM");
-    let program = Program::decode(&mut BytesReader::new(program_blob)).unwrap(); // TODO handle error
-    let mut pc_copy = pvm_ctx.pc.clone();
+
+    log::debug!("Invoke inner pvm");
+
+    let program = match Program::decode(&mut BytesReader::new(program_blob)) {
+        Ok(program) => { program },
+        Err(_) => { 
+            log::error!("Panic: Decoding program");
+            return ExitReason::panic; 
+        }
+    };
+
     let mut opcode_copy = program.code[pvm_ctx.pc.clone() as usize];
-    //println!("pc = {:?}, opcode = {:?} \t, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), program.code[pvm_ctx.pc.clone() as usize], pvm_ctx.gas, pvm_ctx.reg);
+
     loop {
         
         let exit_reason = single_step_pvm(pvm_ctx, &program);
-        //println!("exit reason = {:?}", exit_reason);
         
         match exit_reason {
             ExitReason::Continue => {
                 // continue
             },
             ExitReason::OutOfGas => {
+                log::debug!("Exit: pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg);
+                log::error!("PVM: Out of gas!");
                 return ExitReason::OutOfGas;
             },
             // TODO arreglar esto
             /*ExitReason::panic |*/ ExitReason::Halt => {
-                //println!("pc = {:?}, opcode = {:?}\t, reg = {:?}", pvm_ctx.pc.clone(), program.code[pvm_ctx.pc.clone() as usize], pvm_ctx.reg);
-                //pvm_ctx.pc = 0; // Esto pone en el GP que deberia ser 0 (con panic tambien)
+                log::debug!("Exit: pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg);
+                log::debug!("PVM: Halt");
+                //pvm_ctx.pc = 0; // Esto pone en el GP que deberia ser 0 (con panic tambien) TODO
                 return ExitReason::halt;
             },
             _ => { 
-                //println!("pc = {:?}, opcode = {:?}\t, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg); 
-                //println!("")
+                log::debug!("Exit: pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg);
+                log::debug!("PVM: {:?}", exit_reason);
                 return exit_reason; 
             },
         }
-        //println!("pc = {:?}, opcode = {:?}\t, gas = {:?}, reg = {:?}", pc_copy, opcode_copy, pvm_ctx.gas, pvm_ctx.reg); 
-        
-        
-        //println!("pc = {:?}, opcode = {:?},\tgas = {:?},\treg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg); 
-        //pc_copy = pvm_ctx.pc.clone();
+       
+        log::trace!("pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg);
         opcode_copy = program.code[pvm_ctx.pc.clone() as usize];
     }
 }
@@ -214,142 +223,3 @@ fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
     return exit_reason;
 }
 
-const TRAP: u8 = 0;
-const FALLTHROUGH: u8 = 1;
-const ECALLI: u8 = 10;
-const LOAD_IMM_64: u8 = 20;
-const STORE_IMM_U8: u8 = 30;
-const STORE_IMM_U16: u8 = 31;
-const STORE_IMM_U32: u8 = 32;
-const STORE_IMM_U64: u8 = 33;
-const JUMP: u8 = 40;
-const JUMP_IND: u8 = 50;
-const LOAD_IMM: u8 = 51;
-const LOAD_U8: u8 = 52;
-const LOAD_I8: u8 = 53;
-const LOAD_U16: u8 = 54;
-const LOAD_I16: u8 = 55;
-const LOAD_U32: u8 = 56;
-const LOAD_I32: u8 = 57;
-const LOAD_U64: u8 = 58;
-const STORE_U8: u8 = 59;
-const STORE_U16: u8 = 60;
-const STORE_U32: u8 = 61;
-const STORE_U64: u8 = 62;
-const STORE_IMM_IND_U8: u8 = 70;
-const STORE_IMM_IND_U16: u8 = 71;
-const STORE_IMM_IND_U32: u8 = 72;
-const STORE_IMM_IND_U64: u8 = 73;
-const LOAD_IMM_JUMP: u8 = 80;
-const BRANCH_EQ_IMM: u8 = 81;
-const BRANCH_NE_IMM: u8 = 82;
-const BRANCH_LT_U_IMM: u8 = 83;
-const BRANCH_LE_U_IMM: u8 = 84;
-const BRANCH_GE_U_IMM: u8 = 85;
-const BRANCH_GT_U_IMM: u8 = 86;
-const BRANCH_LT_S_IMM: u8 = 87;
-const BRANCH_LE_S_IMM: u8 = 88;
-const BRANCH_GE_S_IMM: u8 = 89;
-const BRANCH_GT_S_IMM: u8 = 90;
-const MOVE_REG: u8 = 100;
-const SBRK: u8 = 101;
-const COUNT_SET_BITS_64: u8 = 102;
-const COUNT_SET_BITS_32: u8 = 103;
-const LEADING_ZERO_BITS_64: u8 = 104;
-const LEADING_ZERO_BITS_32: u8 = 105;
-const TRAILING_ZERO_BITS_64: u8 = 106;
-const TRAILING_ZERO_BITS_32: u8 = 107;
-const SIGN_EXTEND_8: u8 = 108;
-const SIGN_EXTEND_16: u8 = 109;
-const ZERO_EXTEND_16: u8 = 110;
-const REVERSE_BYTES: u8 = 111;
-const STORE_IND_U8: u8 = 120;
-const STORE_IND_U16: u8 = 121;
-const STORE_IND_U32: u8 = 122;
-const STORE_IND_U64: u8 = 123;
-const LOAD_IND_U8: u8 = 124;
-const LOAD_IND_I8: u8 = 125;
-const LOAD_IND_U16: u8 = 126;
-const LOAD_IND_I16: u8 = 127;
-const LOAD_IND_U32: u8 = 128;
-const LOAD_IND_I32: u8 = 129;
-const LOAD_IND_U64: u8 = 130;
-const ADD_IMM_32: u8 = 131;
-const AND_IMM: u8 = 132;
-const XOR_IMM: u8 = 133;
-const OR_IMM: u8 = 134;
-const MUL_IMM_32: u8 = 135;
-const SET_LT_U_IMM: u8 = 136;
-const SET_LT_S_IMM: u8 = 137;
-const SHLO_L_IMM_32: u8 = 138;
-const SHLO_R_IMM_32: u8 = 139;
-const SHAR_R_IMM_32: u8 = 140;
-const NEG_ADD_IMM_32: u8 = 141;
-const SET_GT_U_IMM: u8 = 142;
-const SET_GT_S_IMM: u8 = 143;
-const SHLO_L_IMM_ALT_32: u8 = 144;
-const SHLO_R_IMM_ALT_32: u8 = 145;
-const SHAR_R_IMM_ALT_32: u8 = 146;
-const CMOV_IZ_IMM: u8 = 147;
-const CMOV_NZ_IMM: u8 = 148;
-const ADD_IMM_64: u8 = 149;
-const MUL_IMM_64: u8 = 150;
-const SHLO_L_IMM_64: u8 = 151;
-const SHLO_R_IMM_64: u8 = 152;
-const SHAR_R_IMM_64: u8 = 153;
-const NEG_ADD_IMM_64: u8 = 154;
-const SHLO_L_IMM_ALT_64: u8 = 155;
-const SHLO_R_IMM_ALT_64: u8 = 156;
-const SHAR_R_IMM_ALT_64: u8 = 157;
-const ROT_R_64_IMM: u8 = 158;
-const ROT_R_64_IMM_ALT: u8 = 159;
-const ROT_R_32_IMM: u8 = 160;
-const ROT_R_32_IMM_ALT: u8 = 161;
-const BRANCH_EQ: u8 = 170;
-const BRANCH_NE: u8 = 171;
-const BRANCH_LT_U: u8 = 172;
-const BRANCH_LT_S: u8 = 173;
-const BRANCH_GE_U: u8 = 174;
-const BRANCH_GE_S: u8 = 175;
-const LOAD_IMM_JUMP_IND: u8 = 180;
-const ADD_32: u8 = 190;
-const SUB_32: u8 = 191;
-const MUL_32: u8 = 192;
-const DIV_U_32: u8 = 193;
-const DIV_S_32: u8 = 194;
-const REM_U_32: u8 = 195;
-const REM_S_32: u8 = 196;
-const SHLO_L_32: u8 = 197;
-const SHLO_R_32: u8 = 198;
-const SHAR_R_32: u8 = 199;
-const ADD_64: u8 = 200;
-const SUB_64: u8 = 201;
-const MUL_64: u8 = 202;
-const DIV_U_64: u8 = 203;
-const DIV_S_64: u8 = 204;
-const REM_U_64: u8 = 205;
-const REM_S_64: u8 = 206;
-const SHLO_L_64: u8 = 207;
-const SHLO_R_64: u8 = 208;
-const SHAR_R_64: u8 = 209;
-const AND: u8 = 210;
-const XOR: u8 = 211;
-const OR: u8 = 212;
-const MUL_UPPER_S_S: u8 = 213;
-const MUL_UPPER_U_U: u8 = 214;
-const MUL_UPPER_S_U: u8 = 215;
-const SET_LT_U: u8 = 216;
-const SET_LT_S: u8 = 217;
-const CMOV_IZ: u8 = 218;
-const CMOV_NZ: u8 = 219;
-const ROT_L_64: u8 = 220;
-const ROT_L_32: u8 = 221;
-const ROT_R_64: u8 = 222;
-const ROT_R_32: u8 = 223;
-const AND_INV: u8 = 224;
-const OR_INV: u8 = 225;
-const XNOR: u8 = 226;
-const MAX: u8 = 227;
-const MAX_U: u8 = 228;
-const MIN: u8 = 229;
-const MIN_U: u8 = 230;

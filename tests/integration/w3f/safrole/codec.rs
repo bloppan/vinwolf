@@ -1,4 +1,4 @@
-use vinwolf::types::{
+use vinwolf::jam_types::{
     Entropy, Ed25519Public, EntropyPool, TimeSlot, BandersnatchRingCommitment, ValidatorsData, TicketsExtrinsic, TicketBody, TicketsOrKeys
 };
 use vinwolf::utils::codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};

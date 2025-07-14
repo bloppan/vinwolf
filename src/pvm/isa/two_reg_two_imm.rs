@@ -4,7 +4,7 @@
 
 use std::cmp::{min, max};
 
-use crate::types::{Context, ExitReason, Program, RegSize};
+use crate::jam_types::{Context, ExitReason, Program, RegSize};
 use crate::pvm::isa::{skip, extend_sign, djump};
 
 fn get_reg(pc: &RegSize, program: &Program) -> (usize, usize) {

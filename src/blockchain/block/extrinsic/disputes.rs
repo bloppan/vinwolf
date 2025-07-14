@@ -6,7 +6,7 @@
     to a work-report’s validity (faults). Both are considered a kind of offense.
 */
 
-use crate::types::{
+use crate::jam_types::{
     AvailabilityAssignments, Culprit, DisputesErrorCode, DisputesExtrinsic, DisputesRecords, Ed25519Public, Fault, Hash, 
     OpaqueHash, OutputDataDisputes, ProcessError, ValidatorSet, ValidatorsData, Verdict, WorkReportHash
 };
@@ -334,7 +334,7 @@ impl Faults for Vec<Fault> {
 mod test {
 
     use sp_core::{ed25519, Pair};
-    use crate::types::ValidatorIndex;
+    use crate::jam_types::ValidatorIndex;
     
     fn bad_hash_order<const N: usize>(data: &Vec<[u8; N]>) -> bool {
 

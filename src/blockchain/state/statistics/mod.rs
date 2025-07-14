@@ -19,7 +19,7 @@ use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use std::collections::{HashMap, HashSet};
 
-use crate::types::{
+use crate::jam_types::{
     ValidatorStatistics, CoresStatistics, Extrinsic, ServicesStatistics, SeviceActivityRecord, Statistics, TimeSlot, ValidatorIndex, 
     WorkReport, Gas, ServiceId
 };
@@ -57,6 +57,8 @@ pub fn process(
     extrinsic: &Extrinsic,
     new_available_wr: &[WorkReport],
 ) {
+    
+    log::debug!("Process statistics");
 
     let tau = get_time();
 

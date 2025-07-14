@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 extern crate vinwolf;
-use vinwolf::constants::{NUM_REG, PAGE_SIZE};
-use vinwolf::types::{Account, Context, OpaqueHash, Page, PageFlags, RamAccess, RamMemory, ServiceAccounts, StorageKey};
+use vinwolf::pvm::pvm_constants::{NUM_REG, PAGE_SIZE};
+use vinwolf::jam_types::{Account, Context, OpaqueHash, Page, PageFlags, RamAccess, RamMemory, ServiceAccounts, StorageKey};
 use vinwolf::utils::serialization::construct_lookup_key;
 
 use super::{DeltaEntry, InitialMemory, HostCallTestFile};
@@ -62,7 +62,8 @@ pub fn parse_account(json_data: &DeltaEntry) -> Account {
         for (i, byte) in hash.iter().enumerate() {
             hash_storage[i] = *byte;
         }
-        account.preimages.insert(hash_storage, value);
+
+        //account.preimages.insert(hash_storage, value);
     }
 
     return account;

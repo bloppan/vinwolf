@@ -13,7 +13,7 @@
 // arising from processing the availability assurances followed by the work-report guarantees. This synchroneity can be 
 // seen formally through the requirement of an intermediate state ρ‡.
 
-use crate::types::{
+use crate::jam_types::{
     AssurancesExtrinsic, AvailabilityAssignment, AvailabilityAssignments, CoreIndex, DisputesRecords, EntropyPool, GuaranteesExtrinsic, 
     Hash, OutputDataAssurances, OutputDataReports, TimeSlot, ValidatorsData,
 };

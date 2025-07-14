@@ -1,7 +1,7 @@
 use crate::integration::w3f::read_test_file;
 
 use vinwolf::constants::{*};
-use vinwolf::types::{
+use vinwolf::jam_types::{
     RawState, Block, AuthPools, AuthQueues, BlockHistory, Safrole, DisputesRecords, EntropyPool, ValidatorsData, AvailabilityAssignments,
     Privileges, Statistics, ReadyQueue, AccumulatedHistory, OpaqueHash, Gas, ServiceId, Account, KeyValue
 };
@@ -9,15 +9,15 @@ use vinwolf::blockchain::state::{get_global_state, state_transition_function};
 use vinwolf::utils::codec::{Decode, DecodeLen, BytesReader};
 use vinwolf::utils::codec::generic::decode;
 use vinwolf::utils::trie::merkle_state;
-use vinwolf::{blockchain::state::set_global_state, types::{GlobalState, TimeSlot}};
+use vinwolf::{blockchain::state::set_global_state, jam_types::{GlobalState, TimeSlot}};
 
-#[derive(Debug, Clone, PartialEq)]
+/*#[derive(Debug, Clone, PartialEq)]
 pub struct TestCase {
 
     pub pre_state: RawState,
     pub block: Block,
     pub post_state: RawState,
-}
+}*/
 
 
 #[cfg(test)]
@@ -27,6 +27,10 @@ mod tests {
 
     #[test]
     fn run_traces_tests() {
+
+        use dotenv::dotenv;
+        dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
 
         /*let test_body: Vec<TestBody> = vec![TestBody::RawState,
                                             TestBody::Block,
@@ -42,7 +46,8 @@ mod tests {
         let mut slot = 1;
         
         loop {
-            println!("\n\n**********************    Reading trace test file: {}    **********************************", slot);
+
+            log::info!("\n\nProcess trace test file: {}\n", slot);
 
             let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/traces/reports-l1/{:08}.bin", slot));
             let mut reader = BytesReader::new(&test_content);
@@ -64,7 +69,7 @@ mod tests {
             let error = state_transition_function(&block);
             
             if error.is_err() {
-                println!("****************************************************** Error: {:?}", error);
+                log::error!("****************************************************** Error: {:?}", error);
                 return;
             }
 
@@ -72,15 +77,15 @@ mod tests {
             
             assert_eq_state(&expected_state, &result_state);
 
-            /*println!("post_sta state_root: {:x?}", post_state.state_root);
-            println!("expected state_root: {:x?}", merkle_state(&expected_state.serialize().map, 0).unwrap());
-            println!("result   state_root: {:x?}", merkle_state(&result_state.serialize().map, 0).unwrap());*/
+            log::info!("post_sta state_root: 0x{}", hex::encode(post_state.state_root));
+            log::info!("expected state_root: 0x{}", hex::encode(merkle_state(&expected_state.serialize().map, 0).unwrap()));
+            log::info!("result   state_root: 0x{}", hex::encode(merkle_state(&result_state.serialize().map, 0).unwrap()));
             
             assert_eq!(post_state.state_root, merkle_state(&result_state.serialize().map, 0).unwrap());
 
             slot += 1;
 
-            if slot == 10 {
+            if slot == 101 {
                 return;
             }
         }
@@ -175,8 +180,8 @@ mod tests {
                     if state.service_accounts.get(&service_id).is_none() {
                         state.service_accounts.insert(service_id, Account::default());
                     }
-                    let hash = sp_core::blake2_256(&keyval.value);
-                    state.service_accounts.get_mut(&service_id).unwrap().preimages.insert(hash, keyval.value.clone());
+                    //let hash = sp_core::blake2_256(&keyval.value);
+                    state.service_accounts.get_mut(&service_id).unwrap().preimages.insert(keyval.key, keyval.value.clone());
                     /*println!("preimage key: {:x?}", hash);
                     println!("preimage len: {:?}", keyval.value.len());
                     println!("----------------------------------------------------------------------");*/
@@ -234,7 +239,7 @@ mod tests {
         for service_account in expected_state.service_accounts.iter() {
             if let Some(account) = result_state.service_accounts.get(&service_account.0) {
                 //assert_eq!(service_account.1, account);
-                println!("TESTING service {:?}", service_account.0);
+                //println!("TESTING service {:?}", service_account.0);
                 //println!("Account: {:x?}", account);
                 let (_items, _octets, _threshold) = account.get_footprint_and_threshold();
                 for item in service_account.1.storage.iter() {

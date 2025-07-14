@@ -24,7 +24,7 @@
     work-package is legitimately able to utilize that resource. It is this subsystem we will now define.
 */
 use crate::constants::{CORES_COUNT, MAX_ITEMS_AUTHORIZATION_POOL, MAX_ITEMS_AUTHORIZATION_QUEUE};
-use crate::types::{AuthPools, GuaranteesExtrinsic, TimeSlot};
+use crate::jam_types::{AuthPools, GuaranteesExtrinsic, TimeSlot};
 use crate::blockchain::state::get_auth_queues;
 
 pub fn process(
@@ -40,6 +40,8 @@ pub fn process(
 
     // We utilize the code_authorizers (from guarantees extrinsic) to remove the oldest authorizer which has 
     // been used to justify a guaranteed work-package in the current block.
+
+    log::debug!("Process authorizations");
     'next_report: for report in guarantees_extrinsic.report_guarantee.iter() {
                         for i in 0..auth_pools.0[report.report.core_index as usize].len() {
                             if auth_pools.0[report.report.core_index as usize][i] == report.report.authorizer_hash {
