@@ -288,6 +288,16 @@ mod test {
     use super::*;
 
     #[test]
+    fn decode_unsigned_test() {
+
+        let array: [u8; 2] = [0x87, 0xE0];
+        let mut reader = BytesReader::new(&array);
+        let value = decode_unsigned(&mut reader).unwrap();
+        println!("value: {value}");
+
+        
+    }
+    #[test]
     fn test_decode_size_array() {
 
         let array: [u8; 32] = (1..33).map(|x| x as u8).collect::<Vec<u8>>().try_into().unwrap();
@@ -325,6 +335,7 @@ mod test {
             (vec![0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], 8, 1usize),
             (vec![0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], 8, 0xFFFFFFFFFFFFFFFFusize),
             (vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80], 8, 0x8000000000000000usize),
+        
         ];
         for (input, size, expected) in test_cases {
             let result = decode_integer(&mut BytesReader::new(&input), size).unwrap();
@@ -367,6 +378,7 @@ mod test {
         let byte = [0x01];
         let value: u8 = decode::<u8>(&byte, 1);
         assert_eq!(value, 0x01);
+
     }
 
 }

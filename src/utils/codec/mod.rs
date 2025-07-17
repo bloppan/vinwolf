@@ -1,3 +1,4 @@
+use std::fmt;
 pub mod generic;
 pub mod jam;
 
@@ -36,6 +37,18 @@ pub enum ReadError {
     InvalidData,
     ConversionError,
 }
+
+impl fmt::Display for ReadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ReadError::NotEnoughData => write!(f, "Not enough data to decode."),
+            ReadError::InvalidData => write!(f, "Invalid data encountered during decoding."),
+            ReadError::ConversionError => write!(f, "Error occurred during data conversion."),
+        }
+    }
+}
+
+impl std::error::Error for ReadError {}
 
 pub struct BytesReader<'a> {
     pub position: usize,

@@ -160,7 +160,7 @@ impl Verifier {
         let verifier_key = params.verifier_key_from_commitment(self.commitment.clone());
         let verifier = params.verifier(verifier_key);
         if Public::verify(input, output, aux_data, &signature.proof, &verifier).is_err() {
-            log::debug!("Ring signature verification failure");
+            log::error!("Ring signature verification failure");
             return Err(ProcessError::SafroleError(SafroleErrorCode::RingSignatureVerificationFail));
         }
         //println!("Ring signature verified");
@@ -202,7 +202,7 @@ impl Verifier {
             .verify(input, output, aux_data, &signature.proof)
             .is_err()
         {
-            println!("Ring signature verification failure");
+            log::error!("Ring signature verification failure");
             return Err(ProcessError::SafroleError(SafroleErrorCode::IetfSignatureVerificationFail));
         }
         //println!("Ietf signature verified");

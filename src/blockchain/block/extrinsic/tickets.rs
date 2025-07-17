@@ -69,7 +69,7 @@ impl TicketsExtrinsic {
                     });
                 },
                 Err(_) => { 
-                    log::error!("Bad ticket proof: {:?}", i); 
+                    log::error!("Bad ticket proof. Ticket: {:?}", i); 
                     return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketProof)); 
                 }
             }
