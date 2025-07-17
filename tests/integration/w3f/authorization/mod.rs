@@ -1,7 +1,6 @@
 use once_cell::sync::Lazy;
 use crate::integration::w3f::read_test_file;
 use crate::integration::w3f::codec::{TestBody, encode_decode_test};
-use dotenv::dotenv;
 
 pub mod codec;
 use codec::{InputAuthorizations, StateAuthorizations};
@@ -88,7 +87,7 @@ mod tests {
             "progress_authorizations-3.bin",
         ];
         for file in test_files {
-            log::info!("");
+            println!("");
             log::info!("Running test: {}", file);
             run_test(file);
         }

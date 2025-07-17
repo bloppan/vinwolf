@@ -250,6 +250,25 @@ impl Default for ExtrinsicSpec {
             0: Vec::new(),
         }
     }
+
+                                                                                                                                                                        
+                                                                                                                                                                       
+TimeSlot               
+EntropyPool            
+AvailabilityAssignments
+BlockHistory           
+AuthPools
+AuthQueues
+Statistics
+Prev ValidatorsData
+Curr ValidatorsData
+Next ValidatorsData
+DisputesRecords
+Safrole
+AccumulatedHistory
+ReadyQueue
+Privileges
+
 }*/
 // ----------------------------------------------------------------------------------------------------------
 // Global State
@@ -270,10 +289,10 @@ impl Default for GlobalState {
             disputes: DisputesRecords::default(),
             safrole: Safrole::default(),
             service_accounts: ServiceAccounts::default(),
-            services_info: HashMap::new(),
-            preimages: HashMap::new(),
+            //services_info: HashMap::new(),
+            /*preimages: HashMap::new(),
             lookup_map: HashMap::new(),
-            storage_map: HashMap::new(),
+            storage_map: HashMap::new(),*/
             accumulation_history: AccumulatedHistory::default(),
             ready_queue: ReadyQueue::default(),
             privileges: Privileges::default(),

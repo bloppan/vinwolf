@@ -92,7 +92,7 @@ impl Header {
                 };
                 
                 if keys.epoch[i as usize] != current_validators.list[block_author].bandersnatch {
-                    log::error!("Key not match");
+                    log::error!("Key not match: Seal key {:02x?} != bandersnatch key author {block_author} {:02x?}", crate::print_hash!(keys.epoch[i as usize]), crate::print_hash!(current_validators.list[block_author].bandersnatch));
                     return Err(ProcessError::SafroleError(SafroleErrorCode::KeyNotMatch));
                 }
 

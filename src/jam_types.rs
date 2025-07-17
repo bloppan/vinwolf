@@ -898,10 +898,6 @@ pub struct GlobalState {
     pub disputes: DisputesRecords,
     pub safrole: Safrole,
     pub service_accounts: ServiceAccounts,
-    pub services_info: HashMap<ServiceId, ServiceInfo>,
-    pub preimages: HashMap<OpaqueHash, Vec<u8>>,
-    pub lookup_map: HashMap<(OpaqueHash, u32), Vec<TimeSlot>>,
-    pub storage_map: HashMap<OpaqueHash, Vec<u8>>,
     pub accumulation_history: AccumulatedHistory,
     pub ready_queue: ReadyQueue,
     pub privileges: Privileges,
@@ -1129,9 +1125,19 @@ pub struct RefineMemory {
 pub type DataSegment = [u8; SEGMENT_SIZE];
 pub type DataSegments = Vec<DataSegment>;
 
-pub type StateKey = [u8; 31];
-pub type StorageKey = [u8; 31];
 pub type TrieKey = [u8; 31];
+pub type StateKey = [u8; 31];
+//pub type SimpleKey = StateKey;
+
+
+pub struct SimpleKey(StateKey);
+
+pub type PreimageKey = StateKey;
+pub type LookupKey = StateKey;
+pub type StorageKey = StateKey;
+pub type ServiceInfoKey = StateKey;
+
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct KeyValue {

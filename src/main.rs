@@ -4,6 +4,8 @@
 use std::path::PathBuf;
 
 use vinwolf::node::fuzz::*;
+use vinwolf::node::utils::*;
+
 use dotenv::dotenv;
 
 fn print_help() {    
@@ -16,7 +18,6 @@ fn print_help() {
     println!("vinwolf --fuzz other_path.sock");
     println!();
 }
-use log::{info, warn, debug, trace, error};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,15 +30,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     dotenv().ok();
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     //env_logger::init();
-
-    // Generar algunos mensajes de log
-    /*debug!("Este es un mensaje de bbbb");
-    info!("Este es un mensaje de info");
-    warn!("Este es un mensaje de advertencia");
-    trace!("este es un mensaje de trace");
-    error!("este es un mensaje de error");*/
 
     match args[1].as_ref() { 
         /*"--prueba" => {
@@ -52,19 +46,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("vinwolf GP version: 0.6.6");
             return Ok(())
         },
-        /*"--dir_test" => {
-            let files = match read_files_in_directory(&args[2]) {
+        /*"--target" => {
+            let mut path: PathBuf = PathBuf::from("/tmp/jam_conformance.sock");
+
+            if args.len() > 2 {
+                let args: Vec<String> = std::env::args().collect();
+                path = PathBuf::from(&args[2]);
+            }
+
+            let socket_path = path.to_str().unwrap();
+
+            connect_to_unix_socket(socket_path).await?;
+        }
+        "--dir_test" => {
+            let files = match read_filenames_in_dir(&args[2]) {
                 Ok(files) => files,
                 Err(_) => return Ok(())
             };
 
             for file in files.iter() {
-                let _ = import_state_block(file);
+                let _ = import_block(file);
             }
         },
         "--file_test" => {
             let file_path = std::path::Path::new(&args[2]);
-            let _ = import_state_block(&file_path);
+            let _ = import_block(&file_path);
         },*/
         "--fuzz" => {
 
@@ -75,11 +81,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 path = PathBuf::from(&args[2]);
             }
 
-            if let Err(e) = std::fs::remove_file(path.clone()) {
-                if e.kind() != std::io::ErrorKind::NotFound {
-                // Si el error es diferente de "No encontrado", lo reportamos
-                }
-            }
+            let _ = std::fs::remove_file(path.clone());
+            
             let socket_path = path.to_str().unwrap();
             run_unix_server(socket_path).await?;
         }
