@@ -1,25 +1,51 @@
-[package]
-name = "vinwolf"
+[workspace]
+members = [ 
+    "constants",
+    "jam-types",
+    "codec",
+    "utils",
+    "blockchain/state/*",
+    "blockchain/block", 
+    "pvm", 
+    "tests", 
+]
+resolver = "2"
+
+
+[workspace.package]
 version = "0.1.0"
+authors = ["Bernardo Lopez <bernar792@gmail.com>"]
+license = "MIT/Apache-2.0"
 edition = "2021"
+repository = "https://github.com/bloppan/vinwolf"
 
-[dependencies]
-serde = { version = "1.0", features = ["derive"] }
-bitvec = "1.0.1"
+
+[workspace.dependencies]
+constants = { path = "constants" }
+jam-types = { path = "jam-types" }
+codec = { path = "codec" }
+utils = { path = "utils" }
+handler = { path = "blockchain/state/handler" }
+block = { path = "blockchain/block" }
+accumulation = { path = "blockchain/state/accumulation" }
+authorization = { path = "blockchain/state/authorization" }
+disputes = { path = "blockchain/state/disputes" }
+entropy = { path = "blockchain/state/entropy" }
+recent_history = { path = "blockchain/state/recent_history" }
+reports = { path = "blockchain/state/reports" }
+safrole = { path = "blockchain/state/safrole" }
+services = { path = "blockchain/state/services" }
+statistics = { path = "blockchain/state/statistics" }
+validators = { path = "blockchain/state/validators" }
+state-controller = { path = "blockchain/state/state-controller" }
+pvm = { path = "pvm" }
 serde_json = "1.0"
-ark-vrf ={ version = "0.1.0", features = ["bandersnatch", "ring"] }
-hex = "0.4.3"
-frame-support = "37.0.0"
-sp-core = "34.0.0"
-array-bytes = "6.2.3"
-num = "0.4"
-erasure-coding = { git = "https://github.com/paritytech/erasure-coding.git", branch = "main" }
-once_cell = "1.17"
+serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-env_logger = "0.10"
+hex = "0.4.3"
+sp-core = "34.0.0"
+ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring"] }
+once_cell = "1.17"
 dotenv = "0.15"
-rayon = "1.5"
+env_logger = "0.10"
 tokio = { version = "1", features = ["full"] }
-
-[dev-dependencies]
-quickcheck = { version = "1.0.3", default-features = false }

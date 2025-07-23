@@ -1,0 +1,15 @@
+[package]
+name = "services"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+constants = { workspace = true }
+jam-types = { workspace = true }
+codec = { workspace = true }
+utils = { workspace = true }
+block = { workspace = true }
+log = { workspace = true }

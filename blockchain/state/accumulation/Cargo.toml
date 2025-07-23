@@ -1,0 +1,20 @@
+[package]
+name = "accumulation"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+constants = { workspace = true }
+jam-types = { workspace = true }
+codec = { workspace = true }
+utils = { workspace = true }
+statistics = { workspace = true }
+handler = { workspace = true }
+pvm = { workspace = true }
+log = { workspace = true }
+ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring"] }
+once_cell = { workspace = true }
+sp-core = "34.0.0"

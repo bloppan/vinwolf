@@ -1,0 +1,16 @@
+[package]
+name = "handler"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+constants = { workspace = true }
+jam-types = { workspace = true }
+utils = { workspace = true }
+codec = { workspace = true }
+sp-core = { workspace = true }
+once_cell = { workspace = true }
+

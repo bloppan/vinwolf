@@ -1,0 +1,16 @@
+[package]
+name = "entropy"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+constants = { workspace = true }
+jam-types = { workspace = true }
+utils = { workspace = true }
+handler = { workspace = true }
+log = { workspace = true }
+once_cell = { workspace = true }
+sp-core = "34.0.0"
