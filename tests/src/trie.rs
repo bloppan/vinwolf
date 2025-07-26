@@ -88,18 +88,12 @@ mod tests {
                 kvs.push((key.clone(), value.clone()));
             }
             // Calculate merkle result
-            let res = merkle(&kvs, 0);
+            let merkle_root = merkle(&kvs, 0);
             // Convert Merkle result and spected output to hex
-            match res {
-                Ok(merkle_root) => {
-                    let res_hex = hex::encode(merkle_root);
-                    let test_hex = hex::encode(entry.output);
-                    println!("Test case {}: Expected output = {}, Merkle result = {}", index + 1, res_hex, test_hex);
-                    assert_eq!(test_hex, res_hex, "Test case {}: Merkle root mismatch!", index + 1);
-                } Err(e) => {println!("Test case {}: Failed to calculate Merkle root. Error: {:?}", index + 1, e);
-                    panic!("Test case {} failed due to Merkle calculation error", index + 1);
-                }
-            }
+            let res_hex = hex::encode(merkle_root);
+            let test_hex = hex::encode(entry.output);
+            println!("Test case {}: Expected output = {}, Merkle result = {}", index + 1, res_hex, test_hex);
+            assert_eq!(test_hex, res_hex, "Test case {}: Merkle root mismatch!", index + 1);
         }
     }
 }

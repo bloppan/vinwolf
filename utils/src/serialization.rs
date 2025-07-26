@@ -38,42 +38,33 @@ pub fn serialize(global_state: &GlobalState) -> SerializedState {
     state.map.insert(StateKeyType::U8(ACCUMULATION_HISTORY).construct(), global_state.accumulation_history.encode());
     
     for (service_id, account) in global_state.service_accounts.iter() {
+    
         let key = StateKeyType::Service(255, *service_id).construct();
         let (items, octets, _threshold) = get_footprint_and_threshold(account);
+
         let service_info = ServiceInfo {
             balance: account.balance,
             code_hash: account.code_hash,
             acc_min_gas: account.acc_min_gas,
             xfer_min_gas: account.xfer_min_gas,
-            bytes: octets, // TODO bytes y items se calcula con la eq de threshold account (9.3)
+            bytes: octets, 
             items: items,
         };
-        //println!("service: {} items: {} bytes: {}", service_id, service_info.items, service_info.bytes);
-        // TODO revisar esto y ver si se puede hacer con encode account
+
         state.map.insert(key, service_info.encode());
 
         for preimage in account.preimages.iter() {
-            //let key = StateKeyType::Account(*service_id, construct_preimage_key(preimage.0).to_vec()).construct();
             state.map.insert(*preimage.0, preimage.1.encode());
         }
         
         for lookup in account.lookup.iter() {
-            //let key = StateKeyType::Account(*service_id, construct_lookup_key(&lookup.0.0, lookup.0.1).to_vec()).construct();
             state.map.insert(*lookup.0, lookup.1.encode_len());
         }
 
         for item in account.storage.iter() {
-            //let key = StateKeyType::Account(*service_id, construct_storage_key(item.0).to_vec()).construct();
-            //println!("insert serialized key: {:x?}", key);
             state.map.insert(*item.0, item.1.encode());
         }
     }
-
-    /*for item in state.map.iter() {
-        println!("0x{}", item.0.iter().map(|b| format!("{:02x}", b)).collect::<String>());
-        println!("0x{}", item.1.iter().map(|b| format!("{:02x}", b)).collect::<String>());
-        println!("\n");
-    }*/
     
     return state;
 }

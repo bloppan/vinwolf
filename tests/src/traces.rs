@@ -52,8 +52,8 @@ mod tests {
             parse_state_keyvals(&pre_state.keyvals, &mut state).expect("Error decoding pre state keyvals");
             parse_state_keyvals(&post_state.keyvals, &mut expected_state).expect("Error decoding post state keyvals");
 
-            assert_eq!(pre_state.state_root.clone(), merkle_state(&serialization::serialize(&state).map, 0).unwrap());
-            assert_eq!(post_state.state_root.clone(), merkle_state(&serialization::serialize(&expected_state).map, 0).unwrap());
+            assert_eq!(pre_state.state_root.clone(), merkle_state(&serialization::serialize(&state).map, 0));
+            assert_eq!(post_state.state_root.clone(), merkle_state(&serialization::serialize(&expected_state).map, 0));
 
             set_global_state(state.clone());
 
@@ -72,7 +72,7 @@ mod tests {
             log::info!("expected state_root: 0x{}", hex::encode(merkle_state(&expected_state.serialize().map, 0).unwrap()));
             log::info!("result   state_root: 0x{}", hex::encode(merkle_state(&result_state.serialize().map, 0).unwrap()));*/
             
-            assert_eq!(post_state.state_root, merkle_state(&serialization::serialize(&result_state).map, 0).unwrap());
+            assert_eq!(post_state.state_root, merkle_state(&serialization::serialize(&result_state).map, 0));
 
             slot += 1;
 

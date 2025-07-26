@@ -21,7 +21,7 @@ use jam_types::{
     EntropyPool, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, TicketsOrKeys, TimeSlot, ValidatorsData, Header, 
     Extrinsic, Block
 };
-use codec::{Encode, EncodeSize};
+use codec::{Encode, EncodeLen, EncodeSize};
 use codec::generic_codec::encode_unsigned;
 
 // Sealing using the ticket is of greater security, and we utilize this knowledge when determining a candidate block
@@ -187,10 +187,10 @@ pub fn extrinsic_verify(header: &Header, extrinsic: &Extrinsic) -> Result<(), Pr
         }
     }
 
-    let a = [sp_core::blake2_256(&extrinsic.tickets.encode()),
-                            sp_core::blake2_256(&extrinsic.preimages.encode()),
+    let a = [sp_core::blake2_256(&extrinsic.tickets.encode_len()),
+                            sp_core::blake2_256(&extrinsic.preimages.encode_len()),
                             sp_core::blake2_256(&guarantees_blob),
-                            sp_core::blake2_256(&extrinsic.assurances.encode()),
+                            sp_core::blake2_256(&extrinsic.assurances.encode_len()),
                             sp_core::blake2_256(&extrinsic.disputes.encode())].concat();
 
     if header.unsigned.extrinsic_hash != sp_core::blake2_256(&a) {

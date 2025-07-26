@@ -8,27 +8,8 @@ use codec::{Encode, EncodeSize};
 // for modern compute hardware, primarily by optimizing sizes to fit succinctly into typical memory
 // layouts and reducing the need for unpredictable branching.
 
-// Hash function used us blake 256
-fn hash(data: &[u8]) -> Hash {
-    return blake2_256(data);
-}
+fn branch(l: &[u8], r: &[u8]) -> [u8; 64] {    
 
-fn bit(k: &[u8], i: usize) -> bool {
-    (k[i >> 3] & (1 << (7 - (i & 7)))) != 0
-}
-
-#[derive(Debug, PartialEq)]
-pub enum MerkleError {
-    LengthMismatch(usize),
-    OutOfRange,
-}
-
-fn branch(l: &[u8], r: &[u8]) -> Result<[u8; 64], MerkleError> {
-    // Assert keys have 32 bytes
-    if l.len() != 32 || r.len() != 32 {
-        return Err(MerkleError::LengthMismatch(64));
-    }
-    
     let mut branch_encoded = Vec::with_capacity(64);
     // Each node is either a branch or a leaf. The first bit discriminate between these two types.
     let head = l[0] & 0x7f;  
@@ -39,7 +20,8 @@ fn branch(l: &[u8], r: &[u8]) -> Result<[u8; 64], MerkleError> {
     r.encode_to(&mut branch_encoded);
     let mut branch_hash = [0u8; 64];
     branch_hash.copy_from_slice(&branch_encoded);
-    return Ok(branch_hash);
+    
+    return branch_hash;
 }
 
 fn leaf(k: &[u8], v: &[u8]) -> [u8; 64] {
@@ -65,22 +47,26 @@ fn leaf(k: &[u8], v: &[u8]) -> [u8; 64] {
         // The following 31 bytes store the first 31 bytes of the key
         k[..31].encode_to(&mut encoded);
         // The last 32 bytes store the hash of the value 
-        hash(v).encode_to(&mut encoded);
+        blake2_256(v).encode_to(&mut encoded);
     }
     let mut leaf_hash = [0u8; 64];
     leaf_hash.copy_from_slice(&encoded);
     leaf_hash
 }
 
-pub fn merkle_state(kvs: &HashMap<StateKey, Vec<u8>>, i: usize) -> Result<Hash, MerkleError> {
+fn bit(k: &[u8], i: usize) -> bool {
+    (k[i >> 3] & (1 << (7 - (i & 7)))) != 0
+}
+
+pub fn merkle_state(kvs: &HashMap<StateKey, Vec<u8>>, i: usize) -> Hash {
     // Empty (sub-)tries are identified as the zero hash
     if kvs.is_empty() {
-        return Ok([0u8; 32]);
+        return [0u8; 32];
     }
     // Generate a leaf if there only is one element
     if kvs.len() == 1 {
         let (k, v) = kvs.into_iter().next().unwrap();
-        return Ok(hash(&leaf(k, v)));
+        return blake2_256(&leaf(k, v));
     }
     // Right and left vectors
     let mut l = HashMap::new(); 
@@ -94,24 +80,24 @@ pub fn merkle_state(kvs: &HashMap<StateKey, Vec<u8>>, i: usize) -> Result<Hash, 
             l.insert(k.clone(), v.clone());
         }
     }
-    // Recursive calls to calculate letf and right 
-    let left_hash = merkle_state(&l, i + 1)?;
-    let right_hash = merkle_state(&r, i + 1)?;
+    // Calculate letf and right 
+    let left_hash = merkle_state(&l, i + 1);
+    let right_hash = merkle_state(&r, i + 1);
 
-    let branch_value = branch(&left_hash, &right_hash)?;
+    let branch_value = branch(&left_hash, &right_hash);
     // Blake 256 of branch value
-    Ok(hash(&branch_value))
+    blake2_256(&branch_value)
 }
 
-pub fn merkle(kvs: &[(Vec<u8>, Vec<u8>)], i: usize) -> Result<Hash, MerkleError> {
+pub fn merkle(kvs: &[(Vec<u8>, Vec<u8>)], i: usize) -> Hash {
     // Empty (sub-)tries are identified as the zero hash
     if kvs.is_empty() {
-        return Ok([0u8; 32]);
+        return [0u8; 32];
     }
     // Generate a leaf if there only is one element
     if kvs.len() == 1 {
         let (k, v) = &kvs[0];
-        return Ok(hash(&leaf(k, v)));
+        return blake2_256(&leaf(k, v));
     }
     // Right and left vectors
     let mut l = Vec::new(); 
@@ -126,12 +112,12 @@ pub fn merkle(kvs: &[(Vec<u8>, Vec<u8>)], i: usize) -> Result<Hash, MerkleError>
         }
     }
     // Recursive calls to calculate letf and right 
-    let left_hash = merkle(&l, i + 1)?;
-    let right_hash = merkle(&r, i + 1)?;
+    let left_hash = merkle(&l, i + 1);
+    let right_hash = merkle(&r, i + 1);
 
-    let branch_value = branch(&left_hash, &right_hash)?;
+    let branch_value = branch(&left_hash, &right_hash);
     // Blake 256 of branch value
-    Ok(hash(&branch_value))
+    blake2_256(&branch_value)
 }
 
 fn node<T>(v: Vec<Vec<u8>>, hash_fn: fn(&[u8]) -> Hash) -> T
@@ -308,13 +294,13 @@ mod tests {
         assert_eq!(expected_2.peaks, result_2.peaks);
     }
 
-    #[test]
+    /*#[test]
     fn test_blake2_hash() {
         use std::fs;
         let input = fs::read("input.txt").unwrap();
         let result = sp_core::blake2_256(&input);
         println!("blake_2 hash: {}", hex::encode(result));
-    }
+    }*/
     /*#[test]
     fn test_post_state_merkle_root() {
         let post_state_root = "0xf5917320eedafb72674defb4279ebaa75b740cf685560036c5552037235499a1";
