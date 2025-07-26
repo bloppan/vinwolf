@@ -1,6 +1,5 @@
 use constants::node::VALIDATORS_COUNT;
 use jam_types::{Ed25519Public, Safrole, ValidatorSet, ValidatorsData, ValidatorData};
-use handler::get_validators;
 use utils::common::set_offenders_null;
 
 pub fn key_rotation(safrole_state: &mut Safrole, 
@@ -16,7 +15,7 @@ pub fn key_rotation(safrole_state: &mut Safrole,
     // to author blocks and carry out the validation processes, whereas the pending set "pending_validators", which is reset to "next_validators" 
     // at the beginning of each epoch, is the set of keys which will be active in the next epoch and which determine the Bandersnatch ring root 
     // which authorizes tickets into the sealing-key contest for the next epoch.
-    safrole_state.pending_validators = get_validators(ValidatorSet::Next);   
+    safrole_state.pending_validators = state_handler::validators::get(ValidatorSet::Next);   
     // The posterior queued validator key set "pending_validators" is defined such that incoming keys belonging to the offenders 
     // are replaced with a null key containing only zeroes.
     set_offenders_null(&mut safrole_state.pending_validators, offenders); 

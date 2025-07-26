@@ -3,17 +3,11 @@ mod tests {
     
     use once_cell::sync::Lazy;
     use crate::FromProcessError;
-    use crate::codec::{TestBody, encode_decode_test};
+    use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputWorkReport, WorkReportState, OutputWorkReport};
     use constants::node::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
-    use jam_types::{DisputesRecords, OutputDataReports, ValidatorSet, ProcessError, Statistics, ServiceAccounts, Account};
-    use block::Extrinsic;
-    use handler::{
-        get_global_state, set_reporting_assurance, get_reporting_assurance, set_auth_pools, get_auth_pools, set_entropy, get_entropy, 
-        set_validators, get_validators, set_recent_history, get_recent_history, set_disputes, get_disputes, set_statistics, get_statistics,
-        set_service_accounts, get_service_accounts
-    };
-    use handler::set_current_block_history;
+    use jam_types::{Extrinsic, DisputesRecords, OutputDataReports, ValidatorSet, ProcessError, Statistics, ServiceAccounts, Account};
+    use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
 
     static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
@@ -64,14 +58,14 @@ mod tests {
             offenders: pre_state.offenders.clone(),
         };
 
-        set_disputes(disputes_state);
-        set_reporting_assurance(pre_state.avail_assignments);
-        set_validators(pre_state.curr_validators, ValidatorSet::Current);
-        set_validators(pre_state.prev_validators, ValidatorSet::Previous);
-        set_entropy(pre_state.entropy.clone());
-        set_current_block_history(pre_state.recent_blocks.clone());
-        set_recent_history(pre_state.recent_blocks);
-        set_auth_pools(pre_state.auth_pools);
+        state_handler::disputes::set(disputes_state);
+        state_handler::reports::set(pre_state.avail_assignments);
+        state_handler::validators::set(pre_state.curr_validators, ValidatorSet::Current);
+        state_handler::validators::set(pre_state.prev_validators, ValidatorSet::Previous);
+        state_handler::entropy::set(pre_state.entropy.clone());
+        state_handler::recent_history::set_current(pre_state.recent_blocks.clone());
+        state_handler::recent_history::set(pre_state.recent_blocks);
+        state_handler::auth_pools::set(pre_state.auth_pools);
         
         let mut services_accounts = ServiceAccounts::default();
         for acc in pre_state.services.0.iter() {
@@ -82,43 +76,43 @@ mod tests {
             account.xfer_min_gas = acc.info.xfer_min_gas.clone();
             services_accounts.insert(acc.id.clone(), account.clone());
         }
-        set_service_accounts(services_accounts);
+        state_handler::service_accounts::set(services_accounts);
         let mut statistics_state = Statistics::default();
         statistics_state.cores = pre_state.cores_statistics;
         statistics_state.services = pre_state.services_statistics;
-        set_statistics(statistics_state.clone());
+        state_handler::statistics::set(statistics_state.clone());
 
         let current_state = get_global_state().lock().unwrap().clone();
         let mut assurances_state = current_state.availability.clone();
 
-        let output_result = reports::guarantee::process(&mut assurances_state, 
+        let output_result = reports::guarantees::process(&mut assurances_state, 
                                                                              &input.guarantees, 
                                                                              &input.slot,
-                                                                            &get_entropy(),
-                                                                            &get_validators(ValidatorSet::Previous),
-                                                                            &get_validators(ValidatorSet::Current));
+                                                                            &state_handler::entropy::get(),
+                                                                            &state_handler::validators::get(ValidatorSet::Previous),
+                                                                            &state_handler::validators::get(ValidatorSet::Current));
         
         match output_result {
             Ok(_) => { 
-                set_reporting_assurance(assurances_state);
+                state_handler::reports::set(assurances_state);
                 let mut extrinsic = Extrinsic::default();
                 extrinsic.guarantees = input.guarantees.clone();
-                let reports = input.guarantees.report_guarantee.iter().map(|guarantee| guarantee.report.clone()).collect::<Vec<_>>();
+                let reports = input.guarantees.iter().map(|guarantee| guarantee.report.clone()).collect::<Vec<_>>();
                 statistics::process(&mut statistics_state, &input.slot, &0, &extrinsic, &reports);
-                set_statistics(statistics_state.clone());
+                state_handler::statistics::set(statistics_state.clone());
             },
             Err(_) => { log::error!("{:?}", output_result) },
         }
 
-        let result_disputes = get_disputes();
-        let result_avail_assignments = get_reporting_assurance();
-        let result_curr_validators = get_validators(ValidatorSet::Current);
-        let result_prev_validators = get_validators(ValidatorSet::Previous);
-        let result_entropy = get_entropy();
-        let result_history = get_recent_history();
-        let result_authpool = get_auth_pools();
-        let result_services = get_service_accounts();
-        let result_statistics = get_statistics();
+        let result_disputes = state_handler::disputes::get();
+        let result_avail_assignments = state_handler::reports::get();
+        let result_curr_validators = state_handler::validators::get(ValidatorSet::Current);
+        let result_prev_validators = state_handler::validators::get(ValidatorSet::Previous);
+        let result_entropy = state_handler::entropy::get();
+        let result_history = state_handler::recent_history::get();
+        let result_authpool = state_handler::auth_pools::get();
+        let result_services = state_handler::service_accounts::get();
+        let result_statistics = state_handler::statistics::get();
 
         assert_eq!(expected_state.offenders, result_disputes.offenders);
         assert_eq!(expected_state.avail_assignments, result_avail_assignments);

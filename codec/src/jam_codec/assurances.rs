@@ -1,9 +1,37 @@
-use jam_types::{OpaqueHash, Ed25519Signature, ValidatorIndex, AvailAssurance, WorkReport, OutputDataAssurances, OutputAssurances, AssurancesErrorCode};
-use constants::node::AVAIL_BITFIELD_BYTES;
+use jam_types::{OpaqueHash, Ed25519Signature, ValidatorIndex, Assurance, WorkReport, OutputDataAssurances, OutputAssurances, AssurancesErrorCode};
 use crate::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
-use crate::generic_codec::{encode_unsigned, decode_unsigned};
+use constants::node::AVAIL_BITFIELD_BYTES;
 
+impl Encode for Assurance {
+    
+    fn encode(&self) -> Vec<u8> {
 
+        let mut blob = Vec::new();
+
+        self.anchor.encode_to(&mut blob);
+        self.bitfield.encode_to(&mut blob);
+        self.validator_index.encode_size(2).encode_to(&mut blob);
+        self.signature.encode_to(&mut blob);
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode()); 
+    }
+}
+
+impl Decode for Assurance {
+
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        Ok(Assurance { 
+            anchor: OpaqueHash::decode(reader)?, 
+            bitfield: <[u8; AVAIL_BITFIELD_BYTES]>::decode(reader)?, 
+            validator_index: ValidatorIndex::decode(reader)?, 
+            signature: Ed25519Signature::decode(reader)?
+        })
+    }
+}
 
 impl Encode for OutputDataAssurances {
     

@@ -10,7 +10,7 @@ mod tests {
     use constants::pvm::{NUM_REG, PAGE_SIZE};
     use pvm::invoke_pvm;
     use jam_types::{MemoryChunk, PageMap, Gas};
-    use pvm::{Context, ExitReason, PageFlags, RamAddress, RamAccess, Page, RamMemory};
+    use pvm::pvm_types::{Context, ExitReason, PageFlags, RamAddress, RamAccess, Page, RamMemory};
 
     #[derive(Deserialize, Debug, PartialEq)]
     struct Testcase {

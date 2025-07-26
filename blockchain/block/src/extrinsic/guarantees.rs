@@ -5,213 +5,189 @@
     A work-package, which comprises several work items, is transformed by validators acting as guarantors into its corresponding 
     workreport, which similarly comprises several work outputs and then presented on-chain within the guarantees extrinsic.
 */
+use sp_core::blake2_256;
 use std::collections::{HashSet, HashMap};
 use constants::node::{CORES_COUNT, MAX_DEPENDENCY_ITEMS, MAX_WORK_ITEMS, WORK_REPORT_GAS_LIMIT};
 use jam_types::{
     AvailabilityAssignments, CoreIndex, EntropyPool, Hash, OutputDataReports, ProcessError, ReportErrorCode, TimeSlot, ValidatorIndex, 
-    ValidatorsData, OpaqueHash, WorkReport, ValidatorSignature, ReadError, Ed25519Signature, ReportGuarantee
-};
-use codec::{Encode, EncodeSize, Decode, BytesReader};
-use codec::generic_codec::{encode_unsigned, decode_unsigned};
-use crate::GuaranteesExtrinsic;
-use utils::common::is_sorted_and_unique;
-use handler::{get_accumulation_history, get_ready_queue, get_recent_history, get_reporting_assurance};
-
-impl Default for GuaranteesExtrinsic {
-    fn default() -> Self {
-        GuaranteesExtrinsic {
-            report_guarantee: Vec::new(),
-        }
-    }
-}
-
-impl GuaranteesExtrinsic {
-
-    pub fn process(
-        &self, 
-        assurances_state: &mut AvailabilityAssignments, 
-        post_tau: &TimeSlot,
-        entropy_pool: &EntropyPool,
-        prev_validators: &ValidatorsData,
-        curr_validators: &ValidatorsData) 
-    -> Result<OutputDataReports, ProcessError> {
-
-        log::debug!("Processing guarantees extrinsic...");
-        // At most one guarantee for each core
-        if self.report_guarantee.len() > CORES_COUNT {
-            log::error!("Too many guarantees: {:?}", self.report_guarantee.len());
-            return Err(ProcessError::ReportError(ReportErrorCode::TooManyGuarantees));
-        }
-
-        // There must be no duplicate work-package hashes (i.e. two work-reports of the same package).
-        let mut packages_hashes = self.report_guarantee.iter()
-                                                                        .map(|i| i.report.package_spec.hash)
-                                                                        .collect::<Vec<_>>();
-        packages_hashes.sort(); 
-        if !is_sorted_and_unique(&packages_hashes) {
-            log::error!("Duplicate package in guarantees extrinsic");
-            return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
-        }
-        
-        // Therefore, we require the cardinality of all work-packages to be the length of the work-report sequence
-        if packages_hashes.len() != self.report_guarantee.len() {
-            log::error!("Length not equal in guarantees extrinsic: packages hashes length {:?} != guarantees length {:?}", 
-                        packages_hashes.len(), self.report_guarantee.len());
-            return Err(ProcessError::ReportError(ReportErrorCode::LengthNotEqual));
-        }
-
-        // We limit the sum of the number of items in the segment-root lookup dictionary and the number of prerequisites to MAX_DEPENDENCY_ITEMS
-        for guarantee in &self.report_guarantee {
-            if guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.len() > MAX_DEPENDENCY_ITEMS {
-                log::error!("Too many dependencies: {:?} > MAX_DEPENDENCY_ITEMS: {:?}", 
-                            guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.len(), MAX_DEPENDENCY_ITEMS);
-                return Err(ProcessError::ReportError(ReportErrorCode::TooManyDependencies));
-            }
-        }
-
-        let mut reported = Vec::new();
-        let mut reporters = Vec::new();
-        let mut core_index: Vec<CoreIndex> = Vec::new();
-        let recent_history = get_recent_history();
-
-        let packages_map: HashMap<Hash, Hash> = self.report_guarantee.iter()
-                                                                     .map(|g| (g.report.package_spec.hash, g.report.package_spec.exports_root))
-                                                                     .collect();
-        
-        // We require that the work-package of the report not be the work-package of some other report made in the past.
-        // We ensure that the work-package not appear anywhere within our pipeline
-        let mut wp_hashes_in_our_pipeline: std::collections::HashSet<OpaqueHash> = HashSet::new();
-
-        let recent_history_map: std::collections::HashMap<_, _> = recent_history.blocks
-            .iter()
-            .flat_map(|blocks| blocks.reported_wp.iter())
-            .map(|report| (report.0, report.1))
-            .collect();
-
-        for hash in recent_history_map.iter() {
-            wp_hashes_in_our_pipeline.insert(hash.0.clone());
-        }
-
-        let acc_queue = get_ready_queue();
-        for epoch in acc_queue.queue.iter() {
-            for ready_record in epoch.iter() {
-                wp_hashes_in_our_pipeline.extend(ready_record.dependencies.clone());
-            }
-        }
-        
-        let acc_history = get_accumulation_history();
-        for item in acc_history.queue.iter() {
-            wp_hashes_in_our_pipeline.extend(item.clone());
-        }
-
-        let assurance_state = get_reporting_assurance();
-        for item in assurance_state.list.iter() {
-            if let Some(assignment) = item {
-                wp_hashes_in_our_pipeline.extend(&assignment.report.context.prerequisites.clone());
-            }
-        }
-
-        for guarantee in &self.report_guarantee {
-       
-            // The core index of each guarantee must be unique and guarantees must be in ascending order of this
-            core_index.push(guarantee.report.core_index);
-            if !is_sorted_and_unique(&core_index) {
-                log::error!("Out of order guarantee");
-                return Err(ProcessError::ReportError(ReportErrorCode::OutOfOrderGuarantee));
-            }
-
-            if guarantee.report.core_index > CORES_COUNT as CoreIndex {
-                log::error!("Bad core index: {:?}. The total of cores is {:?}", guarantee.report.core_index, CORES_COUNT);
-                return Err(ProcessError::ReportError(ReportErrorCode::BadCoreIndex));
-            }
-
-            // The credential is a sequence of two or three tuples of a unique validator index and a signature
-            if guarantee.signatures.len() < 2 || guarantee.signatures.len() > 3 {
-                log::error!("Insufficient guarantees signatures: {:?}", guarantee.signatures.len());
-                return Err(ProcessError::ReportError(ReportErrorCode::InsufficientGuarantees));
-            }
-
-            // Credentials must be ordered by their validator index
-            let validator_indexes: Vec<ValidatorIndex> = guarantee.signatures.iter().map(|i| i.validator_index).collect();
-            if !is_sorted_and_unique(&validator_indexes) {
-                log::error!("Not sorted or unique guarantors");
-                return Err(ProcessError::ReportError(ReportErrorCode::NotSortedOrUniqueGuarantors));
-            }
-
-            // We require that the work-package of the report not be the work-package of some other report made in the past.
-            // We ensure that the work-package not appear anywhere within our pipeline.
-            if wp_hashes_in_our_pipeline.contains(&guarantee.report.package_spec.hash) {
-                log::error!("Duplicate package 0x{}", utils::print_hash!(guarantee.report.package_spec.hash));
-                return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
-            }
- 
-            // We require that the prerequisite work-packages, if present, be either in the extrinsic or in our recent history 
-            for prerequisite in &guarantee.report.context.prerequisites {
-                if !packages_map.contains_key(prerequisite) && !recent_history_map.contains_key(prerequisite) {
-                    log::error!("Dependency missing 0x{}", utils::print_hash!(*prerequisite));
-                    return Err(ProcessError::ReportError(ReportErrorCode::DependencyMissing));
-                }
-            }
-            
-            // We require that any work-packages mentioned in the segment-root lookup, if present, be either in the extrinsic
-            // or in our recent history
-            for segment in &guarantee.report.segment_root_lookup {
-                let segment_root = packages_map.get(&segment.work_package_hash)
-                    .or_else(|| recent_history_map.get(&segment.work_package_hash));
-                // We require that any segment roots mentioned in the segment-root lookup be verified as correct based on our
-                // recent work-package history and the present block
-                match segment_root {
-                    Some(&value) if value == segment.segment_tree_root => continue,
-                    _ => {
-                        log::error!("Segment root lookup invalid");
-                        return Err(ProcessError::ReportError(ReportErrorCode::SegmentRootLookupInvalid));
-                    },
-                }
-            }
-
-            // Process the work report
-            let OutputDataReports {
-                reported: new_reported,
-                reporters: new_reporters,
-            } = work_report::process(&guarantee.report,
-                                    assurances_state, 
-                                    post_tau, 
-                                    guarantee.slot, 
-                                    &guarantee.signatures, 
-                                    entropy_pool,
-                                    prev_validators,
-                                    curr_validators)?;
-    
-            reported.extend(new_reported);
-            reporters.extend(new_reporters);
-        }
-    
-        reported.sort_by_key(|report| report.work_package_hash);
-        reporters.sort();
-        /*reported.sort_by(|a, b| a.work_package_hash.cmp(&b.work_package_hash));
-        reporters.sort();*/
-        log::debug!("Guarantees extrinsic processed successfully");
-
-        Ok(OutputDataReports { reported, reporters })
-    }
-    
-}
-
-use sp_core::blake2_256;
-
-use jam_types::{
-    AvailabilityAssignment, Ed25519Public, Entropy,
+    ValidatorsData, OpaqueHash, WorkReport, ValidatorSignature, Guarantee, Gas, AvailabilityAssignment, Ed25519Public, Entropy,
     ReportedPackage, WorkResult
 };
 use constants::node::{ EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR };
-use handler::{ get_auth_pools, get_disputes};
-use handler::get_current_block_history;
-use handler::add_assignment;
-use utils::trie::mmr_super_peak;
-use utils::shuffle::shuffle;
-use utils::common::{VerifySignature, set_offenders_null};
+use utils::{trie::mmr_super_peak, shuffle::shuffle, common::{VerifySignature, set_offenders_null}};
+use utils::common::is_sorted_and_unique;
+use codec::Encode;
+
+pub fn process(
+    guarantees_extrinsic: &[Guarantee], 
+    assurances_state: &mut AvailabilityAssignments, 
+    post_tau: &TimeSlot,
+    entropy_pool: &EntropyPool,
+    prev_validators: &ValidatorsData,
+    curr_validators: &ValidatorsData) 
+-> Result<OutputDataReports, ProcessError> {
+
+    log::debug!("Processing guarantees extrinsic...");
+    // At most one guarantee for each core
+    if guarantees_extrinsic.len() > CORES_COUNT {
+        log::error!("Too many guarantees: {:?}", guarantees_extrinsic.len());
+        return Err(ProcessError::ReportError(ReportErrorCode::TooManyGuarantees));
+    }
+
+    // There must be no duplicate work-package hashes (i.e. two work-reports of the same package).
+    let mut packages_hashes = guarantees_extrinsic.iter()
+                                                                    .map(|i| i.report.package_spec.hash)
+                                                                    .collect::<Vec<_>>();
+    packages_hashes.sort(); 
+    if !is_sorted_and_unique(&packages_hashes) {
+        log::error!("Duplicate package in guarantees extrinsic");
+        return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
+    }
+    
+    // Therefore, we require the cardinality of all work-packages to be the length of the work-report sequence
+    if packages_hashes.len() != guarantees_extrinsic.len() {
+        log::error!("Length not equal in guarantees extrinsic: packages hashes length {:?} != guarantees length {:?}", 
+                    packages_hashes.len(), guarantees_extrinsic.len());
+        return Err(ProcessError::ReportError(ReportErrorCode::LengthNotEqual));
+    }
+
+    // We limit the sum of the number of items in the segment-root lookup dictionary and the number of prerequisites to MAX_DEPENDENCY_ITEMS
+    for guarantee in guarantees_extrinsic.iter() {
+        if guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.len() > MAX_DEPENDENCY_ITEMS {
+            log::error!("Too many dependencies: {:?} > MAX_DEPENDENCY_ITEMS: {:?}", 
+                        guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.len(), MAX_DEPENDENCY_ITEMS);
+            return Err(ProcessError::ReportError(ReportErrorCode::TooManyDependencies));
+        }
+    }
+
+    let mut reported = Vec::new();
+    let mut reporters = Vec::new();
+    let mut core_index: Vec<CoreIndex> = Vec::new();
+    let recent_history = state_handler::recent_history::get();
+
+    let packages_map: HashMap<Hash, Hash> = guarantees_extrinsic.iter()
+                                                                    .map(|g| (g.report.package_spec.hash, g.report.package_spec.exports_root))
+                                                                    .collect();
+    
+    // We require that the work-package of the report not be the work-package of some other report made in the past.
+    // We ensure that the work-package not appear anywhere within our pipeline
+    let mut wp_hashes_in_our_pipeline: std::collections::HashSet<OpaqueHash> = HashSet::new();
+
+    let recent_history_map: std::collections::HashMap<_, _> = recent_history.blocks
+        .iter()
+        .flat_map(|blocks| blocks.reported_wp.iter())
+        .map(|report| (report.0, report.1))
+        .collect();
+
+    for hash in recent_history_map.iter() {
+        wp_hashes_in_our_pipeline.insert(hash.0.clone());
+    }
+
+    let acc_queue = state_handler::ready_queue::get();
+    for epoch in acc_queue.queue.iter() {
+        for ready_record in epoch.iter() {
+            wp_hashes_in_our_pipeline.extend(ready_record.dependencies.clone());
+        }
+    }
+    
+    let acc_history = state_handler::acc_history::get();
+    for item in acc_history.queue.iter() {
+        wp_hashes_in_our_pipeline.extend(item.clone());
+    }
+
+    let assurance_state = state_handler::reports::get();
+    for item in assurance_state.list.iter() {
+        if let Some(assignment) = item {
+            wp_hashes_in_our_pipeline.extend(&assignment.report.context.prerequisites.clone());
+        }
+    }
+
+    for guarantee in guarantees_extrinsic.iter() {
+    
+        // The core index of each guarantee must be unique and guarantees must be in ascending order of this
+        core_index.push(guarantee.report.core_index);
+        if !is_sorted_and_unique(&core_index) {
+            log::error!("Out of order guarantee");
+            return Err(ProcessError::ReportError(ReportErrorCode::OutOfOrderGuarantee));
+        }
+
+        if guarantee.report.core_index > CORES_COUNT as CoreIndex {
+            log::error!("Bad core index: {:?}. The total of cores is {:?}", guarantee.report.core_index, CORES_COUNT);
+            return Err(ProcessError::ReportError(ReportErrorCode::BadCoreIndex));
+        }
+
+        // The credential is a sequence of two or three tuples of a unique validator index and a signature
+        if guarantee.signatures.len() < 2 || guarantee.signatures.len() > 3 {
+            log::error!("Insufficient guarantees signatures: {:?}", guarantee.signatures.len());
+            return Err(ProcessError::ReportError(ReportErrorCode::InsufficientGuarantees));
+        }
+
+        // Credentials must be ordered by their validator index
+        let validator_indexes: Vec<ValidatorIndex> = guarantee.signatures.iter().map(|i| i.validator_index).collect();
+        if !is_sorted_and_unique(&validator_indexes) {
+            log::error!("Not sorted or unique guarantors");
+            return Err(ProcessError::ReportError(ReportErrorCode::NotSortedOrUniqueGuarantors));
+        }
+
+        // We require that the work-package of the report not be the work-package of some other report made in the past.
+        // We ensure that the work-package not appear anywhere within our pipeline.
+        if wp_hashes_in_our_pipeline.contains(&guarantee.report.package_spec.hash) {
+            log::error!("Duplicate package 0x{}", utils::print_hash!(guarantee.report.package_spec.hash));
+            return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
+        }
+
+        // We require that the prerequisite work-packages, if present, be either in the extrinsic or in our recent history 
+        for prerequisite in &guarantee.report.context.prerequisites {
+            if !packages_map.contains_key(prerequisite) && !recent_history_map.contains_key(prerequisite) {
+                log::error!("Dependency missing 0x{}", utils::print_hash!(*prerequisite));
+                return Err(ProcessError::ReportError(ReportErrorCode::DependencyMissing));
+            }
+        }
+        
+        // We require that any work-packages mentioned in the segment-root lookup, if present, be either in the extrinsic
+        // or in our recent history
+        for segment in &guarantee.report.segment_root_lookup {
+            let segment_root = packages_map.get(&segment.work_package_hash)
+                .or_else(|| recent_history_map.get(&segment.work_package_hash));
+            // We require that any segment roots mentioned in the segment-root lookup be verified as correct based on our
+            // recent work-package history and the present block
+            match segment_root {
+                Some(&value) if value == segment.segment_tree_root => continue,
+                _ => {
+                    log::error!("Segment root lookup invalid");
+                    return Err(ProcessError::ReportError(ReportErrorCode::SegmentRootLookupInvalid));
+                },
+            }
+        }
+
+        // Process the work report
+        let OutputDataReports {
+            reported: new_reported,
+            reporters: new_reporters,
+        } = work_report::process(&guarantee.report,
+                                assurances_state, 
+                                post_tau, 
+                                guarantee.slot, 
+                                &guarantee.signatures, 
+                                entropy_pool,
+                                prev_validators,
+                                curr_validators)?;
+
+        reported.extend(new_reported);
+        reporters.extend(new_reporters);
+    }
+
+    reported.sort_by_key(|report| report.work_package_hash);
+    reporters.sort();
+    /*reported.sort_by(|a, b| a.work_package_hash.cmp(&b.work_package_hash));
+    reporters.sort();*/
+    log::debug!("Guarantees extrinsic processed successfully");
+
+    Ok(OutputDataReports { reported, reporters })
+}
 
 pub mod work_report {
+
     use super::*;
 
     pub fn process(
@@ -227,7 +203,7 @@ pub mod work_report {
 
         log::debug!("Processing work report 0x{}", utils::print_hash!(work_report.package_spec.hash));
 
-        let auth_pools = get_auth_pools();
+        let auth_pools = state_handler::auth_pools::get();
         // A report is valid only if the authorizer hash is present in the authorizer pool of the core on which the
         // work is reported
         if !auth_pools.0[work_report.core_index as usize].contains(&work_report.authorizer_hash) {
@@ -299,7 +275,7 @@ pub mod work_report {
 
     fn is_recent(work_report: &WorkReport) -> Result<bool, ProcessError> {
         
-        let block_history = get_current_block_history().lock().unwrap().clone();
+        let block_history = state_handler::recent_history::get_current().lock().unwrap().clone();
 
         for block in &block_history.blocks {
             if block.header_hash == work_report.context.anchor {
@@ -413,7 +389,7 @@ pub mod work_report {
             };
 
             // Update the reporting assurance state
-            add_assignment(&assignment, assurances_state);
+            state_handler::reports::add_assignment(&assignment, assurances_state);
 
             log::debug!("The work report was placed successfully");
             return Ok(OutputDataReports{reported: reported, reporters: reporters});
@@ -455,7 +431,7 @@ fn guarantor_assignments(
 
     let mut guarantor_assignments: HashMap<Ed25519Public, CoreIndex> = HashMap::new();
 
-    set_offenders_null(validators_set, &get_disputes().offenders);
+    set_offenders_null(validators_set, &state_handler::disputes::get().offenders);
 
     for i in 0..VALIDATORS_COUNT {
         guarantor_assignments.insert(validators_set.list[i].ed25519.clone(), core_assignments[i]);
@@ -479,9 +455,6 @@ mod tests {
     }
 }
 
-use jam_types::{Gas};
-use handler::get_service_accounts;
-
 mod work_result {
 
     use super::*;
@@ -500,7 +473,7 @@ mod work_result {
             return Err(ProcessError::ReportError(ReportErrorCode::TooManyResults));
         }
 
-        let services = get_service_accounts();
+        let services = state_handler::service_accounts::get();
         let mut total_accumulation_gas: Gas = 0;
         
         //let service_map: std::collections::HashMap<_, _> = services.0.iter().map(|s| (s.id, s)).collect();
@@ -540,56 +513,5 @@ mod work_result {
 
         log::debug!("Work results processed successfully");
         return Ok(results_size);
-    }
-}
-
-impl Encode for GuaranteesExtrinsic {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut guarantees_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Self>() * self.report_guarantee.len());
-        encode_unsigned(self.report_guarantee.len()).encode_to(&mut guarantees_blob);
-
-        for guarantee in &self.report_guarantee {
-
-            guarantee.report.encode_to(&mut guarantees_blob);
-            guarantee.slot.encode_size(4).encode_to(&mut guarantees_blob);
-            encode_unsigned(guarantee.signatures.len()).encode_to(&mut guarantees_blob);
-
-            for signature in &guarantee.signatures {
-                signature.validator_index.encode_to(&mut guarantees_blob);
-                signature.signature.encode_to(&mut guarantees_blob);
-            }
-        }
-
-        return guarantees_blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode()); 
-    }
-}
-
-impl Decode for GuaranteesExtrinsic {
-
-    fn decode(guarantees_blob: &mut BytesReader) -> Result<Self, ReadError> {
-        let num_guarantees = decode_unsigned(guarantees_blob)?;
-        let mut report_guarantee: Vec<ReportGuarantee> = Vec::with_capacity(num_guarantees);
-        for _ in 0..num_guarantees {
-            let report = WorkReport::decode(guarantees_blob)?;
-            let slot = TimeSlot::decode(guarantees_blob)?;
-            let num_signatures = decode_unsigned(guarantees_blob)?;
-            let mut signatures: Vec<ValidatorSignature> = Vec::with_capacity(num_signatures);
-
-            for _ in 0..num_signatures {
-                let validator_index = ValidatorIndex::decode(guarantees_blob)?;
-                let signature = Ed25519Signature::decode(guarantees_blob)?;
-                signatures.push(ValidatorSignature{validator_index, signature});
-            }
-
-            report_guarantee.push(ReportGuarantee{report, slot, signatures});
-
-        }
-        Ok(GuaranteesExtrinsic{ report_guarantee })
     }
 }

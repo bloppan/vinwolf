@@ -3,15 +3,11 @@ mod tests {
 
     use once_cell::sync::Lazy;
     use crate::FromProcessError;
-    use crate::codec::{TestBody, encode_decode_test};
-    use jam_types::{Safrole, OutputSafrole, DisputesRecords, ValidatorSet, ProcessError, OutputDataSafrole};
+    use crate::codec::tests::{TestBody, encode_decode_test};
+    use jam_types::{Block, Header, Extrinsic, Safrole, OutputSafrole, DisputesRecords, ValidatorSet, ProcessError, OutputDataSafrole};
     use crate::test_types::{InputSafrole, SafroleState};
     use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, TICKET_ENTRIES_PER_VALIDATOR, MAX_TICKETS_PER_EXTRINSIC};
-    use handler::{
-        set_time, set_entropy, set_validators, set_safrole, set_disputes, get_global_state, get_time, get_entropy,
-        get_validators, get_safrole, get_disputes,
-    };
-    use block::{Block, Header, Extrinsic};
+    use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
 
     static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
@@ -65,13 +61,13 @@ mod tests {
             offenders: pre_state.post_offenders,
         };
 
-        set_time(pre_state.tau);
-        set_entropy(pre_state.eta);
-        set_validators(pre_state.lambda, ValidatorSet::Previous);
-        set_validators(pre_state.kappa, ValidatorSet::Current);
-        set_validators(pre_state.iota, ValidatorSet::Next);
-        set_safrole(pre_state_safrole);
-        set_disputes(disputes);
+        state_handler::time::set(pre_state.tau);
+        state_handler::entropy::set(pre_state.eta);
+        state_handler::validators::set(pre_state.lambda, ValidatorSet::Previous);
+        state_handler::validators::set(pre_state.kappa, ValidatorSet::Current);
+        state_handler::validators::set(pre_state.iota, ValidatorSet::Next);
+        state_handler::safrole::set(pre_state_safrole);
+        state_handler::disputes::set(disputes);
 
         let mut state = get_global_state().lock().unwrap().clone();
 
@@ -94,12 +90,12 @@ mod tests {
         match output_result {
             Ok(_) => { 
                 entropy::update_recent(&mut state.entropy, input.entropy.entropy.clone());
-                set_time(state.time.clone());
-                set_entropy(state.entropy.clone());
-                set_validators(state.prev_validators.clone(), ValidatorSet::Previous);
-                set_validators(state.curr_validators.clone(), ValidatorSet::Current);
-                set_validators(state.next_validators.clone(), ValidatorSet::Next);
-                set_safrole(state.safrole.clone());        
+                state_handler::time::set(state.time.clone());
+                state_handler::entropy::set(state.entropy.clone());
+                state_handler::validators::set(state.prev_validators.clone(), ValidatorSet::Previous);
+                state_handler::validators::set(state.curr_validators.clone(), ValidatorSet::Current);
+                state_handler::validators::set(state.next_validators.clone(), ValidatorSet::Next);
+                state_handler::safrole::set(state.safrole.clone());        
             },
             Err(_) => { 
                 log::error!("{:?}", output_result);
@@ -113,13 +109,13 @@ mod tests {
             epoch_root: expected_state.gamma_z,
         };
 
-        let result_time = get_time();
-        let result_entropy = get_entropy();
-        let result_curr_validators = get_validators(ValidatorSet::Current);
-        let result_prev_validators = get_validators(ValidatorSet::Previous);
-        let result_next_validators = get_validators(ValidatorSet::Next);
-        let result_safrole = get_safrole();
-        let result_disputes = get_disputes();
+        let result_time = state_handler::time::get();
+        let result_entropy = state_handler::entropy::get();
+        let result_curr_validators = state_handler::validators::get(ValidatorSet::Current);
+        let result_prev_validators = state_handler::validators::get(ValidatorSet::Previous);
+        let result_next_validators = state_handler::validators::get(ValidatorSet::Next);
+        let result_safrole = state_handler::safrole::get();
+        let result_disputes = state_handler::disputes::get();
 
         assert_eq!(expected_state.tau, result_time);
         assert_eq!(expected_state.eta, result_entropy);

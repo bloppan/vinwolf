@@ -24,14 +24,12 @@
     work-package is legitimately able to utilize that resource. It is this subsystem we will now define.
 */
 use constants::node::{CORES_COUNT, MAX_ITEMS_AUTHORIZATION_POOL, MAX_ITEMS_AUTHORIZATION_QUEUE};
-use jam_types::{AuthPools, TimeSlot};
-use block::GuaranteesExtrinsic;
-use handler::get_auth_queues;
+use jam_types::{AuthPools, TimeSlot, Guarantee};
 
 pub fn process(
     auth_pools: &mut AuthPools, 
     slot: &TimeSlot, 
-    guarantees_extrinsic: &GuaranteesExtrinsic) {
+    guarantees_extrinsic: &[Guarantee]) {
     // We define the set of authorizers allowable for a particular core as the authorizer pool
 
     // To maintain this value, a futher portion of state is tracked for each core: The core's authorizer queue,
@@ -43,7 +41,7 @@ pub fn process(
     // been used to justify a guaranteed work-package in the current block.
 
     log::debug!("Process authorizations");
-    'next_report: for report in guarantees_extrinsic.report_guarantee.iter() {
+    'next_report: for report in guarantees_extrinsic.iter() {
                         for i in 0..auth_pools.0[report.report.core_index as usize].len() {
                             if auth_pools.0[report.report.core_index as usize][i] == report.report.authorizer_hash {
                                 auth_pools.0[report.report.core_index as usize].remove(i);
@@ -53,7 +51,7 @@ pub fn process(
     }
     // Since AUTH_POOL_STATE is dependent on AUTH_QUEUE_STATE, practically speaking, this step must be computed 
     // after accumulation, the stage in which AUTH_QUEUE_STATE is defined.
-    let auth_queues = get_auth_queues();
+    let auth_queues = state_handler::auth_queues::get();
 
     // The state transition of a block involves placing a new authorization into the pool from the queue
     for core in 0..CORES_COUNT {

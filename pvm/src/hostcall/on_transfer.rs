@@ -1,7 +1,7 @@
 use {once_cell::sync::Lazy, std::sync::Mutex};
 
 use jam_types::{Account, DeferredTransfer, Gas, Balance, ServiceId, TimeSlot, ServiceAccounts, StateKeyType};
-use crate::{ExitReason, HostCallFn, RamMemory, Registers};
+use crate::pvm_types::{ExitReason, HostCallFn, RamMemory, Registers};
 use constants::pvm::WHAT;
 use constants::node::MAX_SERVICE_CODE_SIZE;
 use utils::common::decode_preimage;

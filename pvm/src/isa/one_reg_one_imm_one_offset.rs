@@ -3,7 +3,7 @@
 */
 
 use std::cmp::{min, max};
-use crate::{Context, ExitReason, Program, RegSigned, RegSize};
+use crate::pvm_types::{Context, ExitReason, Program, RegSigned, RegSize};
 use crate::isa::{skip, extend_sign, signed, _branch};
 use codec::BytesReader;
 use codec::generic_codec::decode_integer;

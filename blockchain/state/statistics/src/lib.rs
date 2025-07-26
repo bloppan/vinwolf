@@ -20,10 +20,9 @@ use std::sync::Mutex;
 use std::collections::{HashMap, HashSet};
 
 use jam_types::{
-    ValidatorStatistics, CoresStatistics, ServicesStatistics, SeviceActivityRecord, Statistics, TimeSlot, ValidatorIndex, 
+    Extrinsic, ValidatorStatistics, CoresStatistics, ServicesStatistics, SeviceActivityRecord, Statistics, TimeSlot, ValidatorIndex, 
     WorkReport, Gas, ServiceId
 };
-use block::Extrinsic;
 
 use constants::node::{CORES_COUNT, EPOCH_LENGTH, SEGMENT_SIZE};
 
@@ -61,7 +60,7 @@ pub fn process(
     
     log::debug!("Process statistics");
 
-    let tau = handler::get_time();
+    let tau = state_handler::time::get();
 
     if post_tau / EPOCH_LENGTH as u32 != tau / EPOCH_LENGTH as u32 {
         // We are in a new epoch
@@ -74,9 +73,9 @@ pub fn process(
     // The number of blocks produced by the validator
     statistics.curr.records[*author_index as usize].blocks += 1;
     // The number of tickets introduced by the validator
-    statistics.curr.records[*author_index as usize].tickets += extrinsic.tickets.tickets.len() as u32;
+    statistics.curr.records[*author_index as usize].tickets += extrinsic.tickets.len() as u32;
     
-    for preimage in extrinsic.preimages.preimages.iter() {
+    for preimage in extrinsic.preimages.iter() {
         // The number of preimages introduced by the validator
         statistics.curr.records[*author_index as usize].preimages += 1;
         // The total number of octets across all preimages introduced by the validator
@@ -89,7 +88,7 @@ pub fn process(
     statistics.cores = CoresStatistics::default();
     statistics.services = ServicesStatistics::default();
 
-    for guarantee in extrinsic.guarantees.report_guarantee.iter() {
+    for guarantee in extrinsic.guarantees.iter() {
 
         for signature in guarantee.signatures.iter() {
             statistics.curr.records[signature.validator_index as usize].guarantees += 1;
@@ -111,7 +110,7 @@ pub fn process(
         services.extend(guarantee.report.results.iter().map(|result| result.service));
     }
     
-    services.extend(extrinsic.preimages.preimages.iter().map(|preimage| preimage.requester));
+    services.extend(extrinsic.preimages.iter().map(|preimage| preimage.requester));
     services.extend(get_acc_stats().iter().map(|(service, _)| *service));
     services.extend(get_xfer_stats().iter().map(|(service, _)| *service));
     
@@ -119,7 +118,7 @@ pub fn process(
 
         statistics.services.records.insert(*service, SeviceActivityRecord::default());
 
-        for guarantee in extrinsic.guarantees.report_guarantee.iter() {
+        for guarantee in extrinsic.guarantees.iter() {
             for result in guarantee.report.results.iter() {
                 if result.service == *service {
                     statistics.services.records.get_mut(service).unwrap().imports += result.refine_load.imports as u32;
@@ -132,7 +131,7 @@ pub fn process(
             }
         }
 
-        for preimage in extrinsic.preimages.preimages.iter() {
+        for preimage in &extrinsic.preimages {
             if preimage.requester == *service {
                 statistics.services.records.get_mut(service).unwrap().provided_count += 1;
                 statistics.services.records.get_mut(service).unwrap().provided_size += preimage.blob.len() as u32;
@@ -151,7 +150,7 @@ pub fn process(
     }
 
     // The number of availability assurances made by the validator
-    for assurance in extrinsic.assurances.assurances.iter() {
+    for assurance in extrinsic.assurances.iter() {
         statistics.curr.records[assurance.validator_index as usize].assurances += 1;
         for core_index in 0..CORES_COUNT {
             if assurance.bitfield[core_index / 8] & (1 << core_index % 8) != 0 {

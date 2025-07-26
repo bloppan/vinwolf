@@ -9,7 +9,7 @@ from jam_types import (
     Struct,
     TicketAttempt,
     TicketBody,
-    TicketEnvelope,
+    Ticket,
     TicketId,
     TicketsAccumulator,
     TicketsMark,

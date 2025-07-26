@@ -1,7 +1,7 @@
 use jam_types::{
     Account, AccumulationOperand, DataSegments, DeferredTransfer, Gas, OpaqueHash, 
     ServiceAccounts, ServiceId, StateKeyType, WorkPackage, WorkExecResult, WorkItem};
-use crate::{ExitReason, RamAddress, RamMemory, RegSize, Registers};
+use crate::pvm_types::{ExitReason, RamAddress, RamMemory, RegSize, Registers};
 use constants::pvm::*;
 use constants::node::{
     CORES_COUNT, EPOCH_LENGTH, VALIDATORS_COUNT, MIN_BALANCE_PER_ITEM, MIN_BALANCE_PER_OCTET, MIN_BALANCE, MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE,

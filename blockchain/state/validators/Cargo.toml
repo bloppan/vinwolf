@@ -10,5 +10,5 @@ repository.workspace = true
 constants = { workspace = true }
 jam-types = { workspace = true }
 utils = { workspace = true }
-handler = { workspace = true }
+state-handler = { workspace = true }
 log = { workspace = true }

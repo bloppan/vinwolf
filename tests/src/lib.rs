@@ -32,6 +32,7 @@ pub fn read_test_file(filename: &str) -> Vec<u8> {
     test_content
 }
 
+#[allow(dead_code)]
 trait FromProcessError {
     fn from_process_error(error: ProcessError) -> Self;
 }

@@ -1,10 +1,11 @@
 use jam_types::{
-    AuthPools, AuthQueues, AvailabilityAssignments, CodeAuthorizers, DisputesErrorCode, DisputesRecords, HeaderHash, OpaqueHash, OutputDataDisputes, 
-    TimeSlot, ValidatorsData, ReportedWorkPackage, ServicesStatisticsMapEntry, ServiceId, PreimagesMapEntry, WorkPackageHash, EntropyPool, Offenders,
-    BlockHistory, Services, CoresStatistics, ServicesStatistics, OutputDataReports, ReportErrorCode, Entropy, TicketBody, TicketsOrKeys, BandersnatchRingCommitment,
-    Ed25519Public, ValidatorIndex, ValidatorStatistics, WorkReport, ServiceInfo, ReadyQueue, AccumulatedHistory, Privileges
+    AccumulatedHistory, AuthPools, AuthQueues, Assurance, AvailabilityAssignments, BandersnatchRingCommitment, BlockHistory, CodeAuthorizers, 
+    CoresStatistics, DisputesErrorCode, DisputesRecords, Ed25519Public, Entropy, EntropyPool, HeaderHash, Offenders, OpaqueHash, OutputDataDisputes, 
+    OutputDataReports, Privileges, ReadyQueue, ReportErrorCode, ReportedWorkPackage, ServiceId, ServiceInfo, Services, ServicesStatistics, 
+    ServicesStatisticsMapEntry, TicketBody, TicketsOrKeys, TimeSlot, ValidatorIndex, ValidatorStatistics, ValidatorsData, WorkPackageHash, WorkReport,
+    Guarantee, Preimage, Ticket, Extrinsic,
 };
-use block::{Header, Extrinsic, AssurancesExtrinsic, PreimagesExtrinsic, GuaranteesExtrinsic, TicketsExtrinsic, DisputesExtrinsic};
+
 // ----------------------------------------------------------------------------------------------------------
 // Authorizations
 // ----------------------------------------------------------------------------------------------------------
@@ -27,7 +28,7 @@ pub struct StateAuthorizations {
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputAssurances {
-    pub assurances: AssurancesExtrinsic,
+    pub assurances: Vec<Assurance>,
     pub slot: TimeSlot,
     pub parent: HeaderHash
 }
@@ -40,6 +41,7 @@ pub struct StateAssurances {
 // ----------------------------------------------------------------------------------------------------------
 // Disputes
 // ----------------------------------------------------------------------------------------------------------
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct DisputesState {
     pub psi: DisputesRecords,
@@ -48,6 +50,7 @@ pub struct DisputesState {
     pub kappa: ValidatorsData,
     pub lambda: ValidatorsData,
 }
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum OutputDisputes {
     Ok(OutputDataDisputes),
@@ -56,6 +59,7 @@ pub enum OutputDisputes {
 // ----------------------------------------------------------------------------------------------------------
 // Block History
 // ----------------------------------------------------------------------------------------------------------
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct InputHistory {
     pub header_hash: OpaqueHash,
@@ -66,18 +70,33 @@ pub struct InputHistory {
 // ----------------------------------------------------------------------------------------------------------
 // Preimages
 // ----------------------------------------------------------------------------------------------------------
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputPreimages {
-    pub preimages: PreimagesExtrinsic,
+    pub preimages: Vec<Preimage>,
     pub slot: TimeSlot,
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct PreimagesState {
     pub accounts: Vec<AccountsMapEntry>,
     pub statistics: Vec<ServicesStatisticsMapEntry>,
 }
-
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct PreimagesMapEntry {
+    pub hash: HeaderHash,
+    pub blob: Vec<u8>,
+}
+impl Default for PreimagesMapEntry {
+    fn default() -> Self {
+        Self {
+            hash: OpaqueHash::default(),
+            blob: Vec::new(),
+        }
+    }
+}
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccountsMapEntry {
     pub id: ServiceId,
@@ -92,7 +111,7 @@ impl Default for AccountsMapEntry {
         }
     }   
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccountTest {
     pub preimages: Vec<PreimagesMapEntry>,
@@ -107,13 +126,13 @@ impl Default for AccountTest {
         }
     }
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LookupMetaMapKeyTest {
     pub hash: HeaderHash,
     pub length: u32,
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct LookupMetaMapEntry {
     pub key: LookupMetaMapKeyTest,
@@ -126,13 +145,14 @@ impl Default for LookupMetaMapEntry {
 // ----------------------------------------------------------------------------------------------------------
 // Reports
 // ----------------------------------------------------------------------------------------------------------
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputWorkReport {
-    pub guarantees: GuaranteesExtrinsic,
+    pub guarantees: Vec<Guarantee>,
     pub slot: TimeSlot,
     pub known_packages: Vec<WorkPackageHash>,
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorkReportState {
     pub avail_assignments: AvailabilityAssignments,
@@ -146,7 +166,7 @@ pub struct WorkReportState {
     pub cores_statistics: CoresStatistics,
     pub services_statistics: ServicesStatistics,
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum OutputWorkReport {
     Ok(OutputDataReports),
@@ -155,13 +175,14 @@ pub enum OutputWorkReport {
 // ----------------------------------------------------------------------------------------------------------
 // Safrole
 // ----------------------------------------------------------------------------------------------------------
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct InputSafrole {
     pub slot: TimeSlot,
     pub entropy: Entropy,
-    pub tickets_extrinsic: TicketsExtrinsic,
+    pub tickets_extrinsic: Vec<Ticket>,
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct SafroleState {
     pub tau: TimeSlot,
@@ -178,13 +199,14 @@ pub struct SafroleState {
 // ----------------------------------------------------------------------------------------------------------
 // Statistics
 // ----------------------------------------------------------------------------------------------------------
+#[allow(dead_code)]
 #[derive(Debug, PartialEq, Clone)]
 pub struct InputStatistics {
     pub slot: TimeSlot,
     pub author_index: ValidatorIndex,
     pub extrinsic: Extrinsic
 }
-
+#[allow(dead_code)]
 #[derive(Debug, PartialEq, Clone)]
 pub struct StateStatistics {
     pub curr_stats: ValidatorStatistics,
@@ -195,18 +217,19 @@ pub struct StateStatistics {
 // ----------------------------------------------------------------------------------------------------------
 // Accumulate
 // ----------------------------------------------------------------------------------------------------------
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct InputAccumulate {
     pub slot: TimeSlot,
     pub reports: Vec<WorkReport>,
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct StorageMapEntry {
     pub key: Vec<u8>,
     pub value: Vec<u8>,
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccountsAccMapEntry {
     pub id: ServiceId,
@@ -221,7 +244,7 @@ impl Default for AccountsAccMapEntry {
         }
     }   
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccountAccTest {
     pub service: ServiceInfo,
@@ -244,7 +267,7 @@ impl Default for AccountAccTest {
         }
     }
 }
-
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct StateAccumulate {
     pub slot: TimeSlot,
@@ -255,4 +278,3 @@ pub struct StateAccumulate {
     pub statistics: ServicesStatistics,
     pub accounts: Vec<AccountsAccMapEntry>,
 }
-

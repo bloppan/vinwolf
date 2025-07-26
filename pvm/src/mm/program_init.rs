@@ -8,7 +8,7 @@
     memory page boundary.
 */
 
-use crate::{RamAccess, RamAddress, RamMemory, Registers, StandardProgram, ProgramFormat, Page};
+use crate::pvm_types::{RamAccess, RamAddress, RamMemory, Registers, StandardProgram, ProgramFormat, Page};
 use jam_types::ReadError;
 use constants::pvm::{Zi, Zz, NUM_PAGES, NUM_REG, PAGE_SIZE, PVM_INIT_ZONE_SIZE};
 use codec::{Decode, DecodeSize, BytesReader};

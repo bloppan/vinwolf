@@ -17,8 +17,8 @@ accumulation = { workspace = true }
 authorization = { workspace = true }
 disputes = { workspace = true }
 entropy = { workspace = true }
-handler = { workspace = true }
-recent_history = { workspace = true }
+state-handler = { workspace = true }
+recent-history = { workspace = true }
 reports = { workspace = true }
 safrole = { workspace = true }
 services = { workspace = true }

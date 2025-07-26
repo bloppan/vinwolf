@@ -1,9 +1,8 @@
 #[cfg(test)]
 mod tests {
     
-    use jam_types::{RawState, GlobalState};
-    use block::Block;
-    use handler::{get_global_state, set_global_state};
+    use jam_types::{Block, RawState, GlobalState};
+    use state_handler::{get_global_state, set_global_state};
     use state_controller::state_transition_function;
     use codec::{Decode, BytesReader};
     use utils::{common::parse_state_keyvals, serialization};
@@ -41,7 +40,7 @@ mod tests {
 
             log::info!("\n\nProcess trace test file: {}\n", slot);
 
-            let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/traces/fallback/{:08}.bin", slot))).unwrap();
+            let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/traces/reports-l1/{:08}.bin", slot))).unwrap();
             let mut reader = BytesReader::new(&test_content);
             let pre_state = RawState::decode(&mut reader).expect("Error decoding post WorkReport PreState");
             let block = Block::decode(&mut reader).expect("Error decoding post OutputWorkReport");

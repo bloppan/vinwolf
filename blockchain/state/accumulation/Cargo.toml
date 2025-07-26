@@ -12,7 +12,7 @@ jam-types = { workspace = true }
 codec = { workspace = true }
 utils = { workspace = true }
 statistics = { workspace = true }
-handler = { workspace = true }
+state-handler = { workspace = true }
 pvm = { workspace = true }
 log = { workspace = true }
 ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring"] }

@@ -20,7 +20,6 @@ use jam_types::{
     ReadyQueue, ReadyRecord, ServiceAccounts, TimeSlot, ValidatorsData, WorkPackageHash, WorkReport, ServiceId, Gas, Account, 
     AccumulateErrorCode, StateKeyType, ProcessError
 };
-use handler::{get_current_block_slot, get_time};
 use codec::Encode;
 use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 use utils::trie;
@@ -316,7 +315,7 @@ fn single_service_accumulation(
 
     invoke_accumulation(
         partial_state,
-        &get_current_block_slot(),
+        &state_handler::time::get_current(),
         service_id,
         total_gas,
         &accumulation_operands,
@@ -362,7 +361,7 @@ fn preimage_integration(services: &ServiceAccounts, preimages: &[(ServiceId, Vec
                 services_result.get_mut(&pair.0)
                                .unwrap()
                                .lookup
-                               .insert(construct_lookup_key(&sp_core::blake2_256(&pair.1), pair.1.len() as u32), vec![get_current_block_slot()]);
+                               .insert(construct_lookup_key(&sp_core::blake2_256(&pair.1), pair.1.len() as u32), vec![state_handler::time::get_current()]);
                 
                 let preimage_hash = sp_core::blake2_256(&pair.1);
                 let preimage_key = StateKeyType::Account(pair.0, construct_preimage_key(&preimage_hash).to_vec()).construct();
@@ -427,7 +426,7 @@ fn save_statistics(
         let num_tranfers = selected_transfers.len();
         let xfer_result = invoke_on_transfer(
             &post_partial_state.service_accounts,
-            &get_current_block_slot(),
+            &state_handler::time::get_current(),
             service_id,
             selected_transfers,
         );
@@ -616,7 +615,7 @@ mod ready_queue {
               reports_for_queue: Vec<ReadyRecord>) 
     {
         let m = (*post_tau % EPOCH_LENGTH as TimeSlot) as usize;
-        let tau = get_time();
+        let tau = state_handler::time::get();
 
         for i in 0..EPOCH_LENGTH {
             let queue_position = (EPOCH_LENGTH + m - i) % EPOCH_LENGTH as usize;

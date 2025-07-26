@@ -2,12 +2,11 @@ use std::collections::HashMap;
 use sp_core::blake2_256;
 use {once_cell::sync::Lazy, std::sync::Mutex};
 
-use handler::{get_recent_entropy, get_current_block_slot};
 use jam_types::{
     Account, AccumulationContext, AccumulationOperand, AccumulationPartialState, CoreIndex, DeferredTransfer, Gas, OpaqueHash, 
     ServiceId, TimeSlot, ValidatorsData, WorkExecResult, StateKeyType,
 };
-use crate::{RamAddress, RamMemory, RegSize, Registers, ExitReason, HostCallFn};
+use crate::pvm_types::{RamAddress, RamMemory, RegSize, Registers, ExitReason, HostCallFn};
 use constants::pvm::*;
 
 use constants::node::{
@@ -96,10 +95,10 @@ fn dispatch_acc(n: HostCallFn, mut gas: Gas, mut reg: Registers, ram: RamMemory,
         HostCallFn::New         => new(gas, reg, ram, ctx),
         HostCallFn::Upgrade     => upgrade(gas, reg, ram, ctx),
         HostCallFn::Transfer    => transfer(gas, reg, ram, ctx),
-        HostCallFn::Eject       => eject(gas, reg, ram, ctx, get_current_block_slot()),
+        HostCallFn::Eject       => eject(gas, reg, ram, ctx, state_handler::time::get_current()),
         HostCallFn::Query       => query(gas, reg, ram, ctx),
-        HostCallFn::Solicit     => solicit(gas, reg, ram, ctx, get_current_block_slot()),
-        HostCallFn::Forget      => forget(gas, reg, ram, ctx, get_current_block_slot()),
+        HostCallFn::Solicit     => solicit(gas, reg, ram, ctx, state_handler::time::get_current()),
+        HostCallFn::Forget      => forget(gas, reg, ram, ctx, state_handler::time::get_current()),
         HostCallFn::Yield       => yield_(gas, reg, ram, ctx),
         HostCallFn::Provide     => {
             let (ctx_x, _ctx_y) = ctx.clone().to_acc_ctx();
@@ -107,7 +106,7 @@ fn dispatch_acc(n: HostCallFn, mut gas: Gas, mut reg: Registers, ram: RamMemory,
         }
         HostCallFn::Fetch => {
             let operands: Vec<AccumulationOperand> = get_operands().clone();
-            fetch(gas, reg, ram, None, Some(get_recent_entropy().entropy), None, None, None, Some(operands), None, ctx)
+            fetch(gas, reg, ram, None, Some(state_handler::entropy::get_recent().entropy), None, None, None, Some(operands), None, ctx)
         }
         HostCallFn::Write => {
             let (ctx_x, ctx_y) = ctx.to_acc_ctx();
@@ -189,7 +188,7 @@ fn collapse(gas: Gas, output: WorkExecResult, ctx: HostCallContext)
 fn I(partial_state: &AccumulationPartialState, service_id: &ServiceId) -> AccumulationContext {
 
     //let encoded = [service_id.encode(), entropy::get_recent_entropy().encode(), time::get_current_block_slot().encode()].concat();
-    let encoded = [encode_unsigned(*service_id as usize), handler::get_recent_entropy().encode(), encode_unsigned(handler::get_current_block_slot() as usize)].concat();
+    let encoded = [encode_unsigned(*service_id as usize), state_handler::entropy::get_recent().encode(), encode_unsigned(state_handler::time::get_current() as usize)].concat();
     let payload = ((OpaqueHash::decode_size(&mut BytesReader::new(&blake2_256(&encoded)), 4).unwrap() % ((1 << 32) - (1 << 9))) + (1 << 8)) as ServiceId;
     let i = check(&partial_state, &payload);
 

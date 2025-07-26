@@ -4,7 +4,6 @@ mod tests {
     //use crate::TestBody;
     use codec::{Decode, BytesReader};
     use jam_types::{BlockHistory, ReportedWorkPackages};
-    use handler::{set_recent_history, get_recent_history};
     use crate::test_types::InputHistory;
 
     fn run_test(filename: &str) {
@@ -27,9 +26,9 @@ mod tests {
             reported_work_packages.push((wp.hash, wp.exports_root));
         }
 
-        set_recent_history(expected_pre_state.clone());
+        state_handler::recent_history::set(expected_pre_state.clone());
 
-        let mut recent_history_state = get_recent_history();
+        let mut recent_history_state = state_handler::recent_history::get();
         assert_eq!(expected_pre_state, recent_history_state);
 
         recent_history::process(&mut recent_history_state,

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use jam_types::{Account, AccumulationContext, DataSegment,WorkExecResult, WorkExecError};
-use crate::{Context, ExitReason, HostCallFn, RamAddress, RamMemory, RegSize, Registers, RefineMemory, Gas};
+use crate::pvm_types::{Context, ExitReason, HostCallFn, RamAddress, RamMemory, RegSize, Registers, RefineMemory, Gas};
 use crate::{invoke_pvm, mm::program_init::init_std_program};
 
 pub mod accumulate; pub mod refine; pub mod on_transfer; pub mod is_authorized; pub mod general_fn;

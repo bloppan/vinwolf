@@ -1,7 +1,8 @@
 use std::collections::VecDeque;
-use constants::node::MAX_ITEMS_AUTHORIZATION_QUEUE;
+
 use jam_types::{AuthPool, AuthPools, AuthQueue, AuthQueues, Authorizer, AuthorizerHash, CodeAuthorizer, CodeAuthorizers, CoreIndex, OpaqueHash};
 use crate::{BytesReader, Decode, DecodeLen, Encode, EncodeLen, ReadError};
+use constants::node::MAX_ITEMS_AUTHORIZATION_QUEUE;
 use crate::generic_codec::{encode_unsigned, decode_unsigned};
 
 impl Encode for AuthPool {

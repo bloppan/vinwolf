@@ -5,7 +5,7 @@
 use std::cmp::min;
 use constants::pvm::PAGE_SIZE;
 use crate::mm::program_init;
-use crate::{Context, ExitReason, Program, RamAddress, RegSize};
+use crate::pvm_types::{Context, ExitReason, Program, RamAddress, RegSize};
 use crate::isa::skip;
 use crate::isa::{signed, unsigned};
 

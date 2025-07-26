@@ -1,17 +1,16 @@
 use jam_types::{
-    AuthPools, AuthQueues, AvailabilityAssignments, CodeAuthorizers, DisputesErrorCode, DisputesRecords, HeaderHash, OpaqueHash, PreimagesMapEntry,
-    OutputDataDisputes, ReadError, TimeSlot, ValidatorsData, ReportedWorkPackage, ServicesStatisticsMapEntry, ServiceId, WorkPackageHash, ServicesStatistics,
-    Ed25519Public, EntropyPool, BlockHistory, Services, CoresStatistics, OutputDataReports, ReportErrorCode, TicketBody, TicketsOrKeys, BandersnatchRingCommitment,
-    Entropy, ValidatorStatistics, ValidatorIndex, ServiceInfo, ReadyQueue, AccumulatedHistory, Privileges, WorkReport
+    AccumulatedHistory, Assurance, AuthPools, AuthQueues, AvailabilityAssignments, BandersnatchRingCommitment, BlockHistory, CodeAuthorizers, CoresStatistics, 
+    DisputesErrorCode, DisputesRecords, Ed25519Public, Entropy, EntropyPool, Guarantee, HeaderHash, OpaqueHash, OutputDataDisputes, OutputDataReports, 
+    Privileges, ReadError, ReadyQueue, ReportErrorCode, ReportedWorkPackage, ServiceId, ServiceInfo, Services, ServicesStatistics, 
+    ServicesStatisticsMapEntry, TicketBody, TicketsOrKeys, TimeSlot, ValidatorIndex, ValidatorStatistics, ValidatorsData, WorkPackageHash, WorkReport,
+    Preimage, Ticket, Extrinsic
 };
-use block::Extrinsic;
 use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 use crate::test_types::{
     InputAuthorizations, StateAuthorizations, InputAssurances, StateAssurances, DisputesState, OutputDisputes, InputHistory, InputPreimages, AccountsMapEntry,
     PreimagesState, AccountTest, LookupMetaMapEntry, LookupMetaMapKeyTest, InputWorkReport, WorkReportState, OutputWorkReport, InputSafrole, SafroleState,
-    InputStatistics, StateStatistics, AccountAccTest, StorageMapEntry, StateAccumulate, InputAccumulate, AccountsAccMapEntry
+    InputStatistics, StateStatistics, AccountAccTest, StorageMapEntry, StateAccumulate, InputAccumulate, AccountsAccMapEntry, PreimagesMapEntry
 };
-use block::{AssurancesExtrinsic, PreimagesExtrinsic, GuaranteesExtrinsic, DisputesExtrinsic, TicketsExtrinsic};
 
 // ----------------------------------------------------------------------------------------------------------
 // Authorizations
@@ -63,7 +62,7 @@ impl Decode for StateAuthorizations {
 impl Encode for InputAssurances {
     fn encode(&self) -> Vec<u8> {
         let mut input = Vec::with_capacity(std::mem::size_of::<InputAssurances>());
-        self.assurances.encode_to(&mut input);
+        self.assurances.encode_len().encode_to(&mut input);
         self.slot.encode_to(&mut input);
         self.parent.encode_to(&mut input);
         return input;
@@ -77,7 +76,7 @@ impl Decode for InputAssurances {
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
         
         Ok(InputAssurances {
-            assurances: AssurancesExtrinsic::decode(reader)?,
+            assurances: Vec::<Assurance>::decode_len(reader)?,
             slot: TimeSlot::decode(reader)?,
             parent: HeaderHash::decode(reader)?,
         })
@@ -247,7 +246,7 @@ impl Encode for InputPreimages {
 
         let mut blob = Vec::new();
         
-        self.preimages.encode_to(&mut blob);
+        self.preimages.encode_len().encode_to(&mut blob);
         self.slot.encode_to(&mut blob);
 
         return blob;
@@ -260,7 +259,7 @@ impl Encode for InputPreimages {
 impl Decode for InputPreimages {
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
         Ok(InputPreimages { 
-            preimages: PreimagesExtrinsic::decode(reader)?,
+            preimages: Vec::<Preimage>::decode_len(reader)?,
             slot: TimeSlot::decode(reader)?,
         })
     }
@@ -294,6 +293,31 @@ impl Decode for PreimagesState {
         Ok(PreimagesState { 
             accounts: Vec::<AccountsMapEntry>::decode_len(blob)?,
             statistics: Vec::<ServicesStatisticsMapEntry>::decode_len(blob)?,
+        })
+    }
+}
+
+impl Encode for PreimagesMapEntry {
+
+    fn encode(&self) -> Vec<u8> {
+
+        let mut blob = Vec::new();
+
+        self.hash.encode_to(&mut blob);
+        self.blob.encode_len().encode_to(&mut blob);
+        
+        return blob;
+    }
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for PreimagesMapEntry {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        Ok(PreimagesMapEntry { 
+            hash: HeaderHash::decode(reader)?,
+            blob: Vec::<u8>::decode_len(reader)?,
         })
     }
 }
@@ -392,7 +416,7 @@ impl Encode for InputWorkReport {
 
     fn encode(&self) -> Vec<u8> {
         let mut blob = Vec::with_capacity(std::mem::size_of::<InputWorkReport>());
-        self.guarantees.encode_to(&mut blob);
+        self.guarantees.encode_len().encode_to(&mut blob);
         self.slot.encode_to(&mut blob);
         self.known_packages.encode_len().encode_to(&mut blob);
         return blob;
@@ -408,7 +432,7 @@ impl Decode for InputWorkReport {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
         Ok(InputWorkReport{
-            guarantees: GuaranteesExtrinsic::decode(blob)?,
+            guarantees: Vec::<Guarantee>::decode_len(blob)?,
             slot: TimeSlot::decode(blob)?,
             known_packages: Vec::<WorkPackageHash>::decode_len(blob)?,
         })
@@ -564,7 +588,7 @@ impl Encode for InputSafrole {
         let mut input_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<InputSafrole>());
         self.slot.encode_to(&mut input_blob);
         self.entropy.encode_to(&mut input_blob);
-        self.tickets_extrinsic.encode_to(&mut input_blob);
+        self.tickets_extrinsic.encode_len().encode_to(&mut input_blob);
 
         return input_blob;
     }
@@ -581,7 +605,7 @@ impl Decode for InputSafrole {
         Ok(InputSafrole {
             slot: TimeSlot::decode(input_blob)?,
             entropy: Entropy::decode(input_blob)?,
-            tickets_extrinsic: TicketsExtrinsic::decode(input_blob)?,
+            tickets_extrinsic: Vec::<Ticket>::decode_len(input_blob)?,
         })
     }
 }

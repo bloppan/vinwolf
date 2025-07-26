@@ -2,12 +2,12 @@
 mod tests {
 
     use once_cell::sync::Lazy;
-    use crate::{codec::{TestBody, encode_decode_test}, FromProcessError, test_types::{InputAssurances, StateAssurances}};
+    use crate::{codec::tests::{TestBody, encode_decode_test}, FromProcessError, test_types::{InputAssurances, StateAssurances}};
     use dotenv::dotenv;
     use std::path::Path;
     use constants::node::{CORES_COUNT, VALIDATORS_COUNT};
     use jam_types::{OutputDataAssurances, OutputAssurances, ValidatorSet, ProcessError};
-    use handler::{get_global_state, set_reporting_assurance, get_reporting_assurance, set_validators, get_validators};
+    use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
 
     static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
@@ -46,24 +46,24 @@ mod tests {
         let expected_output = OutputAssurances::decode(&mut reader).expect("Error decoding post OutputAssurances");
         let expected_state = StateAssurances::decode(&mut reader).expect("Error decoding post Assurances PostState");
             
-        set_reporting_assurance(pre_state.avail_assignments);
-        set_validators(pre_state.curr_validators, ValidatorSet::Current);
+        state_handler::reports::set(pre_state.avail_assignments);
+        state_handler::validators::set(pre_state.curr_validators, ValidatorSet::Current);
   
         let current_state = get_global_state().lock().unwrap().clone();
         let mut assurances_state = current_state.availability.clone();
 
-        let output_result = reports::assurance::process(
+        let output_result = reports::assurances::process(
                                                                             &mut assurances_state, 
                                                                             &input.assurances, 
                                                                             &input.slot,
                                                                             &input.parent);
         
         match output_result {
-            Ok(_) => { set_reporting_assurance(assurances_state);},
+            Ok(_) => { state_handler::reports::set(assurances_state);},
             Err(_) => { },
         }
-        let result_avail_assignments = get_reporting_assurance();
-        let result_curr_validators = get_validators(ValidatorSet::Current);
+        let result_avail_assignments = state_handler::reports::get();
+        let result_curr_validators = state_handler::validators::get(ValidatorSet::Current);
         
         assert_eq!(expected_state.avail_assignments, result_avail_assignments);
         assert_eq!(expected_state.curr_validators, result_curr_validators);

@@ -1,10 +1,9 @@
 mod default;
 // JAM Protocol Types
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use serde::Deserialize;
 
 use constants::node::{ ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH, SEGMENT_SIZE };
-use constants::pvm::{NUM_REG, PAGE_SIZE};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
 // ----------------------------------------------------------------------------------------------------------
@@ -37,8 +36,56 @@ pub type ExportsRoot = OpaqueHash;
 pub type ErasureRoot = OpaqueHash;
 
 pub type Gas = i64;
-
 pub type Balance = u64;
+
+// ----------------------------------------------------------------------------------------------------------
+// Block
+// ----------------------------------------------------------------------------------------------------------
+#[derive(Debug, PartialEq, Clone)]
+pub struct Block {
+    pub header: Header,
+    pub extrinsic: Extrinsic,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Header {
+    pub unsigned: UnsignedHeader,
+    pub seal: BandersnatchVrfSignature,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct UnsignedHeader {
+    pub parent: HeaderHash,
+    pub parent_state_root: OpaqueHash,
+    pub extrinsic_hash: OpaqueHash,
+    pub slot: TimeSlot,
+    pub epoch_mark: Option<EpochMark>,
+    pub tickets_mark: Option<TicketsMark>,
+    pub offenders_mark: Vec<Ed25519Public>,
+    pub author_index: ValidatorIndex,
+    pub entropy_source: BandersnatchVrfSignature,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Extrinsic {
+    // Tickets, used for the mechanism which manages the selection of validators for the permissioning of block authoring.
+    pub tickets: Vec<Ticket>,
+    // Votes, by validators, on dispute(s) arising between them presently taking place.
+    pub disputes: DisputesExtrinsic,
+    // Static data which is presently being requested to be available for workloads to be able to fetch on demand.
+    pub preimages: Vec<Preimage>,
+    // Assurances by each validator concerning which of the input data of workloads they have correctly received and are storing locally.
+    pub assurances: Vec<Assurance>,
+    // Reports of newly completed workloads whose accuracy is guaranteed by specific validators.
+    pub guarantees: Vec<Guarantee>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct DisputesExtrinsic {
+    pub verdicts: Vec<Verdict>,
+    pub culprits: Vec<Culprit>,
+    pub faults: Vec<Fault>,
+}
 
 #[derive(Debug, PartialEq)]
 pub enum ReadError {
@@ -479,11 +526,22 @@ pub struct Statistics {
 // ----------------------------------------------------------------------------------------------------------
 // Tickets
 // ----------------------------------------------------------------------------------------------------------
+// Tickets Extrinsic is a sequence of proofs of valid tickets; a ticket implies an entry in our epochal “contest” 
+// to determine which validators are privileged to author a block for each timeslot in the following epoch. 
+// Tickets specify an entry index together with a proof of ticket’s validity. The proof implies a ticket identifier, 
+// a high-entropy unbiasable 32-octet sequence, which is used both as a score in the aforementioned contest and as 
+// input to the on-chain vrf. 
+
+// Towards the end of the epoch (i.e. Y slots from the start) this contest is closed implying successive blocks 
+// within the same epoch must have an empty tickets extrinsic. At this point, the following epoch’s seal key sequence 
+// becomes fixed. 
+// We define the extrinsic as a sequence of proofs of valid tickets, each of which is a tuple of an entry index 
+// (a natural number less than N) and a proof of ticket validity.
 pub type TicketId = OpaqueHash;
 pub type TicketAttempt = u8;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct TicketEnvelope {
+pub struct Ticket {
     pub attempt: TicketAttempt,
     pub signature: BandersnatchRingVrfSignature,
 }
@@ -584,6 +642,37 @@ pub struct DisputesRecords {
     // work report
     pub offenders: Vec<Ed25519Public>,
 }
+// A Verdict is a compilation of judgments coming from exactly two-thirds plus one of either the active validator set 
+// or the previous epoch’s validator set, i.e. the Ed25519 keys of κ or λ. Verdicts contains only the report hash and 
+// the sum of positive judgments. We require this total to be either exactly two-thirds-plus-one, zero or one-third 
+// of the validator set indicating, respectively, that the report is good, that it’s bad, or that it’s wonky.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Verdict {
+    pub target: OpaqueHash,
+    pub age: u32,
+    pub votes: Vec<Judgement>,
+}
+// A culprit is a proofs of the misbehavior of one or more validators by guaranteeing a work-report found to be invalid.
+// Is a offender signature.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Culprit {
+    pub target: OpaqueHash,
+    pub key: Ed25519Public,
+    pub signature: Ed25519Signature,
+}
+// A fault is a proofs of the misbehavior of one or more validators by signing a judgment found to be contradiction to a 
+// work-report’s validity. Is a offender signature. Must be ordered by validators Ed25519Key. There may be no duplicate
+// report hashes within the extrinsic, nor amongst any past reported hashes.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Fault {
+    pub target: OpaqueHash,
+    pub vote: bool,
+    pub key: Ed25519Public,
+    pub signature: Ed25519Signature,
+}
+// Judgement statements come about naturally as part of the auditing process and are expected to be positive,
+// further affirming the guarantors’ assertion that the workreport is valid. In the event of a negative judgment, 
+// then all validators audit said work-report and we assume a verdict will be reached.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Judgement {
     pub vote: bool,
@@ -682,11 +771,6 @@ pub struct Preimage {
     pub blob: Vec<u8>,
 }
 #[derive(Debug, Clone, PartialEq)]
-pub struct PreimagesMapEntry {
-    pub hash: HeaderHash,
-    pub blob: Vec<u8>,
-}
-#[derive(Debug, Clone, PartialEq)]
 pub enum PreimagesErrorCode {
     PreimageUnneeded = 0,
     PreimagesNotSortedOrUnique = 1,
@@ -701,7 +785,7 @@ pub enum OutputPreimages {
 // Assurances
 // ----------------------------------------------------------------------------------------------------------
 #[derive(Debug, Clone, PartialEq)]
-pub struct AvailAssurance {
+pub struct Assurance {
     // Assurance anchor hash must be the parent header
     pub anchor: OpaqueHash,
     // Sequence of binary values (once per core) which a value of 1 at any given index implies that the validator assures
@@ -741,7 +825,7 @@ pub struct ValidatorSignature {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ReportGuarantee {
+pub struct Guarantee {
     pub report: WorkReport,
     pub slot: TimeSlot,
     pub signatures: Vec<ValidatorSignature>,
@@ -789,13 +873,26 @@ pub enum OutputAccumulation {
 // ----------------------------------------------------------------------------------------------------------
 // Header
 // ----------------------------------------------------------------------------------------------------------
+// The epoch and winning-tickets markers are information placed in the header in order to minimize 
+// data transfer necessary to determine the validator keys associated with any given epoch. They 
+// are particularly useful to nodes which do not synchronize the entire state for any given block 
+// since they facilitate the secure tracking of changes to the validator key sets using only the 
+// chain of headers.
+
+// The epoch marker specifies key and entropy relevant to the following epoch in case the ticket 
+// contest does not complete adequately (a very much unexpected eventuality).The epoch marker is
+// either empty or, if the block is the first in a new epoch, then a tuple of the epoch randomness 
+// and a sequence of Bandersnatch keys defining the Bandersnatch validator keys (kb) beginning in 
+// the next epoch.
 #[derive(Debug, PartialEq, Clone)]
 pub struct EpochMark {
     pub entropy: Entropy,
     pub tickets_entropy: Entropy,
     pub validators: Box<[(BandersnatchPublic, Ed25519Public); VALIDATORS_COUNT]>,
 }
-
+// The Tickets Marker provides the series of EPOCH_LENGTH (600) slot sealing “tickets” for the next epoch. Is either 
+// empty or, if the block is the first after the end of the submission period for tickets and if the ticket accumulator 
+// is saturated, then the final sequence of ticket identifiers.
 #[derive(Debug, PartialEq, Clone)]
 pub struct TicketsMark {
     pub tickets_mark: Box<[TicketBody; EPOCH_LENGTH]>,
@@ -918,17 +1015,12 @@ pub type DataSegments = Vec<DataSegment>;
 
 pub type TrieKey = [u8; 31];
 pub type StateKey = [u8; 31];
-//pub type SimpleKey = StateKey;
-
-
-pub struct SimpleKey(StateKey);
+pub type SimpleKey = StateKey;
 
 pub type PreimageKey = StateKey;
 pub type LookupKey = StateKey;
 pub type StorageKey = StateKey;
 pub type ServiceInfoKey = StateKey;
-
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct KeyValue {

@@ -1,5 +1,5 @@
 [package]
-name = "handler"
+name = "state-handler"
 version.workspace = true
 authors.workspace = true
 license.workspace = true

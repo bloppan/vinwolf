@@ -3,14 +3,10 @@ mod test {
 
     use once_cell::sync::Lazy;
     use crate::FromProcessError;
-    use crate::codec::{TestBody, encode_decode_test};
-    use handler::{ 
-        get_disputes, get_global_state, get_reporting_assurance, get_time, get_validators, set_disputes, set_reporting_assurance, 
-        set_time, set_validators,
-    };
+    use crate::codec::tests::{TestBody, encode_decode_test};
+    use state_handler::{get_global_state};
     use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, CORES_COUNT};
-    use jam_types::{OutputDataDisputes, ValidatorSet, ProcessError};
-    use block::DisputesExtrinsic;
+    use jam_types::{OutputDataDisputes, ValidatorSet, DisputesExtrinsic, ProcessError};
     use codec::{Decode, BytesReader};
     use crate::test_types::{DisputesState, OutputDisputes};
 
@@ -50,11 +46,11 @@ mod test {
             let expected_output = OutputDisputes::decode(&mut reader).expect("Error decoding post OutputDisputes");
             let expected_state = DisputesState::decode(&mut reader).expect("Error decoding post DisputesState");
             
-            set_disputes(pre_state.psi);
-            set_reporting_assurance(pre_state.rho);
-            set_time(pre_state.tau);
-            set_validators(pre_state.kappa, ValidatorSet::Current);
-            set_validators(pre_state.lambda, ValidatorSet::Previous);
+            state_handler::disputes::set(pre_state.psi);
+            state_handler::reports::set(pre_state.rho);
+            state_handler::time::set(pre_state.tau);
+            state_handler::validators::set(pre_state.kappa, ValidatorSet::Current);
+            state_handler::validators::set(pre_state.lambda, ValidatorSet::Previous);
     
             let mut state = get_global_state().lock().unwrap().clone();
     
@@ -65,17 +61,17 @@ mod test {
 
             match output_result {
                 Ok(_) => { 
-                    set_disputes(state.disputes.clone());
-                    set_reporting_assurance(state.availability.clone());
+                    state_handler::disputes::set(state.disputes.clone());
+                    state_handler::reports::set(state.availability.clone());
                 },
                 Err(_) => { },
             }
 
-            let result_disputes = get_disputes();
-            let result_availability = get_reporting_assurance();
-            let result_time = get_time();
-            let result_curr_validators = get_validators(ValidatorSet::Current);
-            let result_prev_validators = get_validators(ValidatorSet::Previous);
+            let result_disputes = state_handler::disputes::get();
+            let result_availability = state_handler::reports::get();
+            let result_time = state_handler::time::get();
+            let result_curr_validators = state_handler::validators::get(ValidatorSet::Current);
+            let result_prev_validators = state_handler::validators::get(ValidatorSet::Previous);
 
             assert_eq!(expected_state.psi, result_disputes);
             assert_eq!(expected_state.rho, result_availability);

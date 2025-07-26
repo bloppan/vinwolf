@@ -2,11 +2,11 @@
 mod tests {
 
     use once_cell::sync::Lazy;
-    use crate::codec::{TestBody, encode_decode_test};
+    use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputStatistics, StateStatistics};
     use constants::node::{CORES_COUNT, EPOCH_LENGTH, VALIDATORS_COUNT};
     use jam_types::{ValidatorSet, Statistics};
-    use handler::{set_statistics, set_time, set_validators, get_validators, get_global_state};
+    use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
 
     static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
@@ -37,15 +37,15 @@ mod tests {
         let mut statistics = Statistics::default();
         statistics.curr = pre_state.curr_stats;
         statistics.prev = pre_state.prev_stats;
-        set_statistics(statistics.clone());
-        set_time(pre_state.tau);
-        set_validators(pre_state.curr_validators, ValidatorSet::Current);
+        state_handler::statistics::set(statistics.clone());
+        state_handler::time::set(pre_state.tau);
+        state_handler::validators::set(pre_state.curr_validators, ValidatorSet::Current);
 
         let mut result_statistics = get_global_state().lock().unwrap().statistics.clone();
         statistics::process(&mut result_statistics, &input.slot, &input.author_index, &input.extrinsic, &[]);
 
-        let result_time = handler::get_time();
-        let result_validators = get_validators(ValidatorSet::Current);
+        let result_time = state_handler::time::get();
+        let result_validators = state_handler::validators::get(ValidatorSet::Current);
         
         assert_eq!(expected_state.curr_stats, result_statistics.curr);
         assert_eq!(expected_state.prev_stats, result_statistics.prev);

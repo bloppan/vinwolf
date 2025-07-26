@@ -1,21 +1,20 @@
-
-use jam_types::{ProcessError, OutputPreimages, ServiceAccounts, TimeSlot};
-use block::PreimagesExtrinsic;
+use jam_types::{Preimage, ProcessError, OutputPreimages, ServiceAccounts, TimeSlot};
+use block::extrinsic;
 
 pub fn process(
     services: &mut ServiceAccounts, 
     post_tau: &TimeSlot, 
-    preimages_extrinsic: &PreimagesExtrinsic
+    preimages_extrinsic: &[Preimage]
 ) -> Result<OutputPreimages, ProcessError> {
 
     log::debug!("Process the preimages extrinsic");
 
-    if preimages_extrinsic.preimages.len() == 0 {
+    if preimages_extrinsic.len() == 0 {
         log::debug!("No preimages to process");
         return Ok(OutputPreimages::Ok());
     }
     
-    preimages_extrinsic.process(services, post_tau)?;
+    extrinsic::preimages::process(preimages_extrinsic, services, post_tau)?;
 
     log::debug!("Preimages extrinsic processed successfully");
     Ok(OutputPreimages::Ok())

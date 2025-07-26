@@ -13,21 +13,25 @@
 // arising from processing the availability assurances followed by the work-report guarantees. This synchroneity can be 
 // seen formally through the requirement of an intermediate state ρ‡.
 
-use jam_types::{AvailabilityAssignments, EntropyPool, Hash, OutputDataAssurances, OutputDataReports, TimeSlot, ValidatorsData, ProcessError};
-use block::{AssurancesExtrinsic, GuaranteesExtrinsic};
+use jam_types::{
+    AvailabilityAssignments, EntropyPool, Hash, OutputDataAssurances, OutputDataReports, TimeSlot, ValidatorsData, ProcessError, Guarantee
+};
+use block::extrinsic;
 
-pub mod assurance {
+pub mod assurances {
+
+    use jam_types::Assurance;
 
     use super::*;
 
     pub fn process(
-        assurances_state: &mut AvailabilityAssignments, 
-        assurances: &AssurancesExtrinsic, 
+        availability_state: &mut AvailabilityAssignments, 
+        assurances: &[Assurance], 
         post_tau: &TimeSlot,
         parent: &Hash) 
     -> Result<OutputDataAssurances, ProcessError> {
         
-        let output_data = assurances.process(assurances_state, post_tau, parent)?;
+        let output_data = extrinsic::assurances::process(assurances, availability_state, post_tau, parent)?;
 
         Ok(OutputDataAssurances {
             reported: output_data.reported,
@@ -35,20 +39,20 @@ pub mod assurance {
     }
 }
 
-pub mod guarantee {
+pub mod guarantees {
 
     use super::*;
 
     pub fn process(
-        assurances_state: &mut AvailabilityAssignments, 
-        guarantees_extrinsic: &GuaranteesExtrinsic, 
+        availability_state: &mut AvailabilityAssignments, 
+        guarantees_extrinsic: &[Guarantee], 
         post_tau: &TimeSlot,
         entropy_pool: &EntropyPool,
         prev_validators: &ValidatorsData,
         curr_validators: &ValidatorsData) 
     -> Result<OutputDataReports, ProcessError> {
 
-        let output_data = guarantees_extrinsic.process(assurances_state, post_tau, entropy_pool, prev_validators, curr_validators)?;
+        let output_data = extrinsic::guarantees::process(guarantees_extrinsic, availability_state, post_tau, entropy_pool, prev_validators, curr_validators)?;
 
         Ok(OutputDataReports {
             reported: output_data.reported,

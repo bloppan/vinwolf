@@ -17,6 +17,7 @@ impl Encode for Safrole {
 
         return blob;
     }
+    
     fn encode_to(&self, into: &mut Vec<u8>) {
         into.extend_from_slice(&self.encode());
     }

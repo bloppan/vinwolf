@@ -2,11 +2,10 @@
 mod tests {
 
     use crate::test_types::{InputAuthorizations, StateAuthorizations};
-    use crate::codec::{TestBody, encode_decode_test};
-    use handler::{set_auth_pools, set_auth_queues, get_global_state, get_auth_queues};
+    use crate::codec::tests::{TestBody, encode_decode_test};
+    use state_handler::{get_global_state};
     use codec::{BytesReader, Decode};
-    use block::GuaranteesExtrinsic;
-    use jam_types::{ReportGuarantee, WorkReport};
+    use jam_types::{Guarantee, WorkReport};
     use once_cell::sync::Lazy;
     use constants::node::CORES_COUNT;
 
@@ -35,24 +34,24 @@ mod tests {
         let pre_state = StateAuthorizations::decode(&mut reader).expect("Error decoding post Authorizations PreState");
         let expected_state = StateAuthorizations::decode(&mut reader).expect("Error decoding post Authorizations PostState");
 
-        set_auth_pools(pre_state.auth_pools);
-        set_auth_queues(pre_state.auth_queues);
+        state_handler::auth_pools::set(pre_state.auth_pools);
+        state_handler::auth_queues::set(pre_state.auth_queues);
         
-        let mut guarantees_extrinsic = GuaranteesExtrinsic::default();
+        let mut guarantees_extrinsic = Vec::new();
         for auth in input.auths.authorizers.iter() {
             let mut work_report = WorkReport::default();
             work_report.authorizer_hash = auth.auth_hash;
             work_report.core_index = auth.core;
-            let mut report_guarantee = ReportGuarantee::default();
+            let mut report_guarantee = Guarantee::default();
             report_guarantee.slot = input.slot;
             report_guarantee.report = work_report;
-            guarantees_extrinsic.report_guarantee.push(report_guarantee);
+            guarantees_extrinsic.push(report_guarantee);
         }      
 
         let mut auth_pool_state = get_global_state().lock().unwrap().auth_pools.clone();
         authorization::process(&mut auth_pool_state, &input.slot, &guarantees_extrinsic);
         
-        let result_auth_queues = get_auth_queues();
+        let result_auth_queues = state_handler::auth_queues::get();
 
         assert_eq!(expected_state.auth_pools, auth_pool_state);
         assert_eq!(expected_state.auth_queues, result_auth_queues);

@@ -25,13 +25,13 @@ constants = { path = "constants" }
 jam-types = { path = "jam-types" }
 codec = { path = "codec" }
 utils = { path = "utils" }
-handler = { path = "blockchain/state/handler" }
+state-handler = { path = "blockchain/state/state-handler" }
 block = { path = "blockchain/block" }
 accumulation = { path = "blockchain/state/accumulation" }
 authorization = { path = "blockchain/state/authorization" }
 disputes = { path = "blockchain/state/disputes" }
 entropy = { path = "blockchain/state/entropy" }
-recent_history = { path = "blockchain/state/recent_history" }
+recent-history = { path = "blockchain/state/recent-history" }
 reports = { path = "blockchain/state/reports" }
 safrole = { path = "blockchain/state/safrole" }
 services = { path = "blockchain/state/services" }

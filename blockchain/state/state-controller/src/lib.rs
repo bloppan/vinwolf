@@ -25,10 +25,9 @@
 */
 
 use sp_core::blake2_256;
-use jam_types::ProcessError;
-use handler::set_current_block_history;
+use jam_types::{Block, ProcessError};
 use utils::trie::merkle_state;
-use block::Block;
+use block::header;
 use codec::Encode;
 
 // We specify the state transition function as the implication of formulating all items of posterior state in terms of the prior
@@ -39,14 +38,14 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     let header_hash = blake2_256(&block.header.encode());
     log::info!("Importing new block: 0x{}", utils::print_hash!(header_hash));
     
-    block.header.verify(&block.extrinsic)?;
+    header::verify(&block)?;
 
-    let mut new_state = handler::get_global_state().lock().unwrap().clone();
+    let mut new_state = state_handler::get_global_state().lock().unwrap().clone();
     
-    handler::set_current_slot(&block.header.unsigned.slot);
+    state_handler::time::set_current(&block.header.unsigned.slot);
 
     let mut reported_work_packages = Vec::new();
-    for report in &block.extrinsic.guarantees.report_guarantee {
+    for report in &block.extrinsic.guarantees {
         reported_work_packages.push((report.report.package_spec.hash, report.report.package_spec.exports_root));
     }
     reported_work_packages.sort_by_key(|(hash, _)| *hash);
@@ -57,7 +56,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &block.header.unsigned.parent_state_root,
         &reported_work_packages);
         
-    set_current_block_history(curr_block_history);
+    state_handler::recent_history::set_current(curr_block_history);
 
     let _ = disputes::process(
         &mut new_state.disputes,
@@ -74,14 +73,14 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &block,
         &new_state.disputes.offenders)?;
 
-    let new_available_workreports = reports::assurance::process(
+    let new_available_workreports = reports::assurances::process(
         &mut new_state.availability,
         &block.extrinsic.assurances,
         &block.header.unsigned.slot,
         &block.header.unsigned.parent,
     )?;
 
-    let _ = reports::guarantee::process(
+    let _ = reports::guarantees::process(
         &mut new_state.availability, 
         &block.extrinsic.guarantees,
         &block.header.unsigned.slot,
@@ -133,8 +132,8 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &new_available_workreports.reported,
     );
     
-    handler::set_state_root(merkle_state(&utils::serialization::serialize(&new_state).map, 0).unwrap());
-    handler::set_global_state(new_state);
+    state_handler::set_state_root(merkle_state(&utils::serialization::serialize(&new_state).map, 0).unwrap());
+    state_handler::set_global_state(new_state);
 
     log::info!("Block 0x{} processed succesfully", utils::print_hash!(header_hash));
     Ok(())

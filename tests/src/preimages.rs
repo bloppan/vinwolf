@@ -3,11 +3,10 @@ mod tests {
 
     use std::collections::HashMap;
     use crate::FromProcessError;
-    use crate::codec::{TestBody, encode_decode_test};
+    use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputPreimages, PreimagesState};
-    use jam_types::{Account, OutputPreimages, ServiceAccounts, Statistics, ProcessError, StateKeyType};
-    use block::Extrinsic;
-    use handler::{set_service_accounts, get_service_accounts, set_time, get_global_state, set_statistics, get_statistics};
+    use jam_types::{Extrinsic, Account, OutputPreimages, ServiceAccounts, Statistics, ProcessError, StateKeyType};
+    use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
     use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 
@@ -64,14 +63,14 @@ mod tests {
             service_accounts.insert(account.id.clone(), new_account);
         }
 
-        set_time(input.slot.clone());
-        set_service_accounts(service_accounts.clone());
+        state_handler::time::set(input.slot.clone());
+        state_handler::service_accounts::set(service_accounts.clone());
         let mut statistics = Statistics::default();
         for service_stats in pre_state.statistics.iter() {
             statistics.services.records.insert(service_stats.id, service_stats.record.clone());
         }
         
-        set_statistics(statistics.clone());
+        state_handler::statistics::set(statistics.clone());
 
         let mut state = get_global_state().lock().unwrap().clone();
 
@@ -84,13 +83,13 @@ mod tests {
 
         match output_result {
             Ok(_) => { 
-                set_service_accounts(state.service_accounts);
-                set_statistics(statistics.clone());
+                state_handler::service_accounts::set(state.service_accounts);
+                state_handler::statistics::set(statistics.clone());
             },
             Err(_) => { log::error!("Error: {:?}", output_result); },
         }
 
-        let result_service_accounts = get_service_accounts();
+        let result_service_accounts = state_handler::service_accounts::get();
         for account in expected_state.accounts.iter() {
             let result_account = result_service_accounts.get(&account.id).unwrap();
             for preimage in account.data.preimages.iter() {
@@ -118,7 +117,7 @@ mod tests {
             _ => panic!("Unexpected output"),
         }
 
-        let post_statistics = get_statistics();
+        let post_statistics = state_handler::statistics::get();
 
         for service in expected_state.statistics.iter() {
             let result = post_statistics.services.records.get(&service.id).unwrap();

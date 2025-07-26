@@ -1,4 +1,4 @@
-use jam_types::{ServiceId, Preimage, PreimagesMapEntry, HeaderHash, PreimagesErrorCode, OutputPreimages};
+use jam_types::{ServiceId, Preimage, PreimagesErrorCode, OutputPreimages};
 use crate::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
 
 // Preimages are static data which is presently being requested to be available for workloads to be able to 
@@ -28,31 +28,6 @@ impl Decode for Preimage {
 
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
         Ok(Self { requester: ServiceId::decode(reader)?, blob: Vec::<u8>::decode_len(reader)? })
-    }
-}
-
-impl Encode for PreimagesMapEntry {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut blob = Vec::new();
-
-        self.hash.encode_to(&mut blob);
-        self.blob.encode_len().encode_to(&mut blob);
-        
-        return blob;
-    }
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-impl Decode for PreimagesMapEntry {
-    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
-        Ok(PreimagesMapEntry { 
-            hash: HeaderHash::decode(reader)?,
-            blob: Vec::<u8>::decode_len(reader)?,
-        })
     }
 }
 

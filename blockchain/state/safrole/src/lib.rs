@@ -41,10 +41,10 @@ use std::sync::Mutex;
 use sp_core::blake2_256;
 
 use jam_types::{
-    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, Entropy, EntropyPool, EpochMark,
+    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, Entropy, EntropyPool, EpochMark, Block,
     OutputDataSafrole, Safrole, SafroleErrorCode, TicketBody, ProcessError, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorsData
 };
-use block::Block;
+use block::{extrinsic, header};
 use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 use validators::key_rotation;
 use codec::Encode;
@@ -175,11 +175,11 @@ pub fn process(
     let ring_set = get_ring_set(post_epoch, &safrole_state.pending_validators);*/
     let ring_set = create_ring_set(&safrole_state.pending_validators);
     // Process tickets extrinsic
-    block.extrinsic.tickets.process(safrole_state, entropy_pool, &post_tau, ring_set.clone())?;
+    extrinsic::tickets::process(&block.extrinsic.tickets, safrole_state, entropy_pool, &post_tau, ring_set.clone())?;
     // update tau which defines the most recent block's index
     *tau = post_tau;
     // Verify the header's seal
-    let entropy_source_vrf_output = block.header.seal_verify(&safrole_state, &entropy_pool, &curr_validators, ring_set)?;
+    let entropy_source_vrf_output = header::seal_verify(&block.header, &safrole_state, &entropy_pool, &curr_validators, ring_set)?;
     // Update recent entropy eta0
     entropy::update_recent(entropy_pool, entropy_source_vrf_output);
     

@@ -1,10 +1,5 @@
-use jam_types::{KeyValue, StorageKey, RawState, StateRoot, *};
+use jam_types::{KeyValue, StorageKey, RawState, StateRoot};
 use crate::{Encode, EncodeLen, Decode, DecodeLen, ReadError, BytesReader};
-use crate::generic_codec::*;
-use constants::node::{
-    AUTH_POOLS, AUTH_QUEUE, RECENT_HISTORY, SAFROLE, DISPUTES, ENTROPY, NEXT_VALIDATORS, CURR_VALIDATORS, PREV_VALIDATORS, AVAILABILITY, TIME, PRIVILEGES,
-    STATISTICS, READY_QUEUE, ACCUMULATION_HISTORY
-};
 
 impl Encode for KeyValue {
 

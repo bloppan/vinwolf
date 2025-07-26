@@ -1,28 +1,18 @@
+#[cfg(test)]
+pub mod tests {
 use std::cmp::min;
 
-use crate::read_test_file;
-
 use jam_types::{
-    RefineContext, WorkItem, WorkPackage, WorkResult, BlockHistory, WorkReport, OutputAssurances, OutputSafrole, OutputPreimages, OutputAccumulation,
-    AuthPools, AuthQueues, Safrole, DisputesRecords, EntropyPool, ValidatorsData, AvailabilityAssignments, TimeSlot, Privileges, Statistics,
-    AccumulatedHistory, ReadyQueue, KeyValue, RawState, ReadError
+    AccumulatedHistory, AuthPools, AuthQueues, Guarantee, AvailabilityAssignments, BlockHistory, DisputesRecords, EntropyPool, KeyValue, 
+    OutputAccumulation, OutputAssurances, OutputPreimages, OutputSafrole, Privileges, RawState, ReadError, ReadyQueue, RefineContext, Safrole, 
+    Statistics, TimeSlot, ValidatorsData, WorkItem, WorkPackage, WorkReport, WorkResult, Assurance, Ticket, Preimage, Header, Block, DisputesExtrinsic
 };
 use crate::test_types::{
     InputAuthorizations, StateAuthorizations, DisputesState, OutputDisputes, InputHistory, InputPreimages, PreimagesState, InputWorkReport, WorkReportState,
     InputAssurances, StateAssurances, OutputWorkReport, InputSafrole, SafroleState, InputStatistics, StateStatistics, InputAccumulate, StateAccumulate
 };
-use block::{TicketsExtrinsic, DisputesExtrinsic, PreimagesExtrinsic, AssurancesExtrinsic, GuaranteesExtrinsic, Header, Block};
-use codec::{Encode, Decode, BytesReader};
+use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 
-/*use crate::integration::w3f::safrole::codec::{InputSafrole, SafroleState};
-use crate::integration::w3f::disputes::codec::{DisputesState, OutputDisputes};
-use crate::integration::w3f::assurances::codec::{InputAssurances, StateAssurances};
-use crate::integration::w3f::history::codec::InputHistory;
-use crate::integration::w3f::statistics::codec::{InputStatistics, StateStatistics};
-use crate::integration::w3f::reports::codec::{InputWorkReport, WorkReportState, OutputWorkReport};
-use crate::integration::w3f::preimages::codec::{InputPreimages, PreimagesState};
-use crate::integration::w3f::accumulate::codec::{InputAccumulate, StateAccumulate};
-use crate::integration::testnet::codec::{GlobalStateTest, ServiceAccounts};*/
 
 fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
     data1.iter()
@@ -92,10 +82,10 @@ pub enum TestBody {
     RawState,
 }
 
-struct TestContext<'a, 'b> {
-    reader: &'a mut BytesReader<'b>,
-    blob: &'b [u8],
-    global_position: usize,
+pub struct TestContext<'a, 'b> {
+    pub reader: &'a mut BytesReader<'b>,
+    pub blob: &'b [u8],
+    pub global_position: usize,
 }
 
 impl<'a, 'b> TestContext<'a, 'b> {
@@ -171,20 +161,8 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
             TestBody::WorkReport => {
                 context.process_test_part("WorkReport", WorkReport::decode, WorkReport::encode)?;
             }
-            TestBody::TicketsExtrinsic => {
-                context.process_test_part("TicketsExtrinsic", TicketsExtrinsic::decode, TicketsExtrinsic::encode)?;
-            }
             TestBody::DisputesExtrinsic => {
                 context.process_test_part("DisputesExtrinsic", DisputesExtrinsic::decode, DisputesExtrinsic::encode)?;
-            }
-            TestBody::PreimagesExtrinsic => {
-                context.process_test_part("PreimagesExtrinsic", PreimagesExtrinsic::decode, PreimagesExtrinsic::encode)?;
-            }
-            TestBody::AssurancesExtrinsic => {
-                context.process_test_part("AssurancesExtrinsic", AssurancesExtrinsic::decode, AssurancesExtrinsic::encode)?;
-            }
-            TestBody::GuaranteesExtrinsic => {
-                context.process_test_part("GuaranteesExtrinsic", GuaranteesExtrinsic::decode, GuaranteesExtrinsic::encode)?;
             }
             TestBody::Header => {
                 context.process_test_part("Header", Header::decode, Header::encode)?;
@@ -324,14 +302,13 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    const TEST_DIR: &str = "tests/test_vectors/w3f/jamtestvectors/codec/data";
+
+    //use super::*;
+    const TEST_DIR: &str = "jamtestvectors/codec/data";
 
     #[test]
     fn run_refine_context_test() {
-        let test_content = read_test_file(&format!("{}/refine_context.bin", TEST_DIR));
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/refine_context.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::RefineContext];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -339,7 +316,7 @@ mod tests {
 
     #[test]
     fn run_work_item_test() {
-        let test_content = read_test_file(&format!("{}/work_item.bin", TEST_DIR));
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/work_item.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::WorkItem];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -347,7 +324,7 @@ mod tests {
     
     #[test]
     fn run_work_package_test() {
-        let test_content = read_test_file(&format!("{}/work_package.bin", TEST_DIR));
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/work_package.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::WorkPackage];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -355,7 +332,7 @@ mod tests {
     
     #[test]
     fn run_work_result_0() {
-        let test_content = read_test_file(&format!("{}/work_result_0.bin", TEST_DIR));
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/work_result_0.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::WorkResult];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -363,7 +340,7 @@ mod tests {
     
     #[test]
     fn run_work_result_1() {
-        let test_content = read_test_file(&format!("{}/work_result_1.bin", TEST_DIR));
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/work_result_1.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::WorkResult];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -371,7 +348,7 @@ mod tests {
     
     #[test]
     fn run_work_report() {
-        let test_content = read_test_file(&format!("{}/work_report.bin", TEST_DIR));
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/work_report.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::WorkReport];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -379,15 +356,17 @@ mod tests {
     
     #[test]
     fn run_tickets_extrinsic() {
-        let test_content = read_test_file(&format!("{}/tickets_extrinsic.bin", TEST_DIR));
-        let test_body: Vec<TestBody> = vec![TestBody::TicketsExtrinsic];
-        let result = encode_decode_test(&test_content, &test_body);
-        assert_eq!(result.is_ok(), true);
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/tickets_extrinsic.bin", TEST_DIR))).unwrap();
+        let mut reader = BytesReader::new(&test_content);
+        let decoded = Vec::<Ticket>::decode_len(&mut reader);
+        assert_eq!(decoded.is_ok(), true);
+        let encoded = decoded.unwrap().encode_len();
+        assert_eq!(test_content, encoded);
     }
     
    #[test]
     fn run_disputes_extrinsic() {
-        let test_content = read_test_file(&format!("{}/disputes_extrinsic.bin", TEST_DIR));
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/disputes_extrinsic.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::DisputesExtrinsic];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -395,31 +374,37 @@ mod tests {
     
     #[test]
     fn run_preimages_extrinsic() {
-        let test_content = read_test_file(&format!("{}/preimages_extrinsic.bin", TEST_DIR));
-        let test_body: Vec<TestBody> = vec![TestBody::PreimagesExtrinsic];
-        let result = encode_decode_test(&test_content, &test_body);
-        assert_eq!(result.is_ok(), true);
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/preimages_extrinsic.bin", TEST_DIR))).unwrap();
+        let mut reader = BytesReader::new(&test_content);
+        let decoded = Vec::<Preimage>::decode_len(&mut reader);
+        assert_eq!(decoded.is_ok(), true);
+        let encoded = decoded.unwrap().encode_len();
+        assert_eq!(test_content, encoded);
     }
     
     #[test]
     fn run_assurances_extrinsic() {
-        let test_content = read_test_file(&format!("{}/assurances_extrinsic.bin", TEST_DIR));
-        let test_body: Vec<TestBody> = vec![TestBody::AssurancesExtrinsic];
-        let result = encode_decode_test(&test_content, &test_body);
-        assert_eq!(result.is_ok(), true);
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/assurances_extrinsic.bin", TEST_DIR))).unwrap();
+        let mut reader = BytesReader::new(&test_content);
+        let decoded = Vec::<Assurance>::decode_len(&mut reader);
+        assert_eq!(decoded.is_ok(), true);
+        let encoded = decoded.unwrap().encode_len();
+        assert_eq!(test_content, encoded);
     }
     
     #[test]
     fn run_guarantees_extrinsic() {
-        let test_content = read_test_file(&format!("{}/guarantees_extrinsic.bin", TEST_DIR));
-        let test_body: Vec<TestBody> = vec![TestBody::GuaranteesExtrinsic];
-        let result = encode_decode_test(&test_content, &test_body);
-        assert_eq!(result.is_ok(), true);
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/guarantees_extrinsic.bin", TEST_DIR))).unwrap();
+        let mut reader = BytesReader::new(&test_content);
+        let decoded = Vec::<Guarantee>::decode_len(&mut reader);
+        assert_eq!(decoded.is_ok(), true);
+        let encoded = decoded.unwrap().encode_len();
+        assert_eq!(test_content, encoded);
     }
     
     #[test]
     fn run_header_0() {
-        let test_content = read_test_file(&format!("{}/header_0.bin", TEST_DIR));
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/header_0.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::Header];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -427,7 +412,7 @@ mod tests {
     
     #[test]
     fn run_header_1() {
-        let test_content = read_test_file(&format!("{}/header_1.bin", TEST_DIR));
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/header_1.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::Header];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -435,7 +420,7 @@ mod tests {
     
     #[test]
     fn run_block() {
-        let test_content = read_test_file(&format!("{}/block.bin", TEST_DIR));
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/block.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::Block];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);

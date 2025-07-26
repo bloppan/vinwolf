@@ -1,189 +1,141 @@
 /*
-    The disputes extrinsic may contain one or more verdicts v as a compilation of judgments coming from exactly 
-    two-thirds plus one of either the active validator set or the previous epoch’s validator set, i.e. the Ed25519 
-    keys of κ or λ. Additionally, it may contain proofs of the misbehavior of one or more validators, either by 
-    guaranteeing a work-report found to be invalid (culprits), or by signing a judgment found to be contradiction 
-    to a work-report’s validity (faults). Both are considered a kind of offense.
+    The disputes extrinsic may contain one or more verdicts v as a compilation of judgments coming from exactly  two-thirds plus one of 
+    either the active validator set or the previous epoch’s validator set, i.e. the Ed25519 keys of κ or λ. Additionally, it may contain 
+    proofs of the misbehavior of one or more validators, either by guaranteeing a work-report found to be invalid (culprits), or by signing 
+    a judgment found to be contradiction to a work-report’s validity (faults). Both are considered a kind of offense.
 */
 
-use crate::{DisputesExtrinsic, Verdict, Culprit, Fault};
 use jam_types::{
-    AvailabilityAssignments, DisputesErrorCode, DisputesRecords, Ed25519Public, Hash, Judgement, Ed25519Signature,
-    OpaqueHash, OutputDataDisputes, ProcessError, ValidatorSet, ValidatorsData, WorkReportHash, ReadError
+    AvailabilityAssignments, DisputesErrorCode, DisputesRecords, Ed25519Public, Hash, DisputesExtrinsic, Culprit, Verdict, Fault,
+    OpaqueHash, OutputDataDisputes, ProcessError, ValidatorSet, ValidatorsData, WorkReportHash,
 };
 use constants::node::{EPOCH_LENGTH, ONE_THIRD_VALIDATORS, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY};
-use handler::{get_disputes, get_time, get_validators};
 use utils::common::{has_duplicates, is_sorted_and_unique, VerifySignature};
-use codec::{ Decode, DecodeLen, BytesReader, Encode, EncodeLen, EncodeSize};
+use codec::Encode;
 
-impl Default for DisputesExtrinsic {
-    fn default() -> Self {
-        DisputesExtrinsic {
-            verdicts: Vec::new(),
-            culprits: Vec::new(),
-            faults: Vec::new(),
-        }
-    }
-}
+pub fn process(
+    disputes_extrinsic: &DisputesExtrinsic, 
+    disputes_state: &mut DisputesRecords,
+    availability_state: &mut AvailabilityAssignments,
+) -> Result<OutputDataDisputes, ProcessError> {
 
-impl Default for Verdict {
-    fn default() -> Self {
-        Self {
-            target: OpaqueHash::default(),
-            age: 0,
-            votes: Vec::new(),
-        }
+    if is_empty(disputes_extrinsic) {
+        return Ok(OutputDataDisputes { offenders_mark: Vec::new() });
     }
-}
-impl Default for Culprit {
-    fn default() -> Self {
-        Self {
-            target: OpaqueHash::default(),
-            key: OpaqueHash::default(),
-            signature: [0u8; std::mem::size_of::<Ed25519Signature>()],
-        }
-    }
-}
-impl Default for Fault {
-    fn default() -> Self {
-        Self {
-            target: OpaqueHash::default(),
-            vote: false,
-            key: OpaqueHash::default(),
-            signature: [0u8; std::mem::size_of::<Ed25519Signature>()],
-        }
-    }
-}
-
-impl DisputesExtrinsic {
-
-    pub fn process(
-        &self, 
-        disputes_state: &mut DisputesRecords,
-        availability_state: &mut AvailabilityAssignments,
-    ) -> Result<OutputDataDisputes, ProcessError> {
     
-        if self.is_empty() {
-            return Ok(OutputDataDisputes { offenders_mark: Vec::new() });
+    let epoch = state_handler::time::get() as usize / EPOCH_LENGTH;
+    let verdict_ages = disputes_extrinsic.verdicts.iter().map(|v| v.age).collect::<Vec<_>>();
+
+    if verdict_ages.len() > 1 {
+        if !verdict_ages.iter().all(|x| *x == verdict_ages[0]) {
+            return Err(ProcessError::DisputesError(DisputesErrorCode::AgesNotEqual));
         }
-        
-        let epoch = get_time() as usize / EPOCH_LENGTH;
-        let verdict_ages = self.verdicts.iter().map(|v| v.age).collect::<Vec<_>>();
-
-        if verdict_ages.len() > 1 {
-            if !verdict_ages.iter().all(|x| *x == verdict_ages[0]) {
-                return Err(ProcessError::DisputesError(DisputesErrorCode::AgesNotEqual));
-            }
-        }
-
-        // Verdicts comes from either the active validator set or the previous epoch's validator set
-        let validator_set = if epoch == verdict_ages[0] as usize {
-                get_validators(ValidatorSet::Current)
-        } else {
-                get_validators(ValidatorSet::Previous)
-        };
-
-        let disputes_records: Vec<WorkReportHash> = Vec::from([disputes_state.good.clone(), 
-                                                         disputes_state.bad.clone(), 
-                                                         disputes_state.wonky.clone()].concat());
-
-        // Process verdicts
-        let vote_count = self.verdicts.process(&disputes_records, &validator_set)?;
-        
-        // There are some constraints placed on the composition of this extrinsic: any verdict containing solely valid 
-        // judgements implies the same report having at least one valid entry in the faults sequence. Any verdict containing
-        // solely invalid judgements implies the same report having at least two valid entries in the culprits sequence.
-        let new_wr_reported = self.check_composition(&vote_count)?;       
-        
-        let validators_ed25519: Vec<Ed25519Public> = validator_set.list.iter().map(|key| key.ed25519).collect();
-        let offenders: Vec<Ed25519Public> = get_disputes().offenders.clone();
-        
-        let new_bad_set = Vec::from([disputes_state.bad.clone(), new_wr_reported.bad.clone()].concat());
-        let new_good_set = Vec::from([disputes_state.good.clone(), new_wr_reported.good.clone()].concat());
-        
-        // Additionally, disputes extrinsic may contain proofs of the misbehavior of one or more validators, either 
-        // by guaranteeing a work-report found to be invalid (culprits), or by signing a judgment found to be contradiction 
-        // to a work-report's validity (faults). Both are considered a kind of offense   
-        let culprit_keys = self.culprits.process(&new_bad_set, &offenders, &validators_ed25519)?;
-        let faults_keys = self.faults.process(&new_bad_set, &new_good_set, &offenders, &validators_ed25519)?;
-        
-        let new_offenders = handler::update_disputes(disputes_state, &new_wr_reported, &culprit_keys, &faults_keys)?;
-
-        handler::update_first_step(availability_state, &new_wr_reported);
-
-        Ok(OutputDataDisputes { offenders_mark: new_offenders })
     }
 
-    fn check_composition(&self, vote_count: &[(Hash, usize)]) -> Result<DisputesRecords, ProcessError> {
+    // Verdicts comes from either the active validator set or the previous epoch's validator set
+    let validator_set = if epoch == verdict_ages[0] as usize {
+            state_handler::validators::get(ValidatorSet::Current)
+    } else {
+            state_handler::validators::get(ValidatorSet::Previous)
+    };
 
-        // We first save in this auxiliar records the new offenders
-        let mut new_wr_reported = DisputesRecords::default();
+    let disputes_records: Vec<WorkReportHash> = Vec::from([disputes_state.good.clone(), 
+                                                        disputes_state.bad.clone(), 
+                                                        disputes_state.wonky.clone()].concat());
 
-        for (target, count) in vote_count.iter() {
-            // We require this total to be either exactly two-thirds-plus-one, zero or one-third of the validator set 
-            // indicating, respectively, that the report is good, that it's bad, or that it's wonky.
-            match *count {
-                VALIDATORS_SUPER_MAJORITY => {
-                        // Any verdict containing solely valid judgments implies the same report having at least one valid
-                        // entry in the faults sequence
-                        if self.faults.len() < 1 {
-                            return Err(ProcessError::DisputesError(DisputesErrorCode::NotEnoughFaults));
-                        }
-                        new_wr_reported.good.push(*target);
-                },
-                0 => {
-                        // Any verdict containing solely invalid judgments implies the same report having at least two 
-                        // valid entries in the culprits sequence
-                        if self.culprits.len() < 2 {
-                            return Err(ProcessError::DisputesError(DisputesErrorCode::NotEnoughCulprits));
-                        }
-                        new_wr_reported.bad.push(*target);
-                },
-                ONE_THIRD_VALIDATORS => new_wr_reported.wonky.push(*target),
-                _ => { return Err(ProcessError::DisputesError(DisputesErrorCode::BadVoteSplit)); }
-            }
-        }
+    // Process verdicts
+    let vote_count = verdicts::process(&disputes_extrinsic.verdicts, &disputes_records, &validator_set)?;
+    
+    // There are some constraints placed on the composition of this extrinsic: any verdict containing solely valid 
+    // judgements implies the same report having at least one valid entry in the faults sequence. Any verdict containing
+    // solely invalid judgements implies the same report having at least two valid entries in the culprits sequence.
+    let new_wr_reported = check_composition(disputes_extrinsic, &vote_count)?;       
+    
+    let validators_ed25519: Vec<Ed25519Public> = validator_set.list.iter().map(|key| key.ed25519).collect();
+    let offenders: Vec<Ed25519Public> = state_handler::disputes::get().offenders.clone();
+    
+    let new_bad_set = Vec::from([disputes_state.bad.clone(), new_wr_reported.bad.clone()].concat());
+    let new_good_set = Vec::from([disputes_state.good.clone(), new_wr_reported.good.clone()].concat());
+    
+    // Additionally, disputes extrinsic may contain proofs of the misbehavior of one or more validators, either 
+    // by guaranteeing a work-report found to be invalid (culprits), or by signing a judgment found to be contradiction 
+    // to a work-report's validity (faults). Both are considered a kind of offense   
+    let culprit_keys = culprits::process(&disputes_extrinsic.culprits, &new_bad_set, &offenders, &validators_ed25519)?;
+    let faults_keys = faults::process(&disputes_extrinsic.faults, &new_bad_set, &new_good_set, &offenders, &validators_ed25519)?;
+    
+    let new_offenders = state_handler::disputes::update(disputes_state, &new_wr_reported, &culprit_keys, &faults_keys)?;
 
-        return Ok(new_wr_reported);
-    }
+    state_handler::reports::update_first_step(availability_state, &new_wr_reported);
 
-    fn is_empty(&self) -> bool {
-        self.verdicts.is_empty()
-        && self.culprits.is_empty()
-        && self.faults.is_empty()
-    }
-
+    Ok(OutputDataDisputes { offenders_mark: new_offenders })
 }
 
-trait Verdicts {
-    fn process(&self, wr_reported: &[WorkReportHash], validator_set: &ValidatorsData) -> Result<Vec<(Hash, usize)>, ProcessError>;
-    fn vote_count(&self) -> Vec<(Hash, usize)>;
+fn check_composition(disputes_extrinsic: &DisputesExtrinsic, vote_count: &[(Hash, usize)]) -> Result<DisputesRecords, ProcessError> {
+
+    // We first save in this auxiliar records the new offenders
+    let mut new_wr_reported = DisputesRecords::default();
+
+    for (target, count) in vote_count.iter() {
+        // We require this total to be either exactly two-thirds-plus-one, zero or one-third of the validator set 
+        // indicating, respectively, that the report is good, that it's bad, or that it's wonky.
+        match *count {
+            VALIDATORS_SUPER_MAJORITY => {
+                    // Any verdict containing solely valid judgments implies the same report having at least one valid
+                    // entry in the faults sequence
+                    if disputes_extrinsic.faults.len() < 1 {
+                        return Err(ProcessError::DisputesError(DisputesErrorCode::NotEnoughFaults));
+                    }
+                    new_wr_reported.good.push(*target);
+            },
+            0 => {
+                    // Any verdict containing solely invalid judgments implies the same report having at least two 
+                    // valid entries in the culprits sequence
+                    if disputes_extrinsic.culprits.len() < 2 {
+                        return Err(ProcessError::DisputesError(DisputesErrorCode::NotEnoughCulprits));
+                    }
+                    new_wr_reported.bad.push(*target);
+            },
+            ONE_THIRD_VALIDATORS => new_wr_reported.wonky.push(*target),
+            _ => { return Err(ProcessError::DisputesError(DisputesErrorCode::BadVoteSplit)); }
+        }
+    }
+
+    return Ok(new_wr_reported);
 }
 
-impl Verdicts for Vec<Verdict> {
-    fn process(&self, wr_reported: &[WorkReportHash], validator_set: &ValidatorsData) -> Result<Vec<(Hash, usize)>, ProcessError> {
+fn is_empty(disputes_extrinsic: &DisputesExtrinsic) -> bool {
+    disputes_extrinsic.verdicts.is_empty()
+    && disputes_extrinsic.culprits.is_empty()
+    && disputes_extrinsic.faults.is_empty()
+}
+
+pub mod verdicts {
+
+    use super::*;
+
+    pub fn process(verdicts: &[Verdict], wr_reported: &[WorkReportHash], validator_set: &ValidatorsData) -> Result<Vec<(Hash, usize)>, ProcessError> {
 
         // The disputes extrinsic may contain one or more verdicts v as a compilation of judgments coming from 
         // exactly two-thirds plus one of either the active validator set or the previous epoch's validator set, 
         // i.e. the Ed25519 keys of κ or λ. s
-        if self.is_empty() {
+        if verdicts.is_empty() {
             return Err(ProcessError::DisputesError(DisputesErrorCode::NoVerdictsFound));
         }
 
         // Verdicts must be ordered by report hash.
-        let verdict_targets: Vec<_> = self.iter().map(|v| v.target).collect();
+        let verdict_targets: Vec<_> = verdicts.iter().map(|v| v.target).collect();
         if !is_sorted_and_unique(&verdict_targets) {
             return Err(ProcessError::DisputesError(DisputesErrorCode::VerdictsNotSortedUnique));
         }
 
         // The judgments of all verdicts must be ordered by validator index and there may be no duplicates
-        for verdict in self.iter() {
+        for verdict in verdicts.iter() {
             if !is_sorted_and_unique(&verdict.votes.iter().map(|vote| vote.index).collect::<Vec<_>>()) {
                 return Err(ProcessError::DisputesError(DisputesErrorCode::JudgementsNotSortedUnique));
             }
         }
 
-        for verdict in self.iter() {
+        for verdict in verdicts.iter() {
 
             if verdict.votes.len() != VALIDATORS_SUPER_MAJORITY {
                 return Err(ProcessError::DisputesError(DisputesErrorCode::BadVotesCount));
@@ -203,10 +155,10 @@ impl Verdicts for Vec<Verdict> {
             return Err(ProcessError::DisputesError(DisputesErrorCode::AlreadyJudged));
         }
 
-        let epoch = get_time() as usize / EPOCH_LENGTH;
+        let epoch = state_handler::time::get() as usize / EPOCH_LENGTH;
 
         // Verify verdict ed25519 signatures
-        for verdict in self.iter() {
+        for verdict in verdicts.iter() {
             
             if epoch - verdict.age as usize > 1 {
                 return Err(ProcessError::DisputesError(DisputesErrorCode::BadJudgementAge));
@@ -229,16 +181,16 @@ impl Verdicts for Vec<Verdict> {
 
         // We define vote_count to derive from the sequence of verdicts introduced in the block's extrinsic, containing only 
         // the report hash and the sum of positive judgments.
-        let vote_count: Vec<(Hash, usize)> = self.vote_count();
+        let vote_count: Vec<(Hash, usize)> = vote_count(verdicts);
 
         Ok(vote_count)
     }
 
-    fn vote_count(&self) -> Vec<(Hash, usize)> {
+    fn vote_count(verdicts: &[Verdict]) -> Vec<(Hash, usize)> {
 
-        let mut vote_count: Vec<(Hash, usize)> = Vec::with_capacity(self.len());
+        let mut vote_count: Vec<(Hash, usize)> = Vec::with_capacity(verdicts.len());
         
-        for verdict in self.iter() {
+        for verdict in verdicts.iter() {
             let hash = verdict.target.clone();
             let mut count = 0;
             for vote in verdict.votes.iter() {
@@ -253,46 +205,39 @@ impl Verdicts for Vec<Verdict> {
     }
 }
 
-trait Culprits {
-    fn process(
-        &self, 
-        bad_set: &[WorkReportHash], 
-        offenders: &[Ed25519Public], 
-        validators: &[Ed25519Public]) 
-    -> Result<Vec<OpaqueHash>, ProcessError>;
-}
+pub mod culprits {
 
-impl Culprits for Vec<Culprit> {
+    use super::*;
 
-    fn process(
-        &self, 
+    pub fn process(
+        culprits: &[Culprit], 
         bad_set: &[WorkReportHash], 
         offenders: &[Ed25519Public], 
         validators: &[Ed25519Public]) 
     -> Result<Vec<OpaqueHash>, ProcessError> {
 
         // Culprits must be ordered by Ed25519 keys.
-        let culprit_keys: Vec<_> = self.iter().map(|c| c.key).collect();
+        let culprit_keys: Vec<_> = culprits.iter().map(|c| c.key).collect();
         if !is_sorted_and_unique(&culprit_keys) {
             return Err(ProcessError::DisputesError(DisputesErrorCode::CulpritsNotSortedUnique));
         }
 
         // Offender signatures must be similarly valid and reference work-reports with judgemets and may not report
         // keys which are already in the punish-set
-        for culprit in self.iter() {
+        for culprit in culprits.iter() {
             if !bad_set.contains(&culprit.target) {
                 return Err(ProcessError::DisputesError(DisputesErrorCode::CulpritsVerdictNotBad));
             }
         }
 
-        for culprit in self.iter() {
+        for culprit in culprits.iter() {
             if !offenders.contains(&culprit.key) && !validators.contains(&culprit.key) {
                 return Err(ProcessError::DisputesError(DisputesErrorCode::BadGuarantoorKey));
             }
         }
 
         // Verify culprits ed25519 signatures
-        for culprit in self.iter() {
+        for culprit in culprits.iter() {
             let message = [&b"jam_guarantee"[..], &culprit.target.encode()].concat();
             if !culprit.signature.verify_signature(&message, &culprit.key) {
                 return Err(ProcessError::DisputesError(DisputesErrorCode::BadSignature));
@@ -303,30 +248,25 @@ impl Culprits for Vec<Culprit> {
     }
 }
 
-trait Faults {
-    fn process(&self,
-               bad_set: &[WorkReportHash],
-               good_set: &[WorkReportHash],
-               offenders: &[Ed25519Public],
-               validators: &[Ed25519Public]) 
-    -> Result<Vec<OpaqueHash>, ProcessError>;
-}
+pub mod faults {
 
-impl Faults for Vec<Fault> {
-    fn process(&self,
-               bad_set: &[WorkReportHash],
-               good_set: &[WorkReportHash],
-               offenders: &[Ed25519Public],
-               validators: &[Ed25519Public]) 
+    use super::*;
+
+    pub fn process(
+            faults: &[Fault],
+            bad_set: &[WorkReportHash],
+            good_set: &[WorkReportHash],
+            offenders: &[Ed25519Public],
+            validators: &[Ed25519Public]) 
         -> Result<Vec<OpaqueHash>, ProcessError> {
         
         // Faults must be ordered by Ed25519 keys.
-        let faults_keys: Vec<_> = self.iter().map(|f| f.key).collect();
+        let faults_keys: Vec<_> = faults.iter().map(|f| f.key).collect();
         if !is_sorted_and_unique(&faults_keys) {
             return Err(ProcessError::DisputesError(DisputesErrorCode::FaultsNotSortedUnique));
         }
 
-        for fault in self.iter() {
+        for fault in faults.iter() {
 
             let is_in_bad = bad_set.contains(&fault.target);
             let is_in_good = good_set.contains(&fault.target);
@@ -344,14 +284,14 @@ impl Faults for Vec<Fault> {
             }
         }
 
-        for fault in self.iter() {
+        for fault in faults.iter() {
             if !offenders.contains(&fault.key) && !validators.contains(&fault.key) {
                 return Err(ProcessError::DisputesError(DisputesErrorCode::BadAuditorKey));
             }
         }
 
         // Verify fault ed25519 signatures
-        for fault in self.iter() {
+        for fault in faults.iter() {
             let mut message = Vec::new();
             if fault.vote == true {
                 b"jam_valid".encode_to(&mut message);
@@ -366,143 +306,6 @@ impl Faults for Vec<Fault> {
         }
 
         Ok(faults_keys)
-    }
-}
-
-impl Encode for DisputesExtrinsic {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut dispute_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<DisputesExtrinsic>());
-        
-        self.verdicts.encode_len().encode_to(&mut dispute_blob);
-        self.culprits.encode_len().encode_to(&mut dispute_blob);
-        self.faults.encode_len().encode_to(&mut dispute_blob);
-
-        return dispute_blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode()); 
-    }
-}
-
-impl Decode for DisputesExtrinsic {
-
-    fn decode(dispute_blob: &mut BytesReader) -> Result<Self, ReadError> {
-
-        Ok(DisputesExtrinsic {
-            verdicts : Vec::<Verdict>::decode_len(dispute_blob)?,
-            culprits : Vec::<Culprit>::decode_len(dispute_blob)?,
-            faults : Vec::<Fault>::decode_len(dispute_blob)?,
-        })
-    }
-}
-
-// Judgement statements come about naturally as part of the auditing process and are expected to be positive,
-// further affirming the guarantors’ assertion that the workreport is valid. In the event of a negative judgment, 
-// then all validators audit said work-report and we assume a verdict will be reached.
-
-
-
-// A Verdict is a compilation of judgments coming from exactly two-thirds plus one of either the active validator set 
-// or the previous epoch’s validator set, i.e. the Ed25519 keys of κ or λ. Verdicts contains only the report hash and 
-// the sum of positive judgments. We require this total to be either exactly two-thirds-plus-one, zero or one-third 
-// of the validator set indicating, respectively, that the report is good, that it’s bad, or that it’s wonky.
-impl Encode for Verdict {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut verdicts_blob: Vec<u8> = Vec::new();
-
-        self.target.encode_to(&mut verdicts_blob);
-        self.age.encode_size(4).encode_to(&mut verdicts_blob);
-        Vec::<Judgement>::encode(&self.votes).encode_to(&mut verdicts_blob);
-
-        return verdicts_blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
-
-impl Decode for Verdict {
-
-    fn decode(verdict_blob: &mut BytesReader) -> Result<Self, ReadError> {
-
-        Ok(Verdict{
-            target: OpaqueHash::decode(verdict_blob)?,
-            age: u32::decode(verdict_blob)?,
-            votes: Vec::<Judgement>::decode(verdict_blob)?,
-        })       
-    }
-}
-
-// A culprit is a proofs of the misbehavior of one or more validators by guaranteeing a work-report found to be invalid.
-// Is a offender signature.
-impl Encode for Culprit {
-
-    fn encode(&self) -> Vec<u8> {
-        
-        let mut culprit_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Culprit>());
-
-        self.target.encode_to(&mut culprit_blob);
-        self.key.encode_to(&mut culprit_blob);
-        self.signature.encode_to(&mut culprit_blob);
-        
-        return culprit_blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode()); 
-    }
-}
-
-impl Decode for Culprit {
-
-    fn decode(culprit_blob: &mut BytesReader) -> Result<Self, ReadError> {
-
-        Ok(Culprit {
-            target: OpaqueHash::decode(culprit_blob)?,
-            key: Ed25519Public::decode(culprit_blob)?,
-            signature: Ed25519Signature::decode(culprit_blob)?,
-        })
-    }
-}
-
-// A fault is a proofs of the misbehavior of one or more validators by signing a judgment found to be contradiction to a 
-// work-report’s validity. Is a offender signature. Must be ordered by validators Ed25519Key. There may be no duplicate
-// report hashes within the extrinsic, nor amongst any past reported hashes.
-impl Encode for Fault {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut fault_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Fault>());
-        
-        self.target.encode_to(&mut fault_blob);
-        self.vote.encode_to(&mut fault_blob);
-        self.key.encode_to(&mut fault_blob);
-        self.signature.encode_to(&mut fault_blob);
-
-        return fault_blob;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());       
-    }
-}
-
-impl Decode for Fault {
-
-    fn decode(fault_blob: &mut BytesReader) -> Result<Self, ReadError> {
-
-        Ok(Fault {
-            target: OpaqueHash::decode(fault_blob)?,
-            vote: fault_blob.read_byte()? != 0,
-            key: OpaqueHash::decode(fault_blob)?,
-            signature: Ed25519Signature::decode(fault_blob)?,
-        })
     }
 }
 

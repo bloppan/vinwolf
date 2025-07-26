@@ -1,5 +1,5 @@
 use crate::{Program, ExitReason};
-use crate::{Context, RamAccess, RamAddress, RegSize};
+use crate::pvm_types::{Context, RamAccess, RamAddress, RegSize};
 use constants::pvm::{LOWEST_ACCESIBLE_PAGE, JUMP_ALIGNMENT, PAGE_SIZE};
 use codec::EncodeSize;
 use codec::generic_codec::decode;

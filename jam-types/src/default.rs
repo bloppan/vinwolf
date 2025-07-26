@@ -1,17 +1,17 @@
 use std::collections::VecDeque;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::array::from_fn;
 
-use constants::node::{EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT};
+use constants::node::{AVAIL_BITFIELD_BYTES, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT};
 use crate::{
-    Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, ValidatorStatistics, AuthPool, AuthPools, AuthQueues, 
+    BandersnatchRingVrfSignature, Ticket, Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, Assurance, AuthPool, AuthPools, AuthQueues, 
     AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, CodeAuthorizer, 
-    CodeAuthorizers, CoreActivityRecord, CoresStatistics, DeferredTransfer, Judgement, DisputesRecords, Ed25519Public, Ed25519Signature,
-    Entropy, EntropyPool, ExtrinsicSpec, ImportSpec, MemoryChunk, Metadata, OpaqueHash, SerializedState, GlobalState,
-    PageMap, Privileges, ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportGuarantee, ReportedPackage,
-    ReportedWorkPackage, Safrole, SegmentRootLookupItem, ServiceAccounts, ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, 
-    SeviceActivityRecord, Statistics, TicketBody, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorData, ValidatorsData, 
-    WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, EpochMark, KeyValue, Preimage, PreimagesMapEntry 
+    CodeAuthorizers, CoreActivityRecord, CoresStatistics, DeferredTransfer, DisputesRecords, Ed25519Public, Ed25519Signature, Entropy, EntropyPool, EpochMark, 
+    ExtrinsicSpec, GlobalState, Guarantee, ImportSpec, Judgement, KeyValue, MemoryChunk, Metadata, OpaqueHash, PageMap, Preimage, Privileges, 
+    ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportedPackage, ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, 
+    ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsMark, TicketsOrKeys, 
+    TimeSlot, ValidatorData, ValidatorSignature, ValidatorStatistics, ValidatorsData, WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, Block,
+    Header, Extrinsic, UnsignedHeader, DisputesExtrinsic, Verdict, Culprit, Fault
 };
 
 impl Default for GlobalState {
@@ -37,18 +37,112 @@ impl Default for GlobalState {
     }
 }
 // ----------------------------------------------------------------------------------------------------------
+// Block
+// ----------------------------------------------------------------------------------------------------------
+impl Default for Block {
+    fn default() -> Self {
+        Self { header: Header::default(), extrinsic: Extrinsic::default(), }
+    }
+}
+impl Default for Extrinsic {
+    fn default() -> Self {
+        Extrinsic {
+            tickets: Vec::new(),
+            disputes: DisputesExtrinsic::default(),
+            preimages: Vec::new(),
+            guarantees: Vec::new(),
+            assurances: Vec::new(),
+        }
+    }
+}
+impl Default for Header {
+    fn default() -> Self {
+        Self {
+            unsigned: UnsignedHeader::default(),
+            seal: [0u8; 96],
+        }
+    }
+}
+
+impl Default for UnsignedHeader {
+    fn default() -> Self {
+        Self {
+            parent: OpaqueHash::default(),
+            parent_state_root: OpaqueHash::default(),
+            extrinsic_hash: OpaqueHash::default(),
+            slot: 0,
+            epoch_mark: None,
+            tickets_mark: None,
+            offenders_mark: Vec::new(),
+            author_index: 0,
+            entropy_source: [0u8; 96],
+        }
+    }
+}
+// ----------------------------------------------------------------------------------------------------------
+// Disputes Extrinsic
+// ----------------------------------------------------------------------------------------------------------
+impl Default for DisputesExtrinsic {
+    fn default() -> Self {
+        DisputesExtrinsic {
+            verdicts: Vec::new(),
+            culprits: Vec::new(),
+            faults: Vec::new(),
+        }
+    }
+}
+
+impl Default for Verdict {
+    fn default() -> Self {
+        Self {
+            target: OpaqueHash::default(),
+            age: 0,
+            votes: Vec::new(),
+        }
+    }
+}
+impl Default for Culprit {
+    fn default() -> Self {
+        Self {
+            target: OpaqueHash::default(),
+            key: OpaqueHash::default(),
+            signature: [0u8; std::mem::size_of::<Ed25519Signature>()],
+        }
+    }
+}
+impl Default for Fault {
+    fn default() -> Self {
+        Self {
+            target: OpaqueHash::default(),
+            vote: false,
+            key: OpaqueHash::default(),
+            signature: [0u8; std::mem::size_of::<Ed25519Signature>()],
+        }
+    }
+}
+// ----------------------------------------------------------------------------------------------------------
 // Guarantees Extrinsic
 // ----------------------------------------------------------------------------------------------------------
 
-impl Default for ReportGuarantee {
+impl Default for Guarantee {
     fn default() -> Self {
-        ReportGuarantee {
+        Guarantee {
             report: WorkReport::default(),
             slot: 0,
             signatures: Vec::new(),
         }
     }
 }
+
+impl Default for ValidatorSignature {
+    fn default() -> Self {
+        ValidatorSignature {
+            validator_index: 0,
+            signature: [0u8; std::mem::size_of::<Ed25519Signature>()],
+        }
+    }
+}
+
 impl Default for WorkItem {
     fn default() -> Self {
         Self {
@@ -77,7 +171,14 @@ impl Default for WorkReport {
         }
     }
 }
-
+impl Default for Ticket {
+    fn default() -> Self {
+        Ticket {
+            attempt: 0,
+            signature: [0u8; std::mem::size_of::<BandersnatchRingVrfSignature>()],
+        }
+    }
+}
 impl Default for SegmentRootLookupItem {
     fn default() -> Self {
         SegmentRootLookupItem {
@@ -447,15 +548,6 @@ impl Default for Preimage {
         }
     }
 }
-
-impl Default for PreimagesMapEntry {
-    fn default() -> Self {
-        Self {
-            hash: OpaqueHash::default(),
-            blob: Vec::new(),
-        }
-    }
-}
 // ----------------------------------------------------------------------------------------------------------
 // Statistics
 // ----------------------------------------------------------------------------------------------------------
@@ -563,6 +655,22 @@ impl Default for ValidatorsData {
         }
     }
 }
+// ----------------------------------------------------------------------------------------------------------
+// Assurances
+// ----------------------------------------------------------------------------------------------------------
+
+impl Default for Assurance {
+    fn default() -> Self {
+        Assurance { 
+            anchor: OpaqueHash::default(), 
+            bitfield: [0u8; AVAIL_BITFIELD_BYTES], 
+            validator_index: 0, 
+            signature: [0u8; std::mem::size_of::<Ed25519Signature>()] 
+        }
+    }
+}
+
+
 // ----------------------------------------------------------------------------------------------------------
 // Polkadot Virtual Machine
 // ----------------------------------------------------------------------------------------------------------

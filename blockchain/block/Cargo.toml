@@ -11,7 +11,7 @@ constants = { workspace = true }
 jam-types = { workspace = true }
 codec = { workspace = true }
 utils = { workspace = true }
-handler = { workspace = true }
+state-handler = { workspace = true }
 log = { workspace = true }
 sp-core = "34.0.0"
 ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring"] }

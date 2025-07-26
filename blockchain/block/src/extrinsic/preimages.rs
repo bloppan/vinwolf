@@ -1,70 +1,66 @@
 /*
-    Preimages are static data which is presently being requested to be available for workloads to be able to 
-    fetch on demand. Prior to accumulation, we must first integrate all preimages provided in the lookup extrinsic. 
+    Preimages are static data which is presently being requested to be available for workloads to be able to fetch on demand. 
+    Prior to accumulation, we must first integrate all preimages provided in the lookup extrinsic. 
  */
 
 use std::collections::HashSet;
-use crate::PreimagesExtrinsic;
-use jam_types::{TimeSlot, ServiceAccounts, ProcessError, PreimagesErrorCode, StateKeyType, ReadError, Preimage};
+use jam_types::{TimeSlot, ServiceAccounts, ProcessError, PreimagesErrorCode, StateKeyType, Preimage};
 use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
-use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 
-impl PreimagesExtrinsic {
+pub fn process(
+    preimages_extrinsic: &[Preimage], 
+    services: 
+    &mut ServiceAccounts, 
+    post_tau: &TimeSlot) 
+-> Result<(), ProcessError> {
 
-    pub fn process(
-        &self, 
-        services: 
-        &mut ServiceAccounts, 
-        post_tau: &TimeSlot) 
-    -> Result<(), ProcessError> {
-
-        // The lookup extrinsic is a sequence of pairs of service indices and data. These pairs must be ordered and 
-        // without duplicates.
-        let pairs = self.preimages.iter().map(|preimage| (preimage.requester, preimage.blob.clone())).collect::<Vec<_>>();
-        if has_duplicates(&pairs) {
-            log::error!("Preimages has duplicates");
-            return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
-        }
-        let pairs = pairs.iter().map(|(requester, blob)| (*requester, blob.as_slice())).collect::<Vec<_>>();
-        //println!("pairs: {:x?}", pairs);
-        if !is_sorted_preimages(&pairs) {
-            log::error!("Preimages not sorted");
-            return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
-        }
-
-        for preimage in self.preimages.iter() {
-            let hash = sp_core::blake2_256(&preimage.blob);
-            let length = preimage.blob.len() as u32;
-            log::debug!("length: {length}, hash: 0x{}", utils::print_hash!(hash));
-            let lookup_key = StateKeyType::Account(preimage.requester, construct_lookup_key(&hash, length).to_vec()).construct();
-            let preimage_key = StateKeyType::Account(preimage.requester, construct_preimage_key(&hash).to_vec()).construct();
-            if services.contains_key(&preimage.requester) {
-                let account = services.get_mut(&preimage.requester).unwrap();
-                if account.preimages.contains_key(&preimage_key) {
-                    log::error!("Preimage unneeded. The key 0x{} is already contained in this account", utils::print_hash!(hash));
-                    return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
-                }
-                if let Some(timeslots) = account.lookup.get(&lookup_key) {
-                    if timeslots.len() > 0 {
-                        log::error!("Preimage unneeded");
-                        return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
-                    }
-                } else {
-                    log::error!("Preimage unneeded: Lookup key 0x{} not found", utils::print_hash!(lookup_key));
-                    return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
-                }
-                account.preimages.insert(preimage_key, preimage.blob.clone());
-                let timeslot_values = vec![post_tau.clone()];
-                account.lookup.insert(lookup_key, timeslot_values);
-            } else {
-                log::error!("Requester {:?} not found", preimage.requester);
-                return Err(ProcessError::PreimagesError(PreimagesErrorCode::RequesterNotFound));
-            }
-        }
-
-        Ok(())
+    // The lookup extrinsic is a sequence of pairs of service indices and data. These pairs must be ordered and 
+    // without duplicates.
+    let pairs = preimages_extrinsic.iter().map(|preimage| (preimage.requester, preimage.blob.clone())).collect::<Vec<_>>();
+    if has_duplicates(&pairs) {
+        log::error!("Preimages has duplicates");
+        return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
     }
+    let pairs = pairs.iter().map(|(requester, blob)| (*requester, blob.as_slice())).collect::<Vec<_>>();
+    //println!("pairs: {:x?}", pairs);
+    if !is_sorted_preimages(&pairs) {
+        log::error!("Preimages not sorted");
+        return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
+    }
+
+    for preimage in preimages_extrinsic {
+        let hash = sp_core::blake2_256(&preimage.blob);
+        let length = preimage.blob.len() as u32;
+        log::debug!("length: {length}, hash: 0x{}", utils::print_hash!(hash));
+        let lookup_key = StateKeyType::Account(preimage.requester, construct_lookup_key(&hash, length).to_vec()).construct();
+        let preimage_key = StateKeyType::Account(preimage.requester, construct_preimage_key(&hash).to_vec()).construct();
+        if services.contains_key(&preimage.requester) {
+            let account = services.get_mut(&preimage.requester).unwrap();
+            if account.preimages.contains_key(&preimage_key) {
+                log::error!("Preimage unneeded. The key 0x{} is already contained in this account", utils::print_hash!(hash));
+                return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
+            }
+            if let Some(timeslots) = account.lookup.get(&lookup_key) {
+                if timeslots.len() > 0 {
+                    log::error!("Preimage unneeded");
+                    return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
+                }
+            } else {
+                log::error!("Preimage unneeded: Lookup key 0x{} not found", utils::print_hash!(lookup_key));
+                return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
+            }
+            account.preimages.insert(preimage_key, preimage.blob.clone());
+            let timeslot_values = vec![post_tau.clone()];
+            account.lookup.insert(lookup_key, timeslot_values);
+        } else {
+            log::error!("Requester {:?} not found", preimage.requester);
+            return Err(ProcessError::PreimagesError(PreimagesErrorCode::RequesterNotFound));
+        }
+    }
+
+    Ok(())
 }
+
 
 fn has_duplicates<T: Eq + std::hash::Hash, U: Eq + std::hash::Hash>(tuples: &[(T, U)]) -> bool {
     let mut seen = HashSet::new();
@@ -90,30 +86,6 @@ fn is_sorted_preimages(preimages: &[(u32, &[u8])]) -> bool {
         blob1 <= blob2
     })
 }
-
-impl Encode for PreimagesExtrinsic {
-
-    fn encode(&self) -> Vec<u8> {
-
-        let mut preimg_encoded = Vec::with_capacity(std::mem::size_of::<PreimagesExtrinsic>());
-        self.preimages.encode_len().encode_to(&mut preimg_encoded);
-        return preimg_encoded;
-    }
-
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode()); 
-    }
-}
-
-impl Decode for PreimagesExtrinsic {
-
-    fn decode(preimage_blob: &mut BytesReader) -> Result<Self, ReadError> {
-
-        Ok(PreimagesExtrinsic { preimages: Vec::<Preimage>::decode_len(preimage_blob)? })
-    }
-}
-
-
 
 #[cfg(test)]
 mod tests {

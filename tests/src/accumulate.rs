@@ -2,13 +2,11 @@
 mod tests {
 
     use once_cell::sync::Lazy;
-    use crate::codec::{TestBody, encode_decode_test};
+    use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputAccumulate, StateAccumulate};
-    use jam_types::{EntropyPool, ServiceAccounts, OutputAccumulation, Account, Statistics, StateKeyType};
-    use block::Extrinsic;
+    use jam_types::{EntropyPool, Extrinsic, ServiceAccounts, OutputAccumulation, Account, Statistics, StateKeyType};
     use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH};
-    use handler::{set_service_accounts, set_entropy, set_time, get_global_state, set_accumulation_history, set_privileges, set_ready_queue};
-    use handler::{set_current_slot, set_recent_entropy};
+    use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
     use utils::serialization::{StateKeyTrait, construct_preimage_key};
 
@@ -42,16 +40,16 @@ mod tests {
         
         let mut statistics = Statistics::default();
         statistics.services = pre_state.statistics;
-        handler::set_statistics(statistics);
+        state_handler::statistics::set(statistics);
         let mut entropy = EntropyPool::default();
         entropy.buf[0].entropy = pre_state.entropy.clone();
-        set_entropy(entropy);
-        set_recent_entropy(pre_state.entropy.clone());
-        set_time(pre_state.slot.clone());
-        set_current_slot(&input.slot.clone());
-        set_ready_queue(pre_state.ready.clone());
-        set_accumulation_history(pre_state.accumulated.clone());
-        set_privileges(pre_state.privileges.clone());
+        state_handler::entropy::set(entropy);
+        state_handler::entropy::set_recent(pre_state.entropy.clone());
+        state_handler::time::set(pre_state.slot.clone());
+        state_handler::time::set_current(&input.slot.clone());
+        state_handler::ready_queue::set(pre_state.ready.clone());
+        state_handler::acc_history::set(pre_state.accumulated.clone());
+        state_handler::privileges::set(pre_state.privileges.clone());
         
         let mut service_accounts = ServiceAccounts::default();
         for account in pre_state.accounts.iter() {
@@ -67,7 +65,7 @@ mod tests {
             service_accounts.insert(account.id.clone(), new_account);
         }
 
-        set_service_accounts(service_accounts.clone());
+        state_handler::service_accounts::set(service_accounts.clone());
 
         let mut state = get_global_state().lock().unwrap().clone();
 
@@ -83,8 +81,8 @@ mod tests {
 
         match output_accumulation {
             Ok(_) => {
-                set_accumulation_history(state.accumulation_history.clone());
-                set_ready_queue(state.ready_queue.clone());
+                state_handler::acc_history::set(state.accumulation_history.clone());
+                state_handler::ready_queue::set(state.ready_queue.clone());
                 statistics::process(
                                 &mut state.statistics, 
                                 &input.slot, 
@@ -92,7 +90,7 @@ mod tests {
                                 &Extrinsic::default(),
                                 &input.reports,
                             );
-                handler::set_statistics(state.statistics.clone());
+                state_handler::statistics::set(state.statistics.clone());
             },
             Err(_) => { },
         }

@@ -1,5 +1,5 @@
 use constants::pvm::{NUM_PAGES, PAGE_SIZE, LOWEST_ACCESIBLE_PAGE};
-use crate::{RamMemory, RamAddress, RamAccess, Page};
+use crate::pvm_types::{RamMemory, RamAddress, RamAccess, Page};
 pub mod program_init;
 
 impl RamMemory {
