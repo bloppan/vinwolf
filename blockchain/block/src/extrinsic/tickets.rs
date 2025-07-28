@@ -27,6 +27,7 @@ pub fn process(
     if tickets_extrinsic.is_empty() {
         return Ok(());
     }
+
     // Towards the end of the epoch, ticket submission ends implying successive blocks within the same epoch
     // must have an empty tickets extrinsic
     if (*post_tau % EPOCH_LENGTH as TimeSlot) >= TICKET_SUBMISSION_ENDS as TimeSlot {
@@ -90,7 +91,7 @@ pub fn process(
         safrole_state.ticket_accumulator.drain(EPOCH_LENGTH..);
     }
 
-    log::info!("Extrinsic tickets processed succesfully");
+    log::debug!("Extrinsic tickets processed succesfully");
     // Return ok
     Ok(())
 }

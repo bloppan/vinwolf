@@ -36,7 +36,7 @@ use codec::Encode;
 pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     
     let header_hash = blake2_256(&block.header.encode());
-    log::info!("Importing new block: 0x{}", utils::print_hash!(header_hash));
+    log::debug!("Importing new block: 0x{}", utils::print_hash!(header_hash));
     
     header::verify(&block)?;
 
@@ -135,6 +135,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     state_handler::set_state_root(merkle_state(&utils::serialization::serialize(&new_state).map, 0));
     state_handler::set_global_state(new_state);
 
-    log::info!("Block 0x{} processed succesfully", utils::print_hash!(header_hash));
+    log::debug!("Block 0x{} processed succesfully", utils::print_hash!(header_hash));
+    
     Ok(())
 }

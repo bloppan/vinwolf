@@ -96,7 +96,7 @@ pub fn process(
     offenders: &[Ed25519Public],
 ) -> Result<OutputDataSafrole, ProcessError> {
 
-    log::debug!("Process Safrole state");
+    log::debug!("Process Safrole state for slot {tau}");
     // tau defines de most recent block
     // post_tau defines the block being processed
     let post_tau = block.header.unsigned.slot;
@@ -171,7 +171,7 @@ pub fn process(
         tickets_mark = Some(outside_in_sequencer(&safrole_state.ticket_accumulator));
     }
     
-    /*// Get the ring set // TODO only in production
+    /*// Get the ring set // TODO after M1
     let ring_set = get_ring_set(post_epoch, &safrole_state.pending_validators);*/
     let ring_set = create_ring_set(&safrole_state.pending_validators);
     // Process tickets extrinsic

@@ -8,6 +8,7 @@ members = [
     "blockchain/block", 
     "pvm", 
     "tests", 
+    "vinwolf-target", 
 ]
 resolver = "2"
 

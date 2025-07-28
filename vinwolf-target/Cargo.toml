@@ -1,0 +1,23 @@
+[package]
+name = "vinwolf-target"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+constants = { workspace = true }
+jam-types = { workspace = true }
+codec = { workspace = true }
+utils = { workspace = true }
+block = { workspace = true }
+state-handler = { workspace = true }
+state-controller = { workspace = true }
+log = { workspace = true }
+dotenv = "0.15"
+once_cell = "1.17"
+hex = "0.4.3"
+tokio = { version = "1", features = ["full"] }
+sp-core = "34.0.0"
+env_logger = "0.10"
