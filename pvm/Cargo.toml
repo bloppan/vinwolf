@@ -18,3 +18,5 @@ log = { workspace = true }
 hex = { workspace = true }
 once_cell = { workspace = true }
 sp-core = "34.0.0"
+dotenv = { workspace = true }
+env_logger = { workspace = true }

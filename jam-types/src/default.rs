@@ -7,11 +7,11 @@ use crate::{
     BandersnatchRingVrfSignature, Ticket, Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, Assurance, AuthPool, AuthPools, AuthQueues, 
     AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, CodeAuthorizer, 
     CodeAuthorizers, CoreActivityRecord, CoresStatistics, DeferredTransfer, DisputesRecords, Ed25519Public, Ed25519Signature, Entropy, EntropyPool, EpochMark, 
-    ExtrinsicSpec, GlobalState, Guarantee, ImportSpec, Judgement, KeyValue, MemoryChunk, Metadata, OpaqueHash, PageMap, Preimage, Privileges, 
+    ExtrinsicSpec, GlobalState, Guarantee, ImportSpec, Judgement, KeyValue, MemoryChunk, Metadata, OpaqueHash, PageMap, Preimage, Privileges, AccumulationContext,
     ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportedPackage, ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, 
     ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsMark, TicketsOrKeys, 
     TimeSlot, ValidatorData, ValidatorSignature, ValidatorStatistics, ValidatorsData, WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, Block,
-    Header, Extrinsic, UnsignedHeader, DisputesExtrinsic, Verdict, Culprit, Fault
+    Header, Extrinsic, UnsignedHeader, DisputesExtrinsic, Verdict, Culprit, Fault, 
 };
 
 impl Default for GlobalState {
@@ -370,6 +370,19 @@ impl Default for DeferredTransfer {
             amount: 0,
             memo: Vec::new(),
             gas_limit: 0,
+        }
+    }
+}
+
+impl Default for AccumulationContext {
+    fn default() -> Self {
+        AccumulationContext {
+            service_id: 0,
+            partial_state: AccumulationPartialState::default(),
+            index: 0,
+            deferred_transfers: Vec::new(),
+            y: None,
+            preimages: Vec::new(),
         }
     }
 }

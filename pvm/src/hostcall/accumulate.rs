@@ -80,7 +80,7 @@ pub fn invoke_accumulation(
     collapse(gas, exec_result, ctx)
 }
 
-fn dispatch_acc(n: HostCallFn, mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext) 
+pub fn dispatch_acc(n: HostCallFn, mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext) 
 
 -> (ExitReason, Gas, Registers, RamMemory, HostCallContext) {
 
