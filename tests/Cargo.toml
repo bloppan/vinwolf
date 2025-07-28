@@ -1,0 +1,35 @@
+[package]
+name = "tests"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+constants = { workspace = true }
+jam-types = { workspace = true }
+codec = { workspace = true }
+utils = { workspace = true }
+block = { workspace = true }
+pvm = { workspace = true }
+accumulation = { workspace = true }
+authorization = { workspace = true }
+disputes = { workspace = true }
+entropy = { workspace = true }
+state-handler = { workspace = true }
+recent-history = { workspace = true }
+reports = { workspace = true }
+safrole = { workspace = true }
+services = { workspace = true }
+statistics = { workspace = true }
+validators = { workspace = true }
+state-controller = { workspace = true }
+log = { workspace = true }
+once_cell = { workspace = true }
+sp-core = "34.0.0"
+dotenv = { workspace = true }
+env_logger = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
