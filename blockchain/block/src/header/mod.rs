@@ -13,11 +13,14 @@
 // the epoch randomness and a sequence of Bandersnatch keys defining the Bandersnatch validator keys (kb) beginning in the next epoch.
 
 use ark_vrf::suites::bandersnatch::Public;
+use std::collections::HashSet;
 use state_handler::get_state_root;
 use utils::bandersnatch::Verifier;
 
 use constants::node::{EPOCH_LENGTH, VALIDATORS_COUNT};
-use jam_types::{EntropyPool, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, TicketsOrKeys, TimeSlot, ValidatorsData, Header, Block};
+use jam_types::{
+    EntropyPool, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, TicketsOrKeys, TimeSlot, ValidatorsData, Header, Block, Ed25519Public
+};
 use codec::{Encode, EncodeLen, EncodeSize};
 use codec::generic_codec::encode_unsigned;
 
@@ -135,9 +138,23 @@ pub fn verify(block: &Block) -> Result<(), ProcessError> {
 
 pub fn offenders_verify(block: &Block) -> Result<(), ProcessError> {
     
+    
+    let mut extrinsic_offenders: HashSet<Ed25519Public> = HashSet::new();
+
+    let _ = block.extrinsic.disputes.culprits.iter().map(|k| extrinsic_offenders.insert(k.key));
+    let _ = block.extrinsic.disputes.faults.iter().map(|k| extrinsic_offenders.insert(k.key));
+    
     //The offenders markers must contain exactly the keys of all new offenders, respectively
-    if block.header.unsigned.offenders_mark.encode() != [block.extrinsic.disputes.culprits.encode(), block.extrinsic.disputes.faults.encode()].concat() {
-        log::error!("Bad offenders: The offenders mark don't match with");
+    for header_offender in &block.header.unsigned.offenders_mark {
+        if !extrinsic_offenders.contains(header_offender) {
+            log::error!("The offender {} is found in the header, but is not found in the extrinsic", utils::print_hash!(*header_offender));
+            return Err(ProcessError::HeaderError(HeaderErrorCode::BadOffenders));
+        }
+    }
+
+    if extrinsic_offenders.len() != block.header.unsigned.offenders_mark.len() {
+        log::error!("The amount of offenders in the extrinsic {:?} not match with the amount of the offenders in the header {:?}",
+                                                                extrinsic_offenders.len(), block.header.unsigned.offenders_mark.len());
         return Err(ProcessError::HeaderError(HeaderErrorCode::BadOffenders));
     }
 
