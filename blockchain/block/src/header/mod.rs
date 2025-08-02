@@ -17,10 +17,7 @@ use state_handler::get_state_root;
 use utils::bandersnatch::Verifier;
 
 use constants::node::{EPOCH_LENGTH, VALIDATORS_COUNT};
-use jam_types::{
-    EntropyPool, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, TicketsOrKeys, TimeSlot, ValidatorsData, Header, 
-    Extrinsic, Block
-};
+use jam_types::{EntropyPool, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, TicketsOrKeys, TimeSlot, ValidatorsData, Header, Block};
 use codec::{Encode, EncodeLen, EncodeSize};
 use codec::generic_codec::encode_unsigned;
 
@@ -128,19 +125,19 @@ pub fn seal_verify(
 
 pub fn verify(block: &Block) -> Result<(), ProcessError> {
 
-    extrinsic_verify(&block.header, &block.extrinsic)?;
+    extrinsic_verify(&block)?;
     validator_index_verify(&block.header)?;
-    offenders_verify(&block.header, &block.extrinsic)?;
-    // TODO verify parent state root
+    offenders_verify(&block)?;
+    state_root_verify(&block.header)?;
     log::debug!("Header verified successfully");
     return Ok(());
 }
 
-pub fn offenders_verify(header: &Header, extrinsic: &Extrinsic) -> Result<(), ProcessError> {
+pub fn offenders_verify(block: &Block) -> Result<(), ProcessError> {
     
     //The offenders markers must contain exactly the keys of all new offenders, respectively
-    if header.unsigned.offenders_mark.encode() != [extrinsic.disputes.culprits.encode(), extrinsic.disputes.faults.encode()].concat() {
-        log::error!("Bad offenders");
+    if block.header.unsigned.offenders_mark.encode() != [block.extrinsic.disputes.culprits.encode(), block.extrinsic.disputes.faults.encode()].concat() {
+        log::error!("Bad offenders: The offenders mark don't match with");
         return Err(ProcessError::HeaderError(HeaderErrorCode::BadOffenders));
     }
 
@@ -149,10 +146,16 @@ pub fn offenders_verify(header: &Header, extrinsic: &Extrinsic) -> Result<(), Pr
 
 pub fn state_root_verify(header: &Header) -> Result<(), ProcessError> {
 
+    // Check if the current block is the parent of the last block (the slot difference must be 1)
+    if (header.unsigned.slot).saturating_sub(state_handler::time::get()) != 1 {
+        // If the slot difference is not 1, then don't check the parent state root
+        return Ok(());
+    }
+
     let parent_state_root = get_state_root().lock().unwrap();
 
     if header.unsigned.parent_state_root != *parent_state_root {
-        log::error!("Bad parent state root");
+        log::error!("Bad parent state root: header state root {} != parent state root {}", utils::print_hash!(header.unsigned.parent_state_root), utils::print_hash!(*parent_state_root));
         return Err(ProcessError::HeaderError(HeaderErrorCode::BadParentStateRoot));
     }
 
@@ -162,20 +165,19 @@ pub fn state_root_verify(header: &Header) -> Result<(), ProcessError> {
 pub fn validator_index_verify(header: &Header) -> Result<(), ProcessError> { 
 
     if header.unsigned.author_index >= VALIDATORS_COUNT as u16 {
-        log::error!("Bad validator index: {:?}", header.unsigned.author_index);
+        log::error!("Bad validator index: {:?}. The total number of validators is {:?}", header.unsigned.author_index, VALIDATORS_COUNT);
         return Err(ProcessError::HeaderError(HeaderErrorCode::BadValidatorIndex));
     }
 
     return Ok(());
 }
 
+pub fn extrinsic_verify(block: &Block) -> Result<(), ProcessError> {
 
-pub fn extrinsic_verify(header: &Header, extrinsic: &Extrinsic) -> Result<(), ProcessError> {
+    let mut guarantees_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Header>() * block.extrinsic.guarantees.len());
+    encode_unsigned(block.extrinsic.guarantees.len()).encode_to(&mut guarantees_blob);
 
-    let mut guarantees_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Header>() * extrinsic.guarantees.len());
-    encode_unsigned(extrinsic.guarantees.len()).encode_to(&mut guarantees_blob);
-
-    for guarantee in extrinsic.guarantees.iter() {
+    for guarantee in block.extrinsic.guarantees.iter() {
 
         sp_core::blake2_256(&guarantee.report.encode()).encode_to(&mut guarantees_blob);
         guarantee.slot.encode_size(4).encode_to(&mut guarantees_blob);
@@ -187,19 +189,19 @@ pub fn extrinsic_verify(header: &Header, extrinsic: &Extrinsic) -> Result<(), Pr
         }
     }
 
-    let a = [sp_core::blake2_256(&extrinsic.tickets.encode_len()),
-                            sp_core::blake2_256(&extrinsic.preimages.encode_len()),
+    let a = [sp_core::blake2_256(&block.extrinsic.tickets.encode_len()),
+                            sp_core::blake2_256(&block.extrinsic.preimages.encode_len()),
                             sp_core::blake2_256(&guarantees_blob),
-                            sp_core::blake2_256(&extrinsic.assurances.encode_len()),
-                            sp_core::blake2_256(&extrinsic.disputes.encode())].concat();
+                            sp_core::blake2_256(&block.extrinsic.assurances.encode_len()),
+                            sp_core::blake2_256(&block.extrinsic.disputes.encode())].concat();
 
-    if header.unsigned.extrinsic_hash != sp_core::blake2_256(&a) {
-        log::error!("Bad extrinsic hash");
+    if block.header.unsigned.extrinsic_hash != sp_core::blake2_256(&a) {
+        log::error!("Bad extrinsic hash: header extrinsic hash {} != calculated {}", utils::print_hash!(block.header.unsigned.extrinsic_hash), utils::print_hash!(sp_core::blake2_256(&a)));
         return Err(ProcessError::HeaderError(HeaderErrorCode::BadExtrinsicHash));
     }
 
-    log::trace!("Header extrinsic expected: {:x?}", header.unsigned.extrinsic_hash );
-    log::trace!("Eeader extrinsic   result: {:x?}\n", sp_core::blake2_256(&a) );
+    log::trace!("Header extrinsic expected: {:x?}", block.header.unsigned.extrinsic_hash );
+    log::trace!("Header extrinsic   result: {:x?}\n", sp_core::blake2_256(&a) );
     
     return Ok(());
 }
