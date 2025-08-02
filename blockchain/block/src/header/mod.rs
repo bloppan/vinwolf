@@ -176,6 +176,7 @@ pub fn state_root_verify(header: &Header) -> Result<(), ProcessError> {
         return Err(ProcessError::HeaderError(HeaderErrorCode::BadParentStateRoot));
     }
 
+    log::debug!("The block's state root {} matches with the previous one", utils::print_hash!(header.unsigned.parent_state_root));
     return Ok(());
 }
 

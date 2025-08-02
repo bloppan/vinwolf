@@ -177,7 +177,7 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
     let vinwolf_info = &*VINWOLF_INFO;
 
     let listener = UnixListener::bind(socket_path)?;
-    println!("Server listening on {}", socket_path);
+    println!("vinwolf-target listening on {}", socket_path);
 
     loop {
         match listener.accept().await {
