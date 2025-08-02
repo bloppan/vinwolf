@@ -67,7 +67,7 @@ pub fn process(
                 });
             },
             Err(_) => { 
-                log::error!("Bad ticket proof. Ticket: {:?}", i); 
+                log::error!("Bad ticket proof. Ticket: {:?} Signature: {}", i, utils::print_hash!(tickets_extrinsic[i].signature)); 
                 return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketProof)); 
             }
         }

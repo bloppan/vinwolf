@@ -160,8 +160,10 @@ impl Encode for AccumulationOperand {
         encode_unsigned(self.gas_limit as usize).encode_to(&mut blob);
 
         self.result[0].encode_to(&mut blob);
+        log::debug!("result original: {:x?}", self.result);
         if self.result[0] == 0 {
             let result_len = encode_unsigned(self.result.len() - 1);
+            log::debug!("result len: {:?}, result_len: {:?}", self.result.len(), result_len.len());
             result_len.encode_to(&mut blob);
             self.result[1..].encode_to(&mut blob);
         } 

@@ -194,7 +194,7 @@ fn parallelized_accumulation(
                                 .service_accounts
                                 .iter()
                                 .filter(|(key, _)| !o_d_services_keys.contains(key))
-                                .map(|(k, _)| (k.clone()))
+                                .map(|(k, _)| k.clone())
                                 .collect();
         // Removed services
         m_service_accounts.extend(m);

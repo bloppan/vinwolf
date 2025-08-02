@@ -14,7 +14,7 @@ use constants::node::{
 };
 use utils::common::parse_preimage;
 use crate::hostcall::{hostcall_argument, HostCallContext};
-use codec::{Encode, EncodeSize, DecodeSize, BytesReader};
+use codec::{BytesReader, DecodeSize, Encode, EncodeLen, EncodeSize};
 use codec::generic_codec::{encode_unsigned, decode};
 use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 use crate::hostcall::general_fn::{fetch, write, info, read, lookup, log};
@@ -64,9 +64,9 @@ pub fn invoke_accumulation(
 
     let args = [encode_unsigned(*slot as usize), encode_unsigned(*service_id as usize), encode_unsigned(operands.len())].concat();
     log::debug!("Hostcall args: {}", hex::encode(&args));
-
+    log::debug!("Operands: {:x?}", operands);
     set_operands(operands);
-
+    log::debug!("encoded_len accumulate operands: {:x?}", operands.encode_len());
     let hostcall_arg_result: (i64, WorkExecResult, HostCallContext) = hostcall_argument(
                                 &preimage.code, 
                                 5, 
@@ -170,6 +170,7 @@ fn collapse(gas: Gas, output: WorkExecResult, ctx: HostCallContext)
 
     if let WorkExecResult::Error(_) = output {
         log::error!("WorkExecResult::Error: {:?}", output);
+        panic!("QUITAR ESTO LUEGO");
         return (ctx_y.partial_state, ctx_y.deferred_transfers, ctx_y.y, gas, ctx_y.preimages);
     }
 

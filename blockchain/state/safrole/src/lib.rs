@@ -46,7 +46,6 @@ use jam_types::{
 };
 use block::{extrinsic, header};
 use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
-use validators::key_rotation;
 use codec::Encode;
 
 static RING_SET: Lazy<Mutex<Option<(u32, Vec<Public>)>>> = Lazy::new(|| { Mutex::new(None) });
@@ -122,13 +121,9 @@ pub fn process(
         // On an epoch transition, we therefore rotate the accumulator value into the history eta1, eta2 eta3
         entropy::rotate_pool(entropy_pool);
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
-        key_rotation(safrole_state, curr_validators, prev_validators, offenders);
-        // Create the ring set
-        set_ring_set(epoch, create_ring_set(&curr_validators));
-        // Create the epoch root
-        let next_ring_set = create_ring_set(&safrole_state.pending_validators);
-        // Create the epoch root and update the safrole state
-        safrole_state.epoch_root = create_root_epoch(next_ring_set);
+        validators::key_rotation(safrole_state, curr_validators, prev_validators, offenders);
+        // Create the epoch root from next pending validators and update the safrole state
+        safrole_state.epoch_root = create_root_epoch(create_ring_set(&safrole_state.pending_validators));
         // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
         // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
         log::debug!("New epoch mark");
@@ -152,7 +147,7 @@ pub fn process(
         });
         // gamma_s is the current epoch's slot-sealer series, which is either a full complement of EPOCH_LENGTH tickets
         // or, in case of fallback, a series of EPOCH_LENGTH bandersnatch keys
-        if post_epoch == epoch + 1 && m >= TICKET_SUBMISSION_ENDS as u32 && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
+        if post_epoch == (epoch + 1) && m >= TICKET_SUBMISSION_ENDS as u32 && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
             // If the block is the first after the end of the submission period for tickets and if the ticket accumulator 
             // is saturated, then the final sequence of ticket identifiers
             log::debug!("First block after the end of submission period for tickets and the ticket accumulator is saturated");
@@ -166,7 +161,7 @@ pub fn process(
             safrole_state.seal = TicketsOrKeys::Keys(fallback(&entropy_pool.buf[2], &bandersnatch_keys));
         } 
         safrole_state.ticket_accumulator = vec![];
-    } else if post_epoch == epoch && m < TICKET_SUBMISSION_ENDS as u32 && TICKET_SUBMISSION_ENDS  as u32 <= post_m && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
+    } else if post_epoch == epoch && m < TICKET_SUBMISSION_ENDS as u32 && TICKET_SUBMISSION_ENDS as u32 <= post_m && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
         // gamma_a is the ticket accumulator, a series of highestscoring ticket identifiers to be used for the next epoch.
         tickets_mark = Some(outside_in_sequencer(&safrole_state.ticket_accumulator));
     }
@@ -226,7 +221,7 @@ fn fallback(buf: &Entropy, current_keys: &Box<[BandersnatchPublic; VALIDATORS_CO
     // validator key set using the entropy collected on-chain
     let mut new_epoch_keys: BandersnatchEpoch = BandersnatchEpoch::default();
     for i in 0u32..EPOCH_LENGTH as u32 { 
-        let index_le = i.encode();
+        let index_le = (i as u32).encode();
         let hash = blake2_256(&[&buf.entropy[..], &index_le].concat());
         let hash_4 = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
         let id = (hash_4 % VALIDATORS_COUNT as u32) as usize;

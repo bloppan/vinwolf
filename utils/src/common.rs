@@ -43,7 +43,7 @@ pub fn get_footprint_and_threshold(account: &Account) -> (u32, u64, Balance) {
 
     let threshold = MIN_BALANCE + items as Balance * MIN_BALANCE_PER_ITEM + octets as Balance * MIN_BALANCE_PER_OCTET;
     
-    log::debug!("Items: {:?}, octets: {:?}, threshold: {:?}", items, octets, threshold);
+    //log::debug!("Items: {:?}, octets: {:?}, threshold: {:?}", items, octets, threshold);
     return (items, octets, threshold);
 }   
 
@@ -293,6 +293,7 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
                     }
 
                     state.service_accounts.get_mut(&service_id).unwrap().preimages.insert(keyval.key, keyval.value.clone());
+                    //println!("preimage key: {}", hex::encode(keyval.key));
 
                 // Storage
                 } else if is_storage_key(keyval) {

@@ -27,9 +27,9 @@ use constants::node::{CORES_COUNT, MAX_ITEMS_AUTHORIZATION_POOL, MAX_ITEMS_AUTHO
 use jam_types::{AuthPools, TimeSlot, Guarantee};
 
 pub fn process(
-    auth_pools: &mut AuthPools, 
-    slot: &TimeSlot, 
-    guarantees_extrinsic: &[Guarantee]) {
+        auth_pools: &mut AuthPools, 
+        slot: &TimeSlot, 
+        guarantees_extrinsic: &[Guarantee]) {
     // We define the set of authorizers allowable for a particular core as the authorizer pool
 
     // To maintain this value, a futher portion of state is tracked for each core: The core's authorizer queue,
@@ -45,6 +45,7 @@ pub fn process(
                         for i in 0..auth_pools.0[report.report.core_index as usize].len() {
                             if auth_pools.0[report.report.core_index as usize][i] == report.report.authorizer_hash {
                                 auth_pools.0[report.report.core_index as usize].remove(i);
+                                log::debug!("Remove auth {} from core {:?}", utils::print_hash!(report.report.authorizer_hash), report.report.core_index);
                                 continue 'next_report;
                             }
                         }
@@ -62,5 +63,4 @@ pub fn process(
         }
     }
 }
-
 

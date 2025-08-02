@@ -21,7 +21,7 @@ mod tests {
 
         use dotenv::dotenv;
         dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
 
         /*let test_body: Vec<TestBody> = vec![TestBody::RawState,
                                             TestBody::Block,
@@ -40,6 +40,7 @@ mod tests {
 
             log::info!("\n\nProcess trace test file: {}\n", slot);
 
+            //let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.6/vinwolf/vinwolf-target-0.1.0_GP-0.6.6/1753948533/{:08}.bin", slot))).unwrap();
             let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/traces/reports-l1/{:08}.bin", slot))).unwrap();
             let mut reader = BytesReader::new(&test_content);
             let pre_state = RawState::decode(&mut reader).expect("Error decoding post WorkReport PreState");
@@ -68,9 +69,9 @@ mod tests {
             
             assert_eq_state(&expected_state, &result_state);
 
-            /*log::info!("post_sta state_root: 0x{}", hex::encode(post_state.state_root));
-            log::info!("expected state_root: 0x{}", hex::encode(merkle_state(&expected_state.serialize().map, 0).unwrap()));
-            log::info!("result   state_root: 0x{}", hex::encode(merkle_state(&result_state.serialize().map, 0).unwrap()));*/
+            log::info!("post_sta state_root: 0x{}", hex::encode(post_state.state_root));
+            log::info!("expected state_root: 0x{}", hex::encode(merkle_state(&serialization::serialize(&expected_state).map, 0)));
+            log::info!("result   state_root: 0x{}", hex::encode(merkle_state(&serialization::serialize(&result_state).map, 0)));
             
             assert_eq!(post_state.state_root, merkle_state(&serialization::serialize(&result_state).map, 0));
 
