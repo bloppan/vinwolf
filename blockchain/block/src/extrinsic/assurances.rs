@@ -53,7 +53,7 @@ pub fn process(
     let current_validators = state_handler::validators::get(ValidatorSet::Current);
     //let list = get_reporting_assurance();
     let mut core_marks = [0_usize; CORES_COUNT as usize];
-    for assurance in assurances_extrinsic.iter() {
+    for assurance in assurances_extrinsic {
         // The assurances must all be anchored on the parent
         if assurance.anchor != *parent {
             log::error!("Bad attestation parent: 0x{} != Block parent: 0x{}", utils::print_hash!(assurance.anchor), utils::print_hash!(*parent));
@@ -99,11 +99,11 @@ pub fn process(
             // We remove the items which are available
             if core_marks[core as usize] >= VALIDATORS_SUPER_MAJORITY {
                 new_availables_wr.push(assignment.report.clone());
-                log::debug!("Remove assignment from core {:?}", core);
+                log::debug!("Remove assignment {} from core {:?}. This report is now available", utils::print_hash!(assignment.report.package_spec.hash), core);
                 state_handler::reports::remove_assignment(&(core as CoreIndex), availability_state);
             // We also remove the items which have timed out
             } else if *post_tau >= assignment.timeout + REPORTED_WORK_REPLACEMENT_PERIOD as TimeSlot {
-                log::debug!("Remove assignment from core {:?}", core);
+                log::debug!("Remove assignment {} from core {:?}. This report have timed out!", utils::print_hash!(assignment.report.package_spec.hash), core);
                 state_handler::reports::remove_assignment(&(core as CoreIndex), availability_state);
             }
         };
