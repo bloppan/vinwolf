@@ -282,8 +282,8 @@ pub struct WorkReport {
     pub core_index: CoreIndex,
     // Authorizer hash
     pub authorizer_hash: OpaqueHash,
-    // Authorization output
-    pub auth_output: Vec<u8>,
+    // Authorization trace
+    pub auth_trace: Vec<u8>,
     // Segment root lookup dictionary
     pub segment_root_lookup: Vec<SegmentRootLookupItem>, // TODO mejor con un hashmap?
     // Sequence of work results of the evaluation of each of the items in the package together with some associated data
@@ -1006,7 +1006,7 @@ pub struct AccumulationOperand {
     pub payload_hash: OpaqueHash,
     pub gas_limit: Gas,
     pub result: Vec<u8>,
-    pub auth_output: Vec<u8>,
+    pub auth_trace: Vec<u8>,
 }
 
 // The set of data segments, equivalent to octet sequences of length WG.(4104)

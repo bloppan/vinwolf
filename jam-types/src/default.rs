@@ -164,7 +164,7 @@ impl Default for WorkReport {
             context: RefineContext::default(),
             core_index: 0,
             authorizer_hash: OpaqueHash::default(),
-            auth_output: Vec::new(),
+            auth_trace: Vec::new(),
             segment_root_lookup: Vec::new(),
             results: Vec::new(),
             auth_gas_used: 0,

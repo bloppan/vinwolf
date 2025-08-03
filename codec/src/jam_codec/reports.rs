@@ -22,7 +22,7 @@ impl Encode for WorkReport {
         self.context.encode_to(&mut work_report_blob);
         encode_unsigned(self.core_index as usize).encode_to(&mut work_report_blob);
         self.authorizer_hash.encode_to(&mut work_report_blob);
-        self.auth_output.encode_len().encode_to(&mut work_report_blob);
+        self.auth_trace.encode_len().encode_to(&mut work_report_blob);
         self.segment_root_lookup.encode_len().encode_to(&mut work_report_blob);
         self.results.encode_len().encode_to(&mut work_report_blob);
         encode_unsigned(self.auth_gas_used as usize).encode_to(&mut work_report_blob);
@@ -50,7 +50,7 @@ impl Decode for WorkReport {
             context: RefineContext::decode(work_report)?,
             core_index: decode_unsigned(work_report)? as u16,
             authorizer_hash: OpaqueHash::decode(work_report)?,
-            auth_output: Vec::<u8>::decode_len(work_report)?,
+            auth_trace: Vec::<u8>::decode_len(work_report)?,
             segment_root_lookup: Vec::<SegmentRootLookupItem>::decode_len(work_report)?,
             results: Vec::<WorkResult>::decode_len(work_report)?,
             auth_gas_used: decode_unsigned(work_report)? as Gas,

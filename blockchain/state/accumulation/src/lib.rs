@@ -299,7 +299,7 @@ fn single_service_accumulation(
                 accumulation_operands.push(AccumulationOperand {
                     result: result.result.clone(),
                     exports_root: report.package_spec.exports_root,
-                    auth_output: report.auth_output.clone(),
+                    auth_trace: report.auth_trace.clone(),
                     payload_hash: result.payload_hash,
                     code_hash: report.package_spec.hash,
                     authorizer_hash: report.authorizer_hash,

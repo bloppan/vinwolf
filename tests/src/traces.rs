@@ -11,9 +11,9 @@ mod tests {
     //pub const TEST_DIR: &str = "jamtestvectors/traces/fallback";
     //pub const TEST_DIR: &str = "jamtestvectors/traces/safrole";
     //pub const TEST_DIR: &str = "jamtestvectors/traces/reports-l0";
-    pub const TEST_DIR: &str = "jamtestvectors/traces/reports-l1";
+    //pub const TEST_DIR: &str = "jamtestvectors/traces/reports-l1";
     
-    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.6/vinwolf/vinwolf-target-0.1.0_GP-0.6.6/1753948533";
+    pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.6/vinwolf/vinwolf-target-0.1.0_GP-0.6.6/1753948533";
     //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.6/jamzig/jamzig-target-0.1.0_GP-0.6.6/solved/1753948715";
 
 
@@ -40,7 +40,7 @@ mod tests {
             return;
         }*/
 
-        let mut slot = 1;
+        let mut slot = 14;
         
         loop {
 
@@ -82,7 +82,7 @@ mod tests {
 
             slot += 1;
 
-            if slot == 101 {
+            if slot == 16 {
                 return;
             }
         }

@@ -654,21 +654,21 @@ fn assign(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
         return (ExitReason::OutOfGas, gas, reg, ram, ctx);
     }
 
-    let core_index = reg[7] as CoreIndex;
-    
-    if core_index >= CORES_COUNT as CoreIndex {
-        log::debug!("core_index {:?} >= CORES_COUNT {:?}", core_index, CORES_COUNT);
-        reg[7] = CORE;
-        log::debug!("Exit: CORE");
-        return (ExitReason::Continue, gas, reg, ram, ctx);
-    }
-
     let start_address = reg[8] as RamAddress;
     let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
 
     if !ram.is_readable(start_address, 32 * MAX_ITEMS_AUTHORIZATION_QUEUE as RamAddress) {
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: {:?}", start_address, 32 * MAX_ITEMS_AUTHORIZATION_QUEUE);
         return (ExitReason::panic, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
+
+    let core_index = reg[7] as CoreIndex;
+    
+    if core_index >= CORES_COUNT as CoreIndex {
+        log::debug!("core_index {:?} >= CORES_COUNT {:?}", core_index, CORES_COUNT);
+        reg[7] = CORE;
+        log::debug!("Exit: CORE");
+        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
     for i in 0..MAX_ITEMS_AUTHORIZATION_QUEUE {

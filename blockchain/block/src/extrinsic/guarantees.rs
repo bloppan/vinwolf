@@ -225,8 +225,8 @@ pub mod work_report {
         }
         // In order to ensure fair use of a block’s extrinsic space, work-reports are limited in the maximum total size of 
         // the successful output blobs together with the authorizer output blob, effectively limiting their overall size
-        if work_report_size + work_report.auth_output.len() > MAX_OUTPUT_BLOB_SIZE {
-            log::error!("Work report too big: {:?}. The max output blob size is {:?}", work_report_size + work_report.auth_output.len(), MAX_OUTPUT_BLOB_SIZE);
+        if work_report_size + work_report.auth_trace.len() > MAX_OUTPUT_BLOB_SIZE {
+            log::error!("Work report too big: {:?}. The max output blob size is {:?}", work_report_size + work_report.auth_trace.len(), MAX_OUTPUT_BLOB_SIZE);
             return Err(ProcessError::ReportError(ReportErrorCode::WorkReportTooBig));
         }
 
