@@ -111,7 +111,7 @@ pub fn process(
             return Err(ProcessError::ReportError(ReportErrorCode::OutOfOrderGuarantee));
         }
 
-        if guarantee.report.core_index > CORES_COUNT as CoreIndex {
+        if guarantee.report.core_index >= CORES_COUNT as CoreIndex {
             log::error!("Bad core index: {:?}. The total of cores is {:?}", guarantee.report.core_index, CORES_COUNT);
             return Err(ProcessError::ReportError(ReportErrorCode::BadCoreIndex));
         }

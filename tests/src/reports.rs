@@ -247,7 +247,6 @@ mod tests {
             "with_avail_assignments-1.bin",
         ];
         for file in test_files {
-            log::info!("");
             log::info!("Running test: {}", file);
             run_test(file);
         }

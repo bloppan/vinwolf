@@ -572,7 +572,7 @@ pub struct Safrole {
     pub pending_validators: ValidatorsData,
     // Sequence of highest-scoring ticket identifiers to be used for the next epoch
     pub ticket_accumulator: Vec<TicketBody>,
-    // Current epoch's slot-sealer. Can be either a full complement of EPOCH_LENGTH tickers or, in the case of fallback mode,
+    // Current epoch's slot-sealer. Can be either a full complement of EPOCH_LENGTH tickets or, in the case of fallback mode,
     // a series of EPOCH_LENGTH Bandersnatch keys 
     pub seal: TicketsOrKeys,
     // Bandersnatch ring root composed with the one Bandersnatch key of each of the next epoch's validators

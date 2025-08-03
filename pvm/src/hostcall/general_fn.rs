@@ -8,7 +8,7 @@ use constants::node::{
     WORK_REPORT_GAS_LIMIT, WORK_PACKAGE_GAS_LIMIT, WORK_PACKAGE_REFINE_GAS, TOTAL_GAS_ALLOCATED, RECENT_HISTORY_SIZE, MAX_WORK_ITEMS, MAX_DEPENDENCY_ITEMS, MAX_AGE_LOOKUP_ANCHOR,
     MAX_ITEMS_AUTHORIZATION_POOL, SLOT_PERIOD, MAX_ITEMS_AUTHORIZATION_QUEUE, ROTATION_PERIOD, MAX_EXTRINSICS_IN_WP, REPORTED_WORK_REPLACEMENT_PERIOD,
     MAX_IS_AUTHORIZED_SIZE, MAX_ENCODED_WORK_PACKAGE_SIZE, MAX_SERVICE_CODE_SIZE, PIECE_SIZE, MAX_WORK_PACKAGE_IMPORTS, SEGMENT_PIECES, MAX_WORK_REPORT_TOTAL_SIZE,
-    TRANSFER_MEMO_SIZE, MAX_WORK_PACKAGE_EXPORTS, TICKET_SUBMISSION_ENDS, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR
+    TRANSFER_MEMO_SIZE, MAX_WORK_PACKAGE_EXPORTS, TICKET_SUBMISSION_ENDS, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR, MAX_ENTRIES_IN_ACC_QUEUE, SEGMENT_SIZE
 };
 use codec::{Encode, EncodeSize, EncodeLen};
 use codec::generic_codec::encode_unsigned;
@@ -53,7 +53,7 @@ pub fn fetch(mut gas: Gas,
         log::debug!("Out of gas!");
         return (ExitReason::OutOfGas, gas, reg, ram, ctx);
     } 
-    //println!("bernux reg_10: {:?}", reg[10]);
+    //println!("reg_10: {:?}", reg[10]);
     /*println!("BEFORE");
     println!();
     for i in 0..(4096 / 32) {
@@ -66,7 +66,8 @@ pub fn fetch(mut gas: Gas,
     }
     println!();*/
 
-    let value: Option<_> = if reg[10] == 0 {
+    log::debug!("reg 10: {:?}", reg[10]);
+    let value: Option<Vec<u8>> = if reg[10] == 0 {
         Some([
             MIN_BALANCE_PER_ITEM.encode_size(8), 
             MIN_BALANCE_PER_OCTET.encode_size(8), 
@@ -75,6 +76,7 @@ pub fn fetch(mut gas: Gas,
             MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE.encode_size(4), 
             EPOCH_LENGTH.encode_size(4), 
             WORK_REPORT_GAS_LIMIT.encode_size(8),
+
             WORK_PACKAGE_GAS_LIMIT.encode_size(8), 
             WORK_PACKAGE_REFINE_GAS.encode_size(8), 
             TOTAL_GAS_ALLOCATED.encode_size(8), 
@@ -82,20 +84,23 @@ pub fn fetch(mut gas: Gas,
             MAX_WORK_ITEMS.encode_size(2), 
             MAX_DEPENDENCY_ITEMS.encode_size(2), 
             MAX_TICKETS_PER_EXTRINSIC.encode_size(2), 
+
             MAX_AGE_LOOKUP_ANCHOR.encode_size(4), 
             TICKET_ENTRIES_PER_VALIDATOR.encode_size(2), 
             MAX_ITEMS_AUTHORIZATION_POOL.encode_size(2), 
             SLOT_PERIOD.encode_size(2), 
             MAX_ITEMS_AUTHORIZATION_QUEUE.encode_size(2), 
             ROTATION_PERIOD.encode_size(2),
-            MAX_EXTRINSICS_IN_WP.encode_size(2), 
+            MAX_EXTRINSICS_IN_WP.encode_size(2),
             REPORTED_WORK_REPLACEMENT_PERIOD.encode_size(2), 
+
             VALIDATORS_COUNT.encode_size(2),
             MAX_IS_AUTHORIZED_SIZE.encode_size(4),
             MAX_ENCODED_WORK_PACKAGE_SIZE.encode_size(4),
             MAX_SERVICE_CODE_SIZE.encode_size(4), 
             PIECE_SIZE.encode_size(4), 
             MAX_WORK_PACKAGE_IMPORTS.encode_size(4), 
+
             SEGMENT_PIECES.encode_size(4), 
             MAX_WORK_REPORT_TOTAL_SIZE.encode_size(4), 
             TRANSFER_MEMO_SIZE.encode_size(4),
@@ -192,8 +197,8 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
     let f = std::cmp::min(reg[10],  preimage_len);
     let l = std::cmp::min(reg[11], preimage_len - f);
 
-    if !ram.is_writable(write_start_address, 32) {
-        log::error!("Panic: The RAM is not writable from address: {write_start_address} num_bytes: 32");
+    if !ram.is_writable(write_start_address, l as RamAddress) {
+        log::error!("Panic: The RAM is not writable from address: {write_start_address} num_bytes: {l}");
         return (ExitReason::panic, gas, reg, ram, account);
     }
 

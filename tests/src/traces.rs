@@ -2,49 +2,56 @@
 mod tests {
     
     use jam_types::{Block, RawState, GlobalState};
-    use state_handler::{get_global_state, set_global_state};
+    use state_handler::{get_global_state, set_global_state, set_state_root};
     use state_controller::state_transition_function;
     use codec::{Decode, BytesReader};
     use utils::{common::parse_state_keyvals, serialization};
     use utils::trie::merkle_state;
+    
+    //pub const TEST_DIR: &str = "jamtestvectors/traces/fallback";
+    //pub const TEST_DIR: &str = "jamtestvectors/traces/safrole";
+    //pub const TEST_DIR: &str = "jamtestvectors/traces/reports-l0";
+    pub const TEST_DIR: &str = "jamtestvectors/traces/reports-l1";
+    
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.6/vinwolf/vinwolf-target-0.1.0_GP-0.6.6/1753948533";
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.6/jamzig/jamzig-target-0.1.0_GP-0.6.6/solved/1753948715";
 
-    /*#[derive(Debug, Clone, PartialEq)]
-    pub struct TestCase {
-
-        pub pre_state: RawState,
-        pub block: Block,
-        pub post_state: RawState,
-    }*/
 
     #[test]
     fn run_traces_tests() {
 
         use dotenv::dotenv;
         dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
 
-        /*let test_body: Vec<TestBody> = vec![TestBody::RawState,
-                                            TestBody::Block,
-                                            TestBody::RawState];
-
-        let test_content = read_test_file(&format!("tests/test_vectors/w3f/jamtestvectors/traces/reports-l0/00000000.bin"));
-        let _ = encode_decode_test(&test_content, &test_body);
+        /*let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/genesis.bin", TEST_DIR))).unwrap();
         let mut reader = BytesReader::new(&test_content);
-        let pre_state = RawState::decode(&mut reader).expect("Error decoding post WorkReport PreState");
-        let block = Block::decode(&mut reader).expect("Error decoding post OutputWorkReport");
-        let post_state = RawState::decode(&mut reader).expect("Error decoding post WorkReport PostState");*/
-        
+
+        let block = Block::decode(&mut reader).expect("Error decoding Block");
+        let first_state = RawState::decode(&mut reader).expect("Error decoding the first state");
+
+        let mut state = GlobalState::default();
+        parse_state_keyvals(&first_state.keyvals, &mut state).expect("Error decoding first state keyvals");
+        assert_eq!(first_state.state_root.clone(), merkle_state(&serialization::serialize(&state).map, 0));
+        set_global_state(state.clone());
+
+        if state_transition_function(&block).is_err() {
+            log::error!("****************************************************** Error");
+            return;
+        }*/
+
         let mut slot = 1;
         
         loop {
 
             log::info!("\n\nProcess trace test file: {}\n", slot);
 
-            let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/traces/reports-l1/{:08}.bin", slot))).unwrap();
+            //let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("/{:08}.bin", slot))).unwrap();
+            let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/{:08}.bin", TEST_DIR, slot))).unwrap();
             let mut reader = BytesReader::new(&test_content);
-            let pre_state = RawState::decode(&mut reader).expect("Error decoding post WorkReport PreState");
-            let block = Block::decode(&mut reader).expect("Error decoding post OutputWorkReport");
-            let post_state = RawState::decode(&mut reader).expect("Error decoding post WorkReport PostState");
+            let pre_state = RawState::decode(&mut reader).expect("Error decoding pre state");
+            let block = Block::decode(&mut reader).expect("Error decoding the block");
+            let post_state = RawState::decode(&mut reader).expect("Error decoding post state");
 
             let mut state = GlobalState::default();
             let mut expected_state = GlobalState::default();
@@ -56,21 +63,20 @@ mod tests {
             assert_eq!(post_state.state_root.clone(), merkle_state(&serialization::serialize(&expected_state).map, 0));
 
             set_global_state(state.clone());
-
-            let error = state_transition_function(&block);
+            set_state_root(pre_state.state_root.clone());
             
-            if error.is_err() {
-                log::error!("****************************************************** Error: {:?}", error);
-                return;
-            }
+            match state_transition_function(&block) {
+                Ok(_) => { },
+                Err(e) => { log::error!("{:?}", e) },
+            };
 
             let result_state = get_global_state().lock().unwrap().clone();
             
             assert_eq_state(&expected_state, &result_state);
 
             /*log::info!("post_sta state_root: 0x{}", hex::encode(post_state.state_root));
-            log::info!("expected state_root: 0x{}", hex::encode(merkle_state(&expected_state.serialize().map, 0).unwrap()));
-            log::info!("result   state_root: 0x{}", hex::encode(merkle_state(&result_state.serialize().map, 0).unwrap()));*/
+            log::info!("expected state_root: 0x{}", hex::encode(merkle_state(&serialization::serialize(&expected_state).map, 0)));
+            log::info!("result   state_root: 0x{}", hex::encode(merkle_state(&serialization::serialize(&result_state).map, 0)));*/
             
             assert_eq!(post_state.state_root, merkle_state(&serialization::serialize(&result_state).map, 0));
 

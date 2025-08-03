@@ -64,7 +64,7 @@ impl RamMemory {
 
             // Check if the page is in the range of the highest inaccessible page (0xFFFF0000)
             if (page % NUM_PAGES) < LOWEST_ACCESIBLE_PAGE {
-                println!("Page target {:?} out of bounds", page);
+                log::error!("Page target {:?} out of bounds", page);
                 // TODO
                 return false;
             }
@@ -76,7 +76,7 @@ impl RamMemory {
                 }
             } else {
                 // TODO page fault
-                println!("page_fault: page {:?}", page);
+                log::error!("page_fault: page {:?}", page);
                 return false;
             }
         }

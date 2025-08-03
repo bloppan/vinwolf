@@ -6,10 +6,10 @@
 
 use sp_core::blake2_256;
 use jam_types::{
-    AssurancesErrorCode, OutputDataAssurances, ValidatorIndex, Hash, TimeSlot, Assurance, AvailabilityAssignment, CoreIndex, AvailabilityAssignments, 
+    AssurancesErrorCode, OutputDataAssurances, ValidatorIndex, Hash, TimeSlot, Assurance, CoreIndex, AvailabilityAssignments, 
     ProcessError, ValidatorSet
 };
-use constants::node::{AVAIL_BITFIELD_BYTES, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY};
+use constants::node::{AVAIL_BITFIELD_BYTES, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY, REPORTED_WORK_REPLACEMENT_PERIOD};
 use codec::Encode;
 use utils::common::{is_sorted_and_unique, VerifySignature};
 
@@ -53,10 +53,10 @@ pub fn process(
     let current_validators = state_handler::validators::get(ValidatorSet::Current);
     //let list = get_reporting_assurance();
     let mut core_marks = [0_usize; CORES_COUNT as usize];
-    for assurance in assurances_extrinsic.iter() {
+    for assurance in assurances_extrinsic {
         // The assurances must all be anchored on the parent
         if assurance.anchor != *parent {
-            log::error!("Bad attestation parent: 0x{} Block parent: 0x{}", utils::print_hash!(assurance.anchor), utils::print_hash!(*parent));
+            log::error!("Bad attestation parent: 0x{} != Block parent: 0x{}", utils::print_hash!(assurance.anchor), utils::print_hash!(*parent));
             return Err(ProcessError::AssurancesError(AssurancesErrorCode::BadAttestationParent));
         }
         // The signature must be one whose public key is that of the validator assuring and whose message is the
@@ -68,11 +68,11 @@ pub fn process(
         message.extend_from_slice(&blake2_256(&serialization));
         let validator = &current_validators.list[assurance.validator_index as usize]; 
         if !assurance.signature.verify_signature(&message, &validator.ed25519) {
-            log::error!("Bad signature");
+            log::error!("Bad signature in validator index {:?}", assurance.validator_index);
             return Err(ProcessError::AssurancesError(AssurancesErrorCode::BadSignature));
         }
         if assurance.bitfield.len() != AVAIL_BITFIELD_BYTES {
-            log::error!("Wrong bitfield length");
+            log::error!("Wrong bitfield length {:?} != available bitfield bytes {:?}", assurance.bitfield.len(), AVAIL_BITFIELD_BYTES);
             return Err(ProcessError::AssurancesError(AssurancesErrorCode::WrongBitfieldLength));
         }
         
@@ -91,37 +91,27 @@ pub fn process(
 
     // A work-report is said to become available if and only if there are a clear super-majority of validators
     // who have marked its core as set within the block's assurance extrinsic. We define the sequence of newly
-    // available work-reports in the next reported vector.
-    let mut reported = Vec::new();
-    let mut to_remove = Vec::new();
+    // available work-reports in the new_availables_wr vector.
+    let mut new_availables_wr = Vec::new();
+
     for core in 0..CORES_COUNT {
-        if core_marks[core as usize] >= VALIDATORS_SUPER_MAJORITY {
-            if let Some(assignment) = &availability_state.list[core as usize] {
-                reported.push(assignment.report.clone());
-                to_remove.push(core as CoreIndex);
+        if let Some(assignment) = &availability_state.list[core as usize] {
+            // We remove the items which are available
+            if core_marks[core as usize] >= VALIDATORS_SUPER_MAJORITY {
+                new_availables_wr.push(assignment.report.clone());
+                log::debug!("Remove assignment {} from core {:?}. This report is now available", utils::print_hash!(assignment.report.package_spec.hash), core);
+                state_handler::reports::remove_assignment(&(core as CoreIndex), availability_state);
+            // We also remove the items which have timed out
+            } else if *post_tau >= assignment.timeout + REPORTED_WORK_REPLACEMENT_PERIOD as TimeSlot {
+                log::debug!("Remove assignment {} from core {:?}. This report have timed out!", utils::print_hash!(assignment.report.package_spec.hash), core);
+                state_handler::reports::remove_assignment(&(core as CoreIndex), availability_state);
             }
-        }
-    }
-
-    // The Availability Assignments are equivalents except for the removal of items which are now available
-    for core in &to_remove {
-        if let Some(assignment) = &availability_state.list[*core as usize] {
-            log::debug!("New assignment 0x{} added to core {:?} with timeout: {:?}", utils::print_hash!(assignment.report.package_spec.hash), *core, post_tau);
-            state_handler::reports::add_assignment(&AvailabilityAssignment {
-                report: assignment.report.clone(),
-                timeout: post_tau.clone(),
-            }, availability_state);
-        }
-    }
-
-    for core in to_remove {
-        log::debug!("Remove assignment from core {:?}", core);
-        state_handler::reports::remove_assignment(&core, availability_state);
+        };
     }
     
     log::debug!("Assurances extrinsic processed successfully");
 
-    Ok(OutputDataAssurances { reported } )
+    Ok(OutputDataAssurances { reported: new_availables_wr } )
 }
 
 

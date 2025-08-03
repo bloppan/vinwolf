@@ -59,8 +59,6 @@ pub const MAX_DEPENDENCY_ITEMS: usize = 8;
 pub const MAX_WORK_ITEMS: usize = 16;
 // The maximum total size of all output blobs in a work-report, in octets
 pub const MAX_OUTPUT_BLOB_SIZE: usize = 48 << 10;
-// The period in timeslots after which reported but unavailable work may be replaced.
-pub const WORK_REPORT_TIMEOUT: u32 = 5;
 // The gas allocated to invoke a work-report's Accumulation logic
 pub const WORK_REPORT_GAS_LIMIT: i64 = 10_000_000;
 // The gas allocated to invoke a work-package's Is-Authorized logic.

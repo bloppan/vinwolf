@@ -1,3 +1,4 @@
+use crate::mm::program_init::page;
 use crate::{Program, ExitReason};
 use crate::pvm_types::{Context, RamAccess, RamAddress, RegSize};
 use constants::pvm::{LOWEST_ACCESIBLE_PAGE, JUMP_ALIGNMENT, PAGE_SIZE};
@@ -119,13 +120,13 @@ pub fn _branch(
 
     // Check if the jump is out of bounds
     if n < 0 || n as usize >= program.code.len() {
-        println!("Panic: jump out of bounds");
+        log::error!("Panic: jump out of bounds");
         return ExitReason::panic;
     }
 
     // Check for the beginning of a basic-block
     if !begin_basic_block(program, &pvm_ctx.pc, pvm_ctx.pc as usize + 1 + skip(&pvm_ctx.pc, &program.bitmask) as usize) {
-        println!("Panic: not a basic block");
+        log::error!("Panic: not a basic block");
         return ExitReason::panic;
     }
 
@@ -140,6 +141,27 @@ pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, r
     if let Err(check_error) = check_memory_access::<T>(pvm_ctx, address as RamAddress, RamAccess::Read) {
         return check_error;
     }
+
+    log::trace!("load address: {:?} to reg: {:?} num bytes: {:?}", address, reg, std::mem::size_of::<T>());
+    /*println!("\nload address: {:?} to reg: {:?} num bytes: {:?}", address, reg, std::mem::size_of::<T>());
+
+    let pagee = address / PAGE_SIZE;
+
+    if pagee == 1044447 {
+        for i in 88..(PAGE_SIZE / 32) - 26 {
+            // Calcular el offset y registrar la dirección
+            print!("{:08}:\t", (i * 32) + 4096 * pagee);
+
+            // Imprimir cada byte en formato hexadecimal
+            for j in 0..32 {
+                let index = i * 32 + j;
+                print!("{:02x?} ", pvm_ctx.ram.pages[1044447].as_ref().unwrap().data[index as usize])
+            }
+            println!("");  // Imprimir una nueva línea
+        }
+    }*/
+
+
     let mut value: Vec<u8> = Vec::new();
     let n = std::mem::size_of::<T>();
 
@@ -169,6 +191,26 @@ pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, 
         return check_error;
     }
     
+    log::trace!("store address: {:?} value: {:?} num bytes: {:?} pc: {:?}", address, value, std::mem::size_of::<T>(), pvm_ctx.pc);
+
+    /*println!("\n store address: {:?} num bytes: {:?} pc: {:?}", address, std::mem::size_of::<T>(), pvm_ctx.pc);
+
+    let pagee = address / PAGE_SIZE;
+
+    if pagee == 1044447 {
+        for i in 88..(PAGE_SIZE / 32) - 26 {
+            // Calcular el offset y registrar la dirección
+            print!("{:08}:\t", (i * 32) + 4096 * pagee);
+
+            // Imprimir cada byte en formato hexadecimal
+            for j in 0..32 {
+                let index = i * 32 + j;
+                print!("{:02x?} ", pvm_ctx.ram.pages[1044447].as_ref().unwrap().data[index as usize])
+            }
+            println!("");  // Imprimir una nueva línea
+        }
+    }*/
+
     for (i, byte) in value.encode_size(std::mem::size_of::<T>()).iter().enumerate() {
         let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE;
         let offset = address.wrapping_add(i as RamAddress) % PAGE_SIZE;
@@ -213,14 +255,14 @@ pub fn check_memory_access<T>(pvm_ctx: &mut Context, address: RamAddress, access
         let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE;
         // Check if the page is in the range of the highest inaccessible page (0xFFFF0000)
         if page_target < LOWEST_ACCESIBLE_PAGE {
-            println!("Panic: page target out of bounds");
+            log::error!("Panic: page target out of bounds");
             return Err(ExitReason::panic);
         }
         // Check if the page is in the page table
         if let Some(page) = pvm_ctx.ram.pages[page_target as usize].as_ref() {
             // Check the access flags
             if page.flags.access.get(&access).is_none() {
-                println!("Panic: page {page_target} access violation");
+                log::error!("Panic: page {page_target} access violation");
                 return Err(ExitReason::panic);
             }
         } else {
