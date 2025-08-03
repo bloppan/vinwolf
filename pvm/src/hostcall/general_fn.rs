@@ -65,8 +65,9 @@ pub fn fetch(mut gas: Gas,
         println!();
     }
     println!();*/
+
     log::debug!("reg 10: {:?}", reg[10]);
-    let value: Option<_> = if reg[10] == 0 {
+    let value: Option<Vec<u8>> = if reg[10] == 0 {
         Some([
             MIN_BALANCE_PER_ITEM.encode_size(8), 
             MIN_BALANCE_PER_OCTET.encode_size(8), 
@@ -90,7 +91,6 @@ pub fn fetch(mut gas: Gas,
             SLOT_PERIOD.encode_size(2), 
             MAX_ITEMS_AUTHORIZATION_QUEUE.encode_size(2), 
             ROTATION_PERIOD.encode_size(2),
-            //MAX_ENTRIES_IN_ACC_QUEUE.encode_size(2),
             MAX_EXTRINSICS_IN_WP.encode_size(2),
             REPORTED_WORK_REPLACEMENT_PERIOD.encode_size(2), 
 
@@ -99,7 +99,6 @@ pub fn fetch(mut gas: Gas,
             MAX_ENCODED_WORK_PACKAGE_SIZE.encode_size(4),
             MAX_SERVICE_CODE_SIZE.encode_size(4), 
             PIECE_SIZE.encode_size(4), 
-            //SEGMENT_SIZE.encode_size(4),
             MAX_WORK_PACKAGE_IMPORTS.encode_size(4), 
 
             SEGMENT_PIECES.encode_size(4), 
@@ -111,7 +110,6 @@ pub fn fetch(mut gas: Gas,
     } else if n.is_some() && reg[10] == 1 {
         Some(n.unwrap().encode())
     } else if operands.is_some() && reg[10] == 14 {
-        log::debug!("operands: {:x?}", operands.as_ref().unwrap().encode_len());
         Some(operands.unwrap().encode_len())
     } else if operands.is_some() && reg[10] == 15 && (reg[11] as usize) < operands.as_ref().unwrap().len() {
         Some(operands.as_ref().unwrap()[reg[11] as usize].encode())
@@ -199,8 +197,8 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
     let f = std::cmp::min(reg[10],  preimage_len);
     let l = std::cmp::min(reg[11], preimage_len - f);
 
-    if !ram.is_writable(write_start_address, 32) {
-        log::error!("Panic: The RAM is not writable from address: {write_start_address} num_bytes: 32");
+    if !ram.is_writable(write_start_address, l as RamAddress) {
+        log::error!("Panic: The RAM is not writable from address: {write_start_address} num_bytes: {l}");
         return (ExitReason::panic, gas, reg, ram, account);
     }
 
