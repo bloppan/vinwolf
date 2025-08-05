@@ -171,6 +171,22 @@ where
     }
 }
 
+// TODO: arreglar esto
+impl<const N: usize> Decode for Box<[u32; N]>
+{
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+
+        let mut array: Box<[u32; N]> = Box::new(std::array::from_fn(|_| u32::default()));
+
+        for i in 0..N {
+            array[i] = u32::decode(reader)?;
+        }
+
+        Ok(array)
+    }
+}
+
+
 use std::convert::TryInto;
 
 impl<T, const N: usize, const M: usize> Decode for Box<[Box<[T; N]>; M]>

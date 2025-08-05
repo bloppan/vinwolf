@@ -28,24 +28,28 @@ pub fn dict_subtract<K: Eq + std::hash::Hash + Clone, V: Clone>(
         .collect()
 }
 
-pub fn get_footprint_and_threshold(account: &Account) -> (u32, u64, Balance) {
+/*pub fn get_footprint_and_threshold(account: &Account) -> (u32, u64, Balance) {
 
     let items: u32 = 2 * account.lookup.len() as u32 + account.storage.len() as u32;
 
     let mut octets: u64 = 0;
+
     for (lookup_key, _timeslot) in account.lookup.iter() {
         let length = u32::from_le_bytes([lookup_key[1], lookup_key[3], lookup_key[5], lookup_key[7]]);
         octets += 81 + length as u64;
     }
-    for (_hash, storage_data) in account.storage.iter() {
-        octets += 32 + storage_data.len() as u64;
+    for (_key, value) in account.storage.iter() {
+        octets += 34 + value.0 as u64 + value.1.len() as u64;
     }
 
-    let threshold = MIN_BALANCE + items as Balance * MIN_BALANCE_PER_ITEM + octets as Balance * MIN_BALANCE_PER_OCTET;
-    
+    let threshold: Balance = std::cmp::max(0, MIN_BALANCE + items as Balance * MIN_BALANCE_PER_ITEM + octets as Balance * MIN_BALANCE_PER_OCTET - account.gratis_storage_offset);
     //log::debug!("Items: {:?}, octets: {:?}, threshold: {:?}", items, octets, threshold);
     return (items, octets, threshold);
-}   
+}*/   
+
+pub fn get_threshold(account: &Account) -> Balance {
+    std::cmp::max(0, MIN_BALANCE + account.items as Balance * MIN_BALANCE_PER_ITEM + account.octets as Balance * MIN_BALANCE_PER_OCTET - account.gratis_storage_offset) as Balance
+}
 
 
 pub fn keys_to_set<K: Eq + std::hash::Hash + Clone, V>(
@@ -129,7 +133,7 @@ pub fn parse_preimage(service_accounts: &ServiceAccounts, service_id: &ServiceId
 
     let preimage_blob = if let Some(account) = service_accounts.get(service_id) {
         let preimage_key = StateKeyType::Account(*service_id, construct_preimage_key(&account.code_hash).to_vec()).construct();
-        if let Some(preimage) = account.preimages.get(&preimage_key) {
+        if let Some(preimage) = account.storage.get(&preimage_key) {
             preimage
         } else {
             return Ok(None);
@@ -165,11 +169,14 @@ pub fn historical_preimage_lookup(
     ) -> Option<Vec<u8>> {
 
     let preimage_key = StateKeyType::Account(*service_id, construct_preimage_key(hash).to_vec()).construct();
-
-    if let Some(preimage) = account.preimages.get(&preimage_key) {
+    
+    if let Some(preimage) = account.storage.get(&preimage_key) {
         let length = preimage.len() as u32;
-        if let Some(timeslot_record) = account.lookup.get(&construct_lookup_key(hash, length)) {
-            if check_preimage_availability(timeslot_record, slot) {
+        let lookup_key = StateKeyType::Account(*service_id, construct_lookup_key(hash, length).to_vec()).construct();
+        if let Some(timeslot_record) = account.storage.get(&lookup_key) {
+            let mut reader = BytesReader::new(timeslot_record);
+            let timeslots = Vec::<TimeSlot>::decode_len(&mut reader).unwrap(); // TODO handle error
+            if check_preimage_availability(&timeslots, slot) {
                 return Some(preimage.clone());
             }
         }
@@ -282,44 +289,12 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
             } else {
                 let service_id_vec = vec![keyval.key[0], keyval.key[2], keyval.key[4], keyval.key[6]];
                 let service_id = decode::<ServiceId>(&service_id_vec, std::mem::size_of::<ServiceId>());
-                let mut key_hash = vec![keyval.key[1], keyval.key[3], keyval.key[5]];
-                key_hash.extend_from_slice(&keyval.key[7..]);
 
-                // Preimage
-                if is_preimage_key(keyval) { 
-                    
-                    if state.service_accounts.get(&service_id).is_none() {
-                        state.service_accounts.insert(service_id, Account::default());
-                    }
-
-                    state.service_accounts.get_mut(&service_id).unwrap().preimages.insert(keyval.key, keyval.value.clone());
-                    //println!("preimage key: {}", hex::encode(keyval.key));
-
-                // Storage
-                } else if is_storage_key(keyval) {
-                    
-                    if state.service_accounts.get(&service_id).is_none() {
-                        state.service_accounts.insert(service_id, Account::default());
-                    }
-
-                    let mut storage_key  = [0u8; 31];
-                    storage_key.copy_from_slice(&keyval.key);
-                    state.service_accounts.get_mut(&service_id).unwrap().storage.insert(storage_key, keyval.value.clone());
-                // Lookup
-                } else {
-                    let service_id_vec = vec![keyval.key[0], keyval.key[2], keyval.key[4], keyval.key[6]];
-                    let service_id = decode::<ServiceId>(&service_id_vec, std::mem::size_of::<ServiceId>());
-                    
-                    let mut timeslots_reader = BytesReader::new(&keyval.value);
-                    let timeslots = Vec::<u32>::decode_len(&mut timeslots_reader).expect("Error decoding timeslots");
-                    
-                    if state.service_accounts.get(&service_id).is_none() {
-                        state.service_accounts.insert(service_id, Account::default());
-                    }
-                    
-                    let account = state.service_accounts.get_mut(&service_id).unwrap();
-                    account.lookup.insert(keyval.key, timeslots.clone());
+                if state.service_accounts.get(&service_id).is_none() {
+                    state.service_accounts.insert(service_id, Account::default());
                 }
+
+                state.service_accounts.get_mut(&service_id).unwrap().storage.insert(keyval.key, keyval.value.clone());
             }
         }
         Ok(())

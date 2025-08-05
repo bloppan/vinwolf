@@ -341,7 +341,10 @@ impl Default for AccumulationPartialState {
             service_accounts: ServiceAccounts::default(),
             next_validators: ValidatorsData::default(),
             queues_auth: AuthQueues::default(),
-            privileges: Privileges::default(),
+            manager: ServiceId::default(),
+            assign: Box::new(from_fn(|_| ServiceId::default())),
+            designate: ServiceId::default(),
+            always_acc: HashMap::new(),
         }
     }
 }
@@ -460,8 +463,8 @@ impl Default for Entropy {
 impl Default for Privileges {
     fn default() -> Self {
         Privileges {
-            bless: 0,
-            assign: 0,
+            manager: 0,
+            assign: Box::new(from_fn(|_| ServiceId::default())),
             designate: 0,
             always_acc: HashMap::new(),
         }
@@ -521,12 +524,16 @@ impl Default for Account {
     fn default() -> Self {
         Account {
             storage: HashMap::new(),
-            preimages: HashMap::new(),
-            lookup: HashMap::new(),
             code_hash: OpaqueHash::default(),
             balance: 0,
             acc_min_gas: 0,
             xfer_min_gas: 0,
+            gratis_storage_offset: 0,
+            created_at: 0,
+            last_acc: 0,
+            parent_service: 0,
+            items: 0,
+            octets: 0,
         }
     }
 }
@@ -538,8 +545,12 @@ impl Default for ServiceInfo {
             balance: 0,
             acc_min_gas: 0,
             xfer_min_gas: 0,
-            bytes: 0,
+            octets: 0,
+            gratis_storage_offset: 0,
             items: 0,
+            created_at: 0,
+            last_acc: 0,
+            parent_service: 0,
         }
     }
 }

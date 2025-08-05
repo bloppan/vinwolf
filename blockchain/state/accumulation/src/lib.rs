@@ -15,10 +15,12 @@ use std::collections::{HashSet, HashMap};
 use ark_vrf::reexports::ark_std::iterable::Iterable;
 
 use constants::node::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT, CORES_COUNT};
+use constants::pvm::CORE;
+
 use jam_types::{
-    AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, OpaqueHash, Privileges, 
-    ReadyQueue, ReadyRecord, ServiceAccounts, TimeSlot, ValidatorsData, WorkPackageHash, WorkReport, ServiceId, Gas, Account, 
-    AccumulateErrorCode, StateKeyType, ProcessError
+    Account, AccumulateErrorCode, AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, Gas, OpaqueHash, 
+    Privileges, ProcessError, ReadyQueue, ReadyRecord, ServiceAccounts, ServiceAssigns, ServiceId, StateKeyType, TimeSlot, ValidatorsData, 
+    WorkPackageHash, WorkReport
 };
 use codec::Encode;
 use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
@@ -54,7 +56,10 @@ pub fn process(
         service_accounts,
         next_validators,
         queues_auth,
-        privileges,
+        manager: privileges.manager,
+        assign: privileges.assign,
+        designate: privileges.designate,
+        always_acc: privileges.always_acc,
     };
 
     let (num_wi_accumulated, 
@@ -62,10 +67,10 @@ pub fn process(
          transfers, 
          mut service_hash_pairs, 
          service_gas_pairs) = outer_accumulation(
-        &get_gas_limit(&partial_state.privileges),
+        &get_gas_limit(&partial_state.always_acc),
         &current_block_accumulatable,
         partial_state.clone(),
-        &partial_state.privileges.always_acc,
+        &partial_state.always_acc,
     )?;
 
     let accumulation_root = get_acc_root(&mut service_hash_pairs);
@@ -79,11 +84,18 @@ pub fn process(
 
     save_statistics(&mut post_partial_state, &transfers, &service_gas_pairs, &current_block_accumulatable, num_wi_accumulated);
 
+    let post_privileges = Privileges {
+        manager: post_partial_state.manager,
+        assign: post_partial_state.assign,
+        designate: post_partial_state.designate,
+        always_acc: post_partial_state.always_acc,
+    };
+
     Ok((accumulation_root, 
         post_partial_state.service_accounts, 
         post_partial_state.next_validators, 
         post_partial_state.queues_auth, 
-        post_partial_state.privileges))
+        post_privileges))
 }
 
 fn outer_accumulation(
@@ -94,7 +106,6 @@ fn outer_accumulation(
 
 ) -> Result<(u32, AccumulationPartialState, Vec<DeferredTransfer>, Vec<(ServiceId, OpaqueHash)>, Vec<(ServiceId, Gas)>), ProcessError>
 {
-
     log::debug!("Outer accumulation");
 
     let mut i: u32 = 0;
@@ -131,7 +142,6 @@ fn outer_accumulation(
                                                             star_partial_state, 
                                                             &HashMap::<ServiceId, Gas>::new())?;
 
-    
     log::debug!("Finalized outer accumulation");
     return Ok((i + j, 
                prime_partial_state, 
@@ -228,34 +238,63 @@ fn parallelized_accumulation(
 
     //let i_next_validatos = partial_state.next_validators.clone();
     //let q_queues_auth = partial_state.queues_auth.clone();
-    let m_bless = partial_state.privileges.bless.clone();
-    let a_assign = partial_state.privileges.assign.clone();
-    let v_designate = partial_state.privileges.designate.clone();
+    let m_manager = partial_state.manager;
+    let a_assign = partial_state.assign.clone();
+    let v_designate = partial_state.designate;
     //let z_always_acc = partial_state.privileges.always_acc.clone();
 
-    let (_post_partial_state, 
+    let (m_post_partial_state, 
         _transfers, 
         _service_hash, 
         _gas,
-        _preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &m_bless);
+        _preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &m_manager);
 
-    let post_privileges = partial_state.privileges.clone();
+    let (post_manager, star_assign, star_v_designate, post_always_acc) = (m_post_partial_state.manager, 
+                                                                                    m_post_partial_state.assign.clone(),
+                                                                                    m_post_partial_state.designate,
+                                                                                    m_post_partial_state.always_acc);
+
+    let mut post_assign: Box<[ServiceId; CORES_COUNT]> = Box::new(std::array::from_fn(|_| ServiceId::default()));
+
+    for core_index in 0..CORES_COUNT {
+        
+        let (post_a_partial_state,
+             _transfers,
+             _service_hash,
+             _gas,
+             _preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &star_assign[core_index]);
+
+        post_assign[core_index] = post_a_partial_state.assign[core_index];
+    }
     
-    let (_post_partial_state, 
+    let (post_partial_state, 
+        _transfers, 
+        _service_hash, 
+        _gas,
+        _preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &star_v_designate);
+
+    let post_v_designate = post_partial_state.designate;
+    
+    let (post_partial_state, 
         _transfers, 
         _service_hash, 
         _gas,
         _preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &v_designate);
 
-    let post_next_validators = partial_state.next_validators.clone();
+    let post_next_validators = post_partial_state.next_validators.clone();
 
-    let (_post_partial_state, 
+    let mut post_queues_auth: AuthQueues = AuthQueues::default();
+
+    for core_index in 0..CORES_COUNT {
+
+        let (q_post_partial_state, 
         _transfers, 
         _service_hash, 
         _gas, 
-        _preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &a_assign);
-    
-    let post_queues_auth = partial_state.queues_auth.clone();
+        _preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &a_assign[core_index]);
+
+        post_queues_auth.0[core_index] = q_post_partial_state.queues_auth.0[core_index].clone();
+    }
 
     let mut d_services = partial_state.service_accounts.clone();
     d_services.extend(n_service_accounts);
@@ -267,13 +306,15 @@ fn parallelized_accumulation(
                                             .collect();
 
     let final_services = preimage_integration(&result_services, &p_preimages);
-       
     
     let result_partial_state = AccumulationPartialState {
         service_accounts: final_services,
         next_validators: post_next_validators,
         queues_auth: post_queues_auth,
-        privileges: post_privileges,
+        manager: post_manager,
+        assign: post_assign.clone(),
+        designate: post_v_designate,
+        always_acc: post_always_acc,
     };
 
     log::debug!("Finalized paralellized accumulation");
@@ -446,11 +487,11 @@ fn save_statistics(
 
 }
 
-fn get_gas_limit(privileges: &Privileges) -> Gas {
+fn get_gas_limit(always_acc: &HashMap<ServiceId, Gas>) -> Gas {
     
     let mut gas_privilege_services = 0;
     
-    for gas in privileges.always_acc.iter() {
+    for gas in always_acc.iter() {
         gas_privilege_services += gas.1;
     }
 

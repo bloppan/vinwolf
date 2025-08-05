@@ -3,7 +3,7 @@ mod default;
 use std::collections::{HashMap, VecDeque};
 use serde::Deserialize;
 
-use constants::node::{ ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH, SEGMENT_SIZE };
+use constants::{node::{ AVAIL_BITFIELD_BYTES, CORES_COUNT, ENTROPY_POOL_SIZE, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, SEGMENT_SIZE, VALIDATORS_COUNT }, pvm::CORE};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
 // ----------------------------------------------------------------------------------------------------------
@@ -716,12 +716,8 @@ pub type ServiceAccounts = HashMap<ServiceId, Account>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Account {
-    // Storage dictionary
+    // Storage dictionary. Can contain preimages, lookups or general storage
     pub storage: HashMap<StorageKey, Vec<u8>>,
-    // Preimages dictionary
-    pub preimages: HashMap<StorageKey, Vec<u8>>,
-    // Lookup dictionary
-    pub lookup: HashMap<StorageKey, Vec<TimeSlot>>,
     // Code hash
     pub code_hash: OpaqueHash,
     // Account balance
@@ -730,6 +726,18 @@ pub struct Account {
     pub acc_min_gas: Gas,
     // Minimum gas required for the on transfer entry-point
     pub xfer_min_gas: Gas,
+    // Gratis storage offset
+    pub gratis_storage_offset: Balance,
+    // Timeslot at creation
+    pub created_at: TimeSlot,
+    // Timeslot at the most recent accumulation
+    pub last_acc: TimeSlot,
+    // Parent service
+    pub parent_service: ServiceId,
+    // Items in storage
+    pub items: u32,
+    // Octets in storage
+    pub octets: u64,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PreimageData {
@@ -746,12 +754,20 @@ pub struct ServiceInfo {
     pub balance: u64,
     // Minimum gas required in order to execute the accumulate entry-point of the service's code
     pub acc_min_gas: Gas,
-    // Minimum gas required for the on transfer entry-point 
+    // Minimum gas required for the on transfer entry-point
     pub xfer_min_gas: Gas,
-    // Number of octets in the storage
-    pub bytes: u64,
-    // Number of items in the storage
+    // Gratis storage offset
+    pub gratis_storage_offset: Balance,
+    // Timeslot at creation
+    pub created_at: TimeSlot,
+    // Timeslot at the most recent accumulation
+    pub last_acc: TimeSlot,
+    // Parent service
+    pub parent_service: ServiceId,
+    // Items in storage
     pub items: u32,
+    // Octets in storage
+    pub octets: u64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -850,12 +866,16 @@ pub struct AccumulatedHistory {
     pub queue: VecDeque<Vec<WorkPackageHash>>,
 }
 
+pub type ServiceAssigns = Box<[ServiceId; CORES_COUNT]>;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Privileges {
     // Index of the manager service which is the service able to effect an alteration of privileges state component from block to block
-    pub bless: ServiceId,
-    // Index of service able to alter the authorizer queue state component
-    pub assign: ServiceId,
+    pub manager: ServiceId,
+    // Index of services able to alter the authorizer queue state component. A service privileged in this way for a some core is able not 
+    // only to assign its authorizer queue, but also to transfer the rights to another service, allowing for the possibility of a nullified 
+    // manager privilege without fixing the authorizer service. This transferability is also introduced to the delegator service.
+    pub assign: ServiceAssigns,
     // Index of service able to alter the next validators state component
     pub designate: ServiceId,
     // Indices of services which automaticaly accumulate in each block together with a basic amount of gas with which each accumulates
@@ -968,13 +988,15 @@ pub struct MemoryChunk {
     pub contents: Vec<u8>,
 }
 
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccumulationPartialState {
     pub service_accounts: ServiceAccounts,
     pub next_validators: ValidatorsData,
     pub queues_auth: AuthQueues,
-    pub privileges: Privileges,
+    pub manager: ServiceId,
+    pub assign: Box<[ServiceId; CORES_COUNT]>,
+    pub designate: ServiceId,
+    pub always_acc: HashMap<ServiceId, Gas>,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeferredTransfer {

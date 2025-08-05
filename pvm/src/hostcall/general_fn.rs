@@ -181,15 +181,15 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
 
     let hash: OpaqueHash = ram.read(read_start_address, 32).try_into().unwrap();
     log::debug!("hash: 0x{}", hex::encode(hash));
-    let preimage_key = StateKeyType::Account(service_id, construct_preimage_key(&hash).to_vec()).construct();
+    let preimage_key = StateKeyType::Account(service_id, construct_preimage_key(&hash)).construct();
     log::debug!("preimage_key: 0x{}", hex::encode(preimage_key));
 
     let preimage_blob: Option<Vec<u8>> = if a_account.is_none() {
         None
-    } else if !a_account.as_ref().unwrap().preimages.contains_key(&preimage_key) {
+    } else if !a_account.as_ref().unwrap().storage.contains_key(&preimage_key) {
         None
     } else {
-        a_account.unwrap().preimages.get(&preimage_key).cloned()
+        a_account.unwrap().storage.get(&preimage_key).cloned()
     };
 
     let preimage_len = preimage_blob.as_ref().map(|v| v.len()).unwrap_or(0) as RegSize;
@@ -230,18 +230,18 @@ pub fn read(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Accou
         return (ExitReason::OutOfGas, gas, reg, ram, account);
     }   
 
-    let id = if reg[7] == u64::MAX {
+    let star_service = if reg[7] == u64::MAX {
         service_id
     } else {
         reg[7] as ServiceId
     };
     
-    log::debug!("service id: {id}");
+    log::debug!("service id: {star_service}");
 
-    let target_account: Option<Account> = if service_id == id {
+    let target_account: Option<Account> = if service_id == star_service {
         Some(account.clone())
-    } else if services.contains_key(&id) {
-        services.get(&id).cloned()
+    } else if services.contains_key(&star_service) {
+        services.get(&star_service).cloned()
     } else {
         log::debug!("target account is none");
         None
@@ -256,33 +256,43 @@ pub fn read(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Accou
         return (ExitReason::panic, gas, reg, ram, account);
     }
 
-    let key= sp_core::blake2_256(&[id.encode(), ram.read(start_read_address, bytes_to_read).encode()].concat())[..31].try_into().unwrap();
-    log::debug!("raw key: 0x{}", hex::encode(key));
-    let key = StateKeyType::Account(id, construct_storage_key(&key).to_vec()).construct();
-    log::debug!("service: {:?} storage key: 0x{}", id, hex::encode(key));
-        
-    let value: Vec<u8> = if target_account.is_some() && target_account.as_ref().unwrap().storage.contains_key(&key) {
-        target_account.unwrap().storage.get(&key).unwrap().clone()
+    let storage_raw_key= ram.read(start_read_address, bytes_to_read);
+    log::debug!("storage raw key: 0x{}", hex::encode(&storage_raw_key));
+
+    let storage_key = StateKeyType::Account(star_service, construct_storage_key(&storage_raw_key)).construct();
+    log::debug!("service: {:?} storage key: 0x{}", star_service, hex::encode(&storage_key));
+
+    let value: Option<Vec<u8>> = if target_account.is_some() && target_account.as_ref().unwrap().storage.contains_key(&storage_key) {
+        Some(target_account.unwrap().storage.get(&storage_key).unwrap().clone())
     } else {
-        reg[7] = NONE;
-        log::debug!("key not found");
-        log::debug!("Exit: NONE");
-        return (ExitReason::Continue, gas, reg, ram, account);
+        None
+    };
+    
+    let value_len = if value.is_none() {
+        log::debug!("The value is None");
+        0
+    } else {
+        value.as_ref().unwrap().len()
     };
 
-    
     // TODO revisar el orden de los return, no estoy seguro de si estan
-    let f = std::cmp::min(reg[11], value.len() as RegSize); 
-    let l = std::cmp::min(reg[12], value.len() as RegSize - f);
-    log::debug!("f: {f}, l: {l}, value: {}", hex::encode(&value));
+    let f = std::cmp::min(reg[11], value_len as RegSize); 
+    let l = std::cmp::min(reg[12], (value_len as RegSize).saturating_sub(f));
+    log::debug!("f: {f}, l: {l}");
     
     if !ram.is_writable(start_write_address, l as RamAddress) {
         log::error!("Panic: The RAM is not writable from address: {start_write_address} num_bytes: {l}");
         return (ExitReason::panic, gas, reg, ram, account);
     }
 
-    reg[7] = value.len() as RegSize;
-    ram.write(start_write_address, value[f as usize..(f + l) as usize].to_vec());
+    if value.is_none() {
+        log::debug!("Exit: NONE");
+        reg[7] = NONE;
+        return (ExitReason::Continue, gas, reg, ram, account);
+    }
+
+    reg[7] = value_len as RegSize;
+    ram.write(start_write_address, value.unwrap()[f as usize..(f + l) as usize].to_vec());
 
     log::debug!("Exit: OK");
     return (ExitReason::Continue, gas, reg, ram, account);
@@ -297,7 +307,7 @@ pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account,
     if gas < 0 {
         log::debug!("Out of gas!");
         return (ExitReason::OutOfGas, gas, reg, ram, account);
-    }   
+    }
 
     let key_start_address = reg[7];
     let key_size = reg[8];
@@ -310,34 +320,35 @@ pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account,
     }
     
     log::debug!("service_id: {}", service_id);
-    let key = sp_core::blake2_256(&[service_id.encode(), ram.read(key_start_address as RamAddress, key_size as RamAddress)].concat())[..31].try_into().unwrap();
-    log::debug!("raw key: 0x{}", hex::encode(key));
-    let key = StateKeyType::Account(service_id, construct_storage_key(&key).to_vec()).construct();
-    log::debug!("service: {:?} storage key: 0x{}", service_id, hex::encode(key));
+    let raw_storage_key = ram.read(key_start_address as RamAddress, key_size as RamAddress);
+    log::debug!("raw key: 0x{}", hex::encode(&raw_storage_key));
+
+    let storage_key = StateKeyType::Account(service_id, construct_storage_key(&raw_storage_key)).construct();
+    log::debug!("service: {:?} storage key: 0x{}", service_id, hex::encode(&storage_key));
 
     let mut s_account = account.clone();
 
     let modified_account = if value_size == 0 {
-        log::debug!("remove key: 0x{}", hex::encode(key));
-        s_account.storage.remove(&key);
+        log::debug!("remove key: 0x{}", hex::encode(&storage_key));
+        s_account.storage.remove(&storage_key);
         s_account
     } else if ram.is_readable(value_start_address as RamAddress, value_size as RamAddress) {
         let storage_data = ram.read(value_start_address as RamAddress, value_size as RamAddress);
-        log::debug!("insert key: 0x{}, value = 0x{}", hex::encode(key), hex::encode(&storage_data));
-        s_account.storage.insert(key, storage_data);
+        log::debug!("insert key: 0x{}, value = 0x{}", hex::encode(&storage_key), hex::encode(&storage_data));
+        s_account.storage.insert(storage_key, storage_data);
         s_account
     } else {
         log::error!("Panic: The RAM is not readable from address: {value_start_address}, num_bytes: {value_size}");
         return (ExitReason::panic, gas, reg, ram, account);
     };
 
-    let l: RegSize = if let Some(storage_data) = account.storage.get(&key) {
+    let l: RegSize = if let Some(storage_data) = account.storage.get(&storage_key) {
         storage_data.len() as RegSize
     } else {
         NONE as RegSize
     };
 
-    let (_items, _octets, threshold) = utils::common::get_footprint_and_threshold(&modified_account);
+    let threshold = utils::common::get_threshold(&modified_account);
 
     if threshold > modified_account.balance {
         reg[7] = FULL as RegSize;
@@ -346,8 +357,8 @@ pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account,
     }
 
     reg[7] = l;
+    log::debug!("Exit OK, l: {:?}", l);
 
-    log::debug!("l: {:?}", l);
     return (ExitReason::Continue, gas, reg, ram, modified_account);
 }
 
@@ -360,7 +371,7 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
     if gas < 0 {
         log::error!("Out of gas!");
         return (ExitReason::OutOfGas, gas, reg, ram, Account::default());
-    }   
+    }
 
     let account: Option<Account> = if reg[7] == u64::MAX {
         if let Some(account) = accounts.get(&service_id).cloned() {
@@ -376,21 +387,35 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
         }
     };
 
-    let metadata = if let Some(account) = account.as_ref() {
-        let (items, octets, threshold) = utils::common::get_footprint_and_threshold(account);
-        [account.code_hash.encode(), 
-         encode_unsigned(account.balance as usize),
-         encode_unsigned(threshold as usize),
-         encode_unsigned(account.acc_min_gas as usize),
-         encode_unsigned(account.xfer_min_gas as usize),
-         encode_unsigned(octets as usize),
-         encode_unsigned(items as usize),
-         ].concat()
+    let metadata: Option<Vec<u8>> = if let Some(account) = account.as_ref() {
+        let threshold = utils::common::get_threshold(account);
+        Some([
+            account.code_hash.encode(),
+            account.balance.encode_size(8),
+            threshold.encode_size(8),
+            account.acc_min_gas.encode_size(8),
+            account.xfer_min_gas.encode_size(8),
+            account.octets.encode_size(8),
+            account.items.encode_size(4),
+            account.gratis_storage_offset.encode_size(8),
+            account.created_at.encode_size(4),
+            account.last_acc.encode_size(4),
+            account.parent_service.encode_size(4)].concat())
     } else {
-        reg[7] = NONE;
+        /*reg[7] = NONE;
         log::debug!("Exit: NONE");
-        return (ExitReason::Continue, gas, reg, ram, Account::default());
+        return (ExitReason::Continue, gas, reg, ram, Account::default());*/
+        None
     };
+
+    let value_len = if metadata.is_none() {
+        0
+    } else {
+        metadata.unwrap().len()
+    };
+
+    let f = std::cmp::min(reg[9], value_len as RegSize);
+    let l = std::cmp::min(reg[10], (value_len as RegSize).saturating_sub(f));
 
     let start_address = reg[8] as RamAddress;
 
