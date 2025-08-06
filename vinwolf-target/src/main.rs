@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
-
+// Vamos Marcos!
 use std::path::PathBuf;
 
 mod fuzz;
