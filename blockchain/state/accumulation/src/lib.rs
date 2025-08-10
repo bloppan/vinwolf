@@ -22,7 +22,7 @@ use jam_types::{
     Privileges, ProcessError, ReadyQueue, ReadyRecord, ServiceAccounts, ServiceAssigns, ServiceId, StateKeyType, TimeSlot, ValidatorsData, 
     WorkPackageHash, WorkReport
 };
-use codec::Encode;
+use codec::{Encode, EncodeLen};
 use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 use utils::trie;
 use pvm::hostcall::accumulate::invoke_accumulation;
@@ -388,28 +388,30 @@ fn preimage_integration(services: &ServiceAccounts, preimages: &[(ServiceId, Vec
 
     let mut services_result = services.clone();
 
-    for pair in preimages.iter() {
+    for service_value in preimages.iter() {
 
-        if services.contains_key(&pair.0) { 
-                        
-            let timeslots = services.get(&pair.0)
+        if services.contains_key(&service_value.0) { 
+
+            let lookup_key = StateKeyType::Account(service_value.0, construct_lookup_key(&sp_core::blake2_256(&service_value.1), service_value.1.len() as u32)).construct();
+
+            let timeslots = services.get(&service_value.0)
                                                        .unwrap()
-                                                       .lookup
-                                                       .get(&construct_lookup_key(&sp_core::blake2_256(&pair.1), pair.1.len() as u32));
+                                                       .storage
+                                                       .get(&lookup_key);
             
             if timeslots.is_none() || (timeslots.is_some() && timeslots.len() == 0) {
 
-                services_result.get_mut(&pair.0)
+                services_result.get_mut(&service_value.0)
                                .unwrap()
-                               .lookup
-                               .insert(construct_lookup_key(&sp_core::blake2_256(&pair.1), pair.1.len() as u32), vec![state_handler::time::get_current()]);
+                               .storage
+                               .insert(lookup_key, Vec::<TimeSlot>::from([state_handler::time::get_current()]).encode_len());
                 
-                let preimage_hash = sp_core::blake2_256(&pair.1);
-                let preimage_key = StateKeyType::Account(pair.0, construct_preimage_key(&preimage_hash).to_vec()).construct();
-                services_result.get_mut(&pair.0)
+                let preimage_hash = sp_core::blake2_256(&service_value.1);
+                let preimage_key = StateKeyType::Account(service_value.0, construct_preimage_key(&preimage_hash)).construct();
+                services_result.get_mut(&service_value.0)
                                .unwrap()
-                               .preimages
-                               .insert(preimage_key, pair.1.clone());
+                               .storage
+                               .insert(preimage_key, service_value.1.clone());
             }
         } 
     }
@@ -417,6 +419,9 @@ fn preimage_integration(services: &ServiceAccounts, preimages: &[(ServiceId, Vec
     return services_result;
 }
 
+// We define a selection function which maps a sequence of deferred transfers and a desired destination service index into the sequence 
+// of transfers targeting said service, ordered primarily according to the source service index and secondary their order within the 
+// sequence of implied transfers
 fn select_deferred_transfers(deferred_transfers: &[DeferredTransfer], to_service: &ServiceId) -> Vec<DeferredTransfer> {
 
     let mut selected_transfers: Vec<DeferredTransfer> = vec![];
@@ -440,6 +445,8 @@ fn save_statistics(
     num_wi_accumulated: u32
 ) {
 
+    // We compose our accumulation statistics, which is a mapping from the service indices which were accumulated to the amount of 
+    // gas used throughout accumulation and the number of work-items accumulated.
     let mut acc_stats: HashMap<ServiceId, (Gas, u32)> = HashMap::new();
     for (service_id, gas) in service_gas_pairs.iter() {
         let mut acc_curr_block_reports: Vec<WorkReport> = vec![];
@@ -455,14 +462,13 @@ fn save_statistics(
         }
     }
 
-    statistics::set_acc_stats(acc_stats);
-
-
     let mut xfers_info: HashMap<ServiceId, (Account, Gas)> = HashMap::new();
+    // Furthermore we build the deferred transfers statistics as the number of transfers and the total gas used in transfer processing 
+    // for each destination service index.
     let mut xfers_stats: HashMap<ServiceId, (u32, Gas)> = HashMap::new();
 
-    for service in post_partial_state.service_accounts.iter() {
-        let service_id = service.0;
+    for service_account in post_partial_state.service_accounts.iter() {
+        let service_id = service_account.0;
         let selected_transfers = select_deferred_transfers(&transfers, &service_id);
         let num_tranfers = selected_transfers.len();
         let xfer_result = invoke_on_transfer(
@@ -479,12 +485,21 @@ fn save_statistics(
         }
     }
     
-    statistics::set_xfer_stats(xfers_stats);
-    
+    // The second intermediate state may then be defined with all the deferred effects of the transfers applied followed by the
+    // last-accumulation record being updated for all accumulated services
     for service in xfers_info.iter() {
-        post_partial_state.service_accounts.insert(*service.0, service.1.0.clone());
+        if acc_stats.contains_key(service.0) {
+            let mut post_account = service.1.0.clone();
+            post_account.last_acc = state_handler::time::get_current();
+            post_partial_state.service_accounts.insert(*service.0, post_account);
+        } else {
+            post_partial_state.service_accounts.insert(*service.0, service.1.0.clone());
+        }
     }
 
+    
+    statistics::set_acc_stats(acc_stats);
+    statistics::set_xfer_stats(xfers_stats);
 }
 
 fn get_gas_limit(always_acc: &HashMap<ServiceId, Gas>) -> Gas {

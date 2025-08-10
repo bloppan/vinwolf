@@ -92,7 +92,7 @@ pub fn dispatch_acc(n: HostCallFn, mut gas: Gas, mut reg: Registers, ram: RamMem
         HostCallFn::Assign      => assign(gas, reg, ram, ctx),
         HostCallFn::Designate   => designate(gas, reg, ram, ctx),
         HostCallFn::Checkpoint  => checkpoint(gas, reg, ram, ctx),
-        HostCallFn::New         => new(gas, reg, ram, ctx),
+        HostCallFn::New         => new(gas, reg, ram, ctx, state_handler::time::get_current()),
         HostCallFn::Upgrade     => upgrade(gas, reg, ram, ctx),
         HostCallFn::Transfer    => transfer(gas, reg, ram, ctx),
         HostCallFn::Eject       => eject(gas, reg, ram, ctx, state_handler::time::get_current()),
@@ -407,7 +407,7 @@ fn query(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
     return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
 }
 
-fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
+fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext, slot: TimeSlot)
 
 -> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
 {
@@ -419,11 +419,12 @@ fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
     }
 
     let start_address = reg[7] as RamAddress;
-    let length = reg[8];
+    let length = reg[8] as u64;
     let new_account_gas = reg[9];
     let new_account_min_gas = reg[10];
+    let gratis_storage_offset = reg[11];
 
-    log::debug!("start_address: {:?}, length: {:?}, gas: {:?}, min_gas: {:?}", start_address, length, new_account_gas, new_account_min_gas);
+    log::debug!("start_address: {:?}, length: {:?}, gas: {:?}, min_gas: {:?}, gratis_offset: {:?}", start_address, length, new_account_gas, new_account_min_gas, gratis_storage_offset);
 
     let HostCallContext::Accumulate(mut ctx_x, ctx_y) = ctx else {
         unreachable!("Dispatch accumulate: Invalid context");
@@ -433,24 +434,33 @@ fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
         let c = ram.read(start_address, 32);
         let mut new_account = Account::default();
         new_account.code_hash.copy_from_slice(&c);
-        let lookup_key = StateKeyType::Account(ctx_x.service_id, construct_lookup_key(&new_account.code_hash, length as u32).to_vec()).construct();
+        let lookup_key = StateKeyType::Account(ctx_x.service_id, construct_lookup_key(&new_account.code_hash, length as u32)).construct();
         new_account.storage.insert(lookup_key, Vec::<TimeSlot>::new().encode_len());
         new_account.acc_min_gas = new_account_gas as Gas;
         new_account.xfer_min_gas = new_account_min_gas as Gas;
-        let threshold = utils::common::get_threshold(&new_account);
-        new_account.balance = threshold;
+        new_account.created_at = slot;
+        new_account.gratis_storage_offset = gratis_storage_offset;
+        new_account.parent_service = ctx_x.service_id;
+        let new_account_threshold = utils::common::get_threshold(&new_account);
+        new_account.balance = new_account_threshold;
 
         let mut service_account = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().clone(); // TODO handle error
-        service_account.balance = service_account.balance.saturating_sub(threshold);
-        let service_account_threshold = utils::common::get_threshold(&service_account);
-        if service_account.balance < service_account_threshold {
+        service_account.balance = service_account.balance.saturating_sub(new_account_threshold);
+
+        if gratis_storage_offset != 0 && ctx_x.service_id != ctx_x.partial_state.manager {
+            reg[7] = HUH;
+            log::debug!("Exit: HUH");
+            return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+        }
+
+        if service_account.balance < utils::common::get_threshold(&ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap()) {
             reg[7] = CASH;
             log::debug!("Exit: CASH");
             return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
         }
 
-        let i = (1u64 << 8) + (ctx_x.index as u64 - (1u64 << 8) + 42) % ((1u64 << 32) - (1u64 << 9));
-        
+        let i = (1u64 << 8) + (ctx_x.index as u64 - (1u64 << 8) + 42) % ((1u64 << 32) - (1u64 << 9)); 
+
         reg[7] = ctx_x.index as RegSize;
         ctx_x.partial_state.service_accounts.insert(ctx_x.index, new_account);
         ctx_x.partial_state.service_accounts.insert(ctx_x.service_id, service_account);
@@ -592,6 +602,13 @@ fn bless(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
+    if !ctx_x.partial_state.service_accounts.contains_key(&manager)
+    || !ctx_x.partial_state.service_accounts.contains_key(&v_designate) {
+        reg[7] = WHO;
+        log::debug!("Exit: WHO");
+        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
+
     let mut assign: ServiceAssigns = Box::new(std::array::from_fn(|_| ServiceId::default()));
 
     for core_index in 0..CORES_COUNT {
@@ -609,14 +626,6 @@ fn bless(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
         let gas = decode::<Gas>(&pair[std::mem::size_of::<ServiceId>()..], std::mem::size_of::<Gas>());
         log::debug!("service: {service}, gas: {gas}");
         service_gas_pairs.insert(service, gas);
-    }
-
-    if !ctx_x.partial_state.service_accounts.contains_key(&manager)
-    || !ctx_x.partial_state.service_accounts.contains_key(&v_designate) {
-
-        reg[7] = WHO;
-        log::debug!("Exit: WHO");
-        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
     ctx_x.partial_state.manager = manager;
@@ -646,6 +655,15 @@ fn designate(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallCont
         return (ExitReason::panic, gas, reg, ram, ctx);    
     }
 
+    let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
+
+    if ctx_x.service_id != ctx_x.partial_state.designate {
+        reg[7] = HUH;
+        log::debug!("ctx_x.service_id {:?} != ctx_x.partial_state.designate {:?}", ctx_x.service_id, ctx_x.partial_state.designate);
+        log::debug!("Exit: HUH");
+        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
+
     let mut validators: ValidatorsData = ValidatorsData::default();
 
     for i in 0..VALIDATORS_COUNT {
@@ -656,7 +674,7 @@ fn designate(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallCont
         validators.list[i].metadata = validators_data[208..].try_into().unwrap();
     }
 
-    let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
+    
 
     ctx_x.partial_state.next_validators = validators;
     reg[7] = OK;
@@ -676,7 +694,10 @@ fn assign(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
         return (ExitReason::OutOfGas, gas, reg, ram, ctx);
     }
 
+    let core_index = reg[7] as CoreIndex;
     let start_address = reg[8] as RamAddress;
+    let assign_service = reg[9] as ServiceId;
+
     let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
 
     if !ram.is_readable(start_address, 32 * MAX_ITEMS_AUTHORIZATION_QUEUE as RamAddress) {
@@ -684,7 +705,12 @@ fn assign(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
         return (ExitReason::panic, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
-    let core_index = reg[7] as CoreIndex;
+    if ctx_x.service_id != ctx_x.partial_state.assign[core_index as usize] {
+        log::debug!("ctx service_id {:?} != assign service {:?} core_index: {:?}", ctx_x.service_id, ctx_x.partial_state.assign[core_index as usize], core_index);
+        reg[7] = HUH;
+        log::debug!("Exit: HUH");
+        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
     
     if core_index >= CORES_COUNT as CoreIndex {
         log::debug!("core_index {:?} >= CORES_COUNT {:?}", core_index, CORES_COUNT);
@@ -696,6 +722,8 @@ fn assign(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
     for i in 0..MAX_ITEMS_AUTHORIZATION_QUEUE {
         ctx_x.partial_state.queues_auth.0[core_index as usize][i] = ram.read(start_address + 32 * i as u32, 32).try_into().unwrap();
     }
+
+    ctx_x.partial_state.assign[core_index as usize] = assign_service;
 
     reg[7] = OK;
 

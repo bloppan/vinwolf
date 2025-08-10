@@ -60,7 +60,7 @@ mod tests {
             new_account.xfer_min_gas = account.data.service.xfer_min_gas.clone();
             for preimage in account.data.preimages.iter() {
                 let preimage_key = StateKeyType::Account(account.id, construct_preimage_key(&preimage.hash).to_vec()).construct();
-                new_account.preimages.insert(preimage_key, preimage.blob.clone());
+                new_account.storage.insert(preimage_key, preimage.blob.clone());
             }
             service_accounts.insert(account.id.clone(), new_account);
         }
@@ -112,7 +112,7 @@ mod tests {
             // TODO assert bytes and items
             for preimage in account.data.preimages.iter() {
                 let preimage_key = StateKeyType::Account(account.id, construct_preimage_key(&preimage.hash).to_vec()).construct();
-                assert_eq!(&preimage.blob, result_account.preimages.get(&preimage_key).unwrap());
+                assert_eq!(&preimage.blob, result_account.storage.get(&preimage_key).unwrap());
             }
 
             //assert_eq!(account.data.storage, result_account.storage); // TODO

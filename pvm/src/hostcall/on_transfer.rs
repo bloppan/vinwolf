@@ -49,7 +49,7 @@ pub fn invoke_on_transfer(
     s_account.balance += transfers.iter().map(|transfer| transfer.amount).sum::<Balance>();
     let preimage_key = StateKeyType::Account(*service_id, construct_preimage_key(&s_account.code_hash).to_vec()).construct();
 
-    if let Some(preimage_blob) = s_account.preimages.get(&preimage_key) {
+    if let Some(preimage_blob) = s_account.storage.get(&preimage_key) {
 
         let preimage = match decode_preimage(&preimage_blob) {
             Ok(preimage_data) => { preimage_data },

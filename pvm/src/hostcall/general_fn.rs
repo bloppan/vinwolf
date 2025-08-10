@@ -192,7 +192,11 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
         a_account.unwrap().storage.get(&preimage_key).cloned()
     };
 
-    let preimage_len = preimage_blob.as_ref().map(|v| v.len()).unwrap_or(0) as RegSize;
+    let preimage_len = if preimage_blob.is_none() {
+        0 as RegSize
+    } else {
+        preimage_blob.as_ref().unwrap().len() as RegSize
+    };
     
     let f = std::cmp::min(reg[10],  preimage_len);
     let l = std::cmp::min(reg[11], preimage_len - f);
@@ -208,12 +212,9 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
         return (ExitReason::Continue, gas, reg, ram, account);
     }
 
-    reg[7] = preimage_len;
     log::debug!("preimage len: {preimage_len}");
-
-    if let Some(blob) = preimage_blob {
-        ram.write(write_start_address, blob[f as usize..(f + l) as usize].to_vec());
-    }
+    reg[7] = preimage_len;
+    ram.write(write_start_address, preimage_blob.unwrap()[f as usize..(f + l) as usize].to_vec());
     
     log::debug!("Exit: OK");
     return (ExitReason::Continue, gas, reg, ram, account);
@@ -275,7 +276,6 @@ pub fn read(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Accou
         value.as_ref().unwrap().len()
     };
 
-    // TODO revisar el orden de los return, no estoy seguro de si estan
     let f = std::cmp::min(reg[11], value_len as RegSize); 
     let l = std::cmp::min(reg[12], (value_len as RegSize).saturating_sub(f));
     log::debug!("f: {f}, l: {l}");
@@ -349,6 +349,7 @@ pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account,
     };
 
     let threshold = utils::common::get_threshold(&modified_account);
+    log::debug!("l: {l}, threshold: {threshold}");
 
     if threshold > modified_account.balance {
         reg[7] = FULL as RegSize;
@@ -377,13 +378,15 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
         if let Some(account) = accounts.get(&service_id).cloned() {
             Some(account)
         } else {
-            None
+            log::error!("Account not found for service {:?}", u64::MAX);
+            return (ExitReason::panic, gas, reg, ram, Account::default());
         }
     } else {
         if let Some(account) = accounts.get(&(reg[7] as ServiceId)).cloned() {
             Some(account)
         } else {
-            None
+            log::error!("Account not found for service {:?}", reg[7]);
+            return (ExitReason::panic, gas, reg, ram, Account::default());
         }
     };
 
@@ -400,38 +403,42 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
             account.gratis_storage_offset.encode_size(8),
             account.created_at.encode_size(4),
             account.last_acc.encode_size(4),
-            account.parent_service.encode_size(4)].concat())
+            account.parent_service.encode_size(4)
+        ].concat())
     } else {
-        /*reg[7] = NONE;
-        log::debug!("Exit: NONE");
-        return (ExitReason::Continue, gas, reg, ram, Account::default());*/
         None
     };
 
-    let value_len = if metadata.is_none() {
+    let metadata_len = if metadata.is_none() {
         0
     } else {
-        metadata.unwrap().len()
+        metadata.as_ref().unwrap().len()
     };
 
-    let f = std::cmp::min(reg[9], value_len as RegSize);
-    let l = std::cmp::min(reg[10], (value_len as RegSize).saturating_sub(f));
+    let f = std::cmp::min(reg[9], metadata_len as RegSize);
+    let l = std::cmp::min(reg[10], (metadata_len as RegSize).saturating_sub(f));
 
     let start_address = reg[8] as RamAddress;
 
-    if !ram.is_writable(start_address, metadata.len() as RamAddress) {
-        log::debug!("Panic: The RAM is not writable from address: {start_address} num_bytes: {:?}", metadata.len());
+    if !ram.is_writable(start_address, l as RamAddress) {
+        log::debug!("Panic: The RAM is not writable from address: {start_address} num_bytes: {:?}", l);
         return (ExitReason::panic, gas, reg, ram, Account::default());
     }
 
+    if metadata.is_none() {
+        reg[7] = NONE as RegSize;
+        log::debug!("Exit: NONE");
+        return (ExitReason::Continue, gas, reg, ram, account.unwrap());
+    }
+
     log::debug!("code_hash: 0x{}", hex::encode(account.as_ref().unwrap().code_hash));
-    let (items, octets, threshold) = utils::common::get_footprint_and_threshold(account.as_ref().unwrap());
+    let threshold = utils::common::get_threshold(account.as_ref().unwrap());
     log::debug!("balance: {:?}, balance footprint: {:?}, acc gas: {:?}, xfer gas: {:?}, items: {:?}, octets: {:?}", 
                 account.as_ref().unwrap().balance, threshold, account.as_ref().unwrap().acc_min_gas,
-                account.as_ref().unwrap().xfer_min_gas, items, octets);
+                account.as_ref().unwrap().xfer_min_gas, account.as_ref().unwrap().items, account.as_ref().unwrap().octets);
 
-    ram.write(start_address, metadata);
-    reg[7] = OK;
+    ram.write(start_address, metadata.unwrap()[f as usize ..(f + l) as usize].to_vec());
+    reg[7] = metadata_len as RegSize;
 
     log::debug!("Exit: OK");
     return (ExitReason::Continue, gas, reg, ram, account.unwrap());
