@@ -82,7 +82,7 @@ pub const REPORTED_WORK_REPLACEMENT_PERIOD: usize = 5;
 // The maximum size of is-authorized code in octets.
 pub const MAX_IS_AUTHORIZED_SIZE: usize = 64_000;
 // The maximum size of an encoded work-package together with its extrinsic data and import implications, in octets.
-pub const MAX_ENCODED_WORK_PACKAGE_SIZE: u64 = 12 * (1 << 20);
+pub const MAX_ENCODED_WORK_PACKAGE_SIZE: u64 = 13_794_305;
 // The number of erasure-coded pieces in a segment.
 pub const SEGMENT_PIECES: usize = 6;
 // The basic size of erasure-coded pieces in octets.
