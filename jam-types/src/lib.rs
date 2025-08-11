@@ -3,7 +3,7 @@ mod default;
 use std::collections::{HashMap, VecDeque};
 use serde::Deserialize;
 
-use constants::{node::{ AVAIL_BITFIELD_BYTES, CORES_COUNT, ENTROPY_POOL_SIZE, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, SEGMENT_SIZE, VALIDATORS_COUNT }, pvm::CORE};
+use constants::node::{AVAIL_BITFIELD_BYTES, CORES_COUNT, ENTROPY_POOL_SIZE, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, SEGMENT_SIZE, VALIDATORS_COUNT};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
 // ----------------------------------------------------------------------------------------------------------
@@ -435,8 +435,8 @@ pub type ReportedWorkPackages = Vec<(OpaqueHash, OpaqueHash)>;
 pub struct BlockInfo {
     // Block's header hash
     pub header_hash: OpaqueHash,
-    // Accumulation-result MMR 
-    pub acc_result: OpaqueHash,
+    // Accumulation-result MMB 
+    pub beefy_root: OpaqueHash,
     // Block's state root
     pub state_root: OpaqueHash,
     // Work package hashes of each item reported (which is no more than the CORES_COUNT)
@@ -447,7 +447,12 @@ pub type BlockHistory = VecDeque<BlockInfo>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RecentBlocks {
+    // We retain in state information on the RECENT_HISTORY_SIZE blocks. This is used to preclude the possibility of 
+    // duplicate or out of date work-reports from being submitted.
     pub history: BlockHistory,
+    // The accumulation output log is formed from the block's accumulation-output sequence, taking its root using the 
+    // basic binary Merklization function (MB merkle_binary) and appending it (append) to the previous log value with
+    // the MMB append function
     pub mmr: Mmr,
 }
 // ----------------------------------------------------------------------------------------------------------

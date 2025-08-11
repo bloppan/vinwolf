@@ -5,7 +5,7 @@ use std::array::from_fn;
 use constants::node::{AVAIL_BITFIELD_BYTES, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT};
 use crate::{
     BandersnatchRingVrfSignature, Ticket, Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, Assurance, AuthPool, AuthPools, AuthQueues, 
-    AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, CodeAuthorizer, 
+    AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlsPublic, CodeAuthorizer, 
     CodeAuthorizers, CoreActivityRecord, CoresStatistics, DeferredTransfer, DisputesRecords, Ed25519Public, Ed25519Signature, Entropy, EntropyPool, EpochMark, 
     ExtrinsicSpec, GlobalState, Guarantee, ImportSpec, Judgement, KeyValue, MemoryChunk, Metadata, OpaqueHash, PageMap, Preimage, Privileges, AccumulationContext,
     ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportedPackage, ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, 

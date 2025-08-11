@@ -15,13 +15,13 @@ use std::collections::{HashSet, HashMap};
 use ark_vrf::reexports::ark_std::iterable::Iterable;
 
 use constants::node::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT, CORES_COUNT};
-
 use jam_types::{
-    Account, AccumulateErrorCode, AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, Gas, OpaqueHash, Privileges, ProcessError, ReadyQueue, ReadyRecord, RecentAccOutputs, ServiceAccounts, ServiceAssigns, ServiceId, StateKeyType, TimeSlot, ValidatorsData, WorkPackageHash, WorkReport
+    Account, AccumulateErrorCode, AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, Gas, 
+    OpaqueHash, Privileges, ProcessError, ReadyQueue, ReadyRecord, RecentAccOutputs, ServiceAccounts, ServiceId, StateKeyType, TimeSlot, 
+    ValidatorsData, WorkPackageHash, WorkReport
 };
 use codec::{Encode, EncodeLen};
 use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
-use utils::trie;
 use pvm::hostcall::accumulate::invoke_accumulation;
 use pvm::hostcall::on_transfer::invoke_on_transfer;
 
@@ -381,8 +381,11 @@ fn get_acc_output(service_hash: &mut RecentAccOutputs) -> OpaqueHash {
     }
 
     let merkle_balanced_result = utils::trie::merkle_balanced(pairs_blob, sp_core::keccak_256);
-    let post_recent_history_mmr = utils::trie::append(&state_handler::recent_history::get().mmr, merkle_balanced_result, sp_core::keccak_256);
-    let acc_outputs_result = utils::trie::mmr_super_peak(&post_recent_history_mmr);
+    let mut recent_history_state = state_handler::recent_history::get().clone();
+    let mmr = utils::trie::append(&recent_history_state.mmr, merkle_balanced_result, sp_core::keccak_256);
+    let acc_outputs_result = utils::trie::mmr_super_peak(&mmr);
+    recent_history_state.mmr = mmr;
+    state_handler::recent_history::set(recent_history_state);
 
     return acc_outputs_result;
 }

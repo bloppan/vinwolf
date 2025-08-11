@@ -6,7 +6,7 @@
 */
 
 use jam_types::{OpaqueHash, StateKeyType, StateKey, SerializedState, GlobalState, ServiceInfo};
-use codec::{Encode, EncodeLen};
+use codec::Encode;
 use constants::node::{
     ACCUMULATION_HISTORY, AUTH_POOLS, AUTH_QUEUE, AVAILABILITY, CURR_VALIDATORS, DISPUTES, ENTROPY, NEXT_VALIDATORS, PREV_VALIDATORS, PRIVILEGES, 
     READY_QUEUE, RECENT_HISTORY, SAFROLE, STATISTICS, TIME, RECENT_ACC_OUTPUTS

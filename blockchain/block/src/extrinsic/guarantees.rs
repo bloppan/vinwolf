@@ -14,7 +14,7 @@ use jam_types::{
     ReportedPackage, WorkResult
 };
 use constants::node::{ EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR };
-use utils::{trie::mmr_super_peak, shuffle::shuffle, common::{VerifySignature, set_offenders_null}};
+use utils::{shuffle::shuffle, common::{VerifySignature, set_offenders_null}};
 use utils::common::is_sorted_and_unique;
 use codec::Encode;
 
@@ -285,7 +285,7 @@ pub mod work_report {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadStateRoot));
                 }
 
-                if block.acc_result != work_report.context.beefy_root {
+                if block.beefy_root != work_report.context.beefy_root {
                     log::error!("Bad beefy MMR Root");
                     return Err(ProcessError::ReportError(ReportErrorCode::BadBeefyMmrRoot));
                 }

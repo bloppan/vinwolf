@@ -1,4 +1,3 @@
-use crate::mm::program_init::page;
 use crate::{Program, ExitReason};
 use crate::pvm_types::{Context, RamAccess, RamAddress, RegSize};
 use constants::pvm::{LOWEST_ACCESIBLE_PAGE, JUMP_ALIGNMENT, PAGE_SIZE};

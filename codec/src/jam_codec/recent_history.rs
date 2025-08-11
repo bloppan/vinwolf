@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use jam_types::{ServiceId, Gas, BlockInfo, Mmr, MmrPeak, OpaqueHash, RecentAccOutputs, RecentBlocks, ReportedWorkPackages};
+use jam_types::{ServiceId, BlockInfo, Mmr, MmrPeak, OpaqueHash, RecentAccOutputs, RecentBlocks, ReportedWorkPackages};
 use crate::{Encode, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
 use crate::generic_codec::{encode_unsigned, decode_unsigned};
 
@@ -11,7 +11,7 @@ impl Encode for BlockInfo {
         let mut block_info = Vec::with_capacity(std::mem::size_of::<Self>());
 
         self.header_hash.encode_to(&mut block_info);
-        self.acc_result.encode_to(&mut block_info);
+        self.beefy_root.encode_to(&mut block_info);
         self.state_root.encode_to(&mut block_info);
         self.reported_wp.encode_to(&mut block_info);
 
@@ -29,7 +29,7 @@ impl Decode for BlockInfo {
 
         Ok(BlockInfo {
             header_hash: OpaqueHash::decode(block_info)?,
-            acc_result: OpaqueHash::decode(block_info)?,
+            beefy_root: OpaqueHash::decode(block_info)?,
             state_root: OpaqueHash::decode(block_info)?,
             reported_wp: ReportedWorkPackages::decode(block_info)?,
         })

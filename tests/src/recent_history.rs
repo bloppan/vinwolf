@@ -8,14 +8,13 @@ mod tests {
 
     fn run_test(filename: &str) {
         
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/history/data/{}", filename))).unwrap();
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/history/tiny/{}", filename))).unwrap();
 
         /*let test_body: Vec<TestBody> = vec![TestBody::InputHistory, TestBody::RecentBlocks, TestBody::RecentBlocks];
-
         if encode_decode_test(&test_content, &test_body).is_err() {
             panic!("Error encoding/decoding test file: {}", filename);
         }*/
-        
+
         let mut reader = BytesReader::new(&test_content);
         let input = InputHistory::decode(&mut reader).expect("Error decoding InputHistory");
         let expected_pre_state = RecentBlocks::decode(&mut reader).expect("Error decoding pre RecentBlocks");
@@ -29,19 +28,24 @@ mod tests {
         state_handler::recent_history::set(expected_pre_state.clone());
 
         let mut recent_history_state = state_handler::recent_history::get();
+
         assert_eq!(expected_pre_state, recent_history_state);
 
         recent_history::process(&mut recent_history_state,
                             &input.header_hash, 
                             &input.parent_state_root, 
                             &reported_work_packages);
+        
+        recent_history_state.mmr = utils::trie::append(&state_handler::recent_history::get().mmr, input.accumulate_root, sp_core::keccak_256);
+        let acc_outputs_result = utils::trie::mmr_super_peak(&recent_history_state.mmr);
 
         recent_history::finalize(&mut recent_history_state,
                                 &input.header_hash, 
-                                &input.accumulate_root, 
+                                &acc_outputs_result, 
                                 &reported_work_packages);
 
-        assert_eq!(expected_post_state, recent_history_state);
+        assert_eq!(expected_post_state.history, recent_history_state.history);
+        assert_eq!(expected_post_state.mmr, recent_history_state.mmr);
     }
 
     #[test]

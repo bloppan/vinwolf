@@ -1,4 +1,4 @@
-use jam_types::{ Account, Gas, OpaqueHash, ServiceId, ServiceInfo, ServiceItem, Services, TimeSlot };
+use jam_types::{ Gas, OpaqueHash, ServiceId, ServiceInfo, ServiceItem, Services, TimeSlot };
 use crate::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
 
 impl Encode for ServiceInfo {
