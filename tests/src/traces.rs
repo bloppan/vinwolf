@@ -101,7 +101,7 @@ mod tests {
         assert_eq!(expected_state.privileges, result_state.privileges);
         assert_eq!(expected_state.next_validators, result_state.next_validators);
         assert_eq!(expected_state.auth_queues, result_state.auth_queues);
-        assert_eq!(expected_state.recent_history.blocks, result_state.recent_history.blocks);           
+        assert_eq!(expected_state.recent_history, result_state.recent_history);
         for service_account in expected_state.service_accounts.iter() {
             if let Some(account) = result_state.service_accounts.get(&service_account.0) {
                 //let (_items, _octets, _threshold) = utils::common::get_footprint_and_threshold(&account);

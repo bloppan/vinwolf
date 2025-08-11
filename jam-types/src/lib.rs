@@ -423,23 +423,32 @@ pub struct ReportedWorkPackage {
 
 /*#[derive(Clone, Debug, PartialEq)]
 pub struct ReportedWorkPackages(pub Vec<ReportedWorkPackage>);*/
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RecentAccOutputs {
+    pub pairs: Vec<(ServiceId, OpaqueHash)>,
+}
+
 pub type ReportedWorkPackages = Vec<(OpaqueHash, OpaqueHash)>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockInfo {
     // Block's header hash
-    pub header_hash: Hash,
+    pub header_hash: OpaqueHash,
     // Accumulation-result MMR 
-    pub mmr: Mmr,
+    pub acc_result: OpaqueHash,
     // Block's state root
-    pub state_root: Hash,
+    pub state_root: OpaqueHash,
     // Work package hashes of each item reported (which is no more than the CORES_COUNT)
     pub reported_wp: ReportedWorkPackages,
 }
 
+pub type BlockHistory = VecDeque<BlockInfo>;
+
 #[derive(Clone, Debug, PartialEq)]
-pub struct BlockHistory {
-    pub blocks: VecDeque<BlockInfo>,
+pub struct RecentBlocks {
+    pub history: BlockHistory,
+    pub mmr: Mmr,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Statistics
@@ -934,7 +943,7 @@ pub struct GlobalState {
     pub time: TimeSlot,
     pub availability: AvailabilityAssignments,
     pub entropy: EntropyPool,
-    pub recent_history: BlockHistory,
+    pub recent_history: RecentBlocks,
     pub auth_pools: AuthPools,
     pub auth_queues: AuthQueues,
     pub statistics: Statistics,
@@ -946,6 +955,7 @@ pub struct GlobalState {
     pub service_accounts: ServiceAccounts,
     pub accumulation_history: AccumulatedHistory,
     pub ready_queue: ReadyQueue,
+    pub recent_acc_outputs: RecentAccOutputs,
     pub privileges: Privileges,
 }
 #[derive(Debug, PartialEq)]

@@ -113,5 +113,5 @@ pub const PRIVILEGES: u8 = 12;
 pub const STATISTICS: u8 = 13;
 pub const READY_QUEUE: u8 = 14;
 pub const ACCUMULATION_HISTORY: u8 = 15;
-
+pub const RECENT_ACC_OUTPUTS: u8 = 16;
 

@@ -11,7 +11,7 @@ use crate::{
     ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportedPackage, ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, 
     ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsMark, TicketsOrKeys, 
     TimeSlot, ValidatorData, ValidatorSignature, ValidatorStatistics, ValidatorsData, WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, Block,
-    Header, Extrinsic, UnsignedHeader, DisputesExtrinsic, Verdict, Culprit, Fault, 
+    Header, Extrinsic, UnsignedHeader, DisputesExtrinsic, Verdict, Culprit, Fault, RecentBlocks, Mmr, RecentAccOutputs
 };
 
 impl Default for GlobalState {
@@ -20,7 +20,7 @@ impl Default for GlobalState {
             time: TimeSlot::default(),
             availability: AvailabilityAssignments::default(),
             entropy: EntropyPool::default(),
-            recent_history: BlockHistory::default(),
+            recent_history: RecentBlocks::default(),
             auth_pools: AuthPools::default(),
             auth_queues: AuthQueues::default(),
             statistics: Statistics::default(),
@@ -32,6 +32,7 @@ impl Default for GlobalState {
             service_accounts: ServiceAccounts::default(),
             accumulation_history: AccumulatedHistory::default(),
             ready_queue: ReadyQueue::default(),
+            recent_acc_outputs: RecentAccOutputs::default(),
             privileges: Privileges::default(),
         }
     }
@@ -473,10 +474,23 @@ impl Default for Privileges {
 // ----------------------------------------------------------------------------------------------------------
 // Block History
 // ----------------------------------------------------------------------------------------------------------
-impl Default for BlockHistory {
+impl Default for Mmr {
     fn default() -> Self {
-        BlockHistory {
-            blocks: VecDeque::with_capacity(RECENT_HISTORY_SIZE),
+        Mmr {
+            peaks: Vec::new(),
+        }
+    }
+}
+impl Default for RecentAccOutputs {
+    fn default() -> Self {
+        RecentAccOutputs { pairs: Vec::new() }
+    }
+}
+impl Default for RecentBlocks {
+    fn default() -> Self {
+        RecentBlocks {
+            history: VecDeque::with_capacity(RECENT_HISTORY_SIZE),
+            mmr: Mmr::default(),
         }
     }
 }

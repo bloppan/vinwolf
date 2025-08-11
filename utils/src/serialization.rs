@@ -5,12 +5,11 @@
     inner dictionaries of δ, a service index.
 */
 
-use jam_types::{OpaqueHash, StateKeyType, StateKey, SerializedState, GlobalState, ServiceInfo, StorageKey};
+use jam_types::{OpaqueHash, StateKeyType, StateKey, SerializedState, GlobalState, ServiceInfo};
 use codec::{Encode, EncodeLen};
-use crate::{common::get_threshold};
 use constants::node::{
     ACCUMULATION_HISTORY, AUTH_POOLS, AUTH_QUEUE, AVAILABILITY, CURR_VALIDATORS, DISPUTES, ENTROPY, NEXT_VALIDATORS, PREV_VALIDATORS, PRIVILEGES, 
-    READY_QUEUE, RECENT_HISTORY, SAFROLE, STATISTICS, TIME
+    READY_QUEUE, RECENT_HISTORY, SAFROLE, STATISTICS, TIME, RECENT_ACC_OUTPUTS
 };
 
 // The state serialization is then defined as the dictionary built from the amalgamation of each of the components.
@@ -35,6 +34,7 @@ pub fn serialize(global_state: &GlobalState) -> SerializedState {
     state.map.insert(StateKeyType::U8(STATISTICS).construct(), global_state.statistics.encode());
     state.map.insert(StateKeyType::U8(READY_QUEUE).construct(), global_state.ready_queue.encode());
     state.map.insert(StateKeyType::U8(ACCUMULATION_HISTORY).construct(), global_state.accumulation_history.encode());
+    state.map.insert(StateKeyType::U8(RECENT_ACC_OUTPUTS).construct(), global_state.recent_acc_outputs.encode());
     
     for (service_id, account) in global_state.service_accounts.iter() {
     

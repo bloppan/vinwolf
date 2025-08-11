@@ -1,5 +1,5 @@
 use jam_types::{
-    AccumulatedHistory, AuthPools, AuthQueues, Assurance, AvailabilityAssignments, BandersnatchRingCommitment, BlockHistory, CodeAuthorizers, 
+    AccumulatedHistory, AuthPools, AuthQueues, Assurance, AvailabilityAssignments, BandersnatchRingCommitment, RecentBlocks, CodeAuthorizers, 
     CoresStatistics, DisputesErrorCode, DisputesRecords, Ed25519Public, Entropy, EntropyPool, HeaderHash, Offenders, OpaqueHash, OutputDataDisputes, 
     OutputDataReports, Privileges, ReadyQueue, ReportErrorCode, ReportedWorkPackage, ServiceId, ServiceInfo, Services, ServicesStatistics, 
     ServicesStatisticsMapEntry, TicketBody, TicketsOrKeys, TimeSlot, ValidatorIndex, ValidatorStatistics, ValidatorsData, WorkPackageHash, WorkReport,
@@ -160,7 +160,7 @@ pub struct WorkReportState {
     pub prev_validators: ValidatorsData,
     pub entropy: EntropyPool,
     pub offenders: Offenders,
-    pub recent_blocks: BlockHistory,
+    pub recent_blocks: RecentBlocks,
     pub auth_pools: AuthPools,
     pub services: Services,
     pub cores_statistics: CoresStatistics,

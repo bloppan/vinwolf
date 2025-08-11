@@ -3,7 +3,7 @@ pub mod tests {
 use std::cmp::min;
 
 use jam_types::{
-    AccumulatedHistory, AuthPools, AuthQueues, Guarantee, AvailabilityAssignments, BlockHistory, DisputesRecords, EntropyPool, KeyValue, 
+    AccumulatedHistory, AuthPools, AuthQueues, Guarantee, AvailabilityAssignments, RecentBlocks, DisputesRecords, EntropyPool, KeyValue, 
     OutputAccumulation, OutputAssurances, OutputPreimages, OutputSafrole, Privileges, RawState, ReadError, ReadyQueue, RefineContext, Safrole, 
     Statistics, TimeSlot, ValidatorsData, WorkItem, WorkPackage, WorkReport, WorkResult, Assurance, Ticket, Preimage, Header, Block, DisputesExtrinsic
 };
@@ -174,7 +174,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
                 context.process_test_part("InputHistory", InputHistory::decode, InputHistory::encode)?;
             }
             TestBody::BlockHistory => {
-                context.process_test_part("BlockHistory", BlockHistory::decode, BlockHistory::encode)?;
+                context.process_test_part("BlockHistory", RecentBlocks::decode, RecentBlocks::encode)?;
             }
             TestBody::InputSafrole => {
                 context.process_test_part("InputSafrole", InputSafrole::decode, InputSafrole::encode)?;

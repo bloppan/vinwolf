@@ -1,7 +1,7 @@
 use {once_cell::sync::Lazy, std::sync::Mutex};
 
 use jam_types::{
-    AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, BlockHistory, DisputesRecords, EntropyPool, GlobalState, CoreIndex,
+    AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, RecentBlocks, DisputesRecords, EntropyPool, GlobalState, CoreIndex,
     OpaqueHash, Privileges, ReadyQueue, Safrole, ServiceAccounts, Statistics, TimeSlot, ValidatorSet, ValidatorsData, AvailabilityAssignment,
     Offenders, WorkReportHash, ProcessError, DisputesErrorCode, Entropy
 };
@@ -83,26 +83,26 @@ pub mod entropy {
     }
 }
 
-static CURR_BLOCK_HISTORY: Lazy<Mutex<BlockHistory>> = Lazy::new(|| {
-    Mutex::new(BlockHistory::default())
+static CURR_BLOCK_HISTORY: Lazy<Mutex<RecentBlocks>> = Lazy::new(|| {
+    Mutex::new(RecentBlocks::default())
 });
 
 pub mod recent_history {
     
     use super::*;
 
-    pub fn set(new_recent_history: BlockHistory) {
+    pub fn set(new_recent_history: RecentBlocks) {
         let mut state = GLOBAL_STATE.lock().unwrap();
         state.recent_history = new_recent_history;
     }
-    pub fn get() -> BlockHistory {
+    pub fn get() -> RecentBlocks {
         let state = GLOBAL_STATE.lock().unwrap();
         state.recent_history.clone()
     }
-    pub fn get_current() -> &'static Mutex<BlockHistory> {
+    pub fn get_current() -> &'static Mutex<RecentBlocks> {
         &CURR_BLOCK_HISTORY
     }
-    pub fn set_current(new_state: BlockHistory) {
+    pub fn set_current(new_state: RecentBlocks) {
         *CURR_BLOCK_HISTORY.lock().unwrap() = new_state;
     }
 }
@@ -207,6 +207,22 @@ pub mod auth_queues {
     pub fn get() -> AuthQueues {
         let state = GLOBAL_STATE.lock().unwrap();
         state.auth_queues.clone()
+    }
+}
+
+pub mod acc_outputs {
+
+    use jam_types::RecentAccOutputs;
+
+    use super::*;
+
+    pub fn set(new_acc_outputs: RecentAccOutputs) {
+        let mut state = GLOBAL_STATE.lock().unwrap();
+        state.recent_acc_outputs = new_acc_outputs;
+    }
+    pub fn get() -> RecentAccOutputs {
+        let state = GLOBAL_STATE.lock().unwrap();
+        state.recent_acc_outputs.clone()
     }
 }
 

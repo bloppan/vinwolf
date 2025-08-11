@@ -15,12 +15,9 @@ use std::collections::{HashSet, HashMap};
 use ark_vrf::reexports::ark_std::iterable::Iterable;
 
 use constants::node::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT, CORES_COUNT};
-use constants::pvm::CORE;
 
 use jam_types::{
-    Account, AccumulateErrorCode, AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, Gas, OpaqueHash, 
-    Privileges, ProcessError, ReadyQueue, ReadyRecord, ServiceAccounts, ServiceAssigns, ServiceId, StateKeyType, TimeSlot, ValidatorsData, 
-    WorkPackageHash, WorkReport
+    Account, AccumulateErrorCode, AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, Gas, OpaqueHash, Privileges, ProcessError, ReadyQueue, ReadyRecord, RecentAccOutputs, ServiceAccounts, ServiceAssigns, ServiceId, StateKeyType, TimeSlot, ValidatorsData, WorkPackageHash, WorkReport
 };
 use codec::{Encode, EncodeLen};
 use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
@@ -73,8 +70,10 @@ pub fn process(
         &partial_state.always_acc,
     )?;
 
-    let accumulation_root = get_acc_root(&mut service_hash_pairs);
-    log::debug!("Accumulation root: 0x{}", utils::print_hash!(accumulation_root));
+    state_handler::acc_outputs::set(service_hash_pairs.clone());
+    
+    let acc_outputs_result = get_acc_output(&mut service_hash_pairs);
+    log::debug!("Accumulation outputs result: 0x{}", utils::print_hash!(acc_outputs_result));
 
     accumulate_history::update(accumulated_history, map_workreports(&current_block_accumulatable));
     // The newly available work-reports, are partitioned into two sequences based on the condition of having zero prerequisite work-reports.
@@ -91,7 +90,7 @@ pub fn process(
         always_acc: post_partial_state.always_acc,
     };
 
-    Ok((accumulation_root, 
+    Ok((acc_outputs_result, 
         post_partial_state.service_accounts, 
         post_partial_state.next_validators, 
         post_partial_state.queues_auth, 
@@ -104,7 +103,7 @@ fn outer_accumulation(
     partial_state: AccumulationPartialState,
     service_gas_dict: &HashMap<ServiceId, Gas>
 
-) -> Result<(u32, AccumulationPartialState, Vec<DeferredTransfer>, Vec<(ServiceId, OpaqueHash)>, Vec<(ServiceId, Gas)>), ProcessError>
+) -> Result<(u32, AccumulationPartialState, Vec<DeferredTransfer>, RecentAccOutputs, Vec<(ServiceId, Gas)>), ProcessError>
 {
     log::debug!("Outer accumulation");
 
@@ -123,12 +122,12 @@ fn outer_accumulation(
 
     if i == 0 {
         log::debug!("Exit outer accumulation: i = 0");
-        return Ok((0, partial_state.clone(), vec![], vec![], vec![]));
+        return Ok((0, partial_state.clone(), vec![], RecentAccOutputs::default(), vec![]));
     }
 
     let (star_partial_state,
          star_deferred_transfers, 
-         star_service_gas_pairs, 
+         star_service_hash, 
          star_gas_used) = parallelized_accumulation(partial_state, &reports[..i as usize], &service_gas_dict)?;
 
     let total_gas_used: Gas = star_gas_used.iter().map(|(_, gas)| *gas).sum();
@@ -136,17 +135,24 @@ fn outer_accumulation(
     let (j, 
         prime_partial_state, 
         t_deferred_transfers,
-        b_service_hash_pairs,
+        b_service_hash,
         u_gas_used) = outer_accumulation(&(*gas_limit - total_gas_used), 
                                                             &reports[i as usize..], 
                                                             star_partial_state, 
                                                             &HashMap::<ServiceId, Gas>::new())?;
 
     log::debug!("Finalized outer accumulation");
+
+    let recent_acc_outputs = RecentAccOutputs {
+            pairs: star_service_hash.pairs.iter().cloned()
+                .chain(b_service_hash.pairs.iter().cloned())
+                .collect(),
+    };
+
     return Ok((i + j, 
                prime_partial_state, 
                [star_deferred_transfers, t_deferred_transfers].concat(), 
-               [star_service_gas_pairs, b_service_hash_pairs].concat(), 
+               recent_acc_outputs, 
                [star_gas_used, u_gas_used].concat()));
 }
 
@@ -154,7 +160,7 @@ fn parallelized_accumulation(
     partial_state: AccumulationPartialState,
     reports: &[WorkReport],
     service_gas_dict: &HashMap<ServiceId, Gas>,
-) -> Result<(AccumulationPartialState, Vec<DeferredTransfer>, Vec<(ServiceId, OpaqueHash)>, Vec<(ServiceId, Gas)>), ProcessError>
+) -> Result<(AccumulationPartialState, Vec<DeferredTransfer>, RecentAccOutputs, Vec<(ServiceId, Gas)>), ProcessError>
 {
     //println!("\nParallelized accumulation");
 
@@ -172,7 +178,7 @@ fn parallelized_accumulation(
     }
 
     let mut u_gas_used: Vec<(ServiceId, Gas)> = vec![];
-    let mut b_service_hash_pairs: Vec<(ServiceId, OpaqueHash)> = vec![];
+    let mut b_service_hash: RecentAccOutputs = RecentAccOutputs::default();
     let mut t_deferred_transfers: Vec<DeferredTransfer> = vec![];
     let mut n_service_accounts: ServiceAccounts = ServiceAccounts::default();
     let mut m_service_accounts = HashSet::new();
@@ -189,7 +195,7 @@ fn parallelized_accumulation(
 
         u_gas_used.push((*service, gas));
         if let Some(hash) = service_hash {
-            b_service_hash_pairs.push((*service, hash));
+            b_service_hash.pairs.push((*service, hash));
         }
         t_deferred_transfers.extend(transfers);
         p_preimages.extend(preimages);
@@ -318,7 +324,7 @@ fn parallelized_accumulation(
     };
 
     log::debug!("Finalized paralellized accumulation");
-    return Ok((result_partial_state, t_deferred_transfers, b_service_hash_pairs, u_gas_used));
+    return Ok((result_partial_state, t_deferred_transfers, b_service_hash, u_gas_used));
 }
 
 fn single_service_accumulation(
@@ -364,21 +370,21 @@ fn single_service_accumulation(
 
 }
 
-fn get_acc_root(service_hash_pairs: &mut Vec<(ServiceId, OpaqueHash)>) -> OpaqueHash {
+fn get_acc_output(service_hash: &mut RecentAccOutputs) -> OpaqueHash {
 
-    service_hash_pairs.sort_by_key(|(service_id, _)| *service_id);
+    service_hash.pairs.sort_by_key(|(service_id, _)| *service_id);
     
     let mut pairs_blob: Vec<Vec<u8>> = Vec::new();
-    for (service_id, hash) in service_hash_pairs.iter() {
+
+    for (service_id, hash) in service_hash.pairs.iter() {
         pairs_blob.push([service_id.encode(), hash.encode()].concat());
     }
-    /*for pair in pairs_blob.iter() {
-        println!("encoded: {:x?}", pair);
-    }*/
-    let accumulation_root = trie::merkle_balanced(pairs_blob, sp_core::keccak_256);
-    //println!("accumulation_root: {:x?}", accumulation_root);
 
-    return accumulation_root;
+    let merkle_balanced_result = utils::trie::merkle_balanced(pairs_blob, sp_core::keccak_256);
+    let post_recent_history_mmr = utils::trie::append(&state_handler::recent_history::get().mmr, merkle_balanced_result, sp_core::keccak_256);
+    let acc_outputs_result = utils::trie::mmr_super_peak(&post_recent_history_mmr);
+
+    return acc_outputs_result;
 }
 
 // The preimage integration transforms a dictionary of service states and a set of service/hash pairs into a new 

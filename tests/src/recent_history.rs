@@ -3,14 +3,14 @@ mod tests {
 
     //use crate::TestBody;
     use codec::{Decode, BytesReader};
-    use jam_types::{BlockHistory, ReportedWorkPackages};
+    use jam_types::{RecentBlocks, ReportedWorkPackages};
     use crate::test_types::InputHistory;
 
     fn run_test(filename: &str) {
         
         let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/history/data/{}", filename))).unwrap();
 
-        /*let test_body: Vec<TestBody> = vec![TestBody::InputHistory, TestBody::BlockHistory, TestBody::BlockHistory];
+        /*let test_body: Vec<TestBody> = vec![TestBody::InputHistory, TestBody::RecentBlocks, TestBody::RecentBlocks];
 
         if encode_decode_test(&test_content, &test_body).is_err() {
             panic!("Error encoding/decoding test file: {}", filename);
@@ -18,8 +18,8 @@ mod tests {
         
         let mut reader = BytesReader::new(&test_content);
         let input = InputHistory::decode(&mut reader).expect("Error decoding InputHistory");
-        let expected_pre_state = BlockHistory::decode(&mut reader).expect("Error decoding pre BlockHistory");
-        let expected_post_state = BlockHistory::decode(&mut reader).expect("Error decoding post BlockHistory");
+        let expected_pre_state = RecentBlocks::decode(&mut reader).expect("Error decoding pre RecentBlocks");
+        let expected_post_state = RecentBlocks::decode(&mut reader).expect("Error decoding post RecentBlocks");
         
         let mut reported_work_packages = ReportedWorkPackages::default();
         for wp in &input.work_packages {

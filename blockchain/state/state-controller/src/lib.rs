@@ -89,7 +89,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &new_state.curr_validators,
     )?; 
 
-    let (accumulation_root, 
+    let (acc_outputs_result, 
          service_accounts, 
          next_validators, 
          queue_auth, 
@@ -107,11 +107,11 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     new_state.next_validators = next_validators;
     new_state.auth_queues = queue_auth;
     new_state.privileges = privileges;
-    
+
     recent_history::finalize(
         &mut new_state.recent_history,
         &header_hash,
-        &accumulation_root,
+        &acc_outputs_result,
         &reported_work_packages);
 
     services::process(

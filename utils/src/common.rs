@@ -6,9 +6,9 @@ use std::fs::File;
 use std::io::Read;
 
 use jam_types::{
-    BandersnatchPublic, BlsPublic, Ed25519Public, Ed25519Signature, Metadata, ValidatorsData, Account, Balance, ServiceAccounts, ServiceId, ReadError,
-    OpaqueHash, PreimageData, StateKeyType, TimeSlot, KeyValue, GlobalState, AuthPools, AuthQueues, BlockHistory, Safrole, DisputesRecords, EntropyPool,
-    AvailabilityAssignments, Privileges, Statistics, ReadyQueue, AccumulatedHistory, Gas
+    Account, AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Balance, BandersnatchPublic, RecentBlocks, BlsPublic, DisputesRecords, 
+    Ed25519Public, Ed25519Signature, EntropyPool, Gas, GlobalState, KeyValue, Metadata, OpaqueHash, PreimageData, Privileges, ReadError, ReadyQueue, 
+    Safrole, ServiceAccounts, ServiceId, StateKeyType, Statistics, TimeSlot, ValidatorsData
 };
 use constants::node::{
     MIN_BALANCE, MIN_BALANCE_PER_ITEM, MIN_BALANCE_PER_OCTET, AUTH_POOLS, AUTH_QUEUE, RECENT_HISTORY, SAFROLE, DISPUTES, ENTROPY, NEXT_VALIDATORS, 
@@ -225,7 +225,7 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
                         state.auth_queues = AuthQueues::decode(&mut reader)?;
                     },
                     RECENT_HISTORY => {
-                        state.recent_history = BlockHistory::decode(&mut reader)?;
+                        state.recent_history = RecentBlocks::decode(&mut reader)?;
                     },
                     SAFROLE => {
                         state.safrole = Safrole::decode(&mut reader)?;

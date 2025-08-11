@@ -73,7 +73,7 @@ pub fn process(
     // We ensure that the work-package not appear anywhere within our pipeline
     let mut wp_hashes_in_our_pipeline: std::collections::HashSet<OpaqueHash> = HashSet::new();
 
-    let recent_history_map: std::collections::HashMap<_, _> = recent_history.blocks
+    let recent_history_map: std::collections::HashMap<_, _> = recent_history.history
         .iter()
         .flat_map(|blocks| blocks.reported_wp.iter())
         .map(|report| (report.0, report.1))
@@ -275,9 +275,9 @@ pub mod work_report {
 
     fn is_recent(work_report: &WorkReport) -> Result<bool, ProcessError> {
         
-        let block_history = state_handler::recent_history::get_current().lock().unwrap().clone();
+        let recent_blocks = state_handler::recent_history::get_current().lock().unwrap().clone();
 
-        for block in &block_history.blocks {
+        for block in &recent_blocks.history {
             if block.header_hash == work_report.context.anchor {
                 if block.state_root != work_report.context.state_root {
                     log::error!("Bad state root. Block state root 0x{} != Context state root 0x{}", 
@@ -285,7 +285,7 @@ pub mod work_report {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadStateRoot));
                 }
 
-                if mmr_super_peak(&block.mmr) != work_report.context.beefy_root {
+                if block.acc_result != work_report.context.beefy_root {
                     log::error!("Bad beefy MMR Root");
                     return Err(ProcessError::ReportError(ReportErrorCode::BadBeefyMmrRoot));
                 }

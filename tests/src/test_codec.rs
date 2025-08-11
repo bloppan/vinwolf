@@ -1,5 +1,5 @@
 use jam_types::{
-    AccumulatedHistory, Assurance, AuthPools, AuthQueues, AvailabilityAssignments, BandersnatchRingCommitment, BlockHistory, CodeAuthorizers, CoresStatistics, 
+    AccumulatedHistory, Assurance, AuthPools, AuthQueues, AvailabilityAssignments, BandersnatchRingCommitment, RecentBlocks, CodeAuthorizers, CoresStatistics, 
     DisputesErrorCode, DisputesRecords, Ed25519Public, Entropy, EntropyPool, Guarantee, HeaderHash, OpaqueHash, OutputDataDisputes, OutputDataReports, 
     Privileges, ReadError, ReadyQueue, ReportErrorCode, ReportedWorkPackage, ServiceId, ServiceInfo, Services, ServicesStatistics, 
     ServicesStatisticsMapEntry, TicketBody, TicketsOrKeys, TimeSlot, ValidatorIndex, ValidatorStatistics, ValidatorsData, WorkPackageHash, WorkReport,
@@ -478,7 +478,7 @@ impl Decode for WorkReportState {
             prev_validators: ValidatorsData::decode(blob)?,
             entropy: EntropyPool::decode(blob)?,
             offenders: Vec::<Ed25519Public>::decode_len(blob)?,
-            recent_blocks: BlockHistory::decode(blob)?,
+            recent_blocks: RecentBlocks::decode(blob)?,
             auth_pools: {
                 let auth_pools = AuthPools::decode(blob)?;
                 //println!("\nAuth pools: {:x?}", auth_pools);
