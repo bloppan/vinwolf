@@ -3,10 +3,11 @@
     Prior to accumulation, we must first integrate all preimages provided in the lookup extrinsic. 
  */
 
+use core::time;
 use std::collections::HashSet;
 use jam_types::{TimeSlot, ServiceAccounts, ProcessError, PreimagesErrorCode, StateKeyType, Preimage};
 use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
-use codec::{EncodeLen};
+use codec::{BytesReader, EncodeLen, DecodeLen};
 
 pub fn process(
     preimages_extrinsic: &[Preimage], 
@@ -33,17 +34,18 @@ pub fn process(
         let hash = sp_core::blake2_256(&preimage.blob);
         let length = preimage.blob.len() as u32;
         log::debug!("length: {length}, hash: 0x{}", utils::print_hash!(hash));
-        let lookup_key = StateKeyType::Account(preimage.requester, construct_lookup_key(&hash, length).to_vec()).construct();
-        let preimage_key = StateKeyType::Account(preimage.requester, construct_preimage_key(&hash).to_vec()).construct();
+        let lookup_key = StateKeyType::Account(preimage.requester, construct_lookup_key(&hash, length)).construct();
+        let preimage_key = StateKeyType::Account(preimage.requester, construct_preimage_key(&hash)).construct();
         if services.contains_key(&preimage.requester) {
             let account = services.get_mut(&preimage.requester).unwrap();
             if account.storage.contains_key(&preimage_key) {
                 log::error!("Preimage unneeded. The key 0x{} is already contained in this account", utils::print_hash!(hash));
                 return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
             }
-            if let Some(timeslots) = account.storage.get(&lookup_key) {
+            if let Some(timeslots_blob) = account.storage.get(&lookup_key) {
+                let timeslots = Vec::<TimeSlot>::decode_len(&mut BytesReader::new(&timeslots_blob)).unwrap();
                 if timeslots.len() > 0 {
-                    log::error!("Preimage unneeded");
+                    log::error!("Preimage unneeded: timeslots len > 0: {:?}", timeslots);
                     return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
                 }
             } else {

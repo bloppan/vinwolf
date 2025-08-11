@@ -21,7 +21,7 @@ mod tests {
     
     fn run_test(filename: &str) {
 
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/preimages/data/{}", filename))).unwrap();
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/preimages/tiny/{}", filename))).unwrap();
         let test_body: Vec<TestBody> = vec![
                                         TestBody::InputPreimages,
                                         TestBody::PreimagesState,
