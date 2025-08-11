@@ -174,13 +174,18 @@ pub fn process(
                                 curr_validators)?;
 
         reported.extend(new_reported);
-        reporters.extend(new_reporters);
+
+        // This ensures that we do not return duplicate reporters
+        for reporter in &new_reporters {
+            if !reporters.contains(reporter) {
+                reporters.push(*reporter);
+            }
+        }
     }
 
     reported.sort_by_key(|report| report.work_package_hash);
     reporters.sort();
-    /*reported.sort_by(|a, b| a.work_package_hash.cmp(&b.work_package_hash));
-    reporters.sort();*/
+    
     log::debug!("Guarantees extrinsic processed successfully");
 
     Ok(OutputDataReports { reported, reporters })
@@ -372,7 +377,10 @@ pub mod work_report {
                 }
                 // We note that the Ed25519 key of each validator whose signature is in a credential is placed in the reporters set.
                 // This is utilized by the validator activity statistics book-keeping system.
-                reporters.push(validator.ed25519);
+                if !reporters.contains(&validator.ed25519) {
+                    log::debug!("added: {:?}", validator.ed25519);
+                    reporters.push(validator.ed25519);
+                }
             }
 
             reporters.sort();

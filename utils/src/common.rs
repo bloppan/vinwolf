@@ -119,6 +119,7 @@ pub fn set_offenders_null(validators_data: &mut ValidatorsData, offenders: &[Ed2
     'next_offender: for offender in offenders {
         for validator in validators_data.list.iter_mut() {
             if *offender == validator.ed25519 {
+                log::debug!("Validator {} belongs to offenders set", crate::print_hash!(validator.ed25519));
                 validator.bandersnatch = [0u8; std::mem::size_of::<BandersnatchPublic>()];
                 validator.ed25519 = [0u8; std::mem::size_of::<Ed25519Public>()];
                 validator.bls = [0u8; std::mem::size_of::<BlsPublic>()];

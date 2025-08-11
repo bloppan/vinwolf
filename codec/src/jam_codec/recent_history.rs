@@ -48,6 +48,7 @@ impl Encode for RecentBlocks {
             item.encode_to(&mut state);
         }
 
+        encode_unsigned(self.mmr.peaks.len()).encode_to(&mut state);
         self.mmr.peaks.encode_to(&mut state);
 
         return state;

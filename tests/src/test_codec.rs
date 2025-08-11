@@ -9,7 +9,7 @@ use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 use crate::test_types::{
     InputAuthorizations, StateAuthorizations, InputAssurances, StateAssurances, DisputesState, OutputDisputes, InputHistory, InputPreimages, AccountsMapEntry,
     PreimagesState, AccountTest, LookupMetaMapEntry, LookupMetaMapKeyTest, InputWorkReport, WorkReportState, OutputWorkReport, InputSafrole, SafroleState,
-    InputStatistics, StateStatistics, AccountAccTest, StorageMapEntry, StateAccumulate, InputAccumulate, AccountsAccMapEntry, PreimagesMapEntry
+    InputStatistics, StateStatistics, AccountAccTest, StorageMapEntry, StateAccumulate, InputAccumulate, AccountsAccMapEntry, PreimagesMapEntry, ReportsAccountsMapEntry
 };
 
 // ----------------------------------------------------------------------------------------------------------
@@ -439,6 +439,33 @@ impl Decode for InputWorkReport {
     }
 }
 
+impl Encode for ReportsAccountsMapEntry {
+
+    fn encode(&self) -> Vec<u8> {
+        
+        let mut blob = Vec::new();
+
+        self.id.encode_to(&mut blob);
+        self.data.encode_to(&mut blob);
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for ReportsAccountsMapEntry {
+
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        Ok(ReportsAccountsMapEntry { 
+            id: ServiceId::decode(reader)?, 
+            data: ServiceInfo::decode(reader)?, 
+        })
+    }
+}
+
 impl Encode for WorkReportState {
 
     fn encode(&self) -> Vec<u8> {
@@ -452,7 +479,7 @@ impl Encode for WorkReportState {
         self.offenders.encode_len().encode_to(&mut blob);
         self.recent_blocks.encode_to(&mut blob);
         self.auth_pools.encode_to(&mut blob);
-        self.services.encode_to(&mut blob);
+        self.services.encode_len().encode_to(&mut blob);
         self.cores_statistics.encode_to(&mut blob);
         self.services_statistics.encode_to(&mut blob);
 
@@ -485,7 +512,7 @@ impl Decode for WorkReportState {
                 auth_pools
             },
             services: {
-                let services = Services::decode(blob)?;
+                let services = Vec::<ReportsAccountsMapEntry>::decode_len(blob)?;
                 //println!("\nServices: {:x?}", services);
                 services
             },
@@ -561,15 +588,16 @@ impl Decode for OutputWorkReport {
                 20 => ReportErrorCode::SegmentRootLookupInvalid,
                 21 => ReportErrorCode::BadSignature,
                 22 => ReportErrorCode::WorkReportTooBig,
-                23 => ReportErrorCode::TooManyGuarantees,
-                24 => ReportErrorCode::NoAuthorization,
-                25 => ReportErrorCode::BadNumberCredentials,
-                26 => ReportErrorCode::TooOldGuarantee,
-                27 => ReportErrorCode::GuarantorNotFound,
-                28 => ReportErrorCode::LengthNotEqual,    
-                29 => ReportErrorCode::BadLookupAnchorSlot,     
-                30 => ReportErrorCode::NoResults,
-                31 => ReportErrorCode::TooManyResults,               
+                23 => ReportErrorCode::BanedValidator,
+                24 => ReportErrorCode::TooManyGuarantees,
+                25 => ReportErrorCode::NoAuthorization,
+                26 => ReportErrorCode::BadNumberCredentials,
+                27 => ReportErrorCode::TooOldGuarantee,
+                28 => ReportErrorCode::GuarantorNotFound,
+                29 => ReportErrorCode::LengthNotEqual,    
+                30 => ReportErrorCode::BadLookupAnchorSlot,     
+                31 => ReportErrorCode::NoResults,
+                32 => ReportErrorCode::TooManyResults,               
                 _ => return Err(ReadError::InvalidData),
             };
             Ok(OutputWorkReport::Err(error))
