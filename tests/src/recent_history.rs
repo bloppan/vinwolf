@@ -35,13 +35,10 @@ mod tests {
                             &input.header_hash, 
                             &input.parent_state_root, 
                             &reported_work_packages);
-        
-        recent_history_state.mmr = utils::trie::append(&state_handler::recent_history::get().mmr, input.accumulate_root, sp_core::keccak_256);
-        let acc_outputs_result = utils::trie::mmr_super_peak(&recent_history_state.mmr);
 
         recent_history::finalize(&mut recent_history_state,
                                 &input.header_hash, 
-                                &acc_outputs_result, 
+                                &input.accumulate_root, 
                                 &reported_work_packages);
 
         assert_eq!(expected_post_state.history, recent_history_state.history);

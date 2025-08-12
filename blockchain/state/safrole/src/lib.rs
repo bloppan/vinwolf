@@ -174,9 +174,9 @@ pub fn process(
     // update tau which defines the most recent block's index
     *tau = post_tau;
     // Verify the header's seal
-    //let entropy_source_vrf_output = header::seal_verify(&block.header, &safrole_state, &entropy_pool, &curr_validators, ring_set)?;
+    let entropy_source_vrf_output = header::seal_verify(&block.header, &safrole_state, &entropy_pool, &curr_validators, ring_set)?;
     // Update recent entropy eta0
-    //entropy::update_recent(entropy_pool, entropy_source_vrf_output);
+    entropy::update_recent(entropy_pool, entropy_source_vrf_output);
     
     log::debug!("Safrole state processed successfully");
     return Ok(OutputDataSafrole {epoch_mark, tickets_mark});

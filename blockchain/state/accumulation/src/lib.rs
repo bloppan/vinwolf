@@ -72,8 +72,8 @@ pub fn process(
 
     state_handler::acc_outputs::set(service_hash_pairs.clone());
     
-    let acc_outputs_result = get_acc_output(&mut service_hash_pairs);
-    log::debug!("Accumulation outputs result: 0x{}", utils::print_hash!(acc_outputs_result));
+    let acc_root = get_acc_root(&mut service_hash_pairs);
+    log::debug!("Accumulation root: 0x{}", utils::print_hash!(acc_root));
 
     accumulate_history::update(accumulated_history, map_workreports(&current_block_accumulatable));
     // The newly available work-reports, are partitioned into two sequences based on the condition of having zero prerequisite work-reports.
@@ -82,7 +82,6 @@ pub fn process(
     ready_queue::update(ready_queue, accumulated_history, post_tau, reports_for_queue);
 
     save_statistics(&mut post_partial_state, &transfers, &service_gas_pairs, &current_block_accumulatable, num_wi_accumulated);
-
     let post_privileges = Privileges {
         manager: post_partial_state.manager,
         assign: post_partial_state.assign,
@@ -90,7 +89,7 @@ pub fn process(
         always_acc: post_partial_state.always_acc,
     };
 
-    Ok((acc_outputs_result, 
+    Ok((acc_root, 
         post_partial_state.service_accounts, 
         post_partial_state.next_validators, 
         post_partial_state.queues_auth, 
@@ -173,7 +172,7 @@ fn parallelized_accumulation(
     }
 
     for service_gas_dict in service_gas_dict.iter() {
-        //println!("service gas dict: {}", service_gas_dict.0);
+        log::info!("service gas dict: {}", service_gas_dict.0);
         s_services.push(service_gas_dict.0.clone());
     }
 
@@ -197,6 +196,7 @@ fn parallelized_accumulation(
         if let Some(hash) = service_hash {
             b_service_hash.pairs.push((*service, hash));
         }
+        log::info!("u_gas_used: {:?}", u_gas_used);
         t_deferred_transfers.extend(transfers);
         p_preimages.extend(preimages);
 
@@ -370,24 +370,17 @@ fn single_service_accumulation(
 
 }
 
-fn get_acc_output(service_hash: &mut RecentAccOutputs) -> OpaqueHash {
+fn get_acc_root(service_hash: &mut RecentAccOutputs) -> OpaqueHash {
 
     service_hash.pairs.sort_by_key(|(service_id, _)| *service_id);
     
     let mut pairs_blob: Vec<Vec<u8>> = Vec::new();
 
-    for (service_id, hash) in service_hash.pairs.iter() {
+    for (service_id, hash) in &service_hash.pairs {
         pairs_blob.push([service_id.encode(), hash.encode()].concat());
     }
 
-    let merkle_balanced_result = utils::trie::merkle_balanced(pairs_blob, sp_core::keccak_256);
-    let mut recent_history_state = state_handler::recent_history::get().clone();
-    let mmr = utils::trie::append(&recent_history_state.mmr, merkle_balanced_result, sp_core::keccak_256);
-    let acc_outputs_result = utils::trie::mmr_super_peak(&mmr);
-    recent_history_state.mmr = mmr;
-    state_handler::recent_history::set(recent_history_state);
-
-    return acc_outputs_result;
+    utils::trie::merkle_balanced(pairs_blob, sp_core::keccak_256)
 }
 
 // The preimage integration transforms a dictionary of service states and a set of service/hash pairs into a new 
@@ -505,7 +498,6 @@ fn save_statistics(
             post_partial_state.service_accounts.insert(*service.0, service.1.0.clone());
         }
     }
-
     
     statistics::set_acc_stats(acc_stats);
     statistics::set_xfer_stats(xfers_stats);

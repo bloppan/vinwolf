@@ -318,7 +318,6 @@ pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account,
         return (ExitReason::panic, gas, reg, ram, account);
     }
     
-    log::debug!("service_id: {}", service_id);
     let raw_storage_key = ram.read(key_start_address as RamAddress, key_size as RamAddress);
     log::debug!("raw key: 0x{}", hex::encode(&raw_storage_key));
 
@@ -327,13 +326,49 @@ pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account,
 
     let mut s_account = account.clone();
 
+    let old_storage_data_len: Option<usize> = if let Some (old_storage_data) = s_account.storage.get(&storage_key) {
+        Some(old_storage_data.len())
+    } else {
+        None
+    };
+
     let modified_account = if value_size == 0 {
         log::debug!("remove key: 0x{}", hex::encode(&storage_key));
         s_account.storage.remove(&storage_key);
+                
+        if old_storage_data_len.is_some() {
+            log::debug!("Substract {:?} to octets storage", old_storage_data_len.unwrap() as u64 + raw_storage_key.len() as u64 + 34);
+            s_account.octets -= old_storage_data_len.unwrap() as u64 + raw_storage_key.len() as u64 + 34;
+            s_account.items -= 1;
+        }
+
         s_account
     } else if ram.is_readable(value_start_address as RamAddress, value_size as RamAddress) {
         let storage_data = ram.read(value_start_address as RamAddress, value_size as RamAddress);
         log::debug!("insert key: 0x{}, value = 0x{}", hex::encode(&storage_key), hex::encode(&storage_data));
+
+        if old_storage_data_len.is_some() {
+
+            let diff_storage: i64 = (storage_data.len() as i64 - old_storage_data_len.unwrap() as i64) as i64;
+
+            if diff_storage.is_positive() {
+                log::debug!("Sum {:?} to octets storage", diff_storage);
+                s_account.octets += diff_storage as u64;
+            } else if diff_storage.is_negative() {
+                log::debug!("Substract {:?} to octets storage", diff_storage);
+                s_account.octets -= diff_storage.abs() as u64;
+            }
+
+            if old_storage_data_len.unwrap() == 0 {
+                s_account.items += 1;
+            }
+        } else {
+            log::debug!("Sum 1 to items storage");
+            s_account.items += 1;
+            log::debug!("Sum {:?} to octets storage", storage_data.len() as u64 + raw_storage_key.len() as u64 + 34);
+            s_account.octets += storage_data.len() as u64 + raw_storage_key.len() as u64 + 34;
+        }
+        
         s_account.storage.insert(storage_key, storage_data);
         s_account
     } else {

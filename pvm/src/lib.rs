@@ -63,7 +63,7 @@ pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
             },
         }
        
-        log::trace!("pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, pvm_ctx.gas, pvm_ctx.reg);
+        
         opcode_copy = program.code[pvm_ctx.pc.clone() as usize];
     }
 }
@@ -71,11 +71,15 @@ pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
 
 fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
 
+    //log::trace!("pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), program.code[pvm_ctx.pc.clone() as usize], pvm_ctx.gas, pvm_ctx.reg);
+
     pvm_ctx.gas -= 1;
 
     if pvm_ctx.gas < 0 {
         return ExitReason::OutOfGas;
     }
+
+    log::trace!("pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), program.code[pvm_ctx.pc.clone() as usize], pvm_ctx.gas, pvm_ctx.reg);
 
     let exit_reason = match program.code[pvm_ctx.pc as usize] { 
 

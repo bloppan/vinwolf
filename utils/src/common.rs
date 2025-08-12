@@ -51,6 +51,13 @@ pub fn get_threshold(account: &Account) -> Balance {
     std::cmp::max(0, MIN_BALANCE + account.items as Balance * MIN_BALANCE_PER_ITEM + account.octets as Balance * MIN_BALANCE_PER_OCTET - account.gratis_storage_offset) as Balance
 }
 
+pub fn update_storage_octets(init_value: &[u8], final_value: &[u8]) -> i64 {
+    (final_value.len() - init_value.len()) as i64
+}
+
+pub fn octets_lookup(length: u32) -> u64 {
+    (81 + length) as u64
+}
 
 pub fn keys_to_set<K: Eq + std::hash::Hash + Clone, V>(
     map: &HashMap<K, V>,

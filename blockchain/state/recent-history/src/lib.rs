@@ -52,12 +52,16 @@ pub fn finalize(
         return;
     }
 
+    let mmr = utils::trie::append(&recent_history_state.mmr, *acc_outputs_result, sp_core::keccak_256);
+    let acc_outputs_result = utils::trie::mmr_super_peak(&mmr);
+    recent_history_state.mmr = mmr;
+
     // The final state transition for βH appends a new item including the new block's header hash, a Merkle commitment to the block's 
     // Accumulation Output Log and the set of work-reports made into it (for which we use the guarantees extrinsic, EG).
     recent_history_state.history.push_back(BlockInfo {
         header_hash: *header_hash,
         // Merkle commitment to the block's Accumulation Output Log 
-        beefy_root: *acc_outputs_result,
+        beefy_root: acc_outputs_result,
         // The new state-trie root is the zero hash, H0, which is inaccurate but safe since β'H is not utilized except to define the next block's β†H, 
         // which contains a corrected value for this
         state_root: [0u8; std::mem::size_of::<Hash>()],

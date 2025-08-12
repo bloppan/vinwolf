@@ -49,6 +49,7 @@ pub fn invoke_accumulation(
                 log::error!("The preimage is none");
                 return (partial_state.clone(), vec![], None, 0, vec![]);
             }
+            log::info!("Preimage parsed successfully");
             preimage.unwrap()
         },
         Err(_) => { 
