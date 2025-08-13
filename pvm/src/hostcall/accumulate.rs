@@ -384,7 +384,8 @@ fn query(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
-    let timeslots = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().storage.get(&lookup_key).unwrap().clone();
+    let timeslots_blob = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().storage.get(&lookup_key).unwrap().clone();
+    let timeslots = Vec::<TimeSlot>::decode_len(&mut BytesReader::new(&timeslots_blob)).unwrap();
     let timeslots_len = timeslots.len();
     log::debug!("timeslots: {:?}", timeslots);
 

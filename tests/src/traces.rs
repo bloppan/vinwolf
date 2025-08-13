@@ -10,11 +10,41 @@ mod tests {
     
     //pub const TEST_DIR: &str = "jamtestvectors/traces/fallback";
     //pub const TEST_DIR: &str = "jamtestvectors/traces/safrole";
-    pub const TEST_DIR: &str = "jamtestvectors/traces/storage_light";
-    //pub const TEST_DIR: &str = "jamtestvectors/traces/reports-l1";
+    //pub const TEST_DIR: &str = "jamtestvectors/traces/storage_light";
+    //pub const TEST_DIR: &str = "jamtestvectors/traces/storage";
+    //pub const TEST_DIR: &str = "jamtestvectors/traces/preimages_light";
+    //pub const TEST_DIR: &str = "jamtestvectors/traces/preimages";
     
     //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.6/vinwolf/vinwolf-target-0.1.0_GP-0.6.6/1753948533";
     //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.6/jamzig/jamzig-target-0.1.0_GP-0.6.6/solved/1753948715";
+
+    /* JamDuna */
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamduna/fixed/jam-duna-target-v0.5-0.6.7_gp-0.6.7"; /* OK */
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamduna/fixed/jam-duna-target-v0.7-0.6.7_gp-0.6.7/1754982087";  ********
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamduna/jam-duna-target-v0.8-0.6.7_gp-0.6.7/fixed/1754982630";  ********
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamduna/jam-duna-target-v0.8-0.6.7_gp-0.6.7/1755105426"; /* OK */
+
+    /* Jamixir */
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamixir/fixed/1754983524/traces"; /* OK */
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamixir/1755106159/traces"; /* OK */
+
+    /* Jamzig */
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamzig/jamzig-target-0.1.0_gp-0.6.7/fixed/1754988078"; **********
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamzig/jamzig-target-0.1.0_gp-0.6.7/1755081941";  *********
+
+    /* Jamzilla */
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamzilla/jam-node-0.1.0_gp-0.6.7/fixed/1754984893"; /* OK */
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamzilla/jam-node-0.1.0_gp-0.6.7/1755082451"; // ********** invalid ticket seal 11-12
+
+    /* JavaJam */
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/javajam/javajam-0.6.7_gp-0.6.7/1754582958"; // ***** panic (maybe bless hostcall) 3-4
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/javajam/javajam-0.6.7_gp-0.6.7/1754725568"; // ****** bad deserialization 3-4 
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/javajam/javajam-0.6.7_gp-0.6.7/1754754058/traces"; // ****** bad deserialization 1-4
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/javajam/javajam-0.6.7_gp-0.6.7/1754990132"; // 11-12 panic (out of gas)
+
+    /* SpaceJam */
+    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/spacejam/1755083543"; // 1-2 /* OK */
+
 
 
     #[test]
@@ -40,7 +70,7 @@ mod tests {
             return;
         }*/
 
-        let mut slot = 15;
+        let mut slot = 1;
         
         loop {
 
@@ -74,15 +104,15 @@ mod tests {
             
             assert_eq_state(&expected_state, &result_state);
 
-            /*log::info!("post_sta state_root: 0x{}", hex::encode(post_state.state_root));
+            log::info!("post_sta state_root: 0x{}", hex::encode(post_state.state_root));
             log::info!("expected state_root: 0x{}", hex::encode(merkle_state(&serialization::serialize(&expected_state).map, 0)));
-            log::info!("result   state_root: 0x{}", hex::encode(merkle_state(&serialization::serialize(&result_state).map, 0)));*/
+            log::info!("result   state_root: 0x{}", hex::encode(merkle_state(&serialization::serialize(&result_state).map, 0)));
             
             assert_eq!(post_state.state_root, merkle_state(&serialization::serialize(&result_state).map, 0));
 
             slot += 1;
 
-            if slot == 101 {
+            if slot == 3 {
                 return;
             }
         }

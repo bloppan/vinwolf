@@ -481,24 +481,27 @@ mod work_result {
         }
 
         let services = state_handler::service_accounts::get();
+        for service in services.iter() {
+            log::info!("service: {:?} available" , *service.0);
+        }
         let mut total_accumulation_gas: Gas = 0;
         
         //let service_map: std::collections::HashMap<_, _> = services.0.iter().map(|s| (s.id, s)).collect();
         let mut results_size = 0;
 
         for result in results.iter() {
-            if let Some(service) = services.get(&result.service) {
+            if let Some(account) = services.get(&result.service) {
                 // We require that all work results within the extrinsic predicted the correct code hash for their 
                 // corresponding service
-                if result.code_hash != service.code_hash {
-                    log::error!("Bad code hash 0x{} != 0x{}", utils::print_hash!(result.code_hash), utils::print_hash!(service.code_hash));
+                if result.code_hash != account.code_hash {
+                    log::error!("Service {:?} Bad code hash 0x{} != 0x{}", result.service, utils::print_hash!(result.code_hash), utils::print_hash!(account.code_hash));
                     return Err(ProcessError::ReportError(ReportErrorCode::BadCodeHash));
                 }
                 // We require that the gas allotted for accumulation of each work item in each work-report respects 
                 // its service's minimum gas requirements
                 // TODO revisar esto a ver si en realidad es este gas
-                if result.gas < service.acc_min_gas {
-                    log::error!("Service item gas too low: {:?}. The min gas required is {:?}", result.gas, service.acc_min_gas);
+                if result.gas < account.acc_min_gas {
+                    log::error!("Service item gas too low: {:?}. The min gas required is {:?}", result.gas, account.acc_min_gas);
                     return Err(ProcessError::ReportError(ReportErrorCode::ServiceItemGasTooLow));
                 }
                 total_accumulation_gas += result.gas;
