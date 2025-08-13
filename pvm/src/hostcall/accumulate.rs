@@ -216,7 +216,7 @@ fn transfer(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallConte
 
 -> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
 {
-    gas = gas - 10 - reg[9] as Gas;
+    gas -= (10 + reg[9]) as Gas;
 
     if gas < 0 {
         log::error!("Out of gas!");
@@ -440,6 +440,7 @@ fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext, s
         new_account.created_at = slot;
         new_account.gratis_storage_offset = gratis_storage_offset;
         new_account.parent_service = ctx_x.service_id;
+        new_account.octets = 81 + length;
         let new_account_threshold = utils::common::get_threshold(&new_account);
         new_account.balance = new_account_threshold;
 
@@ -537,6 +538,8 @@ fn solicit(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
     if !account.storage.contains_key(&lookup_key) {
         log::debug!("Insert key 0x{} value: ( )", hex::encode(lookup_key));
         account.storage.insert(lookup_key, Vec::<TimeSlot>::new().encode_len());
+        account.items += 2;
+        account.octets += (81 + preimage_size) as u64;
     } else if account.storage.get(&lookup_key).unwrap().len() == 2 {
         let timeslots_blob = account.storage.get(&lookup_key).unwrap();
         let mut reader = BytesReader::new(timeslots_blob);
@@ -791,6 +794,8 @@ fn forget(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
         if timeslots.len() == 0 || (timeslots.len() == 2 && (timeslots[1] < slot.saturating_sub(MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE))) {
             account.storage.remove(&lookup_key);
             account.storage.remove(&StateKeyType::Account(ctx_x.service_id, construct_preimage_key(&hash)).construct());
+            account.items -= 2;
+            account.octets -= (81 + length) as u64;
             log::debug!("Remove lookup: 0x{}, remove preimage: 0x{}", hex::encode(lookup_key), hex::encode(hash));
         } else if timeslots.len() == 1 {
             log::debug!("Insert to lookup key 0x{} slot: {:?}", hex::encode(lookup_key), slot);
