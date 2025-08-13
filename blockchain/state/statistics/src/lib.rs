@@ -20,10 +20,11 @@ use std::sync::Mutex;
 use std::collections::{HashMap, HashSet};
 
 use jam_types::{
-    ValidatorsData, ValidatorStatistics, CoresStatistics, ServicesStatistics, SeviceActivityRecord, Statistics, Block, WorkReport, Gas, ServiceId
+    Block, CoresStatistics, Ed25519Public, Gas, ServiceId, ServicesStatistics, SeviceActivityRecord, Statistics, ValidatorStatistics, ValidatorsData, WorkReport
 };
-
-use constants::node::{CORES_COUNT, EPOCH_LENGTH, SEGMENT_SIZE};
+use utils::common::VerifySignature;
+use codec::Encode;
+use constants::node::{CORES_COUNT, EPOCH_LENGTH, SEGMENT_SIZE, VALIDATORS_COUNT};
 
 static ACC_STATS: Lazy<Mutex<HashMap<ServiceId, (Gas, u32)>>> = Lazy::new(|| {
     Mutex::new(HashMap::default())
@@ -53,6 +54,7 @@ pub fn process(
     statistics: &mut Statistics,
     curr_validators: &ValidatorsData,
     block: &Block,
+    reporters: &[Ed25519Public],
     new_available_wr: &[WorkReport],
 ) {
     
@@ -88,11 +90,13 @@ pub fn process(
     statistics.cores = CoresStatistics::default();
     statistics.services = ServicesStatistics::default();
 
-    for guarantee in &block.extrinsic.guarantees {
-
-        for signature in guarantee.signatures.iter() {
-            statistics.curr.records[signature.validator_index as usize].guarantees += 1;
+    for validator_index in 0..VALIDATORS_COUNT {
+        if reporters.contains(&curr_validators.list[validator_index].ed25519) {
+            statistics.curr.records[validator_index as usize].guarantees += 1;
         }
+    }
+
+    for guarantee in &block.extrinsic.guarantees {
 
         statistics.cores.records[guarantee.report.core_index as usize].imports += guarantee.report.results.iter().map(|result| result.refine_load.imports).sum::<u16>();
         statistics.cores.records[guarantee.report.core_index as usize].extrinsic_count += guarantee.report.results.iter().map(|result| result.refine_load.extrinsic_count).sum::<u16>();

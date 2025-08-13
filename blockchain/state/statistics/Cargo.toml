@@ -9,8 +9,10 @@ repository.workspace = true
 [dependencies]
 constants = { workspace = true }
 jam-types = { workspace = true }
+codec = { workspace = true }
 utils = { workspace = true }
 state-handler = { workspace = true }
 block = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
+sp-core = "34.0.0"

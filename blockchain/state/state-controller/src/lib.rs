@@ -128,6 +128,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &mut new_state.statistics, 
         &new_state.curr_validators,
         block,
+        &reporters,
         &new_available_workreports.reported,
     );
     
