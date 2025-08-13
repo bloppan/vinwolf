@@ -1,3 +1,4 @@
+use core::time;
 use std::collections::HashMap;
 use sp_core::blake2_256;
 use {once_cell::sync::Lazy, std::sync::Mutex};
@@ -317,7 +318,7 @@ fn eject(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext,
             return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
         }
 
-        let lookup_key = StateKeyType::Account(ctx_x.service_id, construct_lookup_key(&hash, length).to_vec()).construct();
+        let lookup_key = StateKeyType::Account(ctx_x.service_id, construct_lookup_key(&hash, length)).construct();
         
         if d_account.items != 2 || !d_account.storage.contains_key(&lookup_key) {
             log::debug!("Exit: HUH");
@@ -373,7 +374,7 @@ fn query(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
     let (ctx_x, ctx_y) = ctx.to_acc_ctx();
 
     let hash: OpaqueHash = ram.read(start_address, 32).try_into().unwrap();
-    let lookup_key = StateKeyType::Account(ctx_x.service_id, construct_lookup_key(&hash, length).to_vec()).construct();
+    let lookup_key = StateKeyType::Account(ctx_x.service_id, construct_lookup_key(&hash, length)).construct();
 
     log::debug!("length: {:?}, hash: 0x{}, lookup_key: 0x{}", length, hex::encode(hash), hex::encode(lookup_key));
     
@@ -530,7 +531,7 @@ fn solicit(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
     }
 
     let hash: OpaqueHash = ram.read(start_address,  32).try_into().unwrap();
-    let lookup_key = StateKeyType::Account(ctx_x.service_id, construct_lookup_key(&hash, preimage_size).to_vec()).construct();
+    let lookup_key = StateKeyType::Account(ctx_x.service_id, construct_lookup_key(&hash, preimage_size)).construct();
     log::debug!("preimage_size: {:?}, hash: 0x{}, lookup_key: 0x{}", preimage_size, hex::encode(hash), hex::encode(lookup_key));
 
     let mut account = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().clone();
@@ -862,7 +863,7 @@ fn provide(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
     let start_address = reg[8] as RamAddress;
     let size = reg[9] as RamAddress;
 
-    let id = if reg[7] == u64::MAX {
+    let star_service = if reg[7] == u64::MAX {
         service_id
     } else {
         reg[7] as ServiceId
@@ -875,15 +876,15 @@ fn provide(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
 
     let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
 
-    let account: Option<Account> = if ctx_x.partial_state.service_accounts.contains_key(&id) {
-        ctx_x.partial_state.service_accounts.get(&id).cloned()
+    let account: Option<Account> = if ctx_x.partial_state.service_accounts.contains_key(&star_service) {
+        ctx_x.partial_state.service_accounts.get(&star_service).cloned()
     } else {
         None
     };
 
-    if account.is_none() {
+    if account.as_ref().is_none() {
         reg[7] = WHO;
-        log::debug!("Exit: WHO");
+        log::debug!("Account not found for service: {:?}. Exit: WHO", star_service);
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
@@ -891,21 +892,32 @@ fn provide(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
     let lookup_key = StateKeyType::Account(ctx_x.service_id, construct_lookup_key(&sp_core::blake2_256(&item), size)).construct();
     log::debug!("lookup key: 0x{}", hex::encode(lookup_key));
 
-    if account.unwrap().storage.contains_key(&lookup_key) {
+
+    if let Some(timeslots_blob) = account.unwrap().storage.get(&lookup_key) {
+        
+        let timeslots = Vec::<TimeSlot>::decode_len(&mut BytesReader::new(timeslots_blob)).unwrap();
+
+        if timeslots.len() != 0 {
+            reg[7] = HUH;
+            log::debug!("The preimage for lookup_key: {} is was already provided in timeslots: {:?}", utils::print_hash!(&lookup_key), timeslots);
+            log::debug!("Exit: HUH");
+            return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+        }
+    } else {
         reg[7] = HUH;
-        log::debug!("lookup already contains the lookup key");
+        log::debug!("lookup_key: {} not found. The preimage was not solicited previously", utils::print_hash!(&lookup_key));
         log::debug!("Exit: HUH");
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
     
-    if ctx_x.preimages.contains(&(id, item.clone())) {
-        log::debug!("preimages already contains id: {id} and item: {:?}", item);
+    if ctx_x.preimages.contains(&(star_service, item.clone())) {
+        log::debug!("preimages already contains the pair service: {star_service} item: {}", hex::encode(&item));
         log::debug!("Exit: HUH");
         reg[7] = HUH;
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
-    ctx_x.preimages.push((id, item));
+    ctx_x.preimages.push((star_service, item));
     reg[7] = OK;
 
     log::debug!("Exit: OK");
