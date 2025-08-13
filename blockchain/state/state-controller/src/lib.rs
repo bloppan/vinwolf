@@ -25,7 +25,7 @@
 */
 
 use sp_core::blake2_256;
-use jam_types::{Block, ProcessError};
+use jam_types::{Block, ProcessError, OutputDataReports};
 use utils::trie::merkle_state;
 use block::header;
 use codec::Encode;
@@ -80,7 +80,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &block.header.unsigned.parent,
     )?;
 
-    let _ = reports::guarantees::process(
+    let OutputDataReports { reported: _reported, reporters } = reports::guarantees::process(
         &mut new_state.availability, 
         &block.extrinsic.guarantees,
         &block.header.unsigned.slot,

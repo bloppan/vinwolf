@@ -378,7 +378,6 @@ pub mod work_report {
                 // We note that the Ed25519 key of each validator whose signature is in a credential is placed in the reporters set.
                 // This is utilized by the validator activity statistics book-keeping system.
                 if !reporters.contains(&validator.ed25519) {
-                    log::debug!("added: {:?}", validator.ed25519);
                     reporters.push(validator.ed25519);
                 }
             }

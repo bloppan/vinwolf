@@ -48,7 +48,7 @@ pub fn dict_subtract<K: Eq + std::hash::Hash + Clone, V: Clone>(
 }*/   
 
 pub fn get_threshold(account: &Account) -> Balance {
-    std::cmp::max(0, MIN_BALANCE + account.items as Balance * MIN_BALANCE_PER_ITEM + account.octets as Balance * MIN_BALANCE_PER_OCTET - account.gratis_storage_offset) as Balance
+    std::cmp::max(0, (MIN_BALANCE + account.items as Balance * MIN_BALANCE_PER_ITEM + account.octets as Balance * MIN_BALANCE_PER_OCTET).saturating_sub(account.gratis_storage_offset)) as Balance
 }
 
 pub fn update_storage_octets(init_value: &[u8], final_value: &[u8]) -> i64 {
