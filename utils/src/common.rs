@@ -6,13 +6,13 @@ use std::fs::File;
 use std::io::Read;
 
 use jam_types::{
-    Account, AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Balance, BandersnatchPublic, RecentBlocks, BlsPublic, DisputesRecords, 
-    Ed25519Public, Ed25519Signature, EntropyPool, Gas, GlobalState, KeyValue, Metadata, OpaqueHash, PreimageData, Privileges, ReadError, ReadyQueue, 
-    Safrole, ServiceAccounts, ServiceId, StateKeyType, Statistics, TimeSlot, ValidatorsData
+    Account, AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Balance, BandersnatchPublic, BlsPublic, DisputesRecords, Ed25519Public, 
+    Ed25519Signature, EntropyPool, Gas, GlobalState, KeyValue, Metadata, OpaqueHash, PreimageData, Privileges, ReadError, ReadyQueue, RecentAccOutputs, 
+    RecentBlocks, Safrole, ServiceAccounts, ServiceId, StateKeyType, Statistics, TimeSlot, ValidatorsData, ServiceInfo
 };
 use constants::node::{
     MIN_BALANCE, MIN_BALANCE_PER_ITEM, MIN_BALANCE_PER_OCTET, AUTH_POOLS, AUTH_QUEUE, RECENT_HISTORY, SAFROLE, DISPUTES, ENTROPY, NEXT_VALIDATORS, 
-    CURR_VALIDATORS, PREV_VALIDATORS, AVAILABILITY, TIME, PRIVILEGES, STATISTICS, READY_QUEUE, ACCUMULATION_HISTORY
+    CURR_VALIDATORS, PREV_VALIDATORS, AVAILABILITY, TIME, PRIVILEGES, STATISTICS, READY_QUEUE, ACCUMULATION_HISTORY, RECENT_ACC_OUTPUTS
 };
 use crate::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 use codec::{ Decode, DecodeLen, BytesReader};
@@ -223,9 +223,10 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
             let key = keyval.key;
 
             if is_simple_key(keyval) {
-
+                
                 let state_key = key[0] & 0xFF;
                 let mut reader = BytesReader::new(&keyval.value);
+                //log::info!("simple key: {:?}", state_key);
 
                 match state_key {
                     AUTH_POOLS => {
@@ -273,6 +274,9 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
                     ACCUMULATION_HISTORY => {
                         state.accumulation_history = AccumulatedHistory::decode(&mut reader)?;
                     },
+                    RECENT_ACC_OUTPUTS => {
+                        state.recent_acc_outputs = RecentAccOutputs::decode(&mut reader)?;
+                    }
                     _ => {
                         log::error!("Unknown key: {:?}", state_key);
                         return Err(ReadError::InvalidData);
@@ -280,23 +284,30 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
                 }
 
             } else if is_service_info_key(keyval) {
-
+                //log::info!("service info key: {}", hex::encode(&keyval.key));
                 let mut service_reader = BytesReader::new(&keyval.key[1..]);
                 let service_id = ServiceId::decode(&mut service_reader).expect("Error decoding service id");
-
-                if state.service_accounts.get(&service_id).is_none() {
-                    let account = Account::default();
-                    state.service_accounts.insert(service_id, account);
-                }
+                
                 let mut account_reader = BytesReader::new(&keyval.value);
-                let mut account = state.service_accounts.get(&service_id).unwrap().clone();
-                account.code_hash = OpaqueHash::decode(&mut account_reader).expect("Error decoding code_hash");
-                account.balance = Gas::decode(&mut account_reader).expect("Error decoding balance") as u64;
-                account.acc_min_gas = Gas::decode(&mut account_reader).expect("Error decoding acc_min_gas");
-                account.xfer_min_gas = Gas::decode(&mut account_reader).expect("Error decoding xfer_min_gas");
+                let service_info = ServiceInfo::decode(&mut account_reader).expect("Error decoding service info");
+                
+                if state.service_accounts.get(&service_id).is_none() {
+                    state.service_accounts.insert(service_id, Account::default());
+                }
 
-                state.service_accounts.insert(service_id, account);
+                state.service_accounts.get_mut(&service_id).unwrap().code_hash = service_info.code_hash;
+                state.service_accounts.get_mut(&service_id).unwrap().balance = service_info.balance;
+                state.service_accounts.get_mut(&service_id).unwrap().acc_min_gas = service_info.acc_min_gas;
+                state.service_accounts.get_mut(&service_id).unwrap().xfer_min_gas = service_info.xfer_min_gas;
+                state.service_accounts.get_mut(&service_id).unwrap().created_at = service_info.created_at;
+                state.service_accounts.get_mut(&service_id).unwrap().last_acc = service_info.last_acc;
+                state.service_accounts.get_mut(&service_id).unwrap().parent_service = service_info.parent_service;
+                state.service_accounts.get_mut(&service_id).unwrap().octets = service_info.octets;
+                state.service_accounts.get_mut(&service_id).unwrap().items = service_info.items;
+                state.service_accounts.get_mut(&service_id).unwrap().gratis_storage_offset = service_info.gratis_storage_offset;
+
             } else {
+                //log::info!("Account key: {}", hex::encode(&keyval.key));
                 let service_id_vec = vec![keyval.key[0], keyval.key[2], keyval.key[4], keyval.key[6]];
                 let service_id = decode::<ServiceId>(&service_id_vec, std::mem::size_of::<ServiceId>());
 
@@ -312,7 +323,7 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
 
 fn is_simple_key(keyval: &KeyValue) -> bool {
 
-    keyval.key[0] <= 0x0F && keyval.key[1..].iter().all(|&b| b == 0)
+    keyval.key[0] <= 0x10 && keyval.key[1..].iter().all(|&b| b == 0)
 }
 
 fn is_service_info_key(keyval: &KeyValue) -> bool {
