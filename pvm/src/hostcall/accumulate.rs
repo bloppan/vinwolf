@@ -46,14 +46,12 @@ pub fn invoke_accumulation(
     let preimage = match parse_preimage(&partial_state.service_accounts, service_id) {
         Ok(preimage) => {
             if preimage.is_none() {
-                log::error!("The preimage is none");
                 return (partial_state.clone(), vec![], None, 0, vec![]);
             }
-            log::info!("Preimage parsed successfully");
             preimage.unwrap()
         },
-        Err(_) => { 
-            log::error!("Failed to decode preimage");
+        Err(e) => { 
+            log::error!("Failed to decode preimage: {:?}", e);
             return (partial_state.clone(), vec![], None, 0, vec![]); 
         },
     };

@@ -144,9 +144,11 @@ pub fn parse_preimage(service_accounts: &ServiceAccounts, service_id: &ServiceId
         if let Some(preimage) = account.storage.get(&preimage_key) {
             preimage
         } else {
+            log::error!("Preimage key not found for service: {:?}", service_id);
             return Ok(None);
         }
     } else {
+        log::error!("Account not found for service: {:?}", service_id);
         return Ok(None);
     };
 

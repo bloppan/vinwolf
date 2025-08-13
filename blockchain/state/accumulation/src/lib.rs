@@ -166,16 +166,19 @@ fn parallelized_accumulation(
     let mut s_services: Vec<ServiceId> = Vec::new();
     for report in reports.iter() {
         for result in report.results.iter() {
-            //println!("service: {}", result.service);
-            s_services.push(result.service);
+            if !s_services.contains(&result.service) {
+                s_services.push(result.service);
+            }
         }
     }
 
     for service_gas_dict in service_gas_dict.iter() {
-        log::info!("service gas dict: {}", service_gas_dict.0);
-        s_services.push(service_gas_dict.0.clone());
+        if !s_services.contains(service_gas_dict.0) {
+            s_services.push(service_gas_dict.0.clone());
+        }
     }
 
+    let mut acc_output: HashMap<ServiceId, (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(u32, Vec<u8>)>)> = HashMap::new();
     let mut u_gas_used: Vec<(ServiceId, Gas)> = vec![];
     let mut b_service_hash: RecentAccOutputs = RecentAccOutputs::default();
     let mut t_deferred_transfers: Vec<DeferredTransfer> = vec![];
@@ -185,20 +188,23 @@ fn parallelized_accumulation(
     
     for service in s_services.iter() {
         
-        //println!("Service: {}", *service);
-        let (post_partial_state, 
-            transfers, 
-            service_hash, 
-            gas, 
-            preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, service);
+        acc_output.insert(*service, single_service_accumulation(partial_state.clone(), reports, service_gas_dict, service));
+        
+        let result = acc_output.get(service).unwrap();
+        let post_partial_state = &result.0;
+        let transfers = &result.1;
+        let service_hash = &result.2;
+        let gas = &result.3;
+        let preimages = &result.4;
 
-        u_gas_used.push((*service, gas));
+
+        u_gas_used.push((*service, *gas));
         if let Some(hash) = service_hash {
-            b_service_hash.pairs.push((*service, hash));
+            b_service_hash.pairs.push((*service, *hash));
         }
         log::info!("u_gas_used: {:?}", u_gas_used);
-        t_deferred_transfers.extend(transfers);
-        p_preimages.extend(preimages);
+        t_deferred_transfers.extend(transfers.clone());
+        p_preimages.extend(preimages.clone());
 
         let o_d_services_keys: HashSet<_> = post_partial_state
                                                 .service_accounts
@@ -242,18 +248,17 @@ fn parallelized_accumulation(
         }
     }
 
-    //let i_next_validatos = partial_state.next_validators.clone();
-    //let q_queues_auth = partial_state.queues_auth.clone();
-    let m_manager = partial_state.manager;
     let a_assign = partial_state.assign.clone();
     let v_designate = partial_state.designate;
-    //let z_always_acc = partial_state.privileges.always_acc.clone();
 
-    let (m_post_partial_state, 
-        _transfers, 
-        _service_hash, 
-        _gas,
-        _preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &m_manager);
+    let mut privileged_services: HashSet<ServiceId> = HashSet::new();
+    privileged_services.insert(partial_state.manager);
+
+    if !acc_output.contains_key(&partial_state.manager) {
+        acc_output.insert(partial_state.manager, single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &partial_state.manager));
+    } 
+    let result = acc_output.get(&partial_state.manager).unwrap();
+    let m_post_partial_state = result.0.clone();
 
     let (post_manager, star_assign, star_v_designate, post_always_acc) = (m_post_partial_state.manager, 
                                                                                     m_post_partial_state.assign.clone(),
@@ -262,44 +267,37 @@ fn parallelized_accumulation(
 
     let mut post_assign: Box<[ServiceId; CORES_COUNT]> = Box::new(std::array::from_fn(|_| ServiceId::default()));
 
-    for core_index in 0..CORES_COUNT {
-        
-        let (post_a_partial_state,
-             _transfers,
-             _service_hash,
-             _gas,
-             _preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &star_assign[core_index]);
+    for core_index in 0..CORES_COUNT{
 
+        if !acc_output.contains_key(&star_assign[core_index]) {
+            acc_output.insert(partial_state.manager, single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &star_assign[core_index]));
+        }
+
+        let result = acc_output.get(&star_assign[core_index]).unwrap();
+        let post_a_partial_state = &result.0;
         post_assign[core_index] = post_a_partial_state.assign[core_index];
     }
+
+    if !acc_output.contains_key(&star_v_designate) {
+        acc_output.insert(star_v_designate, single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &star_v_designate));
+    }
+
+    let post_v_designate = acc_output.get(&star_v_designate).unwrap().0.designate;
     
-    let (post_partial_state, 
-        _transfers, 
-        _service_hash, 
-        _gas,
-        _preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &star_v_designate);
+    if !acc_output.contains_key(&v_designate) {
+        acc_output.insert(v_designate, single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &v_designate));
+    }
 
-    let post_v_designate = post_partial_state.designate;
+    let post_next_validators = acc_output.get(&v_designate).unwrap().0.next_validators.clone();
     
-    let (post_partial_state, 
-        _transfers, 
-        _service_hash, 
-        _gas,
-        _preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &v_designate);
-
-    let post_next_validators = post_partial_state.next_validators.clone();
-
     let mut post_queues_auth: AuthQueues = AuthQueues::default();
 
     for core_index in 0..CORES_COUNT {
 
-        let (q_post_partial_state, 
-        _transfers, 
-        _service_hash, 
-        _gas, 
-        _preimages) = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &a_assign[core_index]);
-
-        post_queues_auth.0[core_index] = q_post_partial_state.queues_auth.0[core_index].clone();
+        if !acc_output.contains_key(&a_assign[core_index]) {
+            acc_output.insert(a_assign[core_index], single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &a_assign[core_index]));
+        }
+        post_queues_auth.0[core_index] = acc_output.get(&a_assign[core_index]).unwrap().0.queues_auth.0[core_index].clone();
     }
 
     let mut d_services = partial_state.service_accounts.clone();
