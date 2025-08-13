@@ -4,7 +4,7 @@ mod tests {
     use once_cell::sync::Lazy;
     use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputAccumulate, StateAccumulate};
-    use jam_types::{EntropyPool, Extrinsic, ServiceAccounts, OutputAccumulation, Account, Statistics, StateKeyType, ValidatorSet};
+    use jam_types::{Account, Block, EntropyPool, Extrinsic, Header, OutputAccumulation, ServiceAccounts, StateKeyType, Statistics, ValidatorSet, ValidatorsData};
     use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH};
     use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
@@ -36,7 +36,6 @@ mod tests {
         let pre_state = StateAccumulate::decode(&mut reader).expect("Error decoding Accumulate PreState");
         let expected_output = OutputAccumulation::decode(&mut reader).expect("Error decoding OutputAccumulate");
         let expected_state = StateAccumulate::decode(&mut reader).expect("Error decoding Accumulate PostState");
-                
         
         let mut statistics = Statistics::default();
         statistics.services = pre_state.statistics;
@@ -74,24 +73,15 @@ mod tests {
             }
             service_accounts.insert(account.id.clone(), new_account);
         }
-
         state_handler::service_accounts::set(service_accounts.clone());
+
+        let mut header = Header::default();
+        header.unsigned.slot = input.slot;
+        let block = Block { header, extrinsic: Extrinsic::default() };
 
         let mut state = get_global_state().lock().unwrap().clone();
 
-        /*let (acc_root, 
-         service_accounts, 
-         next_validators, 
-         queue_auth, 
-         privileges) = accumulation::process(
-                                                        &mut state.accumulation_history,
-                                                        &mut state.ready_queue,
-                                                        state.service_accounts,
-                                                        state.next_validators,
-                                                        state.auth_queues,
-                                                        state.privileges,
-                                                        &input.slot,
-                                                        &input.reports)?;*/
+
 
         match accumulation::process(
                                 &mut state.accumulation_history,
@@ -113,9 +103,8 @@ mod tests {
 
                 statistics::process(
                                 &mut state.statistics, 
-                                &input.slot, 
-                                &0, 
-                                &Extrinsic::default(),
+                                &ValidatorsData::default(), 
+                                &block, 
                                 &input.reports,
                             );
                 state_handler::statistics::set(state.statistics.clone());

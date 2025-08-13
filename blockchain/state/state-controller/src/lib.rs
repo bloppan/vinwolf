@@ -126,9 +126,8 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
 
     statistics::process(
         &mut new_state.statistics, 
-        &block.header.unsigned.slot, 
-        &block.header.unsigned.author_index, 
-        &block.extrinsic,
+        &new_state.curr_validators,
+        block,
         &new_available_workreports.reported,
     );
     

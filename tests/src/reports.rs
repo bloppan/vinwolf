@@ -6,7 +6,7 @@ mod tests {
     use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputWorkReport, WorkReportState, OutputWorkReport};
     use constants::node::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
-    use jam_types::{Extrinsic, DisputesRecords, OutputDataReports, ValidatorSet, ProcessError, Statistics, ServiceAccounts, Account};
+    use jam_types::{Account, DisputesRecords, Extrinsic, Header, OutputDataReports, ProcessError, ServiceAccounts, Statistics, ValidatorSet, Block};
     use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
 
@@ -60,7 +60,7 @@ mod tests {
 
         state_handler::disputes::set(disputes_state);
         state_handler::reports::set(pre_state.avail_assignments);
-        state_handler::validators::set(pre_state.curr_validators, ValidatorSet::Current);
+        state_handler::validators::set(pre_state.curr_validators.clone(), ValidatorSet::Current);
         state_handler::validators::set(pre_state.prev_validators, ValidatorSet::Previous);
         state_handler::entropy::set(pre_state.entropy.clone());
         state_handler::recent_history::set_current(pre_state.recent_blocks.clone());
@@ -81,6 +81,11 @@ mod tests {
         statistics_state.cores = pre_state.cores_statistics;
         statistics_state.services = pre_state.services_statistics;
         state_handler::statistics::set(statistics_state.clone());
+        let mut header = Header::default();
+        header.unsigned.slot = input.slot;
+        let mut extrinsic = Extrinsic::default();
+        extrinsic.guarantees = input.guarantees.clone();
+        let block = Block { header, extrinsic };
 
         let current_state = get_global_state().lock().unwrap().clone();
         let mut assurances_state = current_state.availability.clone();
@@ -98,7 +103,7 @@ mod tests {
                 let mut extrinsic = Extrinsic::default();
                 extrinsic.guarantees = input.guarantees.clone();
                 let reports = input.guarantees.iter().map(|guarantee| guarantee.report.clone()).collect::<Vec<_>>();
-                statistics::process(&mut statistics_state, &input.slot, &0, &extrinsic, &reports);
+                statistics::process(&mut statistics_state, &pre_state.curr_validators, &block, &reports);
                 state_handler::statistics::set(statistics_state.clone());
             },
             Err(_) => { log::error!("{:?}", output_result) },

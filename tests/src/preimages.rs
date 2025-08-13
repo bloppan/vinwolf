@@ -5,7 +5,7 @@ mod tests {
     use crate::FromProcessError;
     use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputPreimages, PreimagesState};
-    use jam_types::{Extrinsic, Account, OutputPreimages, ServiceAccounts, Statistics, ProcessError, StateKeyType};
+    use jam_types::{Account, Block, Extrinsic, Header, OutputPreimages, ProcessError, ServiceAccounts, StateKeyType, Statistics, ValidatorsData};
     use state_handler::{get_global_state};
     use codec::{EncodeLen, Decode, BytesReader};
     use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
@@ -78,8 +78,12 @@ mod tests {
 
         let mut extrinsic = Extrinsic::default();
         extrinsic.preimages = input.preimages.clone();
+        let mut header = Header::default();
+        header.unsigned.slot = input.slot;
+        let block = Block { header, extrinsic };
+        let curr_validators = ValidatorsData::default();
 
-        statistics::process(&mut statistics, &input.slot, &0, &extrinsic, &vec![]);
+        statistics::process(&mut statistics, &curr_validators, &block, &vec![]);
 
         match output_result {
             Ok(_) => { 
