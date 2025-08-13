@@ -248,12 +248,6 @@ fn parallelized_accumulation(
         }
     }
 
-    let a_assign = partial_state.assign.clone();
-    let v_designate = partial_state.designate;
-
-    let mut privileged_services: HashSet<ServiceId> = HashSet::new();
-    privileged_services.insert(partial_state.manager);
-
     if !acc_output.contains_key(&partial_state.manager) {
         acc_output.insert(partial_state.manager, single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &partial_state.manager));
     } 
@@ -270,12 +264,9 @@ fn parallelized_accumulation(
     for core_index in 0..CORES_COUNT{
 
         if !acc_output.contains_key(&star_assign[core_index]) {
-            acc_output.insert(partial_state.manager, single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &star_assign[core_index]));
+            acc_output.insert(star_assign[core_index], single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &star_assign[core_index]));
         }
-
-        let result = acc_output.get(&star_assign[core_index]).unwrap();
-        let post_a_partial_state = &result.0;
-        post_assign[core_index] = post_a_partial_state.assign[core_index];
+        post_assign[core_index] = acc_output.get(&star_assign[core_index]).unwrap().0.assign[core_index];
     }
 
     if !acc_output.contains_key(&star_v_designate) {
@@ -284,20 +275,20 @@ fn parallelized_accumulation(
 
     let post_v_designate = acc_output.get(&star_v_designate).unwrap().0.designate;
     
-    if !acc_output.contains_key(&v_designate) {
-        acc_output.insert(v_designate, single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &v_designate));
+    if !acc_output.contains_key(&partial_state.designate) {
+        acc_output.insert(partial_state.designate, single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &partial_state.designate));
     }
 
-    let post_next_validators = acc_output.get(&v_designate).unwrap().0.next_validators.clone();
+    let post_next_validators = acc_output.get(&partial_state.designate).unwrap().0.next_validators.clone();
     
     let mut post_queues_auth: AuthQueues = AuthQueues::default();
 
     for core_index in 0..CORES_COUNT {
 
-        if !acc_output.contains_key(&a_assign[core_index]) {
-            acc_output.insert(a_assign[core_index], single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &a_assign[core_index]));
+        if !acc_output.contains_key(&partial_state.assign[core_index]) {
+            acc_output.insert(partial_state.assign[core_index], single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &partial_state.assign[core_index]));
         }
-        post_queues_auth.0[core_index] = acc_output.get(&a_assign[core_index]).unwrap().0.queues_auth.0[core_index].clone();
+        post_queues_auth.0[core_index] = acc_output.get(&partial_state.assign[core_index]).unwrap().0.queues_auth.0[core_index].clone();
     }
 
     let mut d_services = partial_state.service_accounts.clone();
