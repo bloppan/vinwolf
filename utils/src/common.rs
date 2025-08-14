@@ -15,7 +15,7 @@ use constants::node::{
     CURR_VALIDATORS, PREV_VALIDATORS, AVAILABILITY, TIME, PRIVILEGES, STATISTICS, READY_QUEUE, ACCUMULATION_HISTORY, RECENT_ACC_OUTPUTS
 };
 use crate::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
-use codec::{ Decode, DecodeLen, BytesReader};
+use codec::{ Encode, Decode, DecodeLen, BytesReader};
 use codec::generic_codec::{decode_unsigned, decode};
 
 pub fn dict_subtract<K: Eq + std::hash::Hash + Clone, V: Clone>(
@@ -226,7 +226,6 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
                 
                 let state_key = key[0] & 0xFF;
                 let mut reader = BytesReader::new(&keyval.value);
-                log::info!("simple key: {:?}", state_key);
 
                 match state_key {
                     AUTH_POOLS => {
@@ -284,13 +283,15 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
                 }
 
             } else if is_service_info_key(keyval) {
-                log::info!("service info key: {}", hex::encode(&keyval.key));
-                let mut service_reader = BytesReader::new(&keyval.key[1..]);
-                let service_id = ServiceId::decode(&mut service_reader).expect("Error decoding service id");
-                
+                /*let mut service_reader = BytesReader::new(&keyval.key[1..]);
+                let service_id = ServiceId::decode(&mut service_reader).expect("Error decoding service id");*/
+                let service_id_vec = vec![keyval.key[1], keyval.key[3], keyval.key[5], keyval.key[7]];
+                let service_id = decode::<ServiceId>(&service_id_vec, std::mem::size_of::<ServiceId>());
+
+                log::info!("Service: {:?} info key: {}", service_id, hex::encode(&keyval.key));
+
                 let mut account_reader = BytesReader::new(&keyval.value);
                 let service_info = ServiceInfo::decode(&mut account_reader).expect("Error decoding service info");
-                log::info!("Service {:?} code hash: {}", service_id, hex::encode(&service_info.code_hash));
                 if state.service_accounts.get(&service_id).is_none() {
                     state.service_accounts.insert(service_id, Account::default());
                 }
@@ -307,10 +308,10 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
                 state.service_accounts.get_mut(&service_id).unwrap().gratis_storage_offset = service_info.gratis_storage_offset;
 
             } else {
-                log::info!("Account key: {}", hex::encode(&keyval.key));
+                
                 let service_id_vec = vec![keyval.key[0], keyval.key[2], keyval.key[4], keyval.key[6]];
                 let service_id = decode::<ServiceId>(&service_id_vec, std::mem::size_of::<ServiceId>());
-
+                log::info!("Service: {:?} Account key: {}", service_id, hex::encode(&keyval.key));
                 if state.service_accounts.get(&service_id).is_none() {
                     state.service_accounts.insert(service_id, Account::default());
                 }
@@ -328,7 +329,7 @@ fn is_simple_key(keyval: &KeyValue) -> bool {
 
 fn is_service_info_key(keyval: &KeyValue) -> bool {
 
-    keyval.key[0] == 0xFF && keyval.key[1..].iter().all(|&b| b == 0)
+    keyval.key[0] == 0xFF && keyval.key[2] == 0x00 && keyval.key[4] == 0x00 && keyval.key[6] == 0x00 && keyval.key[8..].iter().all(|&b| b == 0)
 }
 
 fn is_storage_key(keyval: &KeyValue) -> bool {
