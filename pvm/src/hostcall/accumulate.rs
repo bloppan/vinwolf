@@ -582,9 +582,9 @@ fn bless(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
         return (ExitReason::OutOfGas, gas, reg, ram, ctx);
     }
 
-    let manager = reg[7] as ServiceId;
+    let manager = reg[7] as RegSize;
     let assign_start_address = reg[8] as RamAddress;
-    let v_designate = reg[9] as ServiceId;
+    let v_designate = reg[9] as RegSize;
     let start_address = reg[10] as RamAddress;
     let n_pairs = reg[11] as RamAddress;
 
@@ -606,8 +606,7 @@ fn bless(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
-    if !ctx_x.partial_state.service_accounts.contains_key(&manager)
-    || !ctx_x.partial_state.service_accounts.contains_key(&v_designate) {
+    if manager > ServiceId::MAX as RegSize || v_designate > ServiceId::MAX as RegSize {
         reg[7] = WHO;
         log::debug!("Exit: WHO");
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
@@ -632,13 +631,13 @@ fn bless(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
         service_gas_pairs.insert(service, gas);
     }
 
-    ctx_x.partial_state.manager = manager;
+    ctx_x.partial_state.manager = manager as ServiceId;
     ctx_x.partial_state.assign = assign;
-    ctx_x.partial_state.designate = v_designate;
+    ctx_x.partial_state.designate = v_designate as ServiceId;
     ctx_x.partial_state.always_acc = service_gas_pairs;
 
     log::debug!("Exit: OK");
-    return (ExitReason::OutOfGas, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
 }
 
 fn designate(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
@@ -677,8 +676,6 @@ fn designate(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallCont
         validators.list[i].bls = validators_data[64..208].try_into().unwrap();
         validators.list[i].metadata = validators_data[208..].try_into().unwrap();
     }
-
-    
 
     ctx_x.partial_state.next_validators = validators;
     reg[7] = OK;
