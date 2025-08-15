@@ -168,13 +168,14 @@ pub fn process(
     
     /*// Get the ring set // TODO after M1
     let ring_set = get_ring_set(post_epoch, &safrole_state.pending_validators);*/
-    let ring_set = create_ring_set(&safrole_state.pending_validators);
+    let curr_val_ring_set = create_ring_set(&curr_validators);
+    let pending_val_ring_set = create_ring_set(&safrole_state.pending_validators);
     // Process tickets extrinsic
-    extrinsic::tickets::process(&block.extrinsic.tickets, safrole_state, entropy_pool, &post_tau, ring_set.clone())?;
+    extrinsic::tickets::process(&block.extrinsic.tickets, safrole_state, entropy_pool, &post_tau, pending_val_ring_set)?;
     // update tau which defines the most recent block's index
     *tau = post_tau;
     // Verify the header's seal
-    let entropy_source_vrf_output = header::seal_verify(&block.header, &safrole_state, &entropy_pool, &curr_validators, ring_set)?;
+    let entropy_source_vrf_output = header::seal_verify(&block.header, &safrole_state, &entropy_pool, &curr_validators, curr_val_ring_set)?;
     // Update recent entropy eta0
     entropy::update_recent(entropy_pool, entropy_source_vrf_output);
     
@@ -188,7 +189,7 @@ pub fn create_ring_set(validators: &ValidatorsData) -> Vec<Public> {
         .list
         .iter()
         .map(|v| {
-            Public::deserialize_compressed(&v.bandersnatch[..])
+            Public::deserialize_compressed_unchecked(&v.bandersnatch[..])
                 // In the case a key has no corresponding Bandersnatch point when constructing the ring, then 
                 // the Bandersnatch padding point as stated by Hosseini and Galassi 2024 should be substituted
                 .unwrap_or_else(|_| Public::from(RingProofParams::padding_point()))
