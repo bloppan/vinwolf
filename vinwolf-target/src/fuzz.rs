@@ -346,7 +346,7 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                     let header_hash = sp_core::blake2_256(&(block.header.encode()));
                                     log::info!("Header hash: 0x{}", hex::encode(header_hash));
                                     
-                                    match state_controller::state_transition_function(&block) {
+                                    match state_controller::stf(&block) {
                                         Ok(_) => {
                                             //log::info!("Block proccessed successfully");
                                         },
