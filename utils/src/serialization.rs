@@ -39,7 +39,6 @@ pub fn serialize(global_state: &GlobalState) -> SerializedState {
     for (service_id, account) in global_state.service_accounts.iter() {
     
         let key = StateKeyType::Service(255, *service_id).construct();
-
         let service_info = ServiceInfo {
             code_hash: account.code_hash,
             balance: account.balance,
