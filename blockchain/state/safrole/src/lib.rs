@@ -117,7 +117,7 @@ pub fn process(
 
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
-        log::info!("We are in a new epoch: {:?}", post_epoch);
+        log::debug!("We are in a new epoch: {:?}", post_epoch);
         // On an epoch transition, we therefore rotate the accumulator value into the history eta1, eta2 eta3
         entropy::rotate_pool(entropy_pool);
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
