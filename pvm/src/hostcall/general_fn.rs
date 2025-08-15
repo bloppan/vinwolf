@@ -170,6 +170,7 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
         None    
     };
 
+    
     let read_start_address = reg[8] as RamAddress;
     let write_start_address = reg[9] as RamAddress;
 
@@ -180,7 +181,7 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
 
     let hash: OpaqueHash = ram.read(read_start_address, 32).try_into().unwrap();
     log::debug!("hash: 0x{}", hex::encode(hash));
-    let preimage_key = StateKeyType::Account(service_id, construct_preimage_key(&hash)).construct();
+    let preimage_key = StateKeyType::Account(service_id, construct_preimage_key(&hash)).construct();  
     log::debug!("preimage_key: 0x{}", hex::encode(preimage_key));
 
     let preimage_blob: Option<Vec<u8>> = if a_account.is_none() {

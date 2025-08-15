@@ -187,7 +187,7 @@ fn collapse(gas: Gas, output: WorkExecResult, ctx: HostCallContext)
 #[allow(non_snake_case)]
 fn I(partial_state: &AccumulationPartialState, service_id: &ServiceId) -> AccumulationContext {
 
-    //let encoded = [service_id.encode(), entropy::get_recent_entropy().encode(), time::get_current_block_slot().encode()].concat();
+    //let encoded = [service_id.encode(), state_handler::entropy::get_recent().encode(), state_handler::time::get_current().encode()].concat();
     let encoded = [encode_unsigned(*service_id as usize), state_handler::entropy::get_recent().encode(), encode_unsigned(state_handler::time::get_current() as usize)].concat();
     let payload = ((OpaqueHash::decode_size(&mut BytesReader::new(&blake2_256(&encoded)), 4).unwrap() % ((1 << 32) - (1 << 9))) + (1 << 8)) as ServiceId;
     let i = check(&partial_state, &payload);
@@ -445,7 +445,7 @@ fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext, s
         new_account.octets = 81 + length;
         let new_account_threshold = utils::common::get_threshold(&new_account);
         new_account.balance = new_account_threshold;
-
+        log::debug!("new_account: {:x?}", new_account);
         let mut service_account = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().clone(); // TODO handle error
         service_account.balance = service_account.balance.saturating_sub(new_account_threshold);
 
@@ -468,6 +468,7 @@ fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext, s
         ctx_x.partial_state.service_accounts.insert(ctx_x.service_id, service_account);
         ctx_x.index = check(&ctx_x.partial_state, &(i as ServiceId));
 
+        log::debug!("reg_7: {:?}, i*: {:?}", reg[7], ctx_x.index);
         log::debug!("Exit: OK");
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
