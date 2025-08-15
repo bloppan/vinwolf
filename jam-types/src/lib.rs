@@ -987,6 +987,7 @@ pub enum HeaderErrorCode {
     BadBlockAuthor = 2,
     BadExtrinsicHash = 3,
     BadOffenders = 4,
+    BadTicketAttempt = 5,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Polkadot Virtual Machine

@@ -95,10 +95,10 @@ pub fn process(
     offenders: &[Ed25519Public],
 ) -> Result<OutputDataSafrole, ProcessError> {
 
-    log::debug!("Process Safrole state for slot {tau}");
     // tau defines de most recent block
     // post_tau defines the block being processed
     let post_tau = block.header.unsigned.slot;
+    log::debug!("Process Safrole state for slot {post_tau}");
     // Timeslot must be strictly monotonic
     if post_tau <= *tau {
         log::error!("Bad block slot: {:?}. The previous slot is: {:?}. Timeslot must be strictly monotonic", post_tau, tau);

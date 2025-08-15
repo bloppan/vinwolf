@@ -17,7 +17,7 @@ use std::collections::HashSet;
 use state_handler::get_state_root;
 use utils::bandersnatch::Verifier;
 
-use constants::node::{EPOCH_LENGTH, VALIDATORS_COUNT};
+use constants::node::{EPOCH_LENGTH, VALIDATORS_COUNT, TICKET_ENTRIES_PER_VALIDATOR};
 use jam_types::{
     EntropyPool, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, TicketsOrKeys, TimeSlot, ValidatorsData, Header, Block, Ed25519Public
 };
@@ -128,12 +128,28 @@ pub fn seal_verify(
 
 pub fn verify(block: &Block) -> Result<(), ProcessError> {
 
+    tickets_verify(&block.header)?;
     extrinsic_verify(&block)?;
     validator_index_verify(&block.header)?;
     offenders_verify(&block)?;
     state_root_verify(&block.header)?;
     log::debug!("Header verified successfully");
     return Ok(());
+}
+
+fn tickets_verify(header: &Header) -> Result<(), ProcessError> {
+
+    if header.unsigned.tickets_mark.is_some() {
+
+        for i in 0..EPOCH_LENGTH {
+
+            if header.unsigned.tickets_mark.as_ref().unwrap().tickets_mark[i].attempt >= TICKET_ENTRIES_PER_VALIDATOR {
+                log::error!("Ticket mark {:?} has an attempt {:?} >= Max tickets entries per validator {:?}", i, header.unsigned.tickets_mark.as_ref().unwrap().tickets_mark[i].attempt, TICKET_ENTRIES_PER_VALIDATOR);
+                return Err(ProcessError::HeaderError(HeaderErrorCode::BadTicketAttempt));
+            }
+        }
+    }
+    Ok(())
 }
 
 pub fn offenders_verify(block: &Block) -> Result<(), ProcessError> {
