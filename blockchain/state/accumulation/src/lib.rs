@@ -178,7 +178,7 @@ fn parallelized_accumulation(
         }
     }
 
-    let mut acc_output: HashMap<ServiceId, (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(u32, Vec<u8>)>)> = HashMap::new();
+    let mut acc_output_map: HashMap<ServiceId, (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(u32, Vec<u8>)>)> = HashMap::new();
     let mut u_gas_used: Vec<(ServiceId, Gas)> = vec![];
     let mut b_service_hash: RecentAccOutputs = RecentAccOutputs::default();
     let mut t_deferred_transfers: Vec<DeferredTransfer> = vec![];
@@ -186,17 +186,25 @@ fn parallelized_accumulation(
     let mut m_service_accounts = HashSet::new();
     let mut p_preimages: Vec<(ServiceId, Vec<u8>)> = Vec::new();
     
+    log::info!("privileged services: manager: {:?}, assign: {:?}, designate: {:?}, always_acc: {:?}", 
+                                partial_state.manager, partial_state.assign, partial_state.designate, partial_state.always_acc);
+
+    log::info!("Services to accumulate: {:?}", s_services);
+
     for service in s_services.iter() {
         
-        acc_output.insert(*service, single_service_accumulation(partial_state.clone(), reports, service_gas_dict, service));
-        
-        let result = acc_output.get(service).unwrap();
-        let post_partial_state = &result.0;
-        let transfers = &result.1;
-        let service_hash = &result.2;
-        let gas = &result.3;
-        let preimages = &result.4;
+        let acc_output = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, service);
 
+        // Insert the acc_output only if the gas used in acc is > 0
+        if acc_output.3 > 0 {
+            acc_output_map.insert(*service, acc_output.clone());
+        }
+
+        let post_partial_state = &acc_output.0;
+        let transfers = &acc_output.1;
+        let service_hash = &acc_output.2;
+        let gas = &acc_output.3;
+        let preimages = &acc_output.4;
 
         u_gas_used.push((*service, *gas));
         if let Some(hash) = service_hash {
@@ -237,6 +245,9 @@ fn parallelized_accumulation(
 
     }
     
+    log::info!("2 privileged services: manager: {:?}, assign: {:?}, designate: {:?}, always_acc: {:?}", 
+                            partial_state.manager, partial_state.assign, partial_state.designate, partial_state.always_acc);
+
     // Different services may not each contribute the same index for a new, altered or removed service. This cannot happen for the set of
     // removed and altered services since the code hash of removable services has no known preimage and thus cannot execute itself to make
     // an alteration. For new services this should also never happen since new indices are explicitly selected to avoid such conflicts.
@@ -248,47 +259,92 @@ fn parallelized_accumulation(
         }
     }
 
-    if !acc_output.contains_key(&partial_state.manager) {
-        acc_output.insert(partial_state.manager, single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &partial_state.manager));
+    if !acc_output_map.contains_key(&partial_state.manager) {
+        let acc_output = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &partial_state.manager);
+        // Insert the acc_output only if the gas used in acc is > 0
+        if acc_output.3 > 0 {
+            acc_output_map.insert(partial_state.manager, acc_output);
+        }
     } 
-    let result = acc_output.get(&partial_state.manager).unwrap();
-    let m_post_partial_state = result.0.clone();
+    
+    let m_post_partial_state = if let Some(service) = acc_output_map.get(&partial_state.manager) {
+        service.0.clone()
+    } else {
+        partial_state.clone()
+    };
+
+    /*let result = acc_output_map.get(&partial_state.manager).unwrap();
+    let m_post_partial_state = result.0.clone();*/
 
     let (post_manager, star_assign, star_v_designate, post_always_acc) = (m_post_partial_state.manager, 
                                                                                     m_post_partial_state.assign.clone(),
                                                                                     m_post_partial_state.designate,
                                                                                     m_post_partial_state.always_acc);
 
+    log::info!("post_manager: {:?}, star_assign: {:?}, star_v_designate: {:?}, post_always_acc: {:?}",
+                post_manager, star_assign, star_v_designate, post_always_acc);
+                                                                                
     let mut post_assign: Box<[ServiceId; CORES_COUNT]> = Box::new(std::array::from_fn(|_| ServiceId::default()));
 
     for core_index in 0..CORES_COUNT{
 
-        if !acc_output.contains_key(&star_assign[core_index]) {
-            acc_output.insert(star_assign[core_index], single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &star_assign[core_index]));
+        if !acc_output_map.contains_key(&star_assign[core_index]) {
+            let acc_output = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &star_assign[core_index]);
+            // Insert the acc_output only if the gas used in acc is > 0
+            if acc_output.3 > 0 {
+                acc_output_map.insert(star_assign[core_index], acc_output);
+            }
         }
-        post_assign[core_index] = acc_output.get(&star_assign[core_index]).unwrap().0.assign[core_index];
+        post_assign[core_index] = if let Some(service) = acc_output_map.get(&star_assign[core_index]) {
+            service.0.assign[core_index]
+        } else {
+            star_assign[core_index]
+        };
     }
 
-    if !acc_output.contains_key(&star_v_designate) {
-        acc_output.insert(star_v_designate, single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &star_v_designate));
+    if !acc_output_map.contains_key(&star_v_designate) {
+        let acc_output = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &star_v_designate);
+        // Insert the acc_output only if the gas used in acc is > 0
+        if acc_output.3 > 0 {
+            acc_output_map.insert(star_v_designate, acc_output);
+        }
     }
 
-    let post_v_designate = acc_output.get(&star_v_designate).unwrap().0.designate;
+    let post_v_designate = if let Some(service) = acc_output_map.get(&star_v_designate) {
+        service.0.designate
+    } else {
+        star_v_designate
+    };
     
-    if !acc_output.contains_key(&partial_state.designate) {
-        acc_output.insert(partial_state.designate, single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &partial_state.designate));
+    if !acc_output_map.contains_key(&partial_state.designate) {
+        let acc_output = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &partial_state.designate);
+        // Insert the acc_output only if the gas used in acc is > 0
+        if acc_output.3 > 0 {
+            acc_output_map.insert(partial_state.designate, acc_output);    
+        }
     }
 
-    let post_next_validators = acc_output.get(&partial_state.designate).unwrap().0.next_validators.clone();
+    let post_next_validators = if let Some(service) = acc_output_map.get(&partial_state.designate) {
+        service.0.next_validators.clone()
+    } else {
+        partial_state.next_validators.clone()
+    };
     
     let mut post_queues_auth: AuthQueues = AuthQueues::default();
 
     for core_index in 0..CORES_COUNT {
 
-        if !acc_output.contains_key(&partial_state.assign[core_index]) {
-            acc_output.insert(partial_state.assign[core_index], single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &partial_state.assign[core_index]));
+        if !acc_output_map.contains_key(&partial_state.assign[core_index]) {
+            let acc_output = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &partial_state.assign[core_index]);
+            if acc_output.3 > 0 {
+                acc_output_map.insert(partial_state.assign[core_index], acc_output);
+            }
         }
-        post_queues_auth.0[core_index] = acc_output.get(&partial_state.assign[core_index]).unwrap().0.queues_auth.0[core_index].clone();
+        post_queues_auth.0[core_index] = if let Some(service) = acc_output_map.get(&partial_state.assign[core_index]) {
+            service.0.queues_auth.0[core_index].clone()
+        } else {
+            partial_state.queues_auth.0[core_index].clone()
+        };
     }
 
     let mut d_services = partial_state.service_accounts.clone();
