@@ -55,7 +55,9 @@ mod tests {
                 println!("Processed {:?} (slot {}) with {} bytes", bin_path, slot, test_content.len());
                 log::info!("Process test file {:?}", bin_path);
                 process_trace_test(&test_content);
+                log::info!("{:?} processed successfully", bin_path);
             }
+            println!("FIN");
         }
 
         Ok(())
@@ -90,9 +92,9 @@ mod tests {
         
         assert_eq_state(&expected_state, &result_state);
 
-        log::info!("post_sta state_root: 0x{}", hex::encode(post_state.state_root));
+        /*log::info!("post_sta state_root: 0x{}", hex::encode(post_state.state_root));
         log::info!("expected state_root: 0x{}", hex::encode(merkle_state(&serialization::serialize(&expected_state).map, 0)));
-        log::info!("result   state_root: 0x{}", hex::encode(merkle_state(&serialization::serialize(&result_state).map, 0)));
+        log::info!("result   state_root: 0x{}", hex::encode(merkle_state(&serialization::serialize(&result_state).map, 0)));*/
         
         assert_eq!(post_state.state_root, merkle_state(&serialization::serialize(&result_state).map, 0));
     }
@@ -118,9 +120,10 @@ mod tests {
 
 
         /* **************************** */
-        let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/archive/0.6.7");
-        //let base = Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces");
-        let skip: HashSet<String> = ["1754982087"]
+        //let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/archive/0.6.7");
+        let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/javajam/0.6.7");
+        //let base = Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces"); fuzz-reports/jamzig/1755185281
+        let skip: HashSet<String> = [""]
             .iter()
             .map(|s| s.to_string())
             .collect();

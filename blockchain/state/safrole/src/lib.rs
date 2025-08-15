@@ -95,10 +95,10 @@ pub fn process(
     offenders: &[Ed25519Public],
 ) -> Result<OutputDataSafrole, ProcessError> {
 
-    log::debug!("Process Safrole state for slot {tau}");
     // tau defines de most recent block
     // post_tau defines the block being processed
     let post_tau = block.header.unsigned.slot;
+    log::debug!("Process Safrole state for slot {post_tau}");
     // Timeslot must be strictly monotonic
     if post_tau <= *tau {
         log::error!("Bad block slot: {:?}. The previous slot is: {:?}. Timeslot must be strictly monotonic", post_tau, tau);
@@ -117,7 +117,7 @@ pub fn process(
 
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
-        log::info!("We are in a new epoch: {:?}", post_epoch);
+        log::debug!("We are in a new epoch: {:?}", post_epoch);
         // On an epoch transition, we therefore rotate the accumulator value into the history eta1, eta2 eta3
         entropy::rotate_pool(entropy_pool);
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated

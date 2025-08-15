@@ -481,9 +481,9 @@ mod work_result {
         }
 
         let services = state_handler::service_accounts::get();
-        for service in services.iter() {
-            log::info!("service: {:?} available" , *service.0);
-        }
+        /*for service in services.iter() {
+            //log::info!("service: {:?} available" , *service.0);
+        }*/
         let mut total_accumulation_gas: Gas = 0;
         
         //let service_map: std::collections::HashMap<_, _> = services.0.iter().map(|s| (s.id, s)).collect();

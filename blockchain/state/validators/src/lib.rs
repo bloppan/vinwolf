@@ -7,7 +7,7 @@ pub fn key_rotation(safrole_state: &mut Safrole,
                     prev_validators: &mut ValidatorsData, 
                     offenders: &[Ed25519Public]
 ) { 
-    log::info!("Key rotation");
+    log::debug!("Key rotation");
     *prev_validators = curr_validators.clone();
     *curr_validators = safrole_state.pending_validators.clone(); 
     // In addition to the active set of validator keys "curr_validators" and staging set "next_validators", internal to the Safrole state 
