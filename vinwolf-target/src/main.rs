@@ -48,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(())
         },
         "--version" | "-v" => {
-            println!("vinwolf GP version: 0.6.6");
+            println!("vinwolf GP version: 0.6.7");
             return Ok(())
         },
         /*"--target" => {
