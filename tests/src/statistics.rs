@@ -5,7 +5,7 @@ mod tests {
     use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputStatistics, StateStatistics};
     use constants::node::{CORES_COUNT, EPOCH_LENGTH, VALIDATORS_COUNT};
-    use jam_types::{ValidatorSet, Statistics};
+    use jam_types::{Block, Ed25519Public, Header, Statistics, ValidatorSet};
     use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
 
@@ -39,10 +39,25 @@ mod tests {
         statistics.prev = pre_state.prev_stats;
         state_handler::statistics::set(statistics.clone());
         state_handler::time::set(pre_state.tau);
-        state_handler::validators::set(pre_state.curr_validators, ValidatorSet::Current);
+        state_handler::validators::set(pre_state.curr_validators.clone(), ValidatorSet::Current);
+
+        let mut header = Header::default();
+        header.unsigned.author_index = input.author_index;
+        header.unsigned.slot = input.slot;
+        let extrinsic = input.extrinsic;
+        let block = Block { header, extrinsic };
+
+        let mut reporters: Vec<Ed25519Public> = Vec::new();
+        for guarantee in block.extrinsic.guarantees.iter() {
+            for signature in guarantee.signatures.iter() {
+                if !reporters.contains(&pre_state.curr_validators.list[signature.validator_index as usize].ed25519) {
+                    reporters.push(pre_state.curr_validators.list[signature.validator_index as usize].ed25519.clone());
+                }
+            }
+        }
 
         let mut result_statistics = get_global_state().lock().unwrap().statistics.clone();
-        statistics::process(&mut result_statistics, &input.slot, &input.author_index, &input.extrinsic, &[]);
+        statistics::process(&mut result_statistics, &pre_state.curr_validators, &block, &reporters, &[]);
 
         let result_time = state_handler::time::get();
         let result_validators = state_handler::validators::get(ValidatorSet::Current);

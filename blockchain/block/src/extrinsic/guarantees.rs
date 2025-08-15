@@ -14,7 +14,7 @@ use jam_types::{
     ReportedPackage, WorkResult
 };
 use constants::node::{ EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR };
-use utils::{trie::mmr_super_peak, shuffle::shuffle, common::{VerifySignature, set_offenders_null}};
+use utils::{shuffle::shuffle, common::{VerifySignature, set_offenders_null}};
 use utils::common::is_sorted_and_unique;
 use codec::Encode;
 
@@ -73,7 +73,7 @@ pub fn process(
     // We ensure that the work-package not appear anywhere within our pipeline
     let mut wp_hashes_in_our_pipeline: std::collections::HashSet<OpaqueHash> = HashSet::new();
 
-    let recent_history_map: std::collections::HashMap<_, _> = recent_history.blocks
+    let recent_history_map: std::collections::HashMap<_, _> = recent_history.history
         .iter()
         .flat_map(|blocks| blocks.reported_wp.iter())
         .map(|report| (report.0, report.1))
@@ -174,13 +174,18 @@ pub fn process(
                                 curr_validators)?;
 
         reported.extend(new_reported);
-        reporters.extend(new_reporters);
+
+        // This ensures that we do not return duplicate reporters
+        for reporter in &new_reporters {
+            if !reporters.contains(reporter) {
+                reporters.push(*reporter);
+            }
+        }
     }
 
     reported.sort_by_key(|report| report.work_package_hash);
     reporters.sort();
-    /*reported.sort_by(|a, b| a.work_package_hash.cmp(&b.work_package_hash));
-    reporters.sort();*/
+    
     log::debug!("Guarantees extrinsic processed successfully");
 
     Ok(OutputDataReports { reported, reporters })
@@ -225,8 +230,8 @@ pub mod work_report {
         }
         // In order to ensure fair use of a block’s extrinsic space, work-reports are limited in the maximum total size of 
         // the successful output blobs together with the authorizer output blob, effectively limiting their overall size
-        if work_report_size + work_report.auth_output.len() > MAX_OUTPUT_BLOB_SIZE {
-            log::error!("Work report too big: {:?}. The max output blob size is {:?}", work_report_size + work_report.auth_output.len(), MAX_OUTPUT_BLOB_SIZE);
+        if work_report_size + work_report.auth_trace.len() > MAX_OUTPUT_BLOB_SIZE {
+            log::error!("Work report too big: {:?}. The max output blob size is {:?}", work_report_size + work_report.auth_trace.len(), MAX_OUTPUT_BLOB_SIZE);
             return Err(ProcessError::ReportError(ReportErrorCode::WorkReportTooBig));
         }
 
@@ -275,9 +280,9 @@ pub mod work_report {
 
     fn is_recent(work_report: &WorkReport) -> Result<bool, ProcessError> {
         
-        let block_history = state_handler::recent_history::get_current().lock().unwrap().clone();
+        let recent_blocks = state_handler::recent_history::get_current().lock().unwrap().clone();
 
-        for block in &block_history.blocks {
+        for block in &recent_blocks.history {
             if block.header_hash == work_report.context.anchor {
                 if block.state_root != work_report.context.state_root {
                     log::error!("Bad state root. Block state root 0x{} != Context state root 0x{}", 
@@ -285,7 +290,7 @@ pub mod work_report {
                     return Err(ProcessError::ReportError(ReportErrorCode::BadStateRoot));
                 }
 
-                if mmr_super_peak(&block.mmr) != work_report.context.beefy_root {
+                if block.beefy_root != work_report.context.beefy_root {
                     log::error!("Bad beefy MMR Root");
                     return Err(ProcessError::ReportError(ReportErrorCode::BadBeefyMmrRoot));
                 }
@@ -372,7 +377,9 @@ pub mod work_report {
                 }
                 // We note that the Ed25519 key of each validator whose signature is in a credential is placed in the reporters set.
                 // This is utilized by the validator activity statistics book-keeping system.
-                reporters.push(validator.ed25519);
+                if !reporters.contains(&validator.ed25519) {
+                    reporters.push(validator.ed25519);
+                }
             }
 
             reporters.sort();
@@ -474,24 +481,27 @@ mod work_result {
         }
 
         let services = state_handler::service_accounts::get();
+        for service in services.iter() {
+            log::info!("service: {:?} available" , *service.0);
+        }
         let mut total_accumulation_gas: Gas = 0;
         
         //let service_map: std::collections::HashMap<_, _> = services.0.iter().map(|s| (s.id, s)).collect();
         let mut results_size = 0;
 
         for result in results.iter() {
-            if let Some(service) = services.get(&result.service) {
+            if let Some(account) = services.get(&result.service) {
                 // We require that all work results within the extrinsic predicted the correct code hash for their 
                 // corresponding service
-                if result.code_hash != service.code_hash {
-                    log::error!("Bad code hash 0x{} != 0x{}", utils::print_hash!(result.code_hash), utils::print_hash!(service.code_hash));
+                if result.code_hash != account.code_hash {
+                    log::error!("Service {:?} Bad code hash 0x{} != 0x{}", result.service, utils::print_hash!(result.code_hash), utils::print_hash!(account.code_hash));
                     return Err(ProcessError::ReportError(ReportErrorCode::BadCodeHash));
                 }
                 // We require that the gas allotted for accumulation of each work item in each work-report respects 
                 // its service's minimum gas requirements
                 // TODO revisar esto a ver si en realidad es este gas
-                if result.gas < service.acc_min_gas {
-                    log::error!("Service item gas too low: {:?}. The min gas required is {:?}", result.gas, service.acc_min_gas);
+                if result.gas < account.acc_min_gas {
+                    log::error!("Service item gas too low: {:?}. The min gas required is {:?}", result.gas, account.acc_min_gas);
                     return Err(ProcessError::ReportError(ReportErrorCode::ServiceItemGasTooLow));
                 }
                 total_accumulation_gas += result.gas;

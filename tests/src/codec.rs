@@ -3,7 +3,7 @@ pub mod tests {
 use std::cmp::min;
 
 use jam_types::{
-    AccumulatedHistory, AuthPools, AuthQueues, Guarantee, AvailabilityAssignments, BlockHistory, DisputesRecords, EntropyPool, KeyValue, 
+    AccumulatedHistory, AuthPools, AuthQueues, Guarantee, AvailabilityAssignments, RecentBlocks, DisputesRecords, EntropyPool, KeyValue, Extrinsic,
     OutputAccumulation, OutputAssurances, OutputPreimages, OutputSafrole, Privileges, RawState, ReadError, ReadyQueue, RefineContext, Safrole, 
     Statistics, TimeSlot, ValidatorsData, WorkItem, WorkPackage, WorkReport, WorkResult, Assurance, Ticket, Preimage, Header, Block, DisputesExtrinsic
 };
@@ -39,6 +39,7 @@ pub enum TestBody {
     PreimagesExtrinsic,
     AssurancesExtrinsic,
     GuaranteesExtrinsic,
+    Extrinsic,
     Header,
     Block,
     InputHistory,
@@ -164,6 +165,9 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
             TestBody::DisputesExtrinsic => {
                 context.process_test_part("DisputesExtrinsic", DisputesExtrinsic::decode, DisputesExtrinsic::encode)?;
             }
+            TestBody::Extrinsic => {
+                context.process_test_part("Extrinsic", Extrinsic::decode, Extrinsic::encode)?;
+            }
             TestBody::Header => {
                 context.process_test_part("Header", Header::decode, Header::encode)?;
             }
@@ -174,7 +178,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
                 context.process_test_part("InputHistory", InputHistory::decode, InputHistory::encode)?;
             }
             TestBody::BlockHistory => {
-                context.process_test_part("BlockHistory", BlockHistory::decode, BlockHistory::encode)?;
+                context.process_test_part("BlockHistory", RecentBlocks::decode, RecentBlocks::encode)?;
             }
             TestBody::InputSafrole => {
                 context.process_test_part("InputSafrole", InputSafrole::decode, InputSafrole::encode)?;
@@ -304,7 +308,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
 
 
     //use super::*;
-    const TEST_DIR: &str = "jamtestvectors/codec/data";
+    const TEST_DIR: &str = "jamtestvectors/codec/tiny";
 
     #[test]
     fn run_refine_context_test() {
@@ -402,6 +406,14 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
         assert_eq!(test_content, encoded);
     }
     
+    #[test]
+    fn run_extrinsic() {
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/extrinsic.bin", TEST_DIR))).unwrap();
+        let test_body: Vec<TestBody> = vec![TestBody::Extrinsic];
+        let result = encode_decode_test(&test_content, &test_body);
+        assert_eq!(result.is_ok(), true);
+    }
+
     #[test]
     fn run_header_0() {
         let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/header_0.bin", TEST_DIR))).unwrap();

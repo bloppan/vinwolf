@@ -9,6 +9,7 @@ repository.workspace = true
 [dependencies]
 constants = { workspace = true }
 jam-types = { workspace = true }
+codec = { workspace = true }
 utils = { workspace = true }
 block = { workspace = true }
 once_cell = { workspace = true }

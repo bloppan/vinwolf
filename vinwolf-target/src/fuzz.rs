@@ -21,7 +21,7 @@ static VINWOLF_INFO: Lazy<PeerInfo> = Lazy::new(|| {
         jam_version: Version {
             major: 0,
             minor: 6,
-            patch: 6,
+            patch: 7,
         },
     }
 });
@@ -177,7 +177,7 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
     let vinwolf_info = &*VINWOLF_INFO;
 
     let listener = UnixListener::bind(socket_path)?;
-    println!("\nvinwolf-target v0.6.6 listening on {}\n", socket_path);
+    println!("\nvinwolf-target v0.6.7 listening on {}\n", socket_path);
 
     loop {
         match listener.accept().await {

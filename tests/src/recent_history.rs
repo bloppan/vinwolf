@@ -3,23 +3,22 @@ mod tests {
 
     //use crate::TestBody;
     use codec::{Decode, BytesReader};
-    use jam_types::{BlockHistory, ReportedWorkPackages};
+    use jam_types::{RecentBlocks, ReportedWorkPackages};
     use crate::test_types::InputHistory;
 
     fn run_test(filename: &str) {
         
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/history/data/{}", filename))).unwrap();
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/history/tiny/{}", filename))).unwrap();
 
-        /*let test_body: Vec<TestBody> = vec![TestBody::InputHistory, TestBody::BlockHistory, TestBody::BlockHistory];
-
+        /*let test_body: Vec<TestBody> = vec![TestBody::InputHistory, TestBody::RecentBlocks, TestBody::RecentBlocks];
         if encode_decode_test(&test_content, &test_body).is_err() {
             panic!("Error encoding/decoding test file: {}", filename);
         }*/
-        
+
         let mut reader = BytesReader::new(&test_content);
         let input = InputHistory::decode(&mut reader).expect("Error decoding InputHistory");
-        let expected_pre_state = BlockHistory::decode(&mut reader).expect("Error decoding pre BlockHistory");
-        let expected_post_state = BlockHistory::decode(&mut reader).expect("Error decoding post BlockHistory");
+        let expected_pre_state = RecentBlocks::decode(&mut reader).expect("Error decoding pre RecentBlocks");
+        let expected_post_state = RecentBlocks::decode(&mut reader).expect("Error decoding post RecentBlocks");
         
         let mut reported_work_packages = ReportedWorkPackages::default();
         for wp in &input.work_packages {
@@ -29,6 +28,7 @@ mod tests {
         state_handler::recent_history::set(expected_pre_state.clone());
 
         let mut recent_history_state = state_handler::recent_history::get();
+
         assert_eq!(expected_pre_state, recent_history_state);
 
         recent_history::process(&mut recent_history_state,
@@ -41,7 +41,8 @@ mod tests {
                                 &input.accumulate_root, 
                                 &reported_work_packages);
 
-        assert_eq!(expected_post_state, recent_history_state);
+        assert_eq!(expected_post_state.history, recent_history_state.history);
+        assert_eq!(expected_post_state.mmr, recent_history_state.mmr);
     }
 
     #[test]

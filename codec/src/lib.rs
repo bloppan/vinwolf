@@ -8,7 +8,7 @@ pub trait FromLeBytes: Sized {
 
 pub trait Encode {
     fn encode(&self) -> Vec<u8>;
-    fn encode_to(&self, writer: &mut Vec<u8>);
+    fn encode_to(&self, into: &mut Vec<u8>);
 }
 
 pub trait EncodeSize {

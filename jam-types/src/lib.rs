@@ -3,7 +3,7 @@ mod default;
 use std::collections::{HashMap, VecDeque};
 use serde::Deserialize;
 
-use constants::node::{ ENTROPY_POOL_SIZE, VALIDATORS_COUNT, CORES_COUNT, AVAIL_BITFIELD_BYTES, MAX_ITEMS_AUTHORIZATION_QUEUE, EPOCH_LENGTH, SEGMENT_SIZE };
+use constants::node::{AVAIL_BITFIELD_BYTES, CORES_COUNT, ENTROPY_POOL_SIZE, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, SEGMENT_SIZE, VALIDATORS_COUNT};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
 // ----------------------------------------------------------------------------------------------------------
@@ -282,8 +282,8 @@ pub struct WorkReport {
     pub core_index: CoreIndex,
     // Authorizer hash
     pub authorizer_hash: OpaqueHash,
-    // Authorization output
-    pub auth_output: Vec<u8>,
+    // Authorization trace
+    pub auth_trace: Vec<u8>,
     // Segment root lookup dictionary
     pub segment_root_lookup: Vec<SegmentRootLookupItem>, // TODO mejor con un hashmap?
     // Sequence of work results of the evaluation of each of the items in the package together with some associated data
@@ -326,15 +326,16 @@ pub enum ReportErrorCode {
     SegmentRootLookupInvalid = 20,
     BadSignature = 21,
     WorkReportTooBig = 22,
-    TooManyGuarantees = 23,
-    NoAuthorization = 24,
-    BadNumberCredentials = 25,
-    TooOldGuarantee = 26,
-    GuarantorNotFound = 27,
-    LengthNotEqual = 28,
-    BadLookupAnchorSlot = 29,
-    NoResults = 30,
-    TooManyResults = 31,
+    BanedValidator = 23,
+    TooManyGuarantees = 24,
+    NoAuthorization = 25,
+    BadNumberCredentials = 26,
+    TooOldGuarantee = 27,
+    GuarantorNotFound = 28,
+    LengthNotEqual = 29,
+    BadLookupAnchorSlot = 30,
+    NoResults = 31,
+    TooManyResults = 32,
 }
 
 // The Work Result is the data conduit by which services states may be altered through the computation done within a work-package. 
@@ -423,23 +424,37 @@ pub struct ReportedWorkPackage {
 
 /*#[derive(Clone, Debug, PartialEq)]
 pub struct ReportedWorkPackages(pub Vec<ReportedWorkPackage>);*/
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RecentAccOutputs {
+    pub pairs: Vec<(ServiceId, OpaqueHash)>,
+}
+
 pub type ReportedWorkPackages = Vec<(OpaqueHash, OpaqueHash)>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BlockInfo {
     // Block's header hash
-    pub header_hash: Hash,
-    // Accumulation-result MMR 
-    pub mmr: Mmr,
+    pub header_hash: OpaqueHash,
+    // Accumulation-result MMB 
+    pub beefy_root: OpaqueHash,
     // Block's state root
-    pub state_root: Hash,
+    pub state_root: OpaqueHash,
     // Work package hashes of each item reported (which is no more than the CORES_COUNT)
     pub reported_wp: ReportedWorkPackages,
 }
 
+pub type BlockHistory = VecDeque<BlockInfo>;
+
 #[derive(Clone, Debug, PartialEq)]
-pub struct BlockHistory {
-    pub blocks: VecDeque<BlockInfo>,
+pub struct RecentBlocks {
+    // We retain in state information on the RECENT_HISTORY_SIZE blocks. This is used to preclude the possibility of 
+    // duplicate or out of date work-reports from being submitted.
+    pub history: BlockHistory,
+    // The accumulation output log is formed from the block's accumulation-output sequence, taking its root using the 
+    // basic binary Merklization function (MB merkle_binary) and appending it (append) to the previous log value with
+    // the MMB append function
+    pub mmr: Mmr,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Statistics
@@ -716,12 +731,8 @@ pub type ServiceAccounts = HashMap<ServiceId, Account>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Account {
-    // Storage dictionary
+    // Storage dictionary. Can contain preimages, lookups or general storage
     pub storage: HashMap<StorageKey, Vec<u8>>,
-    // Preimages dictionary
-    pub preimages: HashMap<StorageKey, Vec<u8>>,
-    // Lookup dictionary
-    pub lookup: HashMap<StorageKey, Vec<TimeSlot>>,
     // Code hash
     pub code_hash: OpaqueHash,
     // Account balance
@@ -730,6 +741,18 @@ pub struct Account {
     pub acc_min_gas: Gas,
     // Minimum gas required for the on transfer entry-point
     pub xfer_min_gas: Gas,
+    // Gratis storage offset
+    pub gratis_storage_offset: Balance,
+    // Timeslot at creation
+    pub created_at: TimeSlot,
+    // Timeslot at the most recent accumulation
+    pub last_acc: TimeSlot,
+    // Parent service
+    pub parent_service: ServiceId,
+    // Items in storage
+    pub items: u32,
+    // Octets in storage
+    pub octets: u64,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PreimageData {
@@ -746,12 +769,20 @@ pub struct ServiceInfo {
     pub balance: u64,
     // Minimum gas required in order to execute the accumulate entry-point of the service's code
     pub acc_min_gas: Gas,
-    // Minimum gas required for the on transfer entry-point 
+    // Minimum gas required for the on transfer entry-point
     pub xfer_min_gas: Gas,
-    // Number of octets in the storage
-    pub bytes: u64,
-    // Number of items in the storage
+    // Gratis storage offset
+    pub gratis_storage_offset: Balance,
+    // Timeslot at creation
+    pub created_at: TimeSlot,
+    // Timeslot at the most recent accumulation
+    pub last_acc: TimeSlot,
+    // Parent service
+    pub parent_service: ServiceId,
+    // Items in storage
     pub items: u32,
+    // Octets in storage
+    pub octets: u64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -850,12 +881,16 @@ pub struct AccumulatedHistory {
     pub queue: VecDeque<Vec<WorkPackageHash>>,
 }
 
+pub type ServiceAssigns = Box<[ServiceId; CORES_COUNT]>;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Privileges {
     // Index of the manager service which is the service able to effect an alteration of privileges state component from block to block
-    pub bless: ServiceId,
-    // Index of service able to alter the authorizer queue state component
-    pub assign: ServiceId,
+    pub manager: ServiceId,
+    // Index of services able to alter the authorizer queue state component. A service privileged in this way for a some core is able not 
+    // only to assign its authorizer queue, but also to transfer the rights to another service, allowing for the possibility of a nullified 
+    // manager privilege without fixing the authorizer service. This transferability is also introduced to the delegator service.
+    pub assign: ServiceAssigns,
     // Index of service able to alter the next validators state component
     pub designate: ServiceId,
     // Indices of services which automaticaly accumulate in each block together with a basic amount of gas with which each accumulates
@@ -914,7 +949,7 @@ pub struct GlobalState {
     pub time: TimeSlot,
     pub availability: AvailabilityAssignments,
     pub entropy: EntropyPool,
-    pub recent_history: BlockHistory,
+    pub recent_history: RecentBlocks,
     pub auth_pools: AuthPools,
     pub auth_queues: AuthQueues,
     pub statistics: Statistics,
@@ -926,6 +961,7 @@ pub struct GlobalState {
     pub service_accounts: ServiceAccounts,
     pub accumulation_history: AccumulatedHistory,
     pub ready_queue: ReadyQueue,
+    pub recent_acc_outputs: RecentAccOutputs,
     pub privileges: Privileges,
 }
 #[derive(Debug, PartialEq)]
@@ -968,13 +1004,15 @@ pub struct MemoryChunk {
     pub contents: Vec<u8>,
 }
 
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccumulationPartialState {
     pub service_accounts: ServiceAccounts,
     pub next_validators: ValidatorsData,
     pub queues_auth: AuthQueues,
-    pub privileges: Privileges,
+    pub manager: ServiceId,
+    pub assign: Box<[ServiceId; CORES_COUNT]>,
+    pub designate: ServiceId,
+    pub always_acc: HashMap<ServiceId, Gas>,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeferredTransfer {
@@ -1006,7 +1044,7 @@ pub struct AccumulationOperand {
     pub payload_hash: OpaqueHash,
     pub gas_limit: Gas,
     pub result: Vec<u8>,
-    pub auth_output: Vec<u8>,
+    pub auth_trace: Vec<u8>,
 }
 
 // The set of data segments, equivalent to octet sequences of length WG.(4104)

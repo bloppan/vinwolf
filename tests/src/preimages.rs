@@ -5,9 +5,9 @@ mod tests {
     use crate::FromProcessError;
     use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputPreimages, PreimagesState};
-    use jam_types::{Extrinsic, Account, OutputPreimages, ServiceAccounts, Statistics, ProcessError, StateKeyType};
+    use jam_types::{Account, Block, Extrinsic, Header, OutputPreimages, ProcessError, ServiceAccounts, StateKeyType, Statistics, ValidatorsData};
     use state_handler::{get_global_state};
-    use codec::{Decode, BytesReader};
+    use codec::{EncodeLen, Decode, BytesReader};
     use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 
     impl FromProcessError for OutputPreimages {
@@ -21,7 +21,7 @@ mod tests {
     
     fn run_test(filename: &str) {
 
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/preimages/data/{}", filename))).unwrap();
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/preimages/tiny/{}", filename))).unwrap();
         let test_body: Vec<TestBody> = vec![
                                         TestBody::InputPreimages,
                                         TestBody::PreimagesState,
@@ -45,7 +45,7 @@ mod tests {
         for account in pre_state.accounts.iter() {
             let mut preimages_map: HashMap<[u8; 31], Vec<u8>> = HashMap::new();
             for preimage in account.data.preimages.iter() {
-                let preimage_key = StateKeyType::Account(account.id, construct_preimage_key(&preimage.hash).to_vec()).construct();
+                let preimage_key = StateKeyType::Account(account.id, construct_preimage_key(&preimage.hash)).construct();
                 preimages_map.insert(preimage_key, preimage.blob.clone());
             }
             let mut lookup_map = HashMap::new();
@@ -54,12 +54,12 @@ mod tests {
                 for timeslot in lookup_meta.value.iter() {
                     timeslot_values.push(timeslot.clone());
                 }   
-                lookup_map.insert(StateKeyType::Account(account.id, construct_lookup_key(&lookup_meta.key.hash, lookup_meta.key.length).to_vec()).construct(), timeslot_values.clone());
+                lookup_map.insert(StateKeyType::Account(account.id, construct_lookup_key(&lookup_meta.key.hash, lookup_meta.key.length)).construct(), timeslot_values.encode_len());
                 //lookup_map.insert(construct_lookup_key(&lookup_meta.key.hash.clone(), lookup_meta.key.length.clone()), timeslot_values.clone());
             }
             let mut new_account = Account::default();
-            new_account.preimages = preimages_map.clone();
-            new_account.lookup = lookup_map.clone();
+            new_account.storage.extend(preimages_map);
+            new_account.storage.extend(lookup_map);
             service_accounts.insert(account.id.clone(), new_account);
         }
 
@@ -78,8 +78,12 @@ mod tests {
 
         let mut extrinsic = Extrinsic::default();
         extrinsic.preimages = input.preimages.clone();
+        let mut header = Header::default();
+        header.unsigned.slot = input.slot;
+        let block = Block { header, extrinsic };
+        let curr_validators = ValidatorsData::default();
 
-        statistics::process(&mut statistics, &input.slot, &0, &extrinsic, &vec![]);
+        statistics::process(&mut statistics, &curr_validators, &block, &vec![]);
 
         match output_result {
             Ok(_) => { 
@@ -94,16 +98,18 @@ mod tests {
             let result_account = result_service_accounts.get(&account.id).unwrap();
             for preimage in account.data.preimages.iter() {
                 let preimage_key = StateKeyType::Account(account.id, construct_preimage_key(&preimage.hash).to_vec()).construct();
-                if let Some(_) = result_account.preimages.get(&preimage_key) {
-                    assert_eq!(preimage.blob, *result_account.preimages.get(&preimage_key).unwrap());
+                if let Some(_) = result_account.storage.get(&preimage_key) {
+                    assert_eq!(preimage.blob, *result_account.storage.get(&preimage_key).unwrap());
                 }
             }
             for lookup_meta in account.data.lookup_meta.iter() {
-                let timeslot_values = result_account.lookup.get(&StateKeyType::Account(account.id, construct_lookup_key(&lookup_meta.key.hash, lookup_meta.key.length).to_vec()).construct()).unwrap();
-                assert_eq!(lookup_meta.value.len(), timeslot_values.len());
+                let result_timeslots_encoded = result_account.storage.get(&StateKeyType::Account(account.id, construct_lookup_key(&lookup_meta.key.hash, lookup_meta.key.length)).construct()).cloned();
+                let expected_timeslots_encoded = lookup_meta.value.encode_len();
+                assert_eq!(expected_timeslots_encoded, result_timeslots_encoded.unwrap());
+                /*assert_eq!(lookup_meta.value.len(), timeslot_values.len());
                 for (i, byte) in lookup_meta.value.iter().enumerate() {
                     assert_eq!(byte.clone(), timeslot_values[i].clone());
-                }
+                }*/
             }
         }
         

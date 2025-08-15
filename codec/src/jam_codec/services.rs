@@ -1,4 +1,4 @@
-use jam_types::{ ServiceId, Gas, OpaqueHash, ServiceInfo, ServiceItem, Services };
+use jam_types::{ Gas, OpaqueHash, ServiceId, ServiceInfo, ServiceItem, Services, TimeSlot };
 use crate::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
 
 impl Encode for ServiceInfo {
@@ -11,8 +11,12 @@ impl Encode for ServiceInfo {
         self.balance.encode_size(8).encode_to(&mut blob);
         self.acc_min_gas.encode_size(8).encode_to(&mut blob);
         self.xfer_min_gas.encode_size(8).encode_to(&mut blob);
-        self.bytes.encode_size(8).encode_to(&mut blob);
+        self.octets.encode_size(8).encode_to(&mut blob);
+        self.gratis_storage_offset.encode_size(8).encode_to(&mut blob);
         self.items.encode_size(4).encode_to(&mut blob);
+        self.created_at.encode_size(4).encode_to(&mut blob);
+        self.last_acc.encode_size(4).encode_to(&mut blob);
+        self.parent_service.encode_size(4).encode_to(&mut blob);
         
         return blob;
     }
@@ -31,8 +35,12 @@ impl Decode for ServiceInfo {
             balance: u64::decode(blob)?,
             acc_min_gas: Gas::decode(blob)?,
             xfer_min_gas: Gas::decode(blob)?,
-            bytes: u64::decode(blob)?,
+            octets: u64::decode(blob)?,
+            gratis_storage_offset: u64::decode(blob)?,
             items: u32::decode(blob)?,
+            created_at: TimeSlot::decode(blob)?,
+            last_acc: TimeSlot::decode(blob)?,
+            parent_service: ServiceId::decode(blob)?,
         })
     }
 }

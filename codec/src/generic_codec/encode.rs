@@ -208,7 +208,23 @@ impl<const N: usize> Encode for Box<[u8; N]> {
         writer.extend_from_slice(&self.encode())
     }
 }
+// TODO arreglar esto
+impl<const N: usize> Encode for Box<[u32; N]> {
 
+    fn encode(&self) -> Vec<u8> {
+
+        let mut encoded = Vec::new();
+
+        for i in 0..N {
+            encoded.extend_from_slice(&self[i].encode());
+        }
+
+        return encoded;
+    }
+    fn encode_to(&self, writer: &mut Vec<u8>) {
+        writer.extend_from_slice(&self.encode())
+    }
+}
 
 impl<const N: usize, const M: usize> Encode for [[u8; N]; M] {
 

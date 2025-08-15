@@ -25,7 +25,7 @@
 */
 
 use sp_core::blake2_256;
-use jam_types::{Block, ProcessError};
+use jam_types::{Block, ProcessError, OutputDataReports};
 use utils::trie::merkle_state;
 use block::header;
 use codec::Encode;
@@ -80,7 +80,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &block.header.unsigned.parent,
     )?;
 
-    let _ = reports::guarantees::process(
+    let OutputDataReports { reported: _reported, reporters } = reports::guarantees::process(
         &mut new_state.availability, 
         &block.extrinsic.guarantees,
         &block.header.unsigned.slot,
@@ -89,7 +89,7 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
         &new_state.curr_validators,
     )?; 
 
-    let (accumulation_root, 
+    let (acc_root, 
          service_accounts, 
          next_validators, 
          queue_auth, 
@@ -107,11 +107,11 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
     new_state.next_validators = next_validators;
     new_state.auth_queues = queue_auth;
     new_state.privileges = privileges;
-    
+
     recent_history::finalize(
         &mut new_state.recent_history,
         &header_hash,
-        &accumulation_root,
+        &acc_root,
         &reported_work_packages);
 
     services::process(
@@ -126,9 +126,9 @@ pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
 
     statistics::process(
         &mut new_state.statistics, 
-        &block.header.unsigned.slot, 
-        &block.header.unsigned.author_index, 
-        &block.extrinsic,
+        &new_state.curr_validators,
+        block,
+        &reporters,
         &new_available_workreports.reported,
     );
     

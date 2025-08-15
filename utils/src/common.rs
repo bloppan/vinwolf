@@ -6,16 +6,16 @@ use std::fs::File;
 use std::io::Read;
 
 use jam_types::{
-    BandersnatchPublic, BlsPublic, Ed25519Public, Ed25519Signature, Metadata, ValidatorsData, Account, Balance, ServiceAccounts, ServiceId, ReadError,
-    OpaqueHash, PreimageData, StateKeyType, TimeSlot, KeyValue, GlobalState, AuthPools, AuthQueues, BlockHistory, Safrole, DisputesRecords, EntropyPool,
-    AvailabilityAssignments, Privileges, Statistics, ReadyQueue, AccumulatedHistory, Gas
+    Account, AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Balance, BandersnatchPublic, BlsPublic, DisputesRecords, Ed25519Public, 
+    Ed25519Signature, EntropyPool, Gas, GlobalState, KeyValue, Metadata, OpaqueHash, PreimageData, Privileges, ReadError, ReadyQueue, RecentAccOutputs, 
+    RecentBlocks, Safrole, ServiceAccounts, ServiceId, StateKeyType, Statistics, TimeSlot, ValidatorsData, ServiceInfo
 };
 use constants::node::{
     MIN_BALANCE, MIN_BALANCE_PER_ITEM, MIN_BALANCE_PER_OCTET, AUTH_POOLS, AUTH_QUEUE, RECENT_HISTORY, SAFROLE, DISPUTES, ENTROPY, NEXT_VALIDATORS, 
-    CURR_VALIDATORS, PREV_VALIDATORS, AVAILABILITY, TIME, PRIVILEGES, STATISTICS, READY_QUEUE, ACCUMULATION_HISTORY
+    CURR_VALIDATORS, PREV_VALIDATORS, AVAILABILITY, TIME, PRIVILEGES, STATISTICS, READY_QUEUE, ACCUMULATION_HISTORY, RECENT_ACC_OUTPUTS
 };
 use crate::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
-use codec::{ Decode, DecodeLen, BytesReader};
+use codec::{ Encode, Decode, DecodeLen, BytesReader};
 use codec::generic_codec::{decode_unsigned, decode};
 
 pub fn dict_subtract<K: Eq + std::hash::Hash + Clone, V: Clone>(
@@ -28,25 +28,36 @@ pub fn dict_subtract<K: Eq + std::hash::Hash + Clone, V: Clone>(
         .collect()
 }
 
-pub fn get_footprint_and_threshold(account: &Account) -> (u32, u64, Balance) {
+/*pub fn get_footprint_and_threshold(account: &Account) -> (u32, u64, Balance) {
 
     let items: u32 = 2 * account.lookup.len() as u32 + account.storage.len() as u32;
 
     let mut octets: u64 = 0;
+
     for (lookup_key, _timeslot) in account.lookup.iter() {
         let length = u32::from_le_bytes([lookup_key[1], lookup_key[3], lookup_key[5], lookup_key[7]]);
         octets += 81 + length as u64;
     }
-    for (_hash, storage_data) in account.storage.iter() {
-        octets += 32 + storage_data.len() as u64;
+    for (_key, value) in account.storage.iter() {
+        octets += 34 + value.0 as u64 + value.1.len() as u64;
     }
 
-    let threshold = MIN_BALANCE + items as Balance * MIN_BALANCE_PER_ITEM + octets as Balance * MIN_BALANCE_PER_OCTET;
-    
+    let threshold: Balance = std::cmp::max(0, MIN_BALANCE + items as Balance * MIN_BALANCE_PER_ITEM + octets as Balance * MIN_BALANCE_PER_OCTET - account.gratis_storage_offset);
     //log::debug!("Items: {:?}, octets: {:?}, threshold: {:?}", items, octets, threshold);
     return (items, octets, threshold);
-}   
+}*/   
 
+pub fn get_threshold(account: &Account) -> Balance {
+    std::cmp::max(0, (MIN_BALANCE + account.items as Balance * MIN_BALANCE_PER_ITEM + account.octets as Balance * MIN_BALANCE_PER_OCTET).saturating_sub(account.gratis_storage_offset)) as Balance
+}
+
+pub fn update_storage_octets(init_value: &[u8], final_value: &[u8]) -> i64 {
+    (final_value.len() - init_value.len()) as i64
+}
+
+pub fn octets_lookup(length: u32) -> u64 {
+    (81 + length) as u64
+}
 
 pub fn keys_to_set<K: Eq + std::hash::Hash + Clone, V>(
     map: &HashMap<K, V>,
@@ -115,6 +126,7 @@ pub fn set_offenders_null(validators_data: &mut ValidatorsData, offenders: &[Ed2
     'next_offender: for offender in offenders {
         for validator in validators_data.list.iter_mut() {
             if *offender == validator.ed25519 {
+                log::debug!("Validator {} belongs to offenders set", crate::print_hash!(validator.ed25519));
                 validator.bandersnatch = [0u8; std::mem::size_of::<BandersnatchPublic>()];
                 validator.ed25519 = [0u8; std::mem::size_of::<Ed25519Public>()];
                 validator.bls = [0u8; std::mem::size_of::<BlsPublic>()];
@@ -129,12 +141,14 @@ pub fn parse_preimage(service_accounts: &ServiceAccounts, service_id: &ServiceId
 
     let preimage_blob = if let Some(account) = service_accounts.get(service_id) {
         let preimage_key = StateKeyType::Account(*service_id, construct_preimage_key(&account.code_hash).to_vec()).construct();
-        if let Some(preimage) = account.preimages.get(&preimage_key) {
+        if let Some(preimage) = account.storage.get(&preimage_key) {
             preimage
         } else {
+            log::error!("Preimage key not found for service: {:?}", service_id);
             return Ok(None);
         }
     } else {
+        log::error!("Account not found for service: {:?}", service_id);
         return Ok(None);
     };
 
@@ -165,11 +179,14 @@ pub fn historical_preimage_lookup(
     ) -> Option<Vec<u8>> {
 
     let preimage_key = StateKeyType::Account(*service_id, construct_preimage_key(hash).to_vec()).construct();
-
-    if let Some(preimage) = account.preimages.get(&preimage_key) {
+    
+    if let Some(preimage) = account.storage.get(&preimage_key) {
         let length = preimage.len() as u32;
-        if let Some(timeslot_record) = account.lookup.get(&construct_lookup_key(hash, length)) {
-            if check_preimage_availability(timeslot_record, slot) {
+        let lookup_key = StateKeyType::Account(*service_id, construct_lookup_key(hash, length).to_vec()).construct();
+        if let Some(timeslot_record) = account.storage.get(&lookup_key) {
+            let mut reader = BytesReader::new(timeslot_record);
+            let timeslots = Vec::<TimeSlot>::decode_len(&mut reader).unwrap(); // TODO handle error
+            if check_preimage_availability(&timeslots, slot) {
                 return Some(preimage.clone());
             }
         }
@@ -206,7 +223,7 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
             let key = keyval.key;
 
             if is_simple_key(keyval) {
-
+                
                 let state_key = key[0] & 0xFF;
                 let mut reader = BytesReader::new(&keyval.value);
 
@@ -218,7 +235,7 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
                         state.auth_queues = AuthQueues::decode(&mut reader)?;
                     },
                     RECENT_HISTORY => {
-                        state.recent_history = BlockHistory::decode(&mut reader)?;
+                        state.recent_history = RecentBlocks::decode(&mut reader)?;
                     },
                     SAFROLE => {
                         state.safrole = Safrole::decode(&mut reader)?;
@@ -256,6 +273,9 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
                     ACCUMULATION_HISTORY => {
                         state.accumulation_history = AccumulatedHistory::decode(&mut reader)?;
                     },
+                    RECENT_ACC_OUTPUTS => {
+                        state.recent_acc_outputs = RecentAccOutputs::decode(&mut reader)?;
+                    }
                     _ => {
                         log::error!("Unknown key: {:?}", state_key);
                         return Err(ReadError::InvalidData);
@@ -263,63 +283,40 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
                 }
 
             } else if is_service_info_key(keyval) {
+                /*let mut service_reader = BytesReader::new(&keyval.key[1..]);
+                let service_id = ServiceId::decode(&mut service_reader).expect("Error decoding service id");*/
+                let service_id_vec = vec![keyval.key[1], keyval.key[3], keyval.key[5], keyval.key[7]];
+                let service_id = decode::<ServiceId>(&service_id_vec, std::mem::size_of::<ServiceId>());
 
-                let mut service_reader = BytesReader::new(&keyval.key[1..]);
-                let service_id = ServiceId::decode(&mut service_reader).expect("Error decoding service id");
+                log::info!("Service: {:?} info key: {}", service_id, hex::encode(&keyval.key));
 
-                if state.service_accounts.get(&service_id).is_none() {
-                    let account = Account::default();
-                    state.service_accounts.insert(service_id, account);
-                }
                 let mut account_reader = BytesReader::new(&keyval.value);
-                let mut account = state.service_accounts.get(&service_id).unwrap().clone();
-                account.code_hash = OpaqueHash::decode(&mut account_reader).expect("Error decoding code_hash");
-                account.balance = Gas::decode(&mut account_reader).expect("Error decoding balance") as u64;
-                account.acc_min_gas = Gas::decode(&mut account_reader).expect("Error decoding acc_min_gas");
-                account.xfer_min_gas = Gas::decode(&mut account_reader).expect("Error decoding xfer_min_gas");
+                let service_info = ServiceInfo::decode(&mut account_reader).expect("Error decoding service info");
+                if state.service_accounts.get(&service_id).is_none() {
+                    state.service_accounts.insert(service_id, Account::default());
+                }
 
-                state.service_accounts.insert(service_id, account);
+                state.service_accounts.get_mut(&service_id).unwrap().code_hash = service_info.code_hash;
+                state.service_accounts.get_mut(&service_id).unwrap().balance = service_info.balance;
+                state.service_accounts.get_mut(&service_id).unwrap().acc_min_gas = service_info.acc_min_gas;
+                state.service_accounts.get_mut(&service_id).unwrap().xfer_min_gas = service_info.xfer_min_gas;
+                state.service_accounts.get_mut(&service_id).unwrap().created_at = service_info.created_at;
+                state.service_accounts.get_mut(&service_id).unwrap().last_acc = service_info.last_acc;
+                state.service_accounts.get_mut(&service_id).unwrap().parent_service = service_info.parent_service;
+                state.service_accounts.get_mut(&service_id).unwrap().octets = service_info.octets;
+                state.service_accounts.get_mut(&service_id).unwrap().items = service_info.items;
+                state.service_accounts.get_mut(&service_id).unwrap().gratis_storage_offset = service_info.gratis_storage_offset;
+
             } else {
+                
                 let service_id_vec = vec![keyval.key[0], keyval.key[2], keyval.key[4], keyval.key[6]];
                 let service_id = decode::<ServiceId>(&service_id_vec, std::mem::size_of::<ServiceId>());
-                let mut key_hash = vec![keyval.key[1], keyval.key[3], keyval.key[5]];
-                key_hash.extend_from_slice(&keyval.key[7..]);
-
-                // Preimage
-                if is_preimage_key(keyval) { 
-                    
-                    if state.service_accounts.get(&service_id).is_none() {
-                        state.service_accounts.insert(service_id, Account::default());
-                    }
-
-                    state.service_accounts.get_mut(&service_id).unwrap().preimages.insert(keyval.key, keyval.value.clone());
-                    //println!("preimage key: {}", hex::encode(keyval.key));
-
-                // Storage
-                } else if is_storage_key(keyval) {
-                    
-                    if state.service_accounts.get(&service_id).is_none() {
-                        state.service_accounts.insert(service_id, Account::default());
-                    }
-
-                    let mut storage_key  = [0u8; 31];
-                    storage_key.copy_from_slice(&keyval.key);
-                    state.service_accounts.get_mut(&service_id).unwrap().storage.insert(storage_key, keyval.value.clone());
-                // Lookup
-                } else {
-                    let service_id_vec = vec![keyval.key[0], keyval.key[2], keyval.key[4], keyval.key[6]];
-                    let service_id = decode::<ServiceId>(&service_id_vec, std::mem::size_of::<ServiceId>());
-                    
-                    let mut timeslots_reader = BytesReader::new(&keyval.value);
-                    let timeslots = Vec::<u32>::decode_len(&mut timeslots_reader).expect("Error decoding timeslots");
-                    
-                    if state.service_accounts.get(&service_id).is_none() {
-                        state.service_accounts.insert(service_id, Account::default());
-                    }
-                    
-                    let account = state.service_accounts.get_mut(&service_id).unwrap();
-                    account.lookup.insert(keyval.key, timeslots.clone());
+                log::info!("Service: {:?} Account key: {}", service_id, hex::encode(&keyval.key));
+                if state.service_accounts.get(&service_id).is_none() {
+                    state.service_accounts.insert(service_id, Account::default());
                 }
+
+                state.service_accounts.get_mut(&service_id).unwrap().storage.insert(keyval.key, keyval.value.clone());
             }
         }
         Ok(())
@@ -327,12 +324,12 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
 
 fn is_simple_key(keyval: &KeyValue) -> bool {
 
-    keyval.key[0] <= 0x0F && keyval.key[1..].iter().all(|&b| b == 0)
+    keyval.key[0] <= 0x10 && keyval.key[1..].iter().all(|&b| b == 0)
 }
 
 fn is_service_info_key(keyval: &KeyValue) -> bool {
 
-    keyval.key[0] == 0xFF && keyval.key[1..].iter().all(|&b| b == 0)
+    keyval.key[0] == 0xFF && keyval.key[2] == 0x00 && keyval.key[4] == 0x00 && keyval.key[6] == 0x00 && keyval.key[8..].iter().all(|&b| b == 0)
 }
 
 fn is_storage_key(keyval: &KeyValue) -> bool {

@@ -1,4 +1,3 @@
-use crate::mm::program_init::page;
 use crate::{Program, ExitReason};
 use crate::pvm_types::{Context, RamAccess, RamAddress, RegSize};
 use constants::pvm::{LOWEST_ACCESIBLE_PAGE, JUMP_ALIGNMENT, PAGE_SIZE};
@@ -142,7 +141,7 @@ pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, r
         return check_error;
     }
 
-    log::trace!("load address: {:?} to reg: {:?} num bytes: {:?}", address, reg, std::mem::size_of::<T>());
+    //log::trace!("load address: {:?} to reg: {:?} num bytes: {:?}", address, reg, std::mem::size_of::<T>());
     /*println!("\nload address: {:?} to reg: {:?} num bytes: {:?}", address, reg, std::mem::size_of::<T>());
 
     let pagee = address / PAGE_SIZE;
@@ -191,7 +190,7 @@ pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, 
         return check_error;
     }
     
-    log::trace!("store address: {:?} value: {:?} num bytes: {:?} pc: {:?}", address, value, std::mem::size_of::<T>(), pvm_ctx.pc);
+    //log::trace!("store address: {:?} value: {:?} num bytes: {:?} pc: {:?}", address, value, std::mem::size_of::<T>(), pvm_ctx.pc);
 
     /*println!("\n store address: {:?} num bytes: {:?} pc: {:?}", address, std::mem::size_of::<T>(), pvm_ctx.pc);
 

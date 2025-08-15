@@ -166,7 +166,7 @@ impl Encode for AccumulationOperand {
             self.result[1..].encode_to(&mut blob);
         } 
 
-        self.auth_output.encode_len().encode_to(&mut blob);
+        self.auth_trace.encode_len().encode_to(&mut blob);
 
         return blob;
     }

@@ -5,13 +5,13 @@ use std::array::from_fn;
 use constants::node::{AVAIL_BITFIELD_BYTES, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT};
 use crate::{
     BandersnatchRingVrfSignature, Ticket, Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, Assurance, AuthPool, AuthPools, AuthQueues, 
-    AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlockHistory, BlsPublic, CodeAuthorizer, 
+    AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlsPublic, CodeAuthorizer, 
     CodeAuthorizers, CoreActivityRecord, CoresStatistics, DeferredTransfer, DisputesRecords, Ed25519Public, Ed25519Signature, Entropy, EntropyPool, EpochMark, 
     ExtrinsicSpec, GlobalState, Guarantee, ImportSpec, Judgement, KeyValue, MemoryChunk, Metadata, OpaqueHash, PageMap, Preimage, Privileges, AccumulationContext,
     ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportedPackage, ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, 
     ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsMark, TicketsOrKeys, 
     TimeSlot, ValidatorData, ValidatorSignature, ValidatorStatistics, ValidatorsData, WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, Block,
-    Header, Extrinsic, UnsignedHeader, DisputesExtrinsic, Verdict, Culprit, Fault, 
+    Header, Extrinsic, UnsignedHeader, DisputesExtrinsic, Verdict, Culprit, Fault, RecentBlocks, Mmr, RecentAccOutputs
 };
 
 impl Default for GlobalState {
@@ -20,7 +20,7 @@ impl Default for GlobalState {
             time: TimeSlot::default(),
             availability: AvailabilityAssignments::default(),
             entropy: EntropyPool::default(),
-            recent_history: BlockHistory::default(),
+            recent_history: RecentBlocks::default(),
             auth_pools: AuthPools::default(),
             auth_queues: AuthQueues::default(),
             statistics: Statistics::default(),
@@ -32,6 +32,7 @@ impl Default for GlobalState {
             service_accounts: ServiceAccounts::default(),
             accumulation_history: AccumulatedHistory::default(),
             ready_queue: ReadyQueue::default(),
+            recent_acc_outputs: RecentAccOutputs::default(),
             privileges: Privileges::default(),
         }
     }
@@ -164,7 +165,7 @@ impl Default for WorkReport {
             context: RefineContext::default(),
             core_index: 0,
             authorizer_hash: OpaqueHash::default(),
-            auth_output: Vec::new(),
+            auth_trace: Vec::new(),
             segment_root_lookup: Vec::new(),
             results: Vec::new(),
             auth_gas_used: 0,
@@ -341,7 +342,10 @@ impl Default for AccumulationPartialState {
             service_accounts: ServiceAccounts::default(),
             next_validators: ValidatorsData::default(),
             queues_auth: AuthQueues::default(),
-            privileges: Privileges::default(),
+            manager: ServiceId::default(),
+            assign: Box::new(from_fn(|_| ServiceId::default())),
+            designate: ServiceId::default(),
+            always_acc: HashMap::new(),
         }
     }
 }
@@ -460,8 +464,8 @@ impl Default for Entropy {
 impl Default for Privileges {
     fn default() -> Self {
         Privileges {
-            bless: 0,
-            assign: 0,
+            manager: 0,
+            assign: Box::new(from_fn(|_| ServiceId::default())),
             designate: 0,
             always_acc: HashMap::new(),
         }
@@ -470,10 +474,23 @@ impl Default for Privileges {
 // ----------------------------------------------------------------------------------------------------------
 // Block History
 // ----------------------------------------------------------------------------------------------------------
-impl Default for BlockHistory {
+impl Default for Mmr {
     fn default() -> Self {
-        BlockHistory {
-            blocks: VecDeque::with_capacity(RECENT_HISTORY_SIZE),
+        Mmr {
+            peaks: Vec::new(),
+        }
+    }
+}
+impl Default for RecentAccOutputs {
+    fn default() -> Self {
+        RecentAccOutputs { pairs: Vec::new() }
+    }
+}
+impl Default for RecentBlocks {
+    fn default() -> Self {
+        RecentBlocks {
+            history: VecDeque::with_capacity(RECENT_HISTORY_SIZE),
+            mmr: Mmr::default(),
         }
     }
 }
@@ -521,12 +538,16 @@ impl Default for Account {
     fn default() -> Self {
         Account {
             storage: HashMap::new(),
-            preimages: HashMap::new(),
-            lookup: HashMap::new(),
             code_hash: OpaqueHash::default(),
             balance: 0,
             acc_min_gas: 0,
             xfer_min_gas: 0,
+            gratis_storage_offset: 0,
+            created_at: 0,
+            last_acc: 0,
+            parent_service: 0,
+            items: 0,
+            octets: 0,
         }
     }
 }
@@ -538,8 +559,12 @@ impl Default for ServiceInfo {
             balance: 0,
             acc_min_gas: 0,
             xfer_min_gas: 0,
-            bytes: 0,
+            octets: 0,
+            gratis_storage_offset: 0,
             items: 0,
+            created_at: 0,
+            last_acc: 0,
+            parent_service: 0,
         }
     }
 }
