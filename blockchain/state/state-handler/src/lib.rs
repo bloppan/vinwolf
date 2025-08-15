@@ -39,20 +39,16 @@ pub mod time {
     use super::*;
 
     pub fn set(new_time: TimeSlot) {
-        let mut state = GLOBAL_STATE.lock().unwrap();
-        state.time = new_time;
+        GLOBAL_STATE.lock().unwrap().time = new_time;
     }
     pub fn get() -> TimeSlot {
-        let state = GLOBAL_STATE.lock().unwrap();
-        state.time.clone()
+        GLOBAL_STATE.lock().unwrap().time
     }
     pub fn set_current(slot: &TimeSlot) {
-        let mut current_slot = CURRENT_SLOT.lock().unwrap();
-        *current_slot = *slot;
+        *CURRENT_SLOT.lock().unwrap() = *slot;
     }
     pub fn get_current() -> TimeSlot {
-        let current_slot = CURRENT_SLOT.lock().unwrap();
-        current_slot.clone()
+        *CURRENT_SLOT.lock().unwrap()
     }
 }
 
@@ -65,21 +61,16 @@ pub mod entropy {
     use super::*;
 
     pub fn set(new_entropy: EntropyPool) {
-        let mut state = GLOBAL_STATE.lock().unwrap();
-        state.entropy = new_entropy;
+        GLOBAL_STATE.lock().unwrap().entropy = new_entropy;
     }
     pub fn get() -> EntropyPool {
-        let state = GLOBAL_STATE.lock().unwrap();
-        state.entropy.clone()
+        GLOBAL_STATE.lock().unwrap().entropy.clone()
     }
     pub fn get_recent() -> Entropy {
-        let recent_entropy = RECENT_ENTROPY.lock().unwrap();
-        let entropy = recent_entropy.clone();
-        Entropy { entropy }
+        Entropy { entropy: RECENT_ENTROPY.lock().unwrap().clone() }
     }
     pub fn set_recent(entropy: OpaqueHash) {
-        let mut recent_entropy = RECENT_ENTROPY.lock().unwrap();
-        *recent_entropy = entropy;
+        *RECENT_ENTROPY.lock().unwrap() = entropy;
     }
 }
 
@@ -92,12 +83,10 @@ pub mod recent_history {
     use super::*;
 
     pub fn set(new_recent_history: RecentBlocks) {
-        let mut state = GLOBAL_STATE.lock().unwrap();
-        state.recent_history = new_recent_history;
+        GLOBAL_STATE.lock().unwrap().recent_history = new_recent_history;
     }
     pub fn get() -> RecentBlocks {
-        let state = GLOBAL_STATE.lock().unwrap();
-        state.recent_history.clone()
+        GLOBAL_STATE.lock().unwrap().recent_history.clone()
     }
     pub fn get_current() -> &'static Mutex<RecentBlocks> {
         &CURR_BLOCK_HISTORY
@@ -112,12 +101,10 @@ pub mod reports {
     use super::*;
 
     pub fn set(new_availability: AvailabilityAssignments) {
-        let mut state = GLOBAL_STATE.lock().unwrap();
-        state.availability = new_availability;
+        GLOBAL_STATE.lock().unwrap().availability = new_availability;
     }
     pub fn get() -> AvailabilityAssignments {
-        let state = GLOBAL_STATE.lock().unwrap();
-        state.availability.clone()
+        GLOBAL_STATE.lock().unwrap().availability.clone()
     }
     pub fn add_assignment(assignment: &AvailabilityAssignment, state: &mut AvailabilityAssignments) {
         state.list[assignment.report.core_index as usize] = Some(assignment.clone());
@@ -147,12 +134,10 @@ pub mod disputes {
     use super::*;
 
     pub fn set(new_disputes: DisputesRecords) {
-        let mut state = GLOBAL_STATE.lock().unwrap();
-        state.disputes = new_disputes;
+        GLOBAL_STATE.lock().unwrap().disputes = new_disputes;
     }
     pub fn get() -> DisputesRecords {
-        let state = GLOBAL_STATE.lock().unwrap();
-        state.disputes.clone()
+        GLOBAL_STATE.lock().unwrap().disputes.clone()
     }
     pub fn update(
         disputes_state: &mut DisputesRecords, 
@@ -187,12 +172,10 @@ pub mod auth_pools {
     use super::*;
 
     pub fn set(new_authpool: AuthPools) {
-        let mut state = GLOBAL_STATE.lock().unwrap();
-        state.auth_pools = new_authpool;
+        GLOBAL_STATE.lock().unwrap().auth_pools = new_authpool;
     }
     pub fn get() -> AuthPools {
-        let state = GLOBAL_STATE.lock().unwrap();
-        state.auth_pools.clone()
+        GLOBAL_STATE.lock().unwrap().auth_pools.clone()
     }
 }
 
@@ -201,12 +184,10 @@ pub mod auth_queues {
     use super::*;
 
     pub fn set(new_authqueue: AuthQueues) {
-        let mut state = GLOBAL_STATE.lock().unwrap();
-        state.auth_queues = new_authqueue;
+        GLOBAL_STATE.lock().unwrap().auth_queues = new_authqueue;
     }
     pub fn get() -> AuthQueues {
-        let state = GLOBAL_STATE.lock().unwrap();
-        state.auth_queues.clone()
+        GLOBAL_STATE.lock().unwrap().auth_queues.clone()
     }
 }
 
@@ -217,12 +198,10 @@ pub mod acc_outputs {
     use super::*;
 
     pub fn set(new_acc_outputs: RecentAccOutputs) {
-        let mut state = GLOBAL_STATE.lock().unwrap();
-        state.recent_acc_outputs = new_acc_outputs;
+        GLOBAL_STATE.lock().unwrap().recent_acc_outputs = new_acc_outputs;
     }
     pub fn get() -> RecentAccOutputs {
-        let state = GLOBAL_STATE.lock().unwrap();
-        state.recent_acc_outputs.clone()
+        GLOBAL_STATE.lock().unwrap().recent_acc_outputs.clone()
     }
 }
 
@@ -231,12 +210,10 @@ pub mod statistics {
     use super::*;
 
     pub fn set(new_statistics: Statistics) {
-        let mut state = GLOBAL_STATE.lock().unwrap();
-        state.statistics = new_statistics;
+        GLOBAL_STATE.lock().unwrap().statistics = new_statistics;
     }
     pub fn get() -> Statistics {
-        let state = GLOBAL_STATE.lock().unwrap();
-        state.statistics.clone()
+        GLOBAL_STATE.lock().unwrap().statistics.clone()
     }
 }
 
@@ -245,12 +222,10 @@ pub mod safrole {
     use super::*;
 
     pub fn set(new_safrole: Safrole) {
-        let mut state = GLOBAL_STATE.lock().unwrap();
-        state.safrole = new_safrole;
+        GLOBAL_STATE.lock().unwrap().safrole = new_safrole;
     }
     pub fn get() -> Safrole {
-        let state = GLOBAL_STATE.lock().unwrap();
-        state.safrole.clone()
+        GLOBAL_STATE.lock().unwrap().safrole.clone()
     }
 }
 
@@ -259,12 +234,10 @@ pub mod service_accounts {
     use super::*;
 
     pub fn set(new_service_accounts: ServiceAccounts) {
-        let mut state = GLOBAL_STATE.lock().unwrap();
-        state.service_accounts = new_service_accounts;
+        GLOBAL_STATE.lock().unwrap().service_accounts = new_service_accounts;
     }
     pub fn get() -> ServiceAccounts {
-        let state = GLOBAL_STATE.lock().unwrap();
-        state.service_accounts.clone()
+        GLOBAL_STATE.lock().unwrap().service_accounts.clone()
     }
 }
 
@@ -273,12 +246,10 @@ pub mod acc_history {
     use super::*;
 
     pub fn set(new_accumulation_history: AccumulatedHistory) {
-        let mut state = GLOBAL_STATE.lock().unwrap();
-        state.accumulation_history = new_accumulation_history;
+        GLOBAL_STATE.lock().unwrap().accumulation_history = new_accumulation_history;
     }
     pub fn get() -> AccumulatedHistory {
-        let state = GLOBAL_STATE.lock().unwrap();
-        state.accumulation_history.clone()
+        GLOBAL_STATE.lock().unwrap().accumulation_history.clone()
     }
 }
 
@@ -287,12 +258,10 @@ pub mod ready_queue {
     use super::*;
 
     pub fn set(new_ready_queue: ReadyQueue) {
-        let mut state = GLOBAL_STATE.lock().unwrap();
-        state.ready_queue = new_ready_queue;
+        GLOBAL_STATE.lock().unwrap().ready_queue = new_ready_queue;
     }
     pub fn get() -> ReadyQueue {
-        let state = GLOBAL_STATE.lock().unwrap();
-        state.ready_queue.clone()
+        GLOBAL_STATE.lock().unwrap().ready_queue.clone()
     }
 }
 
@@ -301,12 +270,10 @@ pub mod privileges {
     use super::*;
 
     pub fn set(new_privileges: Privileges) {
-        let mut state = GLOBAL_STATE.lock().unwrap();
-        state.privileges = new_privileges;
+        GLOBAL_STATE.lock().unwrap().privileges = new_privileges;
     }
     pub fn get() -> Privileges {
-        let state = GLOBAL_STATE.lock().unwrap();
-        state.privileges.clone()
+        GLOBAL_STATE.lock().unwrap().privileges.clone()
     }
 }
 
