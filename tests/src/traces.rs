@@ -5,10 +5,10 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::collections::HashSet;
 
-    use jam_types::{Block, RawState, GlobalState};
+    use jam_types::{Block, RawState, GlobalState, Header, KeyValue};
     use state_handler::{get_global_state, set_global_state, set_state_root};
     use state_controller::stf;
-    use codec::{Decode, BytesReader};
+    use codec::{Decode, DecodeLen, BytesReader};
     use utils::{common::parse_state_keyvals, serialization};
     use utils::trie::merkle_state;
 
@@ -19,19 +19,22 @@ mod tests {
         dotenv().ok();
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
 
+        //let base = Path::new("/home/bernar/workspace/jamtestnet/0.6.7/");
         let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/archive/0.6.7");
         //let base = Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces"); fuzz-reports/jamzig/1755185281
-        //let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/spacejam/0.6.7");
+        //let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/boka/0.6.7"); 
         
         let skip: HashSet<String> = ["1754982087"]
             .iter()
             .map(|s| s.to_string())
             .collect();
 
-        process_all_bins(base, &skip).unwrap();
+        let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/archive/0.6.7/1755083543");
+        //process_all_dirs(base, &skip).unwrap();
+        process_all_bins(&base).unwrap();
     }
 
-    fn process_all_bins(base_dir: &Path, skip_dirs: &HashSet<String>) -> std::io::Result<()> {
+    fn process_all_dirs(base_dir: &Path, skip_dirs: &HashSet<String>) -> std::io::Result<()> {
         for entry in fs::read_dir(base_dir)? {
             let dir_entry = entry?;
             let path = dir_entry.path();
@@ -40,43 +43,59 @@ mod tests {
                 continue;
             }
 
-            // Directory name
+            // Nombre del directorio
             let dir_name = match path.file_name().and_then(|n| n.to_str()) {
                 Some(name) => name.to_string(),
                 None => continue,
             };
 
-            // Skip if the directory is contanied in the skip_dirs map
+            // Saltar si está en la lista de exclusión
             if skip_dirs.contains(&dir_name) {
                 println!("Skip directory {}", dir_name);
                 continue;
             }
 
-            let mut bin_files: Vec<(u32, PathBuf)> = fs::read_dir(&path)?
-                .filter_map(|f| {
-                    let f = f.ok()?.path();
-                    if f.extension()? == "bin" {
-                        if let Some(stem) = f.file_stem()?.to_str() {
-                            if let Ok(num) = stem.parse::<u32>() {
-                                return Some((num, f));
-                            }
+            // Procesar el directorio
+            process_all_bins(&path)?;
+            println!("");
+        }
+
+        Ok(())
+    }
+
+    fn process_all_bins(dir_path: &Path) -> std::io::Result<()> {
+        let mut bin_files: Vec<(u32, PathBuf)> = fs::read_dir(dir_path)?
+            .filter_map(|f| {
+                let f = f.ok()?.path();
+                if f.extension()? == "bin" {
+                    if let Some(stem) = f.file_stem()?.to_str() {
+                        if let Ok(num) = stem.parse::<u32>() {
+                            return Some((num, f));
                         }
                     }
-                    None
-                })
-                .collect();
+                }
+                None
+            })
+            .collect();
 
-            bin_files.sort_by_key(|(num, _)| *num);
+        bin_files.sort_by_key(|(num, _)| *num);
 
-            for (slot, bin_path) in bin_files {
-                let test_content = utils::common::read_bin_file(&bin_path)
-                    .unwrap_or_else(|e| {log::error!("Error reading {:?}: {:?}", bin_path, e); panic!("");} );
-                println!("Processed {:?} (slot {}) with {} bytes", bin_path, slot, test_content.len());
-                log::info!("Process test file {:?}", bin_path);
-                process_trace_test(&test_content);
-                log::info!("{:?} processed successfully", bin_path);
-            }
-            println!("");
+        for (slot, bin_path) in bin_files {
+            let test_content = utils::common::read_bin_file(&bin_path)
+                .unwrap_or_else(|e| {
+                    log::error!("Error reading {:?}: {:?}", bin_path, e);
+                    panic!("");
+                });
+
+            println!(
+                "Processed {:?} (slot {}) with {} bytes",
+                bin_path,
+                slot,
+                test_content.len()
+            );
+            log::info!("Process test file {:?}", bin_path);
+            process_trace_test(&test_content);
+            log::info!("{:?} processed successfully", bin_path);
         }
 
         Ok(())
@@ -107,7 +126,7 @@ mod tests {
             Err(e) => { log::error!("{:?}", e) },
         };
 
-        let result_state = get_global_state().lock().unwrap().clone();
+        let result_state = get_global_state().lock().unwrap();
         
         assert_eq_state(&expected_state, &result_state);
 
@@ -138,12 +157,9 @@ mod tests {
         assert_eq!(expected_state.recent_history, result_state.recent_history);
         for service_account in expected_state.service_accounts.iter() {
             if let Some(account) = result_state.service_accounts.get(&service_account.0) {
-                //let (_items, _octets, _threshold) = utils::common::get_footprint_and_threshold(&account);
-                /*assert_eq!(service_account.1.lookup, account.lookup);
-                assert_eq!(service_account.1.preimages, account.preimages);*/
                 log::debug!("checking service: {:?}", service_account.0);
                 assert_eq!(service_account.1.code_hash, account.code_hash);
-                //assert_eq!(service_account.1.balance, account.balance);
+                assert_eq!(service_account.1.balance, account.balance);
                 assert_eq!(service_account.1.acc_min_gas, account.acc_min_gas);
                 assert_eq!(service_account.1.xfer_min_gas, account.xfer_min_gas);
                 assert_eq!(service_account.1.gratis_storage_offset, account.gratis_storage_offset);
@@ -165,8 +181,6 @@ mod tests {
                     }
                 }
                 assert_eq!(service_account.1.storage, account.storage);
-
-
             } else {
                 log::error!("Service account not found in state: {:?}", service_account.0);
             }

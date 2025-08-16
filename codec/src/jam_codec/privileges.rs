@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use constants::node::CORES_COUNT;
-use jam_types::{Privileges, ServiceId};
-use crate::{Encode, Decode, BytesReader, ReadError};
+use jam_types::{Privileges, ServiceId, Gas};
+use crate::{generic_codec::{decode_unsigned, encode_unsigned}, BytesReader, Decode, Encode, ReadError};
 
 impl Encode for Privileges {
 
@@ -13,7 +13,13 @@ impl Encode for Privileges {
         self.manager.encode_to(&mut blob);
         self.assign.encode_to(&mut blob);
         self.designate.encode_to(&mut blob);
-        self.always_acc.encode_to(&mut blob);
+
+        encode_unsigned(self.always_acc.len()).encode_to(&mut blob);
+
+        for (key, value) in self.always_acc.iter() {
+            encode_unsigned(*key as usize).encode_to(&mut blob);
+            encode_unsigned(*value as usize).encode_to(&mut blob);
+        }
 
         return blob;
     }
@@ -29,7 +35,16 @@ impl Decode for Privileges {
             manager: ServiceId::decode(blob)?,
             assign: Box::<[ServiceId; CORES_COUNT]>::decode(blob)?,
             designate: ServiceId::decode(blob)?,
-            always_acc: HashMap::decode(blob)?,
+            always_acc: {
+                let len = decode_unsigned(blob)?;
+                let mut always_acc_map: HashMap<ServiceId, Gas> = HashMap::new();
+                for _ in 0..len {
+                    let service = decode_unsigned(blob)? as ServiceId;
+                    let gas = decode_unsigned(blob)? as Gas;
+                    always_acc_map.insert(service, gas);
+                }
+                always_acc_map
+            }
         })
     }
 }
