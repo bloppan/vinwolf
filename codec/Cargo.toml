@@ -12,3 +12,4 @@ jam-types = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
 log = { workspace = true }
+hex = { workspace = true }

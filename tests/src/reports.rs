@@ -6,7 +6,7 @@ mod tests {
     use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputWorkReport, WorkReportState, OutputWorkReport};
     use constants::node::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
-    use jam_types::{Account, DisputesRecords, Extrinsic, Header, OutputDataReports, ProcessError, ServiceAccounts, Statistics, ValidatorSet, Block};
+    use jam_types::{Account, DisputesRecords, Extrinsic, Header, OutputDataReports, ProcessError, ServiceAccounts, Statistics, ValidatorSet, Block, Ed25519Public};
     use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
 
@@ -85,6 +85,19 @@ mod tests {
         header.unsigned.slot = input.slot;
         let mut extrinsic = Extrinsic::default();
         extrinsic.guarantees = input.guarantees.clone();
+
+        let mut reporters: Vec<Ed25519Public> = Vec::new();
+        for guarantee in extrinsic.guarantees.iter() {
+            for signature in guarantee.signatures.iter() {
+                if signature.validator_index >= VALIDATORS_COUNT as u16 {
+                    continue;
+                }
+                if !reporters.contains(&pre_state.curr_validators.list[signature.validator_index as usize].ed25519) {
+                    reporters.push(pre_state.curr_validators.list[signature.validator_index as usize].ed25519.clone());
+                }
+            }
+        }
+
         let block = Block { header, extrinsic };
 
         let current_state = get_global_state().lock().unwrap().clone();
@@ -103,7 +116,7 @@ mod tests {
                 let mut extrinsic = Extrinsic::default();
                 extrinsic.guarantees = input.guarantees.clone();
                 let reports = input.guarantees.iter().map(|guarantee| guarantee.report.clone()).collect::<Vec<_>>();
-                statistics::process(&mut statistics_state, &pre_state.curr_validators, &block, &reports);
+                statistics::process(&mut statistics_state, &pre_state.curr_validators, &block, &reporters, &reports);
                 state_handler::statistics::set(statistics_state.clone());
             },
             Err(_) => { log::error!("{:?}", output_result) },

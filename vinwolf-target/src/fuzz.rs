@@ -7,7 +7,7 @@ use state_handler::set_global_state;
 
 use tokio::net::{UnixListener, UnixStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt}; 
-
+use bytes::BytesMut;
 use once_cell::sync::Lazy;
 static VINWOLF_INFO: Lazy<PeerInfo> = Lazy::new(|| {
     
@@ -187,8 +187,11 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                 log::info!("New incomming connection accepted...");
 
                 loop {
-                    let mut buffer = Vec::with_capacity(1024);
-                    match socket.read_buf(&mut buffer).await {
+                    let mut buffer = BytesMut::with_capacity(1024);
+
+                    let read_result = socket.read_buf(&mut buffer).await;
+
+                    match read_result {
                         
                         Ok(0) => {
                             tokio::time::sleep(std::time::Duration::from_millis(200)).await;
@@ -196,29 +199,28 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                         }
                         Ok(n) => {
 
-                            if n < size_of::<u32>() {
-                                return Err(Box::new(ReadError::InvalidData));
+                            let mut bytes_read = n;
+
+                            while bytes_read < std::mem::size_of::<u32>() {
+
+                                bytes_read += socket.read_buf(&mut buffer).await?;
                             }
 
                             let msg_len = u32::from_le_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]);
 
-                            if msg_len as usize > buffer.len() {
-                                let required_size = msg_len as usize; 
-                                buffer.reserve(required_size);
-                                match socket.read_buf(&mut buffer).await {
-                                    Ok(_additional_bytes) => {
-                                        // println!("Read additional bytes: {_additional_bytes}");
-                                    }
-                                    Err(e) => {
-                                        return Err(Box::new(e));
-                                    }
-                                }
+                            while bytes_read < 4 + msg_len as usize {
+
+                                bytes_read += socket.read_buf(&mut buffer).await?;
+ 
                             }
 
                             let mut reader = BytesReader::new(&buffer);
 
-                            let msg_len = match u32::decode(&mut reader) {
-                                Ok(len) => len,
+                            let msg_len_d = match u32::decode(&mut reader) {
+                                Ok(len) => {
+                                    log::info!("decoded msg len: {:?}", len);
+                                    len
+                                },
                                 Err(error) => {
                                     log::error!("Failed to decode msg len: {:?}", error);
                                     return Err(Box::new(ReadError::InvalidData));
@@ -226,14 +228,17 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                             };
 
                             let msg_type: Message = match reader.read_byte() {
-                                Ok(msg_type) => msg_type.into(),
+                                Ok(m_type) => {
+                                    log::info!("decoded msg type: {:?}", m_type);
+                                    m_type.into()
+                                },
                                 Err(error) => {
                                     log::error!("Failed to decode msg type: {:?}", error);
                                     return Err(Box::new(ReadError::InvalidData));
                                 },
                             };
                             
-                            log::info!("New message from fuzzer with length: {:?} bytes", msg_len);
+                            log::info!("New message from fuzzer with length: {:?}, total bytes read: {:?}", msg_len, bytes_read);
 
                             match msg_type {
                                 Message::PeerInfo => { 
@@ -310,7 +315,7 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                     };
 
                                     let mut global_state = GlobalState::default();
-
+                                    log::info!("Parse keyvals");
                                     match parse_state_keyvals(&keyvals, &mut global_state) {
                                         Ok(_) => { },
                                         Err(error) => {
@@ -346,7 +351,7 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                     let header_hash = sp_core::blake2_256(&(block.header.encode()));
                                     log::info!("Header hash: 0x{}", hex::encode(header_hash));
                                     
-                                    match state_controller::state_transition_function(&block) {
+                                    match state_controller::stf(&block) {
                                         Ok(_) => {
                                             //log::info!("Block proccessed successfully");
                                         },
@@ -412,4 +417,57 @@ fn construct_fuzz_msg(msg_type: Message, msg: &[u8]) -> Vec<u8> {
     buffer.extend_from_slice(&[(msg.len() as u32 + 1).encode(), vec![msg_type as u8], msg.encode()].concat());
     let _len = buffer.len();
     return buffer;
+}
+
+
+#[test]
+fn test_set_state() {
+
+    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-proto/examples/2_set_state.bin")).unwrap();
+    let mut reader = BytesReader::new(&test_content);
+    let msg_type: Message = reader.read_byte().unwrap().into();
+
+    let header = Header::decode(&mut reader).unwrap();
+    let keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();
+
+    let mut global_state = GlobalState::default();
+
+    match parse_state_keyvals(&keyvals, &mut global_state) {
+        Ok(_) => { },
+        Err(error) => {
+            log::error!("Failed to decode state: {:?}", error);
+        },
+    }
+
+    let raw_state = utils::serialization::serialize(&global_state);
+
+    for keyval in keyvals.iter() {
+        assert_eq!(*raw_state.map.get(&keyval.key).unwrap(), keyval.value);
+    }
+
+    let result_test_content = [vec![2], header.encode(), keyvals.encode_len()].concat();
+    assert_eq!(test_content, result_test_content);
+}
+
+#[test]
+fn test_get_state() {
+    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-proto/examples/12_get_state.bin")).unwrap();
+    let mut reader = BytesReader::new(&test_content);
+    let msg_type = reader.read_byte().unwrap();
+    let header_hash = OpaqueHash::decode(&mut reader).unwrap();
+    let result_test_content = [vec![msg_type], header_hash.encode()].concat();
+    assert_eq!(test_content, result_test_content);
+}
+
+#[test]
+fn test_state() {
+
+    use dotenv::dotenv;
+    dotenv().ok();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+    
+    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-proto/examples/13_state.bin")).unwrap();
+    let mut reader = BytesReader::new(&test_content);
+    let msg_type = reader.read_byte().unwrap();
+    let keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();
 }

@@ -83,7 +83,7 @@ mod tests {
         let block = Block { header, extrinsic };
         let curr_validators = ValidatorsData::default();
 
-        statistics::process(&mut statistics, &curr_validators, &block, &vec![]);
+        statistics::process(&mut statistics, &curr_validators, &block, &vec![], &vec![]);
 
         match output_result {
             Ok(_) => { 

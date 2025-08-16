@@ -33,7 +33,7 @@ use codec::Encode;
 // We specify the state transition function as the implication of formulating all items of posterior state in terms of the prior
 // state and block. To aid the architecting of implementations which parallelize this computation, we minimize the depth of the
 // dependency graph where possible. 
-pub fn state_transition_function(block: &Block) -> Result<(), ProcessError> {
+pub fn stf(block: &Block) -> Result<(), ProcessError> {
     
     let header_hash = blake2_256(&block.header.encode());
     log::debug!("Importing new block: 0x{}", utils::print_hash!(header_hash));

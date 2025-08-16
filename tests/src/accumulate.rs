@@ -8,7 +8,7 @@ mod tests {
     use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH};
     use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
-    use utils::serialization::{StateKeyTrait, construct_preimage_key, construct_lookup_key, construct_storage_key};
+    use utils::serialization::{StateKeyTrait, construct_preimage_key, construct_storage_key};
 
     static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
         if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 {
@@ -105,6 +105,7 @@ mod tests {
                                 &mut state.statistics, 
                                 &ValidatorsData::default(), 
                                 &block, 
+                                &vec![],
                                 &input.reports,
                             );
                 state_handler::statistics::set(state.statistics.clone());
