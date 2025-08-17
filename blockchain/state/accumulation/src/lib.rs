@@ -108,7 +108,6 @@ fn outer_accumulation(
 
     let mut i: u32 = 0;
     let mut gas_to_use = 0;
-    log::info!("balance service 0: {:?}", partial_state.service_accounts.get(&0).unwrap().balance);
 
     for report in reports.iter() {
         for result in report.results.iter() {
