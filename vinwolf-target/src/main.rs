@@ -77,6 +77,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let file_path = std::path::Path::new(&args[2]);
             let _ = import_block(&file_path);
         },*/
+        "--target" => {
+            let mut path: PathBuf = PathBuf::from("/tmp/jam_conformance.sock");
+            
+            if args.len() > 2 {
+                let args: Vec<String> = std::env::args().collect();
+                path = PathBuf::from(&args[2]);
+            }
+            
+            let socket_path = path.to_str().unwrap();
+
+            run_fuzzer(socket_path).await?;
+        }
         "--fuzz" => {
 
             let mut path: PathBuf = PathBuf::from("/tmp/jam_conformance.sock");

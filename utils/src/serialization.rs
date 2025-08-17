@@ -87,7 +87,7 @@ impl StateKeyTrait for StateKeyType {
             }
             StateKeyType::Account(service_id, blob) => {
                 let service_encoded = u32::encode(service_id);
-                let blob_hashed: [u8; 27] = sp_core::blake2_256(&blob)[..27].try_into().unwrap();            
+                let blob_hashed: [u8; 27] = sp_core::blake2_256(&blob)[..27].try_into().unwrap();
                 key_result[0] = service_encoded[0];
                 key_result[1] = blob_hashed[0];
                 key_result[2] = service_encoded[1];

@@ -68,18 +68,23 @@ pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
     }
 }
 
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
+static INDEX: Lazy<Mutex<u32>> = Lazy::new(|| {Mutex::new(0)});
+
 
 fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
 
     //log::trace!("pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), program.code[pvm_ctx.pc.clone() as usize], pvm_ctx.gas, pvm_ctx.reg);
+
+    let opcode_copy = program.code[pvm_ctx.pc.clone() as usize];
 
     pvm_ctx.gas -= 1;
 
     if pvm_ctx.gas < 0 {
         return ExitReason::OutOfGas;
     }
-
-    log::trace!("pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), program.code[pvm_ctx.pc.clone() as usize], pvm_ctx.gas, pvm_ctx.reg);
+   
 
     let exit_reason = match program.code[pvm_ctx.pc as usize] { 
 
@@ -224,6 +229,10 @@ fn single_step_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
         MIN_U                   => { min_u(pvm_ctx, program) },
         _                       => { println!("Unknown instruction!"); return ExitReason::panic },
     };
+
+    log::trace!("pc = {:?}, opcode = {:03?}, index = {:05?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), opcode_copy, INDEX.lock().unwrap(), 20_000_000_i64.saturating_sub(pvm_ctx.gas), pvm_ctx.reg);
+    *INDEX.lock().unwrap() += 1;
+
     //println!("pc = {:?}, opcode = {:?}, reg = {:?}", pvm_ctx.pc, program.code[pvm_ctx.pc as usize], pvm_ctx.reg);
     return exit_reason;
 }

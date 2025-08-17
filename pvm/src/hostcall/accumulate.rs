@@ -246,7 +246,10 @@ fn transfer(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallConte
         gas_limit: limit as Gas,
     };
 
+    log::debug!("Transfer: {:?}", transfer);
+
     let context_services = ctx_x.partial_state.service_accounts.clone();
+
     let balance = context_services.get(&ctx_x.service_id).unwrap().balance.saturating_sub(amount as u64);
 
     if let Some(account) = context_services.get(&(dest as ServiceId)) {
@@ -421,7 +424,7 @@ fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext, s
 
     let start_address = reg[7] as RamAddress;
     let length = reg[8] as u64;
-    let new_account_gas = reg[9];
+    let new_account_gas = reg[9];   
     let new_account_min_gas = reg[10];
     let gratis_storage_offset = reg[11];
 
@@ -435,19 +438,19 @@ fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext, s
         let c = ram.read(start_address, 32);
         let mut new_account = Account::default();
         new_account.code_hash.copy_from_slice(&c);
-        let lookup_key = StateKeyType::Account(ctx_x.service_id, construct_lookup_key(&new_account.code_hash, length as u32)).construct();
-        new_account.storage.insert(lookup_key, Vec::<TimeSlot>::new().encode_len());
         new_account.acc_min_gas = new_account_gas as Gas;
         new_account.xfer_min_gas = new_account_min_gas as Gas;
         new_account.created_at = slot;
         new_account.gratis_storage_offset = gratis_storage_offset;
         new_account.parent_service = ctx_x.service_id;
         new_account.octets = 81 + length;
+        new_account.items = 2 as u32;
         let new_account_threshold = utils::common::get_threshold(&new_account);
         new_account.balance = new_account_threshold;
         log::debug!("new_account: {:x?}", new_account);
         let mut service_account = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().clone(); // TODO handle error
         service_account.balance = service_account.balance.saturating_sub(new_account_threshold);
+        log::debug!("service: {:?} balance: {:?}", ctx_x.service_id, service_account.balance);
 
         if gratis_storage_offset != 0 && ctx_x.service_id != ctx_x.partial_state.manager {
             reg[7] = HUH;
@@ -464,10 +467,15 @@ fn new(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext, s
         let i = (1u64 << 8) + (ctx_x.index as u64 - (1u64 << 8) + 42) % ((1u64 << 32) - (1u64 << 9)); 
 
         reg[7] = ctx_x.index as RegSize;
+                
+        let lookup_key = StateKeyType::Account(ctx_x.index, construct_lookup_key(&new_account.code_hash, length as u32)).construct();
+        log::debug!("inserted lookup_key: {}", hex::encode(&lookup_key));
+        new_account.storage.insert(lookup_key, Vec::<TimeSlot>::new().encode_len());
+
         ctx_x.partial_state.service_accounts.insert(ctx_x.index, new_account);
         ctx_x.partial_state.service_accounts.insert(ctx_x.service_id, service_account);
-        ctx_x.index = check(&ctx_x.partial_state, &(i as ServiceId));
 
+        ctx_x.index = check(&ctx_x.partial_state, &(i as ServiceId));
         log::debug!("reg_7: {:?}, i*: {:?}", reg[7], ctx_x.index);
         log::debug!("Exit: OK");
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));

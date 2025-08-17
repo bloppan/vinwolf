@@ -5,10 +5,10 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::collections::HashSet;
 
-    use jam_types::{Block, RawState, GlobalState, Header, KeyValue};
+    use jam_types::{Block, RawState, GlobalState};
     use state_handler::{get_global_state, set_global_state, set_state_root};
     use state_controller::stf;
-    use codec::{Decode, DecodeLen, BytesReader};
+    use codec::{Decode, BytesReader};
     use utils::{common::parse_state_keyvals, serialization};
     use utils::trie::merkle_state;
 
@@ -20,21 +20,29 @@ mod tests {
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
 
         //let base = Path::new("/home/bernar/workspace/jamtestnet/0.6.7/");
-        let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/archive/0.6.7");
-        //let base = Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces"); fuzz-reports/jamzig/1755185281
-        //let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/boka/0.6.7"); 
+        //let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7");
+        let base = Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces"); 
+        //let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/jamzilla/0.6.7"); 
         
-        let skip: HashSet<String> = ["1754982087"]
+        let skip: HashSet<String> = [""]
             .iter()
             .map(|s| s.to_string())
             .collect();
 
-        let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/archive/0.6.7/1755083543");
-        //process_all_dirs(base, &skip).unwrap();
-        process_all_bins(&base).unwrap();
+        //let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/archive/0.6.7/1755248982");
+        //process_all_bins(&base).unwrap();
+
+        let all_dirs = process_all_dirs(base, &skip).unwrap();
+        
+        for dir in all_dirs.iter() {
+            log::info!("Test {:?} processed successfully", dir);
+        }
     }
 
-    fn process_all_dirs(base_dir: &Path, skip_dirs: &HashSet<String>) -> std::io::Result<()> {
+    fn process_all_dirs(base_dir: &Path, skip_dirs: &HashSet<String>) -> std::io::Result<Vec<PathBuf>> {
+
+        let mut dirs: Vec<PathBuf> = Vec::new();
+
         for entry in fs::read_dir(base_dir)? {
             let dir_entry = entry?;
             let path = dir_entry.path();
@@ -58,9 +66,10 @@ mod tests {
             // Procesar el directorio
             process_all_bins(&path)?;
             println!("");
+            dirs.push(path);
         }
 
-        Ok(())
+        Ok(dirs)
     }
 
     fn process_all_bins(dir_path: &Path) -> std::io::Result<()> {
@@ -96,6 +105,7 @@ mod tests {
             log::info!("Process test file {:?}", bin_path);
             process_trace_test(&test_content);
             log::info!("{:?} processed successfully", bin_path);
+            println!("{:?} processed successfully", bin_path);
         }
 
         Ok(())
@@ -155,9 +165,10 @@ mod tests {
         assert_eq!(expected_state.next_validators, result_state.next_validators);
         assert_eq!(expected_state.auth_queues, result_state.auth_queues);
         assert_eq!(expected_state.recent_history, result_state.recent_history);
+
         for service_account in expected_state.service_accounts.iter() {
             if let Some(account) = result_state.service_accounts.get(&service_account.0) {
-                log::debug!("checking service: {:?}", service_account.0);
+                //log::debug!("checking service: {:?}", service_account.0);
                 assert_eq!(service_account.1.code_hash, account.code_hash);
                 assert_eq!(service_account.1.balance, account.balance);
                 assert_eq!(service_account.1.acc_min_gas, account.acc_min_gas);
@@ -169,15 +180,27 @@ mod tests {
                 assert_eq!(service_account.1.items, account.items);
                 assert_eq!(service_account.1.octets, account.octets);
 
+                /*log::info!("Expected for service: {:?}", *service_account.0);
+                for item in service_account.1.storage.iter() { 
+                    log::info!("key: {}", hex::encode(item.0));
+                    log::info!("val: {}", hex::encode(item.1));
+                }
+
+                log::info!("Result for service: {:?}", *service_account.0);
+                for item in account.storage.iter() {
+                    log::info!("key: {}", hex::encode(item.0));
+                    log::info!("val: {}", hex::encode(item.1));
+                }*/
+
                 for item in service_account.1.storage.iter() {
                     if let Some(value) = account.storage.get(item.0) {
                         if item.1 != value {
-                            log::debug!("key: {}", hex::encode(&item.0));
-                            log::debug!("expected value: {} != result value: {}", hex::encode(item.1), hex::encode(value));
+                            /*log::debug!("key: {}", hex::encode(&item.0));
+                            log::debug!("expected value: {} != result value: {}", hex::encode(item.1), hex::encode(value));*/
                             assert_eq!(item.1, value);
                         }
                     } else {
-                        log::error!("Key storage not found : {:x?}", *item.0);
+                        log::error!("Service: {:?}. Key storage not found : {:x?}", *service_account.0, *item.0);
                     }
                 }
                 assert_eq!(service_account.1.storage, account.storage);
@@ -193,26 +216,3 @@ mod tests {
         assert_eq!(expected_state.statistics.services, result_state.statistics.services);
     }
 }
-
-
-    /* JamDuna */
-    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamduna/fixed/jam-duna-target-v0.5-0.6.7_gp-0.6.7"; /* OK */
-    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamduna/fixed/jam-duna-target-v0.7-0.6.7_gp-0.6.7/1754982087";  // ******** accounts not match 5-6 
-    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamduna/jam-duna-target-v0.8-0.6.7_gp-0.6.7/fixed/1754982630";  // /* OK */ 
-    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamduna/jam-duna-target-v0.8-0.6.7_gp-0.6.7/1755105426"; /* OK */
-    /* Jamixir */
-    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamixir/fixed/1754983524/traces"; /* OK */
-    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamixir/1755106159/traces"; /* OK */
-    /* Jamzig */
-    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamzig/jamzig-target-0.1.0_gp-0.6.7/fixed/1754988078"; // /* OK */
-    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamzig/jamzig-target-0.1.0_gp-0.6.7/1755081941";  // /* OK */
-    /* Jamzilla */
-    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamzilla/jam-node-0.1.0_gp-0.6.7/fixed/1754984893"; /* OK */
-    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/jamzilla/jam-node-0.1.0_gp-0.6.7/1755082451"; // /* OK */
-    /* JavaJam */
-    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/javajam/javajam-0.6.7_gp-0.6.7/1754582958"; // ***** panic (maybe bless hostcall) 3-4
-    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/javajam/javajam-0.6.7_gp-0.6.7/1754725568"; // ****** accounts not match 3-4 
-    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/javajam/javajam-0.6.7_gp-0.6.7/1754754058/traces"; // ****** accounts not match 1-4
-    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/javajam/javajam-0.6.7_gp-0.6.7/1754990132"; // /* OK */
-    /* SpaceJam */
-    //pub const TEST_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/spacejam/1755083543"; // 1-2 /* OK */
