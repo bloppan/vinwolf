@@ -227,7 +227,6 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
                 let state_key = key[0] & 0xFF;
                 
                 let mut reader = BytesReader::new(&keyval.value);
-                log::info!("parse simple key-value. key: {:?} value len: {:?}", state_key, keyval.value.len());
 
                 match state_key {
                     AUTH_POOLS => {
@@ -283,20 +282,17 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
                         return Err(ReadError::InvalidData);
                     },
                 }
-                log::info!("curr_position: {:?}", reader.get_position());
             } else if is_service_info_key(keyval) {
                 /*let mut service_reader = BytesReader::new(&keyval.key[1..]);
                 let service_id = ServiceId::decode(&mut service_reader).expect("Error decoding service id");*/
-                
                 let service_id_vec = vec![keyval.key[1], keyval.key[3], keyval.key[5], keyval.key[7]];
                 let service_id = decode::<ServiceId>(&service_id_vec, std::mem::size_of::<ServiceId>());
-                log::info!("parse service {:?} info", service_id);
 
                 //log::info!("Service: {:?} info key: {}", service_id, hex::encode(&keyval.key));
 
                 let mut account_reader = BytesReader::new(&keyval.value);
                 let service_info = ServiceInfo::decode(&mut account_reader).expect("Error decoding service info");
-                log::info!("curr_position: {:?}", account_reader.get_position());
+
                 if state.service_accounts.get(&service_id).is_none() {
                     state.service_accounts.insert(service_id, Account::default());
                 }
@@ -316,7 +312,6 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
                 
                 let service_id_vec = vec![keyval.key[0], keyval.key[2], keyval.key[4], keyval.key[6]];
                 let service_id = decode::<ServiceId>(&service_id_vec, std::mem::size_of::<ServiceId>());
-                log::info!("parse service {:?} storage key-val", service_id);
                 
                 //log::info!("Service: {:?} Account key: {}", service_id, hex::encode(&keyval.key));
                 if state.service_accounts.get(&service_id).is_none() {

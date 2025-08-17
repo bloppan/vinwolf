@@ -419,6 +419,65 @@ fn construct_fuzz_msg(msg_type: Message, msg: &[u8]) -> Vec<u8> {
     return buffer;
 }
 
+pub async fn run_fuzzer(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+
+    let vinwolf_info = &*VINWOLF_INFO;
+
+    let mut socket = UnixStream::connect(path).await?;
+
+    let peer_info_len = vinwolf_info.name.len() + 7 + 1; // OJO con esto
+
+    let msg = [
+        (peer_info_len as u32).encode(), 
+        vec![Message::PeerInfo as u8],
+        vinwolf_info.encode(),
+    ].concat();
+
+    socket.write_all(&msg).await?;
+
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    let mut buffer = [0u8; 1024];
+    // Read
+    let n = socket.read(&mut buffer).await?;
+    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/archive/0.6.7/1755248982/00000003.bin")).unwrap();
+    let mut reader = BytesReader::new(&test_content);
+    let pre_state_root = OpaqueHash::decode(&mut reader).unwrap();
+    let pre_keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();
+    let old_block = Block::decode(&mut reader).unwrap();
+    let post_state_root = OpaqueHash::decode(&mut reader).unwrap();
+    let post_keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();  
+
+    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/archive/0.6.7/1755248982/00000004.bin")).unwrap();
+    let mut reader = BytesReader::new(&test_content);
+
+    let pre_state_root = OpaqueHash::decode(&mut reader).unwrap();
+    let pre_keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();
+    let block = Block::decode(&mut reader).unwrap();
+    let post_state_root = OpaqueHash::decode(&mut reader).unwrap();
+    let post_keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();    
+
+    let set_state = SetState {
+        header: old_block.header.clone(),
+        state: pre_keyvals,
+    };
+
+    let set_state_msg = [vec![2], set_state.encode()].concat();
+    let msg = [(set_state_msg.len() as u32).encode(), set_state_msg].concat();
+
+    socket.write_all(&msg).await?;
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+
+    let import_block_msg = [vec![1], block.encode()].concat();
+    let msg = [(import_block_msg.len() as u32).encode(), import_block_msg].concat();
+
+    socket.write_all(&msg).await?;
+
+
+    tokio::time::sleep(std::time::Duration::from_millis(50000)).await;
+    Ok(())
+}
+
+
 
 #[test]
 fn test_set_state() {
@@ -466,8 +525,9 @@ fn test_state() {
     dotenv().ok();
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
     
-    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-proto/examples/13_state.bin")).unwrap();
+    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-proto/examples/2_set_state.bin")).unwrap();
     let mut reader = BytesReader::new(&test_content);
-    let msg_type = reader.read_byte().unwrap();
+
+    let header = Header::decode(&mut reader).unwrap();
     let keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();
 }

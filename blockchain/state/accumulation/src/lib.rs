@@ -108,6 +108,7 @@ fn outer_accumulation(
 
     let mut i: u32 = 0;
     let mut gas_to_use = 0;
+    log::info!("balance service 0: {:?}", partial_state.service_accounts.get(&0).unwrap().balance);
 
     for report in reports.iter() {
         for result in report.results.iter() {
@@ -210,7 +211,6 @@ fn parallelized_accumulation(
         if let Some(hash) = service_hash {
             b_service_hash.pairs.push((*service, *hash));
         }
-        log::info!("u_gas_used: {:?}", u_gas_used);
         t_deferred_transfers.extend(transfers.clone());
         p_preimages.extend(preimages.clone());
 
@@ -244,9 +244,6 @@ fn parallelized_accumulation(
         n_service_accounts.extend(n);
 
     }
-    
-    log::info!("2 privileged services: manager: {:?}, assign: {:?}, designate: {:?}, always_acc: {:?}", 
-                            partial_state.manager, partial_state.assign, partial_state.designate, partial_state.always_acc);
 
     // Different services may not each contribute the same index for a new, altered or removed service. This cannot happen for the set of
     // removed and altered services since the code hash of removable services has no known preimage and thus cannot execute itself to make
