@@ -6,11 +6,12 @@ use std::path::PathBuf;
 mod fuzz;
 use fuzz::*;
 use fuzz::VINWOLF_INFO;
+use constants::BUILD_PROFILE;
 
 use dotenv::dotenv;
 
 fn print_help() {    
-    println!("vinwolf target");
+    println!("vinwolf-target mode {}", BUILD_PROFILE);
     println!();
     //println!("\x1b[1m\x1b[4mUsage:\x1b[0m\x1b[1m vinwolf\x1b[0m [OPTIONS] <command>");
     println!("\x1b[1mUsage example:\x1b[0m\n");
@@ -52,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(())
         },
         "--version" | "-v" => {
-            println!("{:?} target-version: {}.{}.{} GP-version: {}.{}.{}",
+            println!("{:?} target-version: {}.{}.{} GP-version: {}.{}.{} {} mode",
             String::from_utf8(vinwolf_info.name.clone()).unwrap(),
             vinwolf_info.app_version.major, 
                 vinwolf_info.app_version.minor, 
@@ -60,6 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 vinwolf_info.jam_version.major, 
                 vinwolf_info.jam_version.minor, 
                 vinwolf_info.jam_version.patch,
+                BUILD_PROFILE,
         );
             return Ok(())
         },

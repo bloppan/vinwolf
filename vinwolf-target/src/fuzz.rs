@@ -10,6 +10,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use bytes::BytesMut;
 use once_cell::sync::Lazy;
 
+use super::BUILD_PROFILE;
 
 pub static VINWOLF_INFO: Lazy<PeerInfo> = Lazy::new(|| {
     
@@ -182,7 +183,8 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
     let listener = UnixListener::bind(socket_path)?;
     
     log::info!(
-                "Running {:?} version: {}.{}.{} protocol version: {}.{}.{} listening on {}", 
+                "Running {} mode {:?} version: {}.{}.{} protocol version: {}.{}.{} listening on {}", 
+                BUILD_PROFILE,
                 match String::from_utf8(vinwolf_info.name.clone()) {
                 Ok(name) => name,  
                 Err(_) => "Invalid UTF-8".to_string(),  

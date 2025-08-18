@@ -15,3 +15,8 @@ hex = { workspace = true }
 ark-vrf = { workspace = true }
 log = { workspace = true }
 tokio = { workspace = true }
+
+[features]
+default = ["tiny"]
+tiny = ["constants/tiny"]
+full = ["constants/full"]

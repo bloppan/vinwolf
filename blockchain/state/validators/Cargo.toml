@@ -12,3 +12,8 @@ jam-types = { workspace = true }
 utils = { workspace = true }
 state-handler = { workspace = true }
 log = { workspace = true }
+
+[features]
+default = ["tiny"]
+tiny = ["constants/tiny"]
+full = ["constants/full"]

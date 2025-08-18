@@ -22,7 +22,7 @@ repository = "https://github.com/bloppan/vinwolf"
 
 
 [workspace.dependencies]
-constants = { path = "constants" }
+constants = { path = "constants", default-features = false }
 jam-types = { path = "jam-types" }
 codec = { path = "codec" }
 utils = { path = "utils" }

@@ -20,3 +20,8 @@ once_cell = { workspace = true }
 sp-core = "34.0.0"
 dotenv = { workspace = true }
 env_logger = { workspace = true }
+
+[features]
+default = ["tiny"]
+tiny = ["constants/tiny"]
+full = ["constants/full"]
