@@ -132,6 +132,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &new_available_workreports.reported,
     );
     
+    new_state.recent_acc_outputs = state_handler::acc_outputs::get();
     state_handler::set_state_root(merkle_state(&utils::serialization::serialize(&new_state).map, 0));
     state_handler::set_global_state(new_state);
 

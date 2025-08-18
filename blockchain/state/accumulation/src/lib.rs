@@ -71,7 +71,8 @@ pub fn process(
     )?;
 
     state_handler::acc_outputs::set(service_hash_pairs.clone());
-    
+    log::debug!("service-hash pairs: {:?}", service_hash_pairs);
+
     let acc_root = get_acc_root(&mut service_hash_pairs);
     log::debug!("Accumulation root: 0x{}", utils::print_hash!(acc_root));
 

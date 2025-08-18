@@ -20,18 +20,20 @@ mod tests {
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
 
         //let base = Path::new("/home/bernar/workspace/jamtestnet/0.6.7/");
-        //let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7");
-        let base = Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces"); 
-        //let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/jamzilla/0.6.7"); 
+        let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces");
+        //let base = Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces"); 
         
-        let skip: HashSet<String> = [""]
+        let skip: HashSet<String> = ["1754982087", "1755531480", "1755531419", "1755531375", "1755531322", "1755531229", "1755531179", "1755531081", "1755531000", 
+        "1755530896", "1755530728", "1755530535"]
             .iter()
             .map(|s| s.to_string())
             .collect();
 
-        //let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/archive/0.6.7/1755248982");
+        //let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces/1755530300");
         //process_all_bins(&base).unwrap();
 
+        //let test_content = utils::common::read_bin_file(Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces/1755530300/00000004.bin")).unwrap();
+        //process_trace_test(&test_content);
         let all_dirs = process_all_dirs(base, &skip).unwrap();
         
         for dir in all_dirs.iter() {
@@ -165,6 +167,7 @@ mod tests {
         assert_eq!(expected_state.next_validators, result_state.next_validators);
         assert_eq!(expected_state.auth_queues, result_state.auth_queues);
         assert_eq!(expected_state.recent_history, result_state.recent_history);
+        assert_eq!(expected_state.recent_acc_outputs, result_state.recent_acc_outputs);
 
         for service_account in expected_state.service_accounts.iter() {
             if let Some(account) = result_state.service_accounts.get(&service_account.0) {
