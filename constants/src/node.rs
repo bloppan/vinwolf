@@ -1,36 +1,49 @@
 /*
     TINY CONFIG
 */
-
 // Total number of validators
+#[cfg(feature = "tiny")]
 pub const VALIDATORS_COUNT: usize = 6;
 // The length of an epoch timeslots.
+#[cfg(feature = "tiny")]
 pub const EPOCH_LENGTH: usize = 12;
 // Total number of cores
+#[cfg(feature = "tiny")]
 pub const CORES_COUNT: usize = 2;
 // The rotation period of validator-core assignments, in timeslots.
+#[cfg(feature = "tiny")]
 pub const ROTATION_PERIOD: u32 = 4;
 // The number of slots into an epoch at which ticket-submission ends
+#[cfg(feature = "tiny")]
 pub const TICKET_SUBMISSION_ENDS: usize = 10;
 // The number of ticket entries per validator.
+#[cfg(feature = "tiny")]
 pub const TICKET_ENTRIES_PER_VALIDATOR: u8 = 3;
 // The maximum number of tickets which may be submitted in a single extrinsic.
+#[cfg(feature = "tiny")]
 pub const MAX_TICKETS_PER_EXTRINSIC: usize = 3;
 // The period in timeslots after which an unreferenced preimage may be expunged.
+#[cfg(feature = "tiny")]
 pub const MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE: u32 = 32;
-
-
 /*
     FULL CONFIG
 */
-/*pub const VALIDATORS_COUNT: usize = 1023;
+#[cfg(feature = "full")]
+pub const VALIDATORS_COUNT: usize = 1023;
+#[cfg(feature = "full")]
 pub const EPOCH_LENGTH: usize = 600;
+#[cfg(feature = "full")]
 pub const CORES_COUNT: usize = 341;
+#[cfg(feature = "full")]
 pub const ROTATION_PERIOD: u32 = 10;
+#[cfg(feature = "full")]
 pub const TICKET_SUBMISSION_ENDS: usize = 500;
+#[cfg(feature = "full")]
 pub const TICKET_ENTRIES_PER_VALIDATOR: u8 = 2;
+#[cfg(feature = "full")]
 pub const MAX_TICKETS_PER_EXTRINSIC: usize = 16;
-pub const MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE: u32 = 19_200;*/
+#[cfg(feature = "full")]
+pub const MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE: u32 = 19_200;
 
 
 // The size of the on-chain entropy pool

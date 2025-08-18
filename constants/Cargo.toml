@@ -7,3 +7,9 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
+
+
+[features]
+default = ["tiny"]
+tiny = []
+full = []
