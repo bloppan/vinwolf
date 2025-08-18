@@ -9,14 +9,16 @@ use tokio::net::{UnixListener, UnixStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt}; 
 use bytes::BytesMut;
 use once_cell::sync::Lazy;
-static VINWOLF_INFO: Lazy<PeerInfo> = Lazy::new(|| {
+
+
+pub static VINWOLF_INFO: Lazy<PeerInfo> = Lazy::new(|| {
     
     PeerInfo {
         name: "vinwolf-target".as_bytes().to_vec(),
         app_version: Version {
             major: 0,
             minor: 1,
-            patch: 1,
+            patch: 2,
         },
         jam_version: Version {
             major: 0,
@@ -31,21 +33,22 @@ pub struct State {
     pub state: Vec<KeyValue>,
 }
 
-struct Version {
-    major: u8,
-    minor: u8,
-    patch: u8,
+#[derive(Debug)]
+pub struct Version {
+    pub major: u8,
+    pub minor: u8,
+    pub patch: u8,
 }
 
-struct PeerInfo {
-    name: Vec<u8>,
-    app_version: Version,
-    jam_version: Version,
+pub struct PeerInfo {
+    pub name: Vec<u8>,
+    pub app_version: Version,
+    pub jam_version: Version,
 }
 
-struct SetState {
-    header: Header,
-    state: Vec<KeyValue>,
+pub struct SetState {
+    pub header: Header,
+    pub state: Vec<KeyValue>,
 }
 
 #[derive(Debug)]
@@ -177,7 +180,20 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
     let vinwolf_info = &*VINWOLF_INFO;
 
     let listener = UnixListener::bind(socket_path)?;
-    println!("\nvinwolf-target 0.1.1 GP v0.6.7 listening on {}\n", socket_path);
+    
+    log::info!(
+                "Running {:?} version: {}.{}.{} protocol version: {}.{}.{} listening on {}", 
+                match String::from_utf8(vinwolf_info.name.clone()) {
+                Ok(name) => name,  
+                Err(_) => "Invalid UTF-8".to_string(),  
+                }, 
+                vinwolf_info.app_version.major, 
+                vinwolf_info.app_version.minor, 
+                vinwolf_info.app_version.patch,
+                vinwolf_info.jam_version.major, 
+                vinwolf_info.jam_version.minor, 
+                vinwolf_info.jam_version.patch,
+                socket_path);
 
     loop {
         match listener.accept().await {
@@ -439,7 +455,7 @@ pub async fn run_fuzzer(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let mut buffer = [0u8; 1024];
     // Read
     let n = socket.read(&mut buffer).await?;
-    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/archive/0.6.7/1755248982/00000003.bin")).unwrap();
+    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces/1755530300/00000004.bin")).unwrap();
     let mut reader = BytesReader::new(&test_content);
     let pre_state_root = OpaqueHash::decode(&mut reader).unwrap();
     let pre_keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();
@@ -447,7 +463,7 @@ pub async fn run_fuzzer(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let post_state_root = OpaqueHash::decode(&mut reader).unwrap();
     let post_keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();  
 
-    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/archive/0.6.7/1755248982/00000004.bin")).unwrap();
+    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces/1755530300/00000005.bin")).unwrap();
     let mut reader = BytesReader::new(&test_content);
 
     let pre_state_root = OpaqueHash::decode(&mut reader).unwrap();

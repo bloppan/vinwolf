@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 mod fuzz;
 use fuzz::*;
+use fuzz::VINWOLF_INFO;
 
 use dotenv::dotenv;
 
@@ -22,6 +23,8 @@ fn print_help() {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
+    let vinwolf_info = &*VINWOLF_INFO;
+
     let args = std::env::args().collect::<Vec<_>>();
 
     if args.len() == 1 {
@@ -32,6 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /*dotenv().ok();
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();*/
     //env_logger::init();
+
 
     dotenv().ok();
     env_logger::Builder::new()
@@ -48,7 +52,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(())
         },
         "--version" | "-v" => {
-            println!("vinwolf GP version: 0.6.7");
+            println!("{:?} target-version: {}.{}.{} GP-version: {}.{}.{}",
+            String::from_utf8(vinwolf_info.name.clone()).unwrap(),
+            vinwolf_info.app_version.major, 
+                vinwolf_info.app_version.minor, 
+                vinwolf_info.app_version.patch,
+                vinwolf_info.jam_version.major, 
+                vinwolf_info.jam_version.minor, 
+                vinwolf_info.jam_version.patch,
+        );
             return Ok(())
         },
         /*"--target" => {
