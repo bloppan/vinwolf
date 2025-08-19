@@ -2,6 +2,7 @@
 #![allow(unused_variables)]
 // Vamos Marcos!
 use std::path::PathBuf;
+use std::collections::HashSet;
 
 mod fuzz;
 use fuzz::*;
@@ -44,10 +45,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .init();
 
     match args[1].as_ref() { 
-        /*"--prueba" => {
-            let mut array = [1, 2, 3, 4, 5, 6, 7];
-            println!("array: {:02x?}", array[0..4].to_vec());
-        },*/
         "--help" | "-h" => {
             print_help();
             return Ok(())
@@ -65,32 +62,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
             return Ok(())
         },
-        /*"--target" => {
-            let mut path: PathBuf = PathBuf::from("/tmp/jam_conformance.sock");
-
-            if args.len() > 2 {
-                let args: Vec<String> = std::env::args().collect();
-                path = PathBuf::from(&args[2]);
-            }
-
-            let socket_path = path.to_str().unwrap();
-
-            connect_to_unix_socket(socket_path).await?;
-        }
-        "--dir_test" => {
-            let files = match read_filenames_in_dir(&args[2]) {
-                Ok(files) => files,
-                Err(_) => return Ok(())
-            };
-
-            for file in files.iter() {
-                let _ = import_block(file);
-            }
-        },
-        "--file_test" => {
-            let file_path = std::path::Path::new(&args[2]);
-            let _ = import_block(&file_path);
-        },*/
         "--target" => {
             let mut path: PathBuf = PathBuf::from("/tmp/jam_conformance.sock");
             
@@ -116,7 +87,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             
             let socket_path = path.to_str().unwrap();
             run_unix_server(socket_path).await?;
-        }
+        },
+        "--process_dirs" => {
+
+            if args.len() < 3 {
+                println!("Bad arguments");
+                return Ok(());
+            }
+
+            let mut skip_dirs: HashSet<String> = HashSet::new();
+
+            if args.len() > 3 {
+                for i in 3..args.len() {
+                    skip_dirs.insert(args[i].clone());
+                }
+            }
+            let _ = vinwolf_target::process_all_dirs(&PathBuf::from(&args[2]), &skip_dirs);
+        },
+        "--process_traces" => {
+
+            if args.len() != 3 {
+                println!("Bad arguments");
+                return Ok(());
+            }
+
+            let _ = vinwolf_target::process_all_bins(&PathBuf::from(&args[2]));
+        },
+        "--process_trace" => {
+
+            if args.len() != 3 {
+                println!("Bad arguments");
+                return Ok(());
+            }
+
+            vinwolf_target::process_trace(&PathBuf::from(&args[2]));
+        } 
         _ => {
             println!("Error: Unknown argument '{}'", args[1]);
             print_help();

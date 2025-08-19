@@ -39,6 +39,7 @@ services = { path = "blockchain/state/services" }
 statistics = { path = "blockchain/state/statistics" }
 validators = { path = "blockchain/state/validators" }
 state-controller = { path = "blockchain/state/state-controller" }
+vinwolf-target = { path = "vinwolf-target" }
 pvm = { path = "pvm" }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }

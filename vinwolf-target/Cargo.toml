@@ -27,3 +27,7 @@ bytes = "1"
 default = ["tiny"]
 tiny = ["constants/tiny"]
 full = ["constants/full"]
+
+[lib]
+name = "vinwolf_target"
+path = "src/lib.rs"
