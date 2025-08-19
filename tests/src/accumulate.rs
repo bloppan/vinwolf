@@ -93,13 +93,14 @@ mod tests {
                                 &input.slot,
                                 &input.reports) 
         {
-            Ok((acc_root, service_accounts, next_validators, auth_queues, privileges)) => {
+            Ok((acc_root, recent_acc_outputs, service_accounts, next_validators, auth_queues, privileges)) => {
                 state_handler::acc_history::set(state.accumulation_history.clone());
                 state_handler::ready_queue::set(state.ready_queue.clone());
                 state_handler::service_accounts::set(service_accounts.clone());
                 state_handler::validators::set(next_validators, ValidatorSet::Next);
                 state_handler::auth_queues::set(auth_queues.clone());
                 state_handler::privileges::set(privileges.clone());
+                state_handler::acc_outputs::set(recent_acc_outputs);
 
                 statistics::process(
                                 &mut state.statistics, 

@@ -23,8 +23,7 @@ mod tests {
         let base = Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces");
         //let base = Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces"); 
         
-        let skip: HashSet<String> = ["1754982087", "1755531480", "1755531419", "1755531375", "1755531322", "1755531229", "1755531179", "1755531081", "1755531000", 
-        "1755530896", "1755530728", "1755530535"]
+        let skip: HashSet<String> = ["1754982087", "RETIRED"]
             .iter()
             .map(|s| s.to_string())
             .collect();
