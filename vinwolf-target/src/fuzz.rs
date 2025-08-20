@@ -443,7 +443,7 @@ pub async fn run_fuzzer(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     let mut socket = UnixStream::connect(path).await?;
 
-    let peer_info_len = vinwolf_info.name.len() + 7 + 1; // OJO con esto
+    let peer_info_len = vinwolf_info.name.len() + 7 + 1; // OJO con esto !!!
 
     let msg = [
         (peer_info_len as u32).encode(), 

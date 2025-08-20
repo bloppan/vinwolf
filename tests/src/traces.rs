@@ -28,6 +28,19 @@ mod tests {
         }
     }
 
+    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces/TESTING/1755530535";
+
+    #[test]
+    fn run_single_fuzz_report() {
+
+        use dotenv::dotenv;
+        dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+
+        let dir_base = Path::new(FUZZ_REPORT);
+        let _ = process_all_bins(dir_base);
+    }   
+
     const TRACES_DIR: &str = "/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces";
 
     #[test]
