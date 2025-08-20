@@ -13,8 +13,3 @@ utils = { workspace = true }
 state-handler = { workspace = true }
 block = { workspace = true }
 log = { workspace = true }
-
-[features]
-default = ["tiny"]
-tiny = ["constants/tiny"]
-full = ["constants/full"]

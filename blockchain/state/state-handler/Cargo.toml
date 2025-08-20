@@ -13,8 +13,3 @@ utils = { workspace = true }
 codec = { workspace = true }
 sp-core = { workspace = true }
 once_cell = { workspace = true }
-
-[features]
-default = ["tiny"]
-tiny = ["constants/tiny"]
-full = ["constants/full"]

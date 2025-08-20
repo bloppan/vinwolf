@@ -26,8 +26,3 @@ validators = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
 sp-core = "34.0.0"
-
-[features]
-default = ["tiny"]
-tiny = ["constants/tiny"]
-full = ["constants/full"]
