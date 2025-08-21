@@ -8,7 +8,7 @@ members = [
     "blockchain/block", 
     "pvm", 
     "tests", 
-    "vinwolf-target", "experiments/rocksdb-poc", 
+    "vinwolf-target", "experiments/rocksdb-poc", "database", 
 ]
 resolver = "2"
 
