@@ -245,7 +245,8 @@ fn parallelized_accumulation(
         n_service_accounts.extend(n);
 
     }
-
+    log::debug!("Accumulation of privileged services: {:?}, {:?}, {:?}, {:?}", 
+                    partial_state.manager, partial_state.assign, partial_state.designate, partial_state.always_acc);
     // Different services may not each contribute the same index for a new, altered or removed service. This cannot happen for the set of
     // removed and altered services since the code hash of removable services has no known preimage and thus cannot execute itself to make
     // an alteration. For new services this should also never happen since new indices are explicitly selected to avoid such conflicts.

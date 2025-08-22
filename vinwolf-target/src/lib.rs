@@ -125,6 +125,32 @@ fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
     assert_eq!(expected_state.recent_history, result_state.recent_history);
     assert_eq!(expected_state.recent_acc_outputs, result_state.recent_acc_outputs);
 
+    /*for service_account in expected_state.service_accounts.iter() {
+        if let Some(account) = result_state.service_accounts.get(&service_account.0) {
+        log::info!("- Expected for service: {:?}", *service_account.0);
+        for item in service_account.1.storage.iter() { 
+            log::info!("key: {}", hex::encode(item.0));
+            if item.1.len() > 31 {
+                log::info!("val: {}...", hex::encode(&item.1[..31]));
+            } else {
+                log::info!("val: {} | len: {:?}", hex::encode(item.1), item.1.len());
+            }
+            if let Some(result_item) = account.storage.get(item.0) {
+                log::info!("key: {} result", hex::encode(item.0));
+                if result_item.len() > 31 {
+                    log::info!("val: {}... result", hex::encode(&result_item[..31]));
+                } else {
+                    log::info!("val: {} | len: {:?} result", hex::encode(result_item), result_item.len());
+                }
+            } else {
+                log::error!("key: {} not found in result storage", hex::encode(item.0));
+            }
+        }
+        } else {
+            log::error!("!! Service account not found in result state: {:?}", service_account.0);
+        }
+    }*/
+
     for service_account in expected_state.service_accounts.iter() {
         if let Some(account) = result_state.service_accounts.get(&service_account.0) {
             //log::debug!("checking service: {:?}", service_account.0);
@@ -138,18 +164,6 @@ fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
             assert_eq!(service_account.1.parent_service, account.parent_service);
             assert_eq!(service_account.1.items, account.items);
             assert_eq!(service_account.1.octets, account.octets);
-
-            /*log::info!("Expected for service: {:?}", *service_account.0);
-            for item in service_account.1.storage.iter() { 
-                log::info!("key: {}", hex::encode(item.0));
-                log::info!("val: {}", hex::encode(item.1));
-            }
-
-            log::info!("Result for service: {:?}", *service_account.0);
-            for item in account.storage.iter() {
-                log::info!("key: {}", hex::encode(item.0));
-                log::info!("val: {}", hex::encode(item.1));
-            }*/
 
             for item in service_account.1.storage.iter() {
                 if let Some(value) = account.storage.get(item.0) {

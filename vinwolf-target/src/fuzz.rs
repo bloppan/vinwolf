@@ -19,7 +19,7 @@ pub static VINWOLF_INFO: Lazy<PeerInfo> = Lazy::new(|| {
         app_version: Version {
             major: 0,
             minor: 1,
-            patch: 2,
+            patch: 3,
         },
         jam_version: Version {
             major: 0,
@@ -457,7 +457,7 @@ pub async fn run_fuzzer(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let mut buffer = [0u8; 1024];
     // Read
     let n = socket.read(&mut buffer).await?;
-    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces/1755530300/00000004.bin")).unwrap();
+    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces/TESTING/1755796851/00000015.bin")).unwrap();
     let mut reader = BytesReader::new(&test_content);
     let pre_state_root = OpaqueHash::decode(&mut reader).unwrap();
     let pre_keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();
@@ -465,7 +465,7 @@ pub async fn run_fuzzer(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let post_state_root = OpaqueHash::decode(&mut reader).unwrap();
     let post_keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();  
 
-    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces/1755530300/00000005.bin")).unwrap();
+    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces/TESTING/1755796851/00000016.bin")).unwrap();
     let mut reader = BytesReader::new(&test_content);
 
     let pre_state_root = OpaqueHash::decode(&mut reader).unwrap();
