@@ -406,18 +406,22 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
 
     if gas < 0 {
         log::error!("Out of gas!");
-        return (ExitReason::OutOfGas, gas, reg, ram, Account::default());
+        return (ExitReason::OutOfGas, gas, reg, ram, accounts.get(&service_id).unwrap().clone());
     }
+
+    log::debug!("Info hostcall, service id context: {:?}", service_id);
 
     let account: Option<Account> = if reg[7] == u64::MAX {
         if let Some(account) = accounts.get(&service_id).cloned() {
+            log::debug!("Selected account for service: {:?}", service_id);
             Some(account)
         } else {
-            log::error!("Account not found for service {:?}", u64::MAX);
+            log::error!("Account not found for service {:?}", service_id);
             return (ExitReason::panic, gas, reg, ram, Account::default());
         }
     } else {
         if let Some(account) = accounts.get(&(reg[7] as ServiceId)).cloned() {
+            log::debug!("Selected account for service: {:?}", reg[7]);
             Some(account)
         } else {
             log::error!("Account not found for service {:?}", reg[7]);
@@ -457,26 +461,29 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
 
     if !ram.is_writable(start_address, l as RamAddress) {
         log::debug!("Panic: The RAM is not writable from address: {start_address} num_bytes: {:?}", l);
-        return (ExitReason::panic, gas, reg, ram, Account::default());
+        return (ExitReason::panic, gas, reg, ram, accounts.get(&service_id).unwrap().clone());
     }
 
     if metadata.is_none() {
         reg[7] = NONE as RegSize;
         log::debug!("Exit: NONE");
-        return (ExitReason::Continue, gas, reg, ram, account.unwrap());
+        return (ExitReason::Continue, gas, reg, ram, accounts.get(&service_id).unwrap().clone());
     }
 
     log::debug!("code_hash: 0x{}", hex::encode(account.as_ref().unwrap().code_hash));
     let threshold = utils::common::get_threshold(account.as_ref().unwrap());
-    log::debug!("balance: {:?}, balance footprint: {:?}, acc gas: {:?}, xfer gas: {:?}, items: {:?}, octets: {:?}", 
+    log::debug!("balance: {:?}, threshold: {:?}, acc gas: {:?}, xfer gas: {:?}, items: {:?}, octets: {:?},
+                 gratis_offset: {:?}, created_at: {:?}, last_acc: {:?}, parent_service: {:?}", 
                 account.as_ref().unwrap().balance, threshold, account.as_ref().unwrap().acc_min_gas,
-                account.as_ref().unwrap().xfer_min_gas, account.as_ref().unwrap().items, account.as_ref().unwrap().octets);
+                account.as_ref().unwrap().xfer_min_gas, account.as_ref().unwrap().items, account.as_ref().unwrap().octets,
+                account.as_ref().unwrap().gratis_storage_offset, account.as_ref().unwrap().created_at, account.as_ref().unwrap().last_acc,
+                account.as_ref().unwrap().parent_service);
 
     ram.write(start_address, metadata.unwrap()[f as usize ..(f + l) as usize].to_vec());
     reg[7] = metadata_len as RegSize;
 
-    log::debug!("Exit: OK");
-    return (ExitReason::Continue, gas, reg, ram, account.unwrap());
+    log::debug!("reg_7: {:?} Exit: OK", metadata_len);
+    return (ExitReason::Continue, gas, reg, ram, accounts.get(&service_id).unwrap().clone());
 }
 
 pub fn log(reg: &Registers, ram: &RamMemory, service_id: &ServiceId) {

@@ -89,7 +89,8 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &new_state.curr_validators,
     )?; 
 
-    let (acc_root, 
+    let (acc_root,
+         recent_acc_outputs, 
          service_accounts, 
          next_validators, 
          queue_auth, 
@@ -103,6 +104,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
                                         &block.header.unsigned.slot,
                                         &new_available_workreports.reported)?;
 
+    new_state.recent_acc_outputs = recent_acc_outputs;
     new_state.service_accounts = service_accounts;
     new_state.next_validators = next_validators;
     new_state.auth_queues = queue_auth;

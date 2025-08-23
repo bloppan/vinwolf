@@ -9,6 +9,8 @@ members = [
     "pvm", 
     "tests", 
     "vinwolf-target", 
+    "experiments/*", 
+    "database", 
 ]
 resolver = "2"
 
@@ -22,7 +24,7 @@ repository = "https://github.com/bloppan/vinwolf"
 
 
 [workspace.dependencies]
-constants = { path = "constants" }
+constants = { path = "constants", default-features = false }
 jam-types = { path = "jam-types" }
 codec = { path = "codec" }
 utils = { path = "utils" }
@@ -39,6 +41,7 @@ services = { path = "blockchain/state/services" }
 statistics = { path = "blockchain/state/statistics" }
 validators = { path = "blockchain/state/validators" }
 state-controller = { path = "blockchain/state/state-controller" }
+vinwolf-target = { path = "vinwolf-target" }
 pvm = { path = "pvm" }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -50,3 +53,8 @@ once_cell = "1.17"
 dotenv = "0.15"
 env_logger = "0.10"
 tokio = { version = "1", features = ["full"] }
+rocksdb = "0.24.0"
+bincode = "2.0.1"
+clap = { version = "4", features = ["derive"] }
+quinn = { version = "0.11", features = ["rustls"] }
+

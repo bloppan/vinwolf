@@ -848,10 +848,11 @@ fn yield_(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
     }
 
     let (mut ctx_x, ctx_y) = ctx.to_acc_ctx();
-
     ctx_x.y = Some(ram.read(start_address, 32).try_into().unwrap());
     reg[7] = OK;
 
+    log::debug!("hash: {:?}", ctx_x.y);
+    log::debug!("hash: {}", hex::encode(&ctx_x.y.unwrap()));
     log::debug!("Exit: OK");
     return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
 }

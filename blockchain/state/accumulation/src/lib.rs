@@ -42,7 +42,7 @@ pub fn process(
     privileges: Privileges,
     post_tau: &TimeSlot,
     new_available_reports: &[WorkReport],
-) -> Result<(OpaqueHash, ServiceAccounts, ValidatorsData, AuthQueues, Privileges), ProcessError> {
+) -> Result<(OpaqueHash, RecentAccOutputs, ServiceAccounts, ValidatorsData, AuthQueues, Privileges), ProcessError> {
   
     log::debug!("Process accumulation");
     // We define the final state of the ready queue and the accumulated map by integrating those work-reports which were accumulated in this 
@@ -70,10 +70,11 @@ pub fn process(
         &partial_state.always_acc,
     )?;
 
-    state_handler::acc_outputs::set(service_hash_pairs.clone());
-    
     let acc_root = get_acc_root(&mut service_hash_pairs);
     log::debug!("Accumulation root: 0x{}", utils::print_hash!(acc_root));
+    
+    //state_handler::acc_outputs::set(service_hash_pairs.clone());
+    log::debug!("service-hash pairs: {:?}", service_hash_pairs);
 
     accumulate_history::update(accumulated_history, map_workreports(&current_block_accumulatable));
     // The newly available work-reports, are partitioned into two sequences based on the condition of having zero prerequisite work-reports.
@@ -89,7 +90,8 @@ pub fn process(
         always_acc: post_partial_state.always_acc,
     };
 
-    Ok((acc_root, 
+    Ok((acc_root,
+        service_hash_pairs,
         post_partial_state.service_accounts, 
         post_partial_state.next_validators, 
         post_partial_state.queues_auth, 
@@ -243,7 +245,8 @@ fn parallelized_accumulation(
         n_service_accounts.extend(n);
 
     }
-
+    log::debug!("Accumulation of privileged services: {:?}, {:?}, {:?}, {:?}", 
+                    partial_state.manager, partial_state.assign, partial_state.designate, partial_state.always_acc);
     // Different services may not each contribute the same index for a new, altered or removed service. This cannot happen for the set of
     // removed and altered services since the code hash of removable services has no known preimage and thus cannot execute itself to make
     // an alteration. For new services this should also never happen since new indices are explicitly selected to avoid such conflicts.
@@ -413,6 +416,7 @@ fn single_service_accumulation(
 
 fn get_acc_root(service_hash: &mut RecentAccOutputs) -> OpaqueHash {
 
+    // Sort by service ID 
     service_hash.pairs.sort_by_key(|(service_id, _)| *service_id);
     
     let mut pairs_blob: Vec<Vec<u8>> = Vec::new();

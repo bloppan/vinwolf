@@ -1,5 +1,5 @@
 [package]
-name = "disputes"
+name = "database"
 version.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -7,5 +7,6 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-jam-types = { workspace = true }
-block = { workspace = true }
+rocksdb = { workspace = true }
+hex = { workspace = true }
+thiserror = "1"
