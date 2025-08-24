@@ -36,7 +36,7 @@ impl Encode for ValidatorSignature {
         
         let mut blob = Vec::new();
 
-        self.validator_index.encode_to(&mut blob);
+        self.validator_index.encode_size(2).encode_to(&mut blob);
         self.signature.encode_to(&mut blob);
 
         return blob;
