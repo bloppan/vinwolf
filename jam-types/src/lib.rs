@@ -262,8 +262,10 @@ pub struct WorkPackage {
     pub authorization: Vec<u8>,
     // Index of the service which hosts the authorization code
     pub auth_code_host: ServiceId,
-    // Authorization code hash and configuration blob
-    pub authorizer: Authorizer,
+    // Authorization code hash
+    pub auth_code_hash: OpaqueHash,
+    // Configuration blob
+    pub configuration_blob: Vec<u8>,
     // Refine context
     pub context: RefineContext,
     // Sequence of work items
