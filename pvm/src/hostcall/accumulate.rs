@@ -715,17 +715,17 @@ fn assign(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
         return (ExitReason::panic, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
-    if ctx_x.service_id != ctx_x.partial_state.assign[core_index as usize] {
-        log::debug!("ctx service_id {:?} != assign service {:?} core_index: {:?}", ctx_x.service_id, ctx_x.partial_state.assign[core_index as usize], core_index);
-        reg[7] = HUH;
-        log::debug!("Exit: HUH");
-        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
-    }
-    
     if core_index >= CORES_COUNT as CoreIndex {
         log::debug!("core_index {:?} >= CORES_COUNT {:?}", core_index, CORES_COUNT);
         reg[7] = CORE;
         log::debug!("Exit: CORE");
+        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
+
+    if ctx_x.service_id != ctx_x.partial_state.assign[core_index as usize] {
+        log::debug!("ctx service_id {:?} != assign service {:?} core_index: {:?}", ctx_x.service_id, ctx_x.partial_state.assign[core_index as usize], core_index);
+        reg[7] = HUH;
+        log::debug!("Exit: HUH");
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
@@ -734,7 +734,6 @@ fn assign(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
     }
 
     ctx_x.partial_state.assign[core_index as usize] = assign_service;
-
     reg[7] = OK;
 
     log::debug!("Exit: OK");
