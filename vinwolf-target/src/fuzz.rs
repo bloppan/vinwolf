@@ -18,13 +18,13 @@ pub static VINWOLF_INFO: Lazy<PeerInfo> = Lazy::new(|| {
         name: "vinwolf-target".as_bytes().to_vec(),
         app_version: Version {
             major: 0,
-            minor: 1,
-            patch: 3,
+            minor: 2,
+            patch: 0,
         },
         jam_version: Version {
             major: 0,
-            minor: 6,
-            patch: 7,
+            minor: 7,
+            patch: 0,
         },
     }
 });
