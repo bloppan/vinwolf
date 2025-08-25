@@ -379,16 +379,22 @@ fn query(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
     let hash: OpaqueHash = ram.read(start_address, 32).try_into().unwrap();
     let lookup_key = StateKeyType::Account(ctx_x.service_id, construct_lookup_key(&hash, length)).construct();
 
-    log::debug!("length: {:?}, hash: 0x{}, lookup_key: 0x{}", length, hex::encode(hash), hex::encode(lookup_key));
+    log::debug!("length: {:?}, hash: 0x{}, lookup_key: 0x{}", length, hex::encode(hash), hex::encode(&lookup_key));
     
-    if !ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().storage.contains_key(&lookup_key) {
+    if !ctx_x.partial_state.service_accounts.contains_key(&ctx_x.service_id) {
         reg[7] = NONE;
-        log::debug!("Exit: NONE");
+        log::debug!("Account not found for service: {:?}. Exit: NONE", ctx_x.service_id);
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
-    let timeslots_blob = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().storage.get(&lookup_key).unwrap().clone();
-    let timeslots = Vec::<TimeSlot>::decode_len(&mut BytesReader::new(&timeslots_blob)).unwrap();
+    if !ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().storage.contains_key(&lookup_key) {
+        reg[7] = NONE;
+        log::debug!("Lookup key: {} not found. Exit: NONE", hex::encode(&lookup_key));
+        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+    }
+
+    let timeslots_blob = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().storage.get(&lookup_key).unwrap();
+    let timeslots = Vec::<TimeSlot>::decode_len(&mut BytesReader::new(timeslots_blob)).unwrap();
     let timeslots_len = timeslots.len();
     log::debug!("timeslots: {:?}", timeslots);
 
@@ -551,19 +557,21 @@ fn solicit(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContex
         account.storage.insert(lookup_key, Vec::<TimeSlot>::new().encode_len());
         account.items += 2;
         account.octets += (81 + preimage_size) as u64;
-    } else if account.storage.get(&lookup_key).unwrap().len() == 2 {
+    } else {
         let timeslots_blob = account.storage.get(&lookup_key).unwrap();
         let mut reader = BytesReader::new(timeslots_blob);
         let mut timeslots = Vec::<TimeSlot>::decode_len(&mut reader).unwrap();
-        timeslots.push(slot);
-        let key = StateKeyType::Account(ctx_x.service_id, lookup_key.to_vec()).construct();
-        log::debug!("Insert key 0x{} value: {:?}", hex::encode(key), timeslots);
-        account.storage.insert(key, timeslots.encode_len());
-    } else {
-        reg[7] = HUH;
-        log::debug!("Exit: HUH");
-        return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
-    };
+        log::debug!("Current timeslots: {:?}", timeslots);
+        if timeslots.len() ==  2 {
+            timeslots.push(slot);
+            account.storage.insert(lookup_key, timeslots.encode_len());
+            log::debug!("Insert new value for key {} value: {:?}", hex::encode(lookup_key), timeslots.encode_len());
+        } else {
+            reg[7] = HUH;
+            log::debug!("Exit: HUH");
+            return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
+        }
+    }
 
     let threshold = utils::common::get_threshold(&account);
     
@@ -786,7 +794,7 @@ fn forget(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
 
     if !ctx_x.partial_state.service_accounts.contains_key(&ctx_x.service_id) {
         reg[7] = HUH;
-        log::debug!("Exit: HUH");
+        log::debug!("Account not found for service: {:?}. Exit: HUH", ctx_x.service_id);
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 
@@ -817,7 +825,7 @@ fn forget(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext
         }
     } else {
         reg[7] = HUH;
-        log::debug!("Exit: HUH");
+        log::debug!("Lookup key {} not found. Exit: HUH", hex::encode(&lookup_key));
         return (ExitReason::Continue, gas, reg, ram, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
     

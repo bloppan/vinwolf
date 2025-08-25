@@ -4,7 +4,7 @@ mod tests {
     use std::collections::HashSet;
     use std::path::Path;
     use dotenv::dotenv;
-    use vinwolf_target::{process_all_bins, process_all_dirs};
+    use vinwolf_target::{process_all_bins, process_all_dirs, process_trace};
     
     const REPORTS_FUZZER_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces";
 
@@ -46,6 +46,9 @@ mod tests {
     #[test]
     fn run_all_traces_tests() {
 
+        dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+        
         let dir_base = Path::new(TRACES_DIR);
         let skip: HashSet<String> = [""]
             .iter()
@@ -99,6 +102,13 @@ mod tests {
 
         let dir_base = Path::new(TRACES_DIR).join("fallback");
         run_traces(&dir_base);
+    }
+
+    #[test]
+    fn run_single_trace() {
+        dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+        process_trace(Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/preimages/00000008.bin"));
     }
 
     fn run_traces(path: &Path) {

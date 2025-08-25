@@ -25,6 +25,16 @@ pub const MAX_TICKETS_PER_EXTRINSIC: usize = 3;
 // The period in timeslots after which an unreferenced preimage may be expunged.
 #[cfg(feature = "tiny")]
 pub const MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE: u32 = 32;
+// The total gas allocated across for all Accumulation.
+#[cfg(feature = "tiny")]
+pub const TOTAL_GAS_ALLOCATED: i64 = 20_000_000;
+// The gas allocated to invoke a work-package's Refine logic.
+#[cfg(feature = "tiny")]
+pub const WORK_PACKAGE_REFINE_GAS: i64 = 1_000_000_000;
+// The number of erasure-coded pieces in a segment.
+#[cfg(feature = "tiny")]
+pub const SEGMENT_PIECES: usize = 1026;
+
 /*
     FULL CONFIG
 */
@@ -44,7 +54,12 @@ pub const TICKET_ENTRIES_PER_VALIDATOR: u8 = 2;
 pub const MAX_TICKETS_PER_EXTRINSIC: usize = 16;
 #[cfg(feature = "full")]
 pub const MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE: u32 = 19_200;
-
+#[cfg(feature = "full")]
+pub const TOTAL_GAS_ALLOCATED: i64 = 3_500_000_000;
+#[cfg(feature = "full")]
+pub const WORK_PACKAGE_REFINE_GAS: i64 = 5_000_000_000;
+#[cfg(feature = "full")]
+pub const SEGMENT_PIECES: usize = 6;
 
 // The size of the on-chain entropy pool
 pub const ENTROPY_POOL_SIZE: usize = 4;
@@ -76,10 +91,6 @@ pub const MAX_OUTPUT_BLOB_SIZE: usize = 48 << 10;
 pub const WORK_REPORT_GAS_LIMIT: i64 = 10_000_000;
 // The gas allocated to invoke a work-package's Is-Authorized logic.
 pub const WORK_PACKAGE_GAS_LIMIT: i64 = 50_000_000;
-// The gas allocated to invoke a work-package's Refine logic.
-pub const WORK_PACKAGE_REFINE_GAS: i64 = 5_000_000_000;
-// The total gas allocated across for all Accumulation.
-pub const TOTAL_GAS_ALLOCATED: i64 = 3_500_000_000;
 // The maximum age in timeslots of the lookup anchor.
 pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 14_400;
 // The maximum size of service code in octets
@@ -96,8 +107,6 @@ pub const REPORTED_WORK_REPLACEMENT_PERIOD: usize = 5;
 pub const MAX_IS_AUTHORIZED_SIZE: usize = 64_000;
 // The maximum size of an encoded work-package together with its extrinsic data and import implications, in octets.
 pub const MAX_ENCODED_WORK_PACKAGE_SIZE: u64 = 13_794_305;
-// The number of erasure-coded pieces in a segment.
-pub const SEGMENT_PIECES: usize = 6;
 // The basic size of erasure-coded pieces in octets.
 pub const PIECE_SIZE: usize = 684;
 // The size of a segment in octets.
