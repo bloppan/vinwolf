@@ -80,9 +80,9 @@ impl Encode for CoreActivityRecord {
         encode_unsigned(self.da_load as usize).encode_to(&mut blob);
         encode_unsigned(self.popularity as usize).encode_to(&mut blob);
         encode_unsigned(self.imports as usize).encode_to(&mut blob);
+        encode_unsigned(self.extrinsic_count as usize).encode_to(&mut blob);
         encode_unsigned(self.exports as usize).encode_to(&mut blob);
         encode_unsigned(self.extrinsic_size as usize).encode_to(&mut blob);
-        encode_unsigned(self.extrinsic_count as usize).encode_to(&mut blob);
         encode_unsigned(self.bundle_size as usize).encode_to(&mut blob);
         encode_unsigned(self.gas_used as usize).encode_to(&mut blob);
 
@@ -102,9 +102,9 @@ impl Decode for CoreActivityRecord {
             da_load: decode_unsigned(blob)? as u32,
             popularity: decode_unsigned(blob)? as u16,
             imports: decode_unsigned(blob)? as u16,
+            extrinsic_count: decode_unsigned(blob)? as u16,
             exports: decode_unsigned(blob)? as u16,
             extrinsic_size: decode_unsigned(blob)? as u32,
-            extrinsic_count: decode_unsigned(blob)? as u16,
             bundle_size: decode_unsigned(blob)? as u32,
             gas_used: decode_unsigned(blob)? as u64,
         })
@@ -152,9 +152,9 @@ impl Encode for SeviceActivityRecord {
         encode_unsigned(self.refinement_count as usize).encode_to(&mut blob);
         encode_unsigned(self.refinement_gas_used as usize).encode_to(&mut blob);
         encode_unsigned(self.imports as usize).encode_to(&mut blob);
-        encode_unsigned(self.exports as usize).encode_to(&mut blob);
-        encode_unsigned(self.extrinsic_size as usize).encode_to(&mut blob);
         encode_unsigned(self.extrinsic_count as usize).encode_to(&mut blob);
+        encode_unsigned(self.extrinsic_size as usize).encode_to(&mut blob);
+        encode_unsigned(self.exports as usize).encode_to(&mut blob);
         encode_unsigned(self.accumulate_count as usize).encode_to(&mut blob);
         encode_unsigned(self.accumulate_gas_used as usize).encode_to(&mut blob);
         encode_unsigned(self.on_transfers_count as usize).encode_to(&mut blob);
@@ -178,9 +178,9 @@ impl Decode for SeviceActivityRecord {
                 refinement_count: decode_unsigned(reader)? as u32,
                 refinement_gas_used: decode_unsigned(reader)? as u64,
                 imports: decode_unsigned(reader)? as u32,
-                exports: decode_unsigned(reader)? as u32,
-                extrinsic_size: decode_unsigned(reader)? as u32,
                 extrinsic_count: decode_unsigned(reader)? as u32,
+                extrinsic_size: decode_unsigned(reader)? as u32,
+                exports: decode_unsigned(reader)? as u32,
                 accumulate_count: decode_unsigned(reader)? as u32,
                 accumulate_gas_used: decode_unsigned(reader)? as u64,
                 on_transfers_count: decode_unsigned(reader)? as u32,
