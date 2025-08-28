@@ -15,26 +15,26 @@ use utils::serialization::{construct_storage_key, construct_preimage_key, StateK
 
 use super::HostCallContext;
 
-pub fn gas(mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext)
+pub fn gas(mut gas: Gas, mut reg: Registers, _ram: &mut RamMemory, ctx: HostCallContext)
 
--> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
+-> (ExitReason, Gas, Registers, HostCallContext)
 {
     gas -= 10;
 
     if gas < 0 {
         log::error!("Out of gas!");
-        return (ExitReason::OutOfGas, gas, reg, ram, ctx);
+        return (ExitReason::OutOfGas, gas, reg, ctx);
     } 
  
     reg[7] = gas as RegSize;
 
     log::debug!("gas: {gas}");
-    return (ExitReason::Continue, gas, reg, ram, ctx);
+    return (ExitReason::Continue, gas, reg, ctx);
 }
 
 pub fn fetch(mut gas: Gas, 
              mut reg: Registers, 
-             mut ram: RamMemory, 
+             ram: &mut RamMemory, 
              _pkg: Option<WorkPackage>,
              n: Option<OpaqueHash>,
              _result: Option<WorkExecResult>,
@@ -44,13 +44,13 @@ pub fn fetch(mut gas: Gas,
              transfers: Option<Vec<DeferredTransfer>>,
              ctx: HostCallContext) 
 
--> (ExitReason, Gas, Registers, RamMemory, HostCallContext) 
+-> (ExitReason, Gas, Registers, HostCallContext) 
 {
     gas -= 10;
 
     if gas < 0 {
         log::debug!("Out of gas!");
-        return (ExitReason::OutOfGas, gas, reg, ram, ctx);
+        return (ExitReason::OutOfGas, gas, reg, ctx);
     } 
     //println!("reg_10: {:?}", reg[10]);
     /*println!("BEFORE");
@@ -133,32 +133,32 @@ pub fn fetch(mut gas: Gas,
 
     if !ram.is_writable(start_address, l as RamAddress) {
         log::error!("Panic: The RAM is not readable from address: {start_address} num_bytes: {l}");
-        return (ExitReason::panic, gas, reg, ram, ctx);
+        return (ExitReason::panic, gas, reg, ctx);
     }
 
     if value.is_none() {
         reg[7] = NONE;
         log::debug!("Exit: NONE");
-        return (ExitReason::Continue, gas, reg, ram, ctx);
+        return (ExitReason::Continue, gas, reg, ctx);
     }
 
     reg[7] = value_len as RegSize;
     ram.write(start_address, value.unwrap()[f as usize..(f + l) as usize].to_vec());
     
     log::debug!("Exit: OK");
-    return (ExitReason::Continue, gas, reg, ram, ctx);
+    return (ExitReason::Continue, gas, reg, ctx);
 }
 
 
-pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Account, service_id: ServiceId, services: ServiceAccounts) 
+pub fn lookup(mut gas: Gas, mut reg: Registers, ram: &mut RamMemory, account: Account, service_id: ServiceId, services: ServiceAccounts) 
 
--> (ExitReason, Gas, Registers, RamMemory, Account)
+-> (ExitReason, Gas, Registers, Account)
 {
     gas -= 10;
 
     if gas < 0 {
         log::debug!("Out of gas!");
-        return (ExitReason::OutOfGas, gas, reg, ram, account);
+        return (ExitReason::OutOfGas, gas, reg, account);
     }  
 
     let a_account: Option<Account> = if reg[7] as ServiceId == service_id || reg[7] == u64::MAX {
@@ -176,7 +176,7 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
 
     if !ram.is_readable(read_start_address, 32) {
         log::debug!("Panic: The RAM is not readable from address: {read_start_address} num_bytes: 32");
-        return (ExitReason::panic, gas, reg, ram, account);
+        return (ExitReason::panic, gas, reg, account);
     }
 
     let hash: OpaqueHash = ram.read(read_start_address, 32).try_into().unwrap();
@@ -203,13 +203,13 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
 
     if !ram.is_writable(write_start_address, l as RamAddress) {
         log::error!("Panic: The RAM is not writable from address: {write_start_address} num_bytes: {l}");
-        return (ExitReason::panic, gas, reg, ram, account);
+        return (ExitReason::panic, gas, reg, account);
     }
 
     if preimage_blob.is_none() {
         reg[7] = NONE;
         log::debug!("Exit: NONE");
-        return (ExitReason::Continue, gas, reg, ram, account);
+        return (ExitReason::Continue, gas, reg, account);
     }
 
     log::debug!("preimage len: {preimage_len}");
@@ -217,18 +217,18 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Acc
     ram.write(write_start_address, preimage_blob.unwrap()[f as usize..(f + l) as usize].to_vec());
     
     log::debug!("Exit: OK");
-    return (ExitReason::Continue, gas, reg, ram, account);
+    return (ExitReason::Continue, gas, reg, account);
 }
 
-pub fn read(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Account, service_id: ServiceId, services: ServiceAccounts) 
+pub fn read(mut gas: Gas, mut reg: Registers, ram: &mut RamMemory, account: Account, service_id: ServiceId, services: ServiceAccounts) 
 
--> (ExitReason, Gas, Registers, RamMemory, Account)
+-> (ExitReason, Gas, Registers, Account)
 {
     gas -= 10;
 
     if gas < 0 {
         log::error!("Out of gas!");
-        return (ExitReason::OutOfGas, gas, reg, ram, account);
+        return (ExitReason::OutOfGas, gas, reg, account);
     }   
 
     let star_service = if reg[7] == u64::MAX {
@@ -254,7 +254,7 @@ pub fn read(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Accou
 
     if !ram.is_readable(start_read_address, bytes_to_read) {
         log::error!("Panic: The RAM is not readable from address: {start_read_address} num_bytes: {bytes_to_read}");
-        return (ExitReason::panic, gas, reg, ram, account);
+        return (ExitReason::panic, gas, reg, account);
     }
 
     let storage_raw_key= ram.read(start_read_address, bytes_to_read);
@@ -282,31 +282,31 @@ pub fn read(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, account: Accou
     
     if !ram.is_writable(start_write_address, l as RamAddress) {
         log::error!("Panic: The RAM is not writable from address: {start_write_address} num_bytes: {l}");
-        return (ExitReason::panic, gas, reg, ram, account);
+        return (ExitReason::panic, gas, reg, account);
     }
 
     if value.is_none() {
         log::debug!("Exit: NONE");
         reg[7] = NONE;
-        return (ExitReason::Continue, gas, reg, ram, account);
+        return (ExitReason::Continue, gas, reg, account);
     }
 
     reg[7] = value_len as RegSize;
     ram.write(start_write_address, value.unwrap()[f as usize..(f + l) as usize].to_vec());
 
     log::debug!("Exit: OK");
-    return (ExitReason::Continue, gas, reg, ram, account);
+    return (ExitReason::Continue, gas, reg, account);
 }
 
-pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account, service_id: ServiceId) 
+pub fn write(mut gas: Gas, mut reg: Registers, ram: &mut RamMemory, account: Account, service_id: ServiceId) 
 
--> (ExitReason, Gas, Registers, RamMemory, Account)
+-> (ExitReason, Gas, Registers, Account)
 {
     gas -= 10;
 
     if gas < 0 {
         log::debug!("Out of gas!");
-        return (ExitReason::OutOfGas, gas, reg, ram, account);
+        return (ExitReason::OutOfGas, gas, reg, account);
     }
 
     let key_start_address = reg[7];
@@ -316,7 +316,7 @@ pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account,
 
     if !ram.is_readable(key_start_address as RamAddress, key_size as RamAddress) {
         log::error!("Panic: The RAM is not readable from address: {key_start_address} num_bytes: {key_size}");
-        return (ExitReason::panic, gas, reg, ram, account);
+        return (ExitReason::panic, gas, reg, account);
     }
     
     let raw_storage_key = ram.read(key_start_address as RamAddress, key_size as RamAddress);
@@ -374,7 +374,7 @@ pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account,
         s_account
     } else {
         log::error!("Panic: The RAM is not readable from address: {value_start_address}, num_bytes: {value_size}");
-        return (ExitReason::panic, gas, reg, ram, account);
+        return (ExitReason::panic, gas, reg, account);
     };
 
     let l: RegSize = if let Some(storage_data) = account.storage.get(&storage_key) {
@@ -389,24 +389,24 @@ pub fn write(mut gas: Gas, mut reg: Registers, ram: RamMemory, account: Account,
     if threshold > modified_account.balance {
         reg[7] = FULL as RegSize;
         log::debug!("Exit: FULL");
-        return (ExitReason::Continue, gas, reg, ram, account);
+        return (ExitReason::Continue, gas, reg, account);
     }
 
     reg[7] = l;
     log::debug!("Exit OK, l: {:?}", l);
 
-    return (ExitReason::Continue, gas, reg, ram, modified_account);
+    return (ExitReason::Continue, gas, reg, modified_account);
 }
 
-pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: ServiceId, accounts: ServiceAccounts)
+pub fn info(mut gas: Gas, mut reg: Registers, ram: &mut RamMemory, service_id: ServiceId, accounts: ServiceAccounts)
 
--> (ExitReason, Gas, Registers, RamMemory, Account) {
+-> (ExitReason, Gas, Registers, Account) {
 
     gas -= 10;
 
     if gas < 0 {
         log::error!("Out of gas!");
-        return (ExitReason::OutOfGas, gas, reg, ram, accounts.get(&service_id).unwrap().clone());
+        return (ExitReason::OutOfGas, gas, reg, accounts.get(&service_id).unwrap().clone());
     }
 
     log::debug!("Info hostcall, service id context: {:?}", service_id);
@@ -417,7 +417,7 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
             Some(account)
         } else {
             log::error!("Account not found for service {:?}", service_id);
-            return (ExitReason::panic, gas, reg, ram, Account::default());
+            return (ExitReason::panic, gas, reg, Account::default());
         }
     } else {
         if let Some(account) = accounts.get(&(reg[7] as ServiceId)).cloned() {
@@ -425,7 +425,7 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
             Some(account)
         } else {
             log::error!("Account not found for service {:?}", reg[7]);
-            return (ExitReason::panic, gas, reg, ram, Account::default());
+            return (ExitReason::panic, gas, reg, Account::default());
         }
     };
 
@@ -461,13 +461,13 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
 
     if !ram.is_writable(start_address, l as RamAddress) {
         log::debug!("Panic: The RAM is not writable from address: {start_address} num_bytes: {:?}", l);
-        return (ExitReason::panic, gas, reg, ram, accounts.get(&service_id).unwrap().clone());
+        return (ExitReason::panic, gas, reg, accounts.get(&service_id).unwrap().clone());
     }
 
     if metadata.is_none() {
         reg[7] = NONE as RegSize;
         log::debug!("Exit: NONE");
-        return (ExitReason::Continue, gas, reg, ram, accounts.get(&service_id).unwrap().clone());
+        return (ExitReason::Continue, gas, reg, accounts.get(&service_id).unwrap().clone());
     }
 
     log::debug!("code_hash: 0x{}", hex::encode(account.as_ref().unwrap().code_hash));
@@ -483,7 +483,7 @@ pub fn info(mut gas: Gas, mut reg: Registers, mut ram: RamMemory, service_id: Se
     reg[7] = metadata_len as RegSize;
 
     log::debug!("reg_7: {:?} Exit: OK", metadata_len);
-    return (ExitReason::Continue, gas, reg, ram, accounts.get(&service_id).unwrap().clone());
+    return (ExitReason::Continue, gas, reg, accounts.get(&service_id).unwrap().clone());
 }
 
 pub fn log(reg: &Registers, ram: &RamMemory, service_id: &ServiceId) {
