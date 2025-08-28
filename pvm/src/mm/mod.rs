@@ -1,10 +1,10 @@
 use constants::pvm::{NUM_PAGES, PAGE_SIZE, LOWEST_ACCESIBLE_PAGE};
-use crate::pvm_types::{RamMemory, RamAddress, RamAccess, Page};
+use crate::pvm_types::{RamMemory, RamAddress, PageFlags, RamAccess, Page};
 pub mod program_init;
 
 impl RamMemory {
 
-    pub fn insert(&mut self, address: RamAddress, value: u8) {
+    /*pub fn insert(&mut self, address: RamAddress, value: u8) {
         let page_target = address / PAGE_SIZE;
         let offset = address % PAGE_SIZE;
         //println!("Inserting value {} at address {}", value, address);
@@ -12,7 +12,7 @@ impl RamMemory {
             //println!("Inserting value {} at address {}", value, address);
             page.data[offset as usize] = value;
         }
-    }
+    }*/
 
     pub fn is_readable(&self, from_address: RamAddress, num_bytes: RamAddress) -> bool {
 
@@ -27,13 +27,22 @@ impl RamMemory {
     }
 
     pub fn read(&self, start_address: RamAddress, num_bytes: RamAddress) -> Vec<u8> {
-        let mut bytes = Vec::new();
-        //println!("Reading {} bytes from address {}", num_bytes, address);
-        for i in start_address..start_address + num_bytes {
-            let page_target = (i % RamAddress::MAX) / PAGE_SIZE;
-            let offset = i % PAGE_SIZE;
-            bytes.push(self.pages[page_target as usize].as_ref().unwrap().data[offset as usize])
+        let mut bytes = Vec::with_capacity(num_bytes as usize);
+        let mut current_address = start_address;
+
+        while current_address < start_address + num_bytes {
+            let page_target = current_address / PAGE_SIZE;
+            let offset = current_address % PAGE_SIZE;
+            let remaining_in_page = PAGE_SIZE - offset;
+            let bytes_to_read = std::cmp::min(remaining_in_page, start_address + num_bytes - current_address);
+
+            let page = self.pages.get(&page_target).unwrap();
+            let slice = &page.data[offset as usize..(offset + bytes_to_read) as usize];
+            bytes.extend_from_slice(slice);
+
+            current_address += bytes_to_read;
         }
+
         return bytes;
     }
 
@@ -49,12 +58,22 @@ impl RamMemory {
         self.access_page(from_page, to_page, RamAccess::Write)
     }
 
-    pub fn write(&mut self, start_address: RamAddress, bytes: Vec<u8>) {
-        
-        for i in start_address..start_address + bytes.len() as RamAddress {
-            let page_target = (i % RamAddress::MAX) / PAGE_SIZE;
-            let offset = i % PAGE_SIZE;
-            self.pages[page_target as usize].as_mut().unwrap().data[offset as usize] = bytes[(i - start_address) as usize];
+    pub fn write(&mut self, start_address: RamAddress, data: &[u8]) {
+        let mut current_address = start_address;
+        let mut data_idx = 0;
+
+        while data_idx < data.len() {
+            let page_target = current_address / PAGE_SIZE;
+            let offset = current_address % PAGE_SIZE;
+            let remaining_in_page = PAGE_SIZE - offset;
+            let bytes_to_write = std::cmp::min(remaining_in_page as usize, data.len() - data_idx);
+            let page = self.pages.get_mut(&page_target).unwrap();
+
+            page.flags.modified = true;
+            let dest_slice = &mut page.data[offset as usize..(offset + remaining_in_page) as usize];
+            dest_slice[..bytes_to_write].copy_from_slice(&data[data_idx..data_idx + bytes_to_write]);
+            current_address += bytes_to_write as RamAddress;
+            data_idx += bytes_to_write;
         }
     }
 
@@ -69,14 +88,13 @@ impl RamMemory {
                 return false;
             }
 
-            if let Some(page) = self.pages[(page % NUM_PAGES) as usize].as_ref() {
-                if page.flags.access.get(&access).is_none() {
-                    // TODO no access 
-                    return false;
-                }
-            } else {
-                // TODO page fault
+            if !self.pages.contains_key(&page) {
                 log::error!("page_fault: page {:?}", page);
+                return false;
+            }
+
+            if self.pages.get(&page).unwrap().flags.access.get(&access).is_none() {
+                log::error!("page_fault: no access {:?}", access);
                 return false;
             }
         }
@@ -95,10 +113,10 @@ impl RamMemory {
 
         for page in from_page..=to_page {
             //println!("allocate page: {:?}", page);
-            let mut new_page = Some(Page::default());
-            new_page.as_mut().unwrap().flags.access.insert(RamAccess::Write);
-            new_page.as_mut().unwrap().flags.access.insert(RamAccess::Read);
-            self.pages[(page % NUM_PAGES) as usize] = new_page;
+            let mut new_page = Page::default();
+            new_page.flags.access.insert(RamAccess::Write);
+            new_page.flags.access.insert(RamAccess::Read);
+            self.pages.insert(page, new_page);
         }
 
         return true;

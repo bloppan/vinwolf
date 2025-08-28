@@ -143,7 +143,7 @@ pub fn fetch(mut gas: Gas,
     }
 
     reg[7] = value_len as RegSize;
-    ram.write(start_address, value.unwrap()[f as usize..(f + l) as usize].to_vec());
+    ram.write(start_address, &value.unwrap()[f as usize..(f + l) as usize]);
     
     log::debug!("Exit: OK");
     return (ExitReason::Continue, gas, reg, ctx);
@@ -214,7 +214,7 @@ pub fn lookup(mut gas: Gas, mut reg: Registers, ram: &mut RamMemory, account: Ac
 
     log::debug!("preimage len: {preimage_len}");
     reg[7] = preimage_len;
-    ram.write(write_start_address, preimage_blob.unwrap()[f as usize..(f + l) as usize].to_vec());
+    ram.write(write_start_address, &preimage_blob.unwrap()[f as usize..(f + l) as usize]);
     
     log::debug!("Exit: OK");
     return (ExitReason::Continue, gas, reg, account);
@@ -292,7 +292,7 @@ pub fn read(mut gas: Gas, mut reg: Registers, ram: &mut RamMemory, account: Acco
     }
 
     reg[7] = value_len as RegSize;
-    ram.write(start_write_address, value.unwrap()[f as usize..(f + l) as usize].to_vec());
+    ram.write(start_write_address, &value.unwrap()[f as usize..(f + l) as usize]);
 
     log::debug!("Exit: OK");
     return (ExitReason::Continue, gas, reg, account);
@@ -479,7 +479,7 @@ pub fn info(mut gas: Gas, mut reg: Registers, ram: &mut RamMemory, service_id: S
                 account.as_ref().unwrap().gratis_storage_offset, account.as_ref().unwrap().created_at, account.as_ref().unwrap().last_acc,
                 account.as_ref().unwrap().parent_service);
 
-    ram.write(start_address, metadata.unwrap()[f as usize ..(f + l) as usize].to_vec());
+    ram.write(start_address, &metadata.unwrap()[f as usize ..(f + l) as usize]);
     reg[7] = metadata_len as RegSize;
 
     log::debug!("reg_7: {:?} Exit: OK", metadata_len);

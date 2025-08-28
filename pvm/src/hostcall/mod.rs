@@ -228,9 +228,9 @@ mod tests {
                 println!("Program initialized successfully");
                 println!("RAM: \n");
                 for i in 0..program.ram.pages.len() {
-                    if let Some(page) = &program.ram.pages[i] {
+                    /*if let Some(page) = &program.ram.pages[i] {
                         println!("Page {}: {:?}", i, page.data);
-                    }
+                    }*/
                 }
                 println!("\nRegisters: {:?}", program.reg);
                 //println!("Code: {:?}", program.code);
