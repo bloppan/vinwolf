@@ -168,8 +168,8 @@ fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
             for item in service_account.1.storage.iter() {
                 if let Some(value) = account.storage.get(item.0) {
                     if item.1 != value {
-                        /*log::debug!("key: {}", hex::encode(&item.0));
-                        log::debug!("expected value: {} != result value: {}", hex::encode(item.1), hex::encode(value));*/
+                        log::debug!("key: {}", hex::encode(&item.0));
+                        log::debug!("expected value: {} != result value: {}", hex::encode(item.1), hex::encode(value));
                         assert_eq!(item.1, value);
                     }
                 } else {

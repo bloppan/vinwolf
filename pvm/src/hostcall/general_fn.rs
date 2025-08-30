@@ -121,6 +121,7 @@ pub fn fetch(mut gas: Gas,
     };
 
     let value_len = if value.is_some() {
+        log::debug!("value: {}", hex::encode(&value.as_ref().unwrap()));
         value.as_ref().unwrap().len()
     } else {
         0

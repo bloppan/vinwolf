@@ -28,7 +28,7 @@ mod tests {
         }
     }
 
-    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/1756548706";
+    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/1756548916";
 
     #[test]
     fn run_single_fuzz_report() {

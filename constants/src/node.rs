@@ -108,7 +108,8 @@ pub const MAX_IS_AUTHORIZED_SIZE: usize = 64_000;
 // The maximum size of an encoded work-package together with its extrinsic data and import implications, in octets.
 pub const MAX_ENCODED_WORK_PACKAGE_SIZE: u64 = 13_794_305;
 // The basic size of erasure-coded pieces in octets.
-pub const PIECE_SIZE: usize = 684;
+//pub const PIECE_SIZE: usize = 684;
+pub const PIECE_SIZE: usize = 4;
 // The size of a segment in octets.
 pub const SEGMENT_SIZE: usize = PIECE_SIZE * SEGMENT_PIECES;
 // The maximum number of imports in a work-package.
