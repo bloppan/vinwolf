@@ -3,7 +3,7 @@ use std::hash::Hash;
 
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
-
+use std::collections::HashMap;
 
 fn paralell_sum() {
 
@@ -95,16 +95,8 @@ fn fold_reduce_example_1() {
     println!("Suma total: {}", total); // Debería ser 4950 (suma de 0 a 99)
 }
 
-fn suma(vector: &[u8]) -> u32 {
-    vector.iter().fold(0, |acc, &x| acc + x as u32)
-}
-
-
-use std::collections::HashMap;
-
-fn main() {
-
-    let mut items: Vec<(u32, Vec<u8>)> = vec![];
+fn fold_reduce_example_2() {
+        let mut items: Vec<(u32, Vec<u8>)> = vec![];
     items.push((1, vec![1,2,3,4]));
     items.push((2, vec![2,4,8,10]));
     items.push((3, vec![3,4,5,6,10]));
@@ -129,8 +121,62 @@ fn main() {
     for entry in &map {
         println!("key: {:?} value: {:?}", entry.0, entry.1);
     }
+}
 
+fn suma(vector: &[u8]) -> u32 {
+    vector.iter().fold(0, |acc, &x| acc + x as u32)
+}
+
+fn fold_reduce_example_3() {
+
+    let mut items: Vec<(u32, Vec<u8>)> = vec![];
+    items.push((1, vec![1,2,3,4]));
+    items.push((2, vec![2,4,8,10]));
+    items.push((3, vec![3,4,5,6,10]));
+
+    let result: Vec<(u32, u32)> = items
+            .par_iter()
+            .fold(
+                || Vec::<(u32, u32)>::new(),
+                |mut acc, orig| {
+                    let sum = orig.1.iter().fold(0, |total, res| total + *res as u32);
+                    acc.push((orig.0, sum));
+                    acc
+                },
+            )
+            .reduce(
+                || Vec::<(u32, u32)>::new(),
+                |mut acc, vec_sum| {
+                    acc.extend(vec_sum);
+                    acc
+                }
+            );
+
+    for entry in &result {
+        println!("key-value: {:?}", entry);
+    }
 }
 
 
 
+
+
+
+fn main() {
+    let nums = vec![1_i32, 2, 3, 4, 5];
+
+    let result: Result<i32, &'static str> = nums
+        .par_iter()
+        .try_fold(
+            || 0,
+            |acc: i32, &x: &i32| {
+                if x > 5 { Err("Número demasiado grande") } else { Ok(acc + x) }
+            },
+        )
+        .try_reduce(
+            || 0,
+            |a: i32, b: i32| Ok(a + b),
+        );
+
+    println!("{result:?}");
+}

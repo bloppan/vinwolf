@@ -7,4 +7,4 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-rayon = "1.5"
+rayon = "1.11"
