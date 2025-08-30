@@ -13,5 +13,6 @@ codec = { workspace = true }
 utils = { workspace = true }
 state-handler = { workspace = true }
 log = { workspace = true }
+rayon = { workspace = true }
 sp-core = "34.0.0"
 ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring"] }

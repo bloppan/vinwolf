@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use serde::Deserialize;
 
 use constants::pvm::{NUM_REG, PAGE_SIZE, NUM_PAGES};
@@ -23,7 +23,7 @@ pub struct Context {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RamMemory {
-    pub pages: Box<[Option<Page>]>,
+    pub pages: HashMap<PageNumber, Page>,
     pub curr_heap_pointer: RamAddress,
 }
 
@@ -181,12 +181,8 @@ pub enum ExitReason {
 // ----------------------------------------------------------------------------------------------------------
 impl Default for RamMemory {
     fn default() -> Self {
-        let mut v: Vec<Option<Page>> = Vec::with_capacity(NUM_PAGES as usize);
-        for _ in 0..NUM_PAGES {
-            v.push(None);
-        }
         RamMemory {
-            pages: v.into_boxed_slice(),
+            pages: HashMap::new(),  // Vacío, inicialización instantánea
             curr_heap_pointer: 0,
         }
     }

@@ -8,11 +8,11 @@ pub mod accumulate; pub mod refine; pub mod on_transfer; pub mod is_authorized; 
 
 /// An extended version of the pvm invocation which is able to progress an inner host-call
 /// state-machine in the case of a host-call halt condition is defined as:
-fn hostcall<F>(program_code: &[u8], pc: RegSize, gas: Gas, reg: Registers, ram: RamMemory, f: F, ctx: HostCallContext) 
+fn hostcall<F>(program_code: &[u8], pc: RegSize, gas: Gas, reg: Registers, mut ram: RamMemory, f: F, ctx: HostCallContext) 
 
 -> (ExitReason, RegSize, Gas, Registers, RamMemory, HostCallContext)
 where 
-    F: Fn(HostCallFn, Gas, Registers, RamMemory, HostCallContext) -> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
+    F: Fn(HostCallFn, Gas, Registers, &mut RamMemory, HostCallContext) -> (ExitReason, Gas, Registers, HostCallContext)
 {
     log::debug!("Execute hostcall");
     let mut pvm_ctx = Context::default();
@@ -47,9 +47,8 @@ where
         // according to the host-call, then on resumption we wish to begin with the instruction directly following the host-call.
         let (hostcall_exit_reason, 
              post_gas, 
-             post_reg, 
-             post_ram, 
-             post_ctx) = f(n, pvm_ctx.gas.clone(), pvm_ctx.reg.clone(), pvm_ctx.ram.clone(), ctx.clone());
+             post_reg,  
+             post_ctx) = f(n, pvm_ctx.gas.clone(), pvm_ctx.reg.clone(), &mut pvm_ctx.ram, ctx.clone());
 
         match hostcall_exit_reason {
             ExitReason::PageFault(hostcall_page_fault) => {
@@ -57,18 +56,18 @@ where
                 return (ExitReason::PageFault(hostcall_page_fault), pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram, ctx);
             },
             ExitReason::Continue => {
-                return hostcall(program_code, pvm_ctx.pc, post_gas, post_reg, post_ram, f, post_ctx);
+                return hostcall(program_code, pvm_ctx.pc, post_gas, post_reg, pvm_ctx.ram, f, post_ctx);
             },
             ExitReason::panic 
             | ExitReason::Halt
             | ExitReason::halt
             | ExitReason::OutOfGas => {
                 log::error!("Hostcall exit reason: {:?}", hostcall_exit_reason);
-                return (hostcall_exit_reason, pvm_ctx.pc, post_gas, post_reg, post_ram, post_ctx);
+                return (hostcall_exit_reason, pvm_ctx.pc, post_gas, post_reg, pvm_ctx.ram, post_ctx);
             },
             _ => {
                 log::error!("Incorrect hostcall exit reason: {:?}", hostcall_exit_reason);
-                return (hostcall_exit_reason, pvm_ctx.pc, post_gas, post_reg, post_ram, post_ctx);
+                return (hostcall_exit_reason, pvm_ctx.pc, post_gas, post_reg, pvm_ctx.ram, post_ctx);
             }
         }
     }
@@ -83,7 +82,7 @@ fn hostcall_argument<F>(program_code: &[u8], pc: RegSize, gas: Gas, arg: &[u8], 
 
 -> (Gas, WorkExecResult, HostCallContext) 
 where 
-    F: Fn(HostCallFn, Gas, Registers, RamMemory, HostCallContext) -> (ExitReason, Gas, Registers, RamMemory, HostCallContext)
+    F: Fn(HostCallFn, Gas, Registers, &mut RamMemory, HostCallContext) -> (ExitReason, Gas, Registers, HostCallContext)
 {
     log::debug!("Execute hostcall argument function");
     let std_program_decoded = match init_std_program(&program_code, &arg) {
@@ -229,9 +228,9 @@ mod tests {
                 println!("Program initialized successfully");
                 println!("RAM: \n");
                 for i in 0..program.ram.pages.len() {
-                    if let Some(page) = &program.ram.pages[i] {
+                    /*if let Some(page) = &program.ram.pages[i] {
                         println!("Page {}: {:?}", i, page.data);
-                    }
+                    }*/
                 }
                 println!("\nRegisters: {:?}", program.reg);
                 //println!("Code: {:?}", program.code);

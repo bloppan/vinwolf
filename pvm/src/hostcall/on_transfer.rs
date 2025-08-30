@@ -84,9 +84,9 @@ pub fn invoke_on_transfer(
     return (s_account, 0);
 }
 
-fn dispatch_xfer(n: HostCallFn, mut gas: Gas, mut reg: Registers, ram: RamMemory, ctx: HostCallContext) 
+fn dispatch_xfer(n: HostCallFn, mut gas: Gas, mut reg: Registers, ram: &mut RamMemory, ctx: HostCallContext) 
 
--> (ExitReason, Gas, Registers, RamMemory, HostCallContext) 
+-> (ExitReason, Gas, Registers, HostCallContext) 
 {
     let service_accounts = get_service_accounts().lock().unwrap().clone();
     let service_id = get_service().lock().unwrap().clone();
@@ -96,43 +96,43 @@ fn dispatch_xfer(n: HostCallFn, mut gas: Gas, mut reg: Registers, ram: RamMemory
         HostCallFn::Lookup => {
             //println!("Lookup");
             let account = ctx.to_xfer_ctx();
-            let (exit_reason, gas, reg, ram, modified_account) = lookup(gas, reg, ram, account, service_id, service_accounts);
-            return (exit_reason, gas, reg, ram, HostCallContext::OnTransfer(modified_account));
+            let (exit_reason, gas, reg, modified_account) = lookup(gas, reg, ram, account, service_id, service_accounts);
+            return (exit_reason, gas, reg, HostCallContext::OnTransfer(modified_account));
         }
         HostCallFn::Read => {
             //println!("Read");
             let account = ctx.to_xfer_ctx();
-            let (exit_reason, gas, reg, ram, modified_account) = read(gas, reg, ram, account, service_id, service_accounts);
-            return (exit_reason, gas, reg, ram, HostCallContext::OnTransfer(modified_account));
+            let (exit_reason, gas, reg, modified_account) = read(gas, reg, ram, account, service_id, service_accounts);
+            return (exit_reason, gas, reg, HostCallContext::OnTransfer(modified_account));
         }
         HostCallFn::Write => {
             //println!("Write");
             let account = ctx.to_xfer_ctx();
-            let (exit_reason, gas, reg, ram, modified_account) = write(gas, reg, ram, account, service_id);
-            return (exit_reason, gas, reg, ram, HostCallContext::OnTransfer(modified_account));
+            let (exit_reason, gas, reg, modified_account) = write(gas, reg, ram, account, service_id);
+            return (exit_reason, gas, reg, HostCallContext::OnTransfer(modified_account));
         }
         HostCallFn::Gas => {
             //println!("Gas");
-            let (exit_reason, gas, reg, ram, ctx) = crate::hostcall::general_fn::gas(gas, reg, ram, ctx);
+            let (exit_reason, gas, reg, ctx) = crate::hostcall::general_fn::gas(gas, reg, ram, ctx);
             let account = ctx.to_xfer_ctx();
-            return (exit_reason, gas, reg, ram, HostCallContext::OnTransfer(account));
+            return (exit_reason, gas, reg, HostCallContext::OnTransfer(account));
         }
         HostCallFn::Info => {
             //println!("Info");
-            let (exit_reason, gas, reg, ram, modified_account) = info(gas, reg, ram, service_id, service_accounts);
-            return (exit_reason, gas, reg, ram, HostCallContext::OnTransfer(modified_account));
+            let (exit_reason, gas, reg, modified_account) = info(gas, reg, ram, service_id, service_accounts);
+            return (exit_reason, gas, reg, HostCallContext::OnTransfer(modified_account));
         }
         HostCallFn::Log => {
             //println!("Log");
             let account = ctx.to_xfer_ctx();
-            return (ExitReason::Continue, gas, reg, ram, HostCallContext::OnTransfer(account));
+            return (ExitReason::Continue, gas, reg, HostCallContext::OnTransfer(account));
         }
         _ => {
             log::error!("Unknown on transfer hostcall function: {:?}", n);
             gas -= 10;
             reg[7] = WHAT;
             let account = ctx.to_xfer_ctx();
-            return (ExitReason::Continue, gas, reg, ram, HostCallContext::OnTransfer(account));
+            return (ExitReason::Continue, gas, reg, HostCallContext::OnTransfer(account));
         }
     }
 }

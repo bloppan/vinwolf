@@ -106,9 +106,13 @@ mod tests {
 
     #[test]
     fn run_single_trace() {
+        
         dotenv().ok();
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
-        process_trace(Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/preimages/00000008.bin"));
+        let start = std::time::Instant::now();
+        process_trace(Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/safrole/00000089.bin"));
+        let duration = start.elapsed();
+        log::info!("* TOTAL time taken: {:?}", duration);
     }
 
     fn run_traces(path: &Path) {

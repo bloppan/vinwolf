@@ -167,9 +167,9 @@ pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, r
     for i in 0..std::mem::size_of::<T>() {
         let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE; 
         let offset = address.wrapping_add(i as RamAddress) % PAGE_SIZE;
-        let byte = pvm_ctx.ram.pages[page_target as usize].as_ref().unwrap().data[offset as usize] as u8;
+        let byte = pvm_ctx.ram.pages.get_mut(&page_target).unwrap().data[offset as usize] as u8;
         value.push(byte); 
-        pvm_ctx.ram.pages[page_target as usize].as_mut().unwrap().flags.referenced = true;
+        pvm_ctx.ram.pages.get_mut(&page_target).unwrap().flags.referenced = true;
     }
     
     if signed {
@@ -213,8 +213,8 @@ pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, 
     for (i, byte) in value.encode_size(std::mem::size_of::<T>()).iter().enumerate() {
         let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE;
         let offset = address.wrapping_add(i as RamAddress) % PAGE_SIZE;
-        pvm_ctx.ram.pages[page_target as usize].as_mut().unwrap().data[offset as usize] = *byte;
-        pvm_ctx.ram.pages[page_target as usize].as_mut().unwrap().flags.modified = true;
+        pvm_ctx.ram.pages.get_mut(&page_target).unwrap().data[offset as usize] = *byte;
+        pvm_ctx.ram.pages.get_mut(&page_target).unwrap().flags.modified = true;
     }
 
     pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
@@ -258,9 +258,9 @@ pub fn check_memory_access<T>(pvm_ctx: &mut Context, address: RamAddress, access
             return Err(ExitReason::panic);
         }
         // Check if the page is in the page table
-        if let Some(page) = pvm_ctx.ram.pages[page_target as usize].as_ref() {
+        if pvm_ctx.ram.pages.contains_key(&page_target) {
             // Check the access flags
-            if page.flags.access.get(&access).is_none() {
+            if pvm_ctx.ram.pages.get(&page_target).unwrap().flags.access.get(&access).is_none() {
                 log::error!("Panic: page {page_target} access violation");
                 return Err(ExitReason::panic);
             }
