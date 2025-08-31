@@ -305,13 +305,12 @@ fn eject(mut gas: Gas, mut reg: Registers, ram: &mut RamMemory, ctx: HostCallCon
     
     if service_id != ctx_x.service_id && ctx_x.partial_state.service_accounts.contains_key(&service_id) {
 
-        let d_account = ctx_x.partial_state.service_accounts.get(&service_id).unwrap().clone();
-        //let (items, octets, _threshold) = utils::common::get_footprint_and_threshold(&d_account);
+        let d_account = ctx_x.partial_state.service_accounts.get(&service_id).unwrap();
         let length = (std::cmp::max(81, d_account.octets) - 81) as u32;
-
         let mut s_account = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().clone();
+        log::debug!("d account service: {:?} balance: {:?}, s account service {:?}, balance {:?}", service_id, d_account.balance, ctx_x.service_id, s_account.balance);
         s_account.balance += d_account.balance;
-
+        log::debug!("Balace updated -> service {:?} balance {:?}, service {:?} balance {:?}", service_id, d_account.balance, ctx_x.service_id, s_account.balance);
         let xs_encoded: OpaqueHash = ctx_x.service_id.encode_size(32).try_into().unwrap();
         log::debug!("xs_encoded: 0x{}", hex::encode(xs_encoded));
 
@@ -321,7 +320,7 @@ fn eject(mut gas: Gas, mut reg: Registers, ram: &mut RamMemory, ctx: HostCallCon
             return (ExitReason::Continue, gas, reg, HostCallContext::Accumulate(ctx_x, ctx_y));
         }
 
-        let lookup_key = StateKeyType::Account(ctx_x.service_id, construct_lookup_key(&hash, length)).construct();
+        let lookup_key = StateKeyType::Account(service_id, construct_lookup_key(&hash, length)).construct();
         
         if d_account.items != 2 || !d_account.storage.contains_key(&lookup_key) {
             log::debug!("Exit: HUH");
@@ -345,7 +344,7 @@ fn eject(mut gas: Gas, mut reg: Registers, ram: &mut RamMemory, ctx: HostCallCon
 
         reg[7] = HUH;
 
-        log::debug!("Exit: HUH");
+        log::debug!("Otherwise. Exit: HUH");
         return (ExitReason::Continue, gas, reg, HostCallContext::Accumulate(ctx_x, ctx_y));
     }
 

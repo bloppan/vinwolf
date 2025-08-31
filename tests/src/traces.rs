@@ -6,7 +6,7 @@ mod tests {
     use dotenv::dotenv;
     use vinwolf_target::{process_all_bins, process_all_dirs, process_trace};
     
-    const REPORTS_FUZZER_DIR: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces";
+    const REPORTS_FUZZER_DIR: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces";
 
     #[test]
     fn run_reports_fuzzer_tests() {
@@ -28,7 +28,7 @@ mod tests {
         }
     }
 
-    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces/TESTING/1755796851";
+    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/1756548916";
 
     #[test]
     fn run_single_fuzz_report() {

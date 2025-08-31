@@ -153,7 +153,7 @@ fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
 
     for service_account in expected_state.service_accounts.iter() {
         if let Some(account) = result_state.service_accounts.get(&service_account.0) {
-            //log::debug!("checking service: {:?}", service_account.0);
+            log::debug!("checking service: {:?}", service_account.0);
             assert_eq!(service_account.1.code_hash, account.code_hash);
             assert_eq!(service_account.1.balance, account.balance);
             assert_eq!(service_account.1.acc_min_gas, account.acc_min_gas);
@@ -168,8 +168,8 @@ fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
             for item in service_account.1.storage.iter() {
                 if let Some(value) = account.storage.get(item.0) {
                     if item.1 != value {
-                        /*log::debug!("key: {}", hex::encode(&item.0));
-                        log::debug!("expected value: {} != result value: {}", hex::encode(item.1), hex::encode(value));*/
+                        log::debug!("key: {}", hex::encode(&item.0));
+                        log::debug!("expected value: {} != result value: {}", hex::encode(item.1), hex::encode(value));
                         assert_eq!(item.1, value);
                     }
                 } else {
