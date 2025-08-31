@@ -35,6 +35,8 @@ use codec::Encode;
 // dependency graph where possible. 
 pub fn stf(block: &Block) -> Result<(), ProcessError> {
     
+    let start_block = std::time::Instant::now();
+
     let header_hash = blake2_256(&block.header.encode());
     log::debug!("Importing new block: 0x{}", utils::print_hash!(header_hash));
     
@@ -64,6 +66,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &block.extrinsic.disputes,
     )?;
     
+    let start_safrole = std::time::Instant::now();
     safrole::process(
         &mut new_state.safrole,
         &mut new_state.entropy,
@@ -72,6 +75,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &mut new_state.time,
         &block,
         &new_state.disputes.offenders)?;
+    log::info!("Time Safrole: {:?}", start_safrole.elapsed());
 
     let new_available_workreports = reports::assurances::process(
         &mut new_state.availability,
@@ -133,7 +137,8 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &reporters,
         &new_available_workreports.reported,
     );
-    
+
+    log::info!("Time entire block: {:?}", start_block.elapsed());
     state_handler::set_state_root(merkle_state(&utils::serialization::serialize(&new_state).map, 0));
     state_handler::set_global_state(new_state);
 

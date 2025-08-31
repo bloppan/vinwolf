@@ -170,12 +170,19 @@ pub fn process(
     let ring_set = get_ring_set(post_epoch, &safrole_state.pending_validators);*/
     let curr_val_ring_set = create_ring_set(&curr_validators);
     let pending_val_ring_set = create_ring_set(&safrole_state.pending_validators);
+    
+    let start = std::time::Instant::now();
     // Process tickets extrinsic
     extrinsic::tickets::process(&block.extrinsic.tickets, safrole_state, entropy_pool, &post_tau, pending_val_ring_set)?;
+    log::info!("Time tickets process: {:?}", start.elapsed());
     // update tau which defines the most recent block's index
     *tau = post_tau;
+
+    let start = std::time::Instant::now();
     // Verify the header's seal
     let entropy_source_vrf_output = header::seal_verify(&block.header, &safrole_state, &entropy_pool, &curr_validators, curr_val_ring_set)?;
+    log::info!("Time header seal verify: {:?}", start.elapsed());
+    
     // Update recent entropy eta0
     entropy::update_recent(entropy_pool, entropy_source_vrf_output);
     

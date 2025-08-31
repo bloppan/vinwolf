@@ -158,19 +158,16 @@ fn fold_reduce_example_3() {
 }
 
 
+fn try_fold_try_reduce_example() {
 
-
-
-
-fn main() {
-    let nums = vec![1_i32, 2, 3, 4, 5];
+    let nums = vec![1_i32, 2, 30, 4, 5];
 
     let result: Result<i32, &'static str> = nums
         .par_iter()
         .try_fold(
             || 0,
             |acc: i32, &x: &i32| {
-                if x > 5 { Err("Número demasiado grande") } else { Ok(acc + x) }
+                if x > 5 { Err("Número demasiado grande") } else { println!("bien"); Ok(acc + x) }
             },
         )
         .try_reduce(
@@ -180,3 +177,96 @@ fn main() {
 
     println!("{result:?}");
 }
+
+fn accumulate_vector(vector: &[u8]) -> Result<u32, &'static str> {
+
+    if vector.is_empty() {
+        return Err("Empty vector");
+    }
+
+    //println!("Ok");
+    Ok(vector.iter().fold(0, |acc, value| acc + *value as u32))
+}
+
+fn main() {
+
+    let mut items: Vec<(u32, Vec<u8>)> = vec![];
+    items.push((1, vec![1,2,3,4]));
+    items.push((2, vec![2,4,8,10]));
+    items.push((3, vec![3,4,5,6,10]));
+    items.push((4, vec![3,4,5,6,10]));
+    items.push((5, vec![3,4,5,6,10]));
+    //items.push((6, vec![]));
+    items.push((6, vec![3,4,5,6,10]));
+    items.push((7, vec![3,4,5,6,10]));
+    items.push((8, vec![3,4,5,6,10]));
+    items.push((9, vec![3,4,5,6,10]));
+    items.push((10, vec![3,4,5,6,10]));
+    items.push((11, vec![3,4,5,6,10]));
+    items.push((12, vec![3,4,5,6,10]));
+    items.push((13, vec![3,4,5,6,10]));
+    items.push((14, vec![3,4,5,6,10]));
+    items.push((15, vec![3,4,5,6,10]));
+    items.push((16, vec![3,4,5,6,10]));
+    items.push((17, vec![3,4,5,6,10]));
+    items.push((18, vec![3,4,5,6,10]));
+    items.push((19, vec![3,4,5,6,10]));
+    items.push((20, vec![3,4,5,6,10]));
+    items.push((21, vec![3,4,5,6,10]));
+    items.push((22, vec![3,4,5,6,10]));
+    items.push((23, vec![3,4,5,6,10]));
+    items.push((24, vec![3,4,5,6,10]));
+    items.push((25, vec![3,4,5,6,10]));
+    items.push((26, vec![3,4,5,6,10]));
+    items.push((27, vec![3,4,5,6,10]));
+    items.push((28, vec![3,4,5,6,10]));
+    items.push((29, vec![3,4,5,6,10]));
+    items.push((30, vec![3,4,5,6,10]));
+    items.push((31, vec![3,4,5,6,10]));
+    items.push((32, vec![3,4,5,6,10]));
+    items.push((33, vec![3,4,5,6,10]));
+    items.push((34, vec![3,4,5,6,10]));
+    items.push((35, vec![3,4,5,6,10]));
+    items.push((36, vec![3,4,5,6,10]));
+    items.push((37, vec![3,4,5,6,10]));
+    items.push((38, vec![3,4,5,6,10]));
+    items.push((39, vec![3,4,5,6,10]));
+    items.push((40, vec![3,4,5,6,10]));
+    items.push((41, vec![3,4,5,6,10]));
+    items.push((42, vec![3,4,5,6,10]));
+
+    let map: Result<Vec<(u32, u32)>, &'static str> = items
+                        .par_iter()
+                        .try_fold(
+                            || Vec::new(),
+                            |mut acc: Vec<(u32, u32)>, value| {
+                                
+                                match accumulate_vector(&value.1) {
+                                    Ok(acc_result) => {
+                                        acc.push((value.0, acc_result));
+                                        Ok(acc)
+                                    },
+                                    Err(e) => Err(e),
+                                }
+                            },
+                        )
+                        .try_reduce(
+                            || Vec::new(),
+                            | mut acc: Vec<(u32, u32)>, single_vector | { 
+                                
+                                acc.extend(single_vector);
+                                Ok(acc)
+                            
+                            }
+                        );
+
+    for item in &map.unwrap() {
+        println!("{:?}", item)
+    }
+    //println!("result: {:?}", map);
+
+}
+
+
+
+
