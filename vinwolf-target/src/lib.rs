@@ -31,7 +31,7 @@ pub fn process_trace(path: &Path) {
     state_handler::set_state_root(utils::trie::merkle_state(&utils::serialization::serialize(&pre_state).map, 0));
     
     match state_controller::stf(&block) {
-        Ok(_) => { },
+        Ok(_) => { println!("Block {:?} processed successfully", path); },
         Err(e) => { log::error!("{:?}", e) },
     };
 

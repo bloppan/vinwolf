@@ -28,7 +28,7 @@ mod tests {
         }
     }
 
-    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/1756548916";
+    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/1756548741";
 
     #[test]
     fn run_single_fuzz_report() {
@@ -63,28 +63,36 @@ mod tests {
 
     #[test]
     fn run_preimages_light_traces_tests() {
-
+        use dotenv::dotenv;
+        dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
         let dir_base = Path::new(TRACES_DIR).join("preimages_light");
         run_traces(&dir_base);
     }
 
     #[test]
     fn run_preimages_traces_tests() {
-
+        use dotenv::dotenv;
+        dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
         let dir_base = Path::new(TRACES_DIR).join("preimages");
         run_traces(&dir_base);
     }
 
     #[test]
     fn run_storage_light_traces_tests() {
-
+        use dotenv::dotenv;
+        dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
         let dir_base = Path::new(TRACES_DIR).join("storage_light");
         run_traces(&dir_base);
     }
 
     #[test]
     fn run_storage_traces_tests() {
-
+        use dotenv::dotenv;
+        dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
         let dir_base = Path::new(TRACES_DIR).join("storage");
         run_traces(&dir_base);
     }
@@ -99,9 +107,12 @@ mod tests {
 
     #[test]
     fn run_fallback_traces_tests() {
-
+        dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+        let start = std::time::Instant::now();
         let dir_base = Path::new(TRACES_DIR).join("fallback");
         run_traces(&dir_base);
+        
     }
 
     #[test]
@@ -117,8 +128,11 @@ mod tests {
 
     fn run_traces(path: &Path) {
 
-        dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+        /*dotenv().ok();
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();*/
+        let start = std::time::Instant::now();
         let _ = process_all_bins(path);
+        let end = start.elapsed();
+        println!("All tests processed in: {:?}", end);
     }
 }

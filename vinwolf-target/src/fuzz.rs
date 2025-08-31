@@ -181,7 +181,19 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
     let vinwolf_info = &*VINWOLF_INFO;
 
     let listener = UnixListener::bind(socket_path)?;
-    
+    println!("Running {} mode {:?} version: {}.{}.{} protocol version: {}.{}.{} listening on {}", 
+                BUILD_PROFILE,
+                match String::from_utf8(vinwolf_info.name.clone()) {
+                Ok(name) => name,  
+                Err(_) => "Invalid UTF-8".to_string(),  
+                }, 
+                vinwolf_info.app_version.major, 
+                vinwolf_info.app_version.minor, 
+                vinwolf_info.app_version.patch,
+                vinwolf_info.jam_version.major, 
+                vinwolf_info.jam_version.minor, 
+                vinwolf_info.jam_version.patch,
+                socket_path);
     log::info!(
                 "Running {} mode {:?} version: {}.{}.{} protocol version: {}.{}.{} listening on {}", 
                 BUILD_PROFILE,
@@ -371,9 +383,11 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                     
                                     match state_controller::stf(&block) {
                                         Ok(_) => {
+                                            println!("Block {} processed successfully", utils::print_hash!(header_hash));
                                             //log::info!("Block proccessed successfully");
                                         },
                                         Err(error) => {
+                                            println!("Refused block {}", utils::print_hash!(header_hash));
                                             log::error!("Bad block: {:?}", error);
                                         },
                                     }
