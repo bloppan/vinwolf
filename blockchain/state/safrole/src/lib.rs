@@ -174,14 +174,16 @@ pub fn process(
     let start = std::time::Instant::now();
     // Process tickets extrinsic
     extrinsic::tickets::process(&block.extrinsic.tickets, safrole_state, entropy_pool, &post_tau, pending_val_ring_set)?;
-    log::info!("Time tickets process: {:?}", start.elapsed());
+    let end = start.elapsed();
+    log::info!("Time tickets process: {:?}", end);
     // update tau which defines the most recent block's index
     *tau = post_tau;
 
     let start = std::time::Instant::now();
     // Verify the header's seal
     let entropy_source_vrf_output = header::seal_verify(&block.header, &safrole_state, &entropy_pool, &curr_validators, curr_val_ring_set)?;
-    log::info!("Time header seal verify: {:?}", start.elapsed());
+    let end = start.elapsed();
+    log::info!("Time header seal verify: {:?}", end);
     
     // Update recent entropy eta0
     entropy::update_recent(entropy_pool, entropy_source_vrf_output);
