@@ -137,9 +137,9 @@ pub fn _branch(
 
 pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, reg: RegSize, signed: bool) -> ExitReason {
 
-    if let Err(check_error) = check_memory_access::<T>(pvm_ctx, address as RamAddress, RamAccess::Read) {
+    /*if let Err(check_error) = check_memory_access::<T>(pvm_ctx, address as RamAddress, RamAccess::Read) {
         return check_error;
-    }
+    }*/
 
     //log::trace!("load address: {:?} to reg: {:?} num bytes: {:?}", address, reg, std::mem::size_of::<T>());
     /*println!("\nload address: {:?} to reg: {:?} num bytes: {:?}", address, reg, std::mem::size_of::<T>());
@@ -161,16 +161,18 @@ pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, r
     }*/
 
 
-    let mut value: Vec<u8> = Vec::new();
+    //let mut value: Vec<u8> = Vec::new();
     let n = std::mem::size_of::<T>();
 
-    for i in 0..std::mem::size_of::<T>() {
+    let value = pvm_ctx.ram.read(address, n as RamAddress);
+
+    /*for i in 0..std::mem::size_of::<T>() {
         let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE; 
         let offset = address.wrapping_add(i as RamAddress) % PAGE_SIZE;
         let byte = pvm_ctx.ram.pages.get_mut(&page_target).unwrap().data[offset as usize] as u8;
         value.push(byte); 
         pvm_ctx.ram.pages.get_mut(&page_target).unwrap().flags.referenced = true;
-    }
+    }*/
     
     if signed {
         pvm_ctx.reg[reg as usize] = extend_sign(&value, n);
@@ -186,9 +188,9 @@ pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, r
 
 pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, value: RegSize) -> ExitReason {
 
-    if let Err(check_error) = check_memory_access::<T>(pvm_ctx, address as RamAddress, RamAccess::Write) {
+    /*if let Err(check_error) = check_memory_access::<T>(pvm_ctx, address as RamAddress, RamAccess::Write) {
         return check_error;
-    }
+    }*/
     
     //log::trace!("store address: {:?} value: {:?} num bytes: {:?} pc: {:?}", address, value, std::mem::size_of::<T>(), pvm_ctx.pc);
 
@@ -209,13 +211,14 @@ pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, 
             println!("");  // Imprimir una nueva línea
         }
     }*/
+    pvm_ctx.ram.write(address, &value.encode_size(std::mem::size_of::<T>()));
 
-    for (i, byte) in value.encode_size(std::mem::size_of::<T>()).iter().enumerate() {
+    /*for (i, byte) in value.encode_size(std::mem::size_of::<T>()).iter().enumerate() {
         let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE;
         let offset = address.wrapping_add(i as RamAddress) % PAGE_SIZE;
         pvm_ctx.ram.pages.get_mut(&page_target).unwrap().data[offset as usize] = *byte;
         pvm_ctx.ram.pages.get_mut(&page_target).unwrap().flags.modified = true;
-    }
+    }*/
 
     pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
     ExitReason::Continue
