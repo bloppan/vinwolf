@@ -66,7 +66,6 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &block.extrinsic.disputes,
     )?;
     
-    let start_safrole = std::time::Instant::now();
     safrole::process(
         &mut new_state.safrole,
         &mut new_state.entropy,
@@ -75,7 +74,6 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &mut new_state.time,
         &block,
         &new_state.disputes.offenders)?;
-    log::info!("Time Safrole: {:?}", start_safrole.elapsed());
 
     let new_available_workreports = reports::assurances::process(
         &mut new_state.availability,
@@ -107,7 +105,8 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
                                         new_state.privileges,
                                         &block.header.unsigned.slot,
                                         &new_available_workreports.reported)?;
-
+    
+    let start = std::time::Instant::now();
     new_state.recent_acc_outputs = recent_acc_outputs;
     new_state.service_accounts = service_accounts;
     new_state.next_validators = next_validators;
@@ -138,11 +137,12 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &new_available_workreports.reported,
     );
 
-    log::info!("Time entire block: {:?}", start_block.elapsed());
+    
     state_handler::set_state_root(merkle_state(&utils::serialization::serialize(&new_state).map, 0));
     state_handler::set_global_state(new_state);
 
     log::debug!("Block 0x{} processed succesfully", utils::print_hash!(header_hash));
-    
+    let end = start.elapsed();
+    println!("TIME tail: {:?}", end);
     Ok(())
 }

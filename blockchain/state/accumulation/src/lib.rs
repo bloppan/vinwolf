@@ -45,6 +45,7 @@ pub fn process(
 ) -> Result<(OpaqueHash, RecentAccOutputs, ServiceAccounts, ValidatorsData, AuthQueues, Privileges), ProcessError> {
   
     log::debug!("Process accumulation");
+    let start = std::time::Instant::now();
     // We define the final state of the ready queue and the accumulated map by integrating those work-reports which were accumulated in this 
     // block and shifting any from the prior state with the oldest such items being dropped entirely:
     let current_block_accumulatable = get_current_block_accumulatable(new_available_reports, ready_queue, accumulated_history, post_tau);
@@ -63,6 +64,8 @@ pub fn process(
     for report in current_block_accumulatable.iter() {
         log::debug!("{}", hex::encode(&report.package_spec.hash));
     }
+    let end = start.elapsed();
+    println!("time accumulatable reports: {:?}", end);
 
     let (num_wi_accumulated, 
          mut post_partial_state, 
