@@ -47,7 +47,7 @@ use block::{extrinsic, header};
 use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 use codec::Encode;
 
-static PENDING_RING_SET: Lazy<Mutex<Option<(u32, Vec<Public>)>>> = Lazy::new(|| { Mutex::new(None) });
+/*static PENDING_RING_SET: Lazy<Mutex<Option<(u32, Vec<Public>)>>> = Lazy::new(|| { Mutex::new(None) });
 static CURRENT_RING_SET: Lazy<Mutex<Option<(u32, Vec<Public>)>>> = Lazy::new(|| { Mutex::new(None) });
 
 fn set_ring_set(set: &ValidatorSet, epoch: u32, ring_set: Vec<Public>) {
@@ -89,7 +89,7 @@ fn get_ring_set(set: &ValidatorSet, epoch: u32, validators: &ValidatorsData) -> 
     }
 
     return ring_set_cached;
-}
+}*/
 
 // Process Safrole state
 pub fn process(
@@ -129,12 +129,8 @@ pub fn process(
         entropy::rotate_pool(entropy_pool);
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
         validators::key_rotation(safrole_state, curr_validators, prev_validators, offenders);
-        // Create the ring set for the pending validators
-        let pending_val_ring_set = create_ring_set(&safrole_state.pending_validators);
-        // Save the ring
-        set_ring_set(&ValidatorSet::Next, epoch, pending_val_ring_set.clone());
         // Create the epoch root from next pending validators and update the safrole state
-        safrole_state.epoch_root = create_root_epoch(pending_val_ring_set);
+        safrole_state.epoch_root = create_root_epoch(create_ring_set(&safrole_state.pending_validators));
         // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
         // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
         log::debug!("New epoch mark");
@@ -179,10 +175,8 @@ pub fn process(
     
     /*// Get the ring set // TODO after M1
     let ring_set = get_ring_set(post_epoch, &safrole_state.pending_validators);*/
-    //let curr_val_ring_set = create_ring_set(&curr_validators);
-    //let pending_val_ring_set = create_ring_set(&safrole_state.pending_validators);
-    let curr_val_ring_set = get_ring_set(&ValidatorSet::Current, epoch, &curr_validators);
-    let pending_val_ring_set = get_ring_set(&ValidatorSet::Next, epoch, &safrole_state.pending_validators);
+    let curr_val_ring_set = create_ring_set(&curr_validators);
+    let pending_val_ring_set = create_ring_set(&safrole_state.pending_validators);
 
     let start = std::time::Instant::now();
     // Process tickets extrinsic
