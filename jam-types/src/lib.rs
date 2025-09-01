@@ -90,6 +90,7 @@ pub struct DisputesExtrinsic {
 #[derive(Debug, PartialEq)]
 pub enum ReadError {
     NotEnoughData,
+    InvalidLength,
     InvalidData,
     ConversionError,
 }
@@ -100,6 +101,7 @@ impl std::fmt::Display for ReadError {
             ReadError::NotEnoughData => write!(f, "Not enough data to decode."),
             ReadError::InvalidData => write!(f, "Invalid data encountered during decoding."),
             ReadError::ConversionError => write!(f, "Error occurred during data conversion."),
+            ReadError::InvalidLength => write!(f, "Invalid length encountered during decoding")
         }
     }
 }

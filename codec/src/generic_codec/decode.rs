@@ -31,31 +31,26 @@ pub fn decode_integer(data: &mut BytesReader, l: usize) -> Result<usize, ReadErr
 
 // TODO revisar esta funcion
 pub fn decode<T: FromLeBytes>(bytes: &[u8], n: usize) -> T {
-    let mut buffer = vec![0u8; std::mem::size_of::<T>()];
-    
-    let mut len = n;
+    let size = std::mem::size_of::<T>();
+    let mut buffer = [0u8; 16]; // up to 128 bits
 
-    if bytes.len() < n {
-        len = bytes.len();
-    }
+    let len = n.min(bytes.len()).min(size);
+    buffer[..len].copy_from_slice(&bytes[..len]);
 
-    for i in 0..len {
-        buffer[i] = bytes[i];
-    }
-
-    T::from_le_bytes(&buffer)
+    T::from_le_bytes(&buffer[..size])
 }
 
 pub fn decode_to_bits(bytes: &mut BytesReader, n: usize) -> Result<Vec<bool>, ReadError> {
-    let mut bools = Vec::new();
+    let mut bools = Vec::with_capacity(n * 8); 
+
     for _ in 0..n {
         let byte = bytes.read_byte()?;
-        for i in 0..8 { 
-            let bit = (byte >> i) & 1; 
-            bools.push(bit == 1); // Convert bit (0 o 1) to boolean
+        for i in 0..8 {
+            bools.push(byte & (1 << i) != 0); 
         }
     }
-    return Ok(bools);
+
+    Ok(bools)
 }
 
 impl Decode for u8 {

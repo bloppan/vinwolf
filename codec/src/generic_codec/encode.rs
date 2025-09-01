@@ -370,11 +370,15 @@ pub fn encode_integer(x: usize, l: usize) -> Vec<u8> {
         return vec![];
     }
 
-    let mut result = vec![];
+    let mut result = Vec::with_capacity(l);
+    let mut value = x;
 
-    result.push((x % 256) as u8);
-    result.extend_from_slice(&encode_integer(x >> 8, l - 1));
-    return result;
+    for _ in 0..l {
+        result.push((value & 0xFF) as u8);
+        value >>= 8;
+    }
+
+    result
 }
 
 /*pub fn encode_integer(x: usize, l: usize) -> Vec<u8> {
