@@ -35,8 +35,6 @@ use codec::Encode;
 // dependency graph where possible. 
 pub fn stf(block: &Block) -> Result<(), ProcessError> {
     
-    let start_block = std::time::Instant::now();
-
     let header_hash = blake2_256(&block.header.encode());
     log::debug!("Importing new block: 0x{}", utils::print_hash!(header_hash));
     
@@ -142,7 +140,6 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
     state_handler::set_global_state(new_state);
 
     log::debug!("Block 0x{} processed succesfully", utils::print_hash!(header_hash));
-    let end = start.elapsed();
-    println!("TIME tail: {:?}", end);
+
     Ok(())
 }

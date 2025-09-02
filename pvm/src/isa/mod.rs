@@ -141,6 +141,11 @@ pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, r
         return check_error;
     }*/
 
+    let num_bytes = std::mem::size_of::<T>() as RamAddress;
+
+    if !pvm_ctx.ram.is_readable(address, num_bytes) {
+        return ExitReason::page_fault;
+    }
     //log::trace!("load address: {:?} to reg: {:?} num bytes: {:?}", address, reg, std::mem::size_of::<T>());
     /*println!("\nload address: {:?} to reg: {:?} num bytes: {:?}", address, reg, std::mem::size_of::<T>());
 
@@ -164,7 +169,7 @@ pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, r
     //let mut value: Vec<u8> = Vec::new();
     let n = std::mem::size_of::<T>();
 
-    let value = pvm_ctx.ram.read(address, n as RamAddress);
+    let value = pvm_ctx.ram.read(address, num_bytes as RamAddress);
 
     /*for i in 0..std::mem::size_of::<T>() {
         let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE; 
@@ -191,6 +196,12 @@ pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, 
     /*if let Err(check_error) = check_memory_access::<T>(pvm_ctx, address as RamAddress, RamAccess::Write) {
         return check_error;
     }*/
+
+    let num_bytes = std::mem::size_of::<T>();
+
+    if !pvm_ctx.ram.is_writable(address, num_bytes as RamAddress) {
+        return ExitReason::page_fault;
+    }
     
     //log::trace!("store address: {:?} value: {:?} num bytes: {:?} pc: {:?}", address, value, std::mem::size_of::<T>(), pvm_ctx.pc);
 
@@ -211,7 +222,7 @@ pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, 
             println!("");  // Imprimir una nueva línea
         }
     }*/
-    pvm_ctx.ram.write(address, &value.encode_size(std::mem::size_of::<T>()));
+    pvm_ctx.ram.write(address, &value.encode_size(num_bytes));
 
     /*for (i, byte) in value.encode_size(std::mem::size_of::<T>()).iter().enumerate() {
         let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE;

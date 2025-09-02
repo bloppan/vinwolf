@@ -39,7 +39,7 @@ pub struct PageFlags {
     pub referenced: bool,
     pub modified: bool,
 }
-#[derive(Debug, Clone, PartialEq, Eq, std::hash::Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, std::hash::Hash)]
 pub enum RamAccess {
     Read,
     Write,
