@@ -32,14 +32,6 @@ enum RamSection {
     Zone7,
 }
 
-static EMPTY_RAM: Lazy<Mutex<RamMemory>> = Lazy::new(|| {
-    Mutex::new(RamMemory::default())
-});
-
-fn create_empty_ram() -> RamMemory {
-    EMPTY_RAM.lock().unwrap().clone()
-}
-
 /// We thus define the standard program code format p, which includes not only the instructions and jump table (previously represented 
 /// by the term c), but also information on the state of the ram at program start. Given some p which is appropriately encoded together 
 /// with some argument data a, we can define program code c, registers ω and ram µ through the standard initialization decoder function.
@@ -52,7 +44,7 @@ pub fn init_std_program(program: &[u8], arg: &[u8]) -> Result<Option<StandardPro
         return Ok(None);
     }
 
-    let mut ram = create_empty_ram();
+    let mut ram = RamMemory::default();
     ram.init(&params, arg);
 
     return Ok(Some(StandardProgram {
@@ -129,8 +121,8 @@ impl RamMemory {
         let end_page = (end - 1) / PAGE_SIZE;
 
         for i in start_page..=(end_page % NUM_PAGES) {
-            if self.pages[(i % NUM_PAGES) as usize].is_none() {
-                self.pages[(i % NUM_PAGES) as usize] = Some(Page::default());
+            if !self.pages.contains_key(&(i % NUM_PAGES)) {
+                self.pages.insert(i % NUM_PAGES,Page::default());
             }
         }
 
@@ -140,22 +132,22 @@ impl RamMemory {
                 for i in start..end {
                     let page = i / PAGE_SIZE;
                     let offset = i % PAGE_SIZE;
-                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
-                    self.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.ro_data[i as usize - Zz as usize];
+                    self.pages.get_mut(&page).unwrap().flags.read_access = true;
+                    self.pages.get_mut(&page).unwrap().data[offset as usize] = params.ro_data[i as usize - Zz as usize];
                 }
             },
             RamSection::Zone2 => {
                 for page in start_page..=end_page {
-                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
+                    self.pages.get_mut(&page).unwrap().flags.read_access = true;
                 }
             },
             RamSection::Zone3 => {
                 for i in start..end {
                     let page = i / PAGE_SIZE;
                     let offset = i % PAGE_SIZE;
-                    self.pages[page as usize].as_mut().unwrap().flags.write_access = true;
-                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
-                    self.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.rw_data[i as usize - (2 * Zz + zone(params.ro_data.len()) as u64) as usize];
+                    self.pages.get_mut(&page).unwrap().flags.write_access = true;
+                    self.pages.get_mut(&page).unwrap().flags.read_access = true;
+                    self.pages.get_mut(&page).unwrap().data[offset as usize] = params.rw_data[i as usize - (2 * Zz + zone(params.ro_data.len()) as u64) as usize];
                 }
                //println!("END: {:?}", end);
                 self.curr_heap_pointer = page(end as usize) as RamAddress;
@@ -163,28 +155,28 @@ impl RamMemory {
             },
             RamSection::Zone4 => {
                 for page in start_page..=end_page {
-                    self.pages[page as usize].as_mut().unwrap().flags.write_access = true;
-                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
+                    self.pages.get_mut(&page).unwrap().flags.write_access = true;
+                    self.pages.get_mut(&page).unwrap().flags.read_access = true;
                 }
                 //println!("ram zone 4 page 50: {:x?}", self.pages[50].as_ref().unwrap().data);
             },
             RamSection::Zone5 => {
                 for page in start_page..=end_page {
-                    self.pages[page as usize].as_mut().unwrap().flags.write_access = true;
-                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
+                    self.pages.get_mut(&page).unwrap().flags.write_access = true;
+                    self.pages.get_mut(&page).unwrap().flags.read_access = true;
                 }
             },
             RamSection::Zone6 => {
                 for i in start..end {
                     let page = i / PAGE_SIZE;
                     let offset = i % PAGE_SIZE;
-                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
-                    self.pages[page as usize].as_mut().unwrap().data[offset as usize] = arg[i as usize - ((1 << 32) - Zz - Zi) as usize]; 
+                    self.pages.get_mut(&page).unwrap().flags.read_access = true;
+                    self.pages.get_mut(&page).unwrap().data[offset as usize] = arg[i as usize - ((1 << 32) - Zz - Zi) as usize]; 
                 }
             },
             RamSection::Zone7 => {
                 for page in start_page..=end_page {
-                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
+                    self.pages.get_mut(&page).unwrap().flags.read_access = true;
                 }
             },
         }
