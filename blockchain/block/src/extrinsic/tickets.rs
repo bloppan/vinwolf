@@ -9,6 +9,7 @@
 */
 
 use ark_vrf::suites::bandersnatch::Public;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use utils::bandersnatch::Verifier;
 
 use constants::node::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR};
@@ -23,6 +24,8 @@ pub fn process(
     post_tau: &TimeSlot,
     ring_set: Vec<Public>,
 ) -> Result<(), ProcessError> {
+
+    let start_process = std::time::Instant::now();
 
     if tickets_extrinsic.is_empty() {
         return Ok(());
@@ -48,7 +51,113 @@ pub fn process(
             return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketAttempt));
         }
     }
-        
+
+    let verifier = Verifier::new(ring_set);
+    let mut new_ticket_ids: Vec<OpaqueHash> = vec![];
+    let fixed_input_data = [&b"jam_ticket_seal"[..], &entropy_state.buf[2].encode()].concat();
+    // Verify each ticket
+
+    let start_verify = std::time::Instant::now();
+    let verify_result = tickets_extrinsic
+            .par_iter()
+            .try_fold(
+                || Vec::new(),
+                |mut tickets_acc: Vec<TicketBody>, ticket| {
+                    let start = std::time::Instant::now();
+                    match ticket_seal_verify(&verifier, ticket, &fixed_input_data) {
+                        Ok(ticket_body) => {
+                            let end = start.elapsed();
+                            log::info!("Time per ticket: {:?}", end);
+                            tickets_acc.push(ticket_body);
+                            Ok(tickets_acc)
+                        }
+                        Err(e) => Err(e),
+                    }
+                },
+            )
+            .try_reduce(
+                || Vec::new(),
+                |mut tickets_acc, ticket_body| {
+                    tickets_acc.extend(ticket_body);
+                    Ok(tickets_acc)
+                }
+            );
+    
+    let end_verify = start_verify.elapsed();
+    log::info!("Tickets total verified in {:?}", end_verify);
+    match verify_result {
+
+        Ok(result) => {
+            new_ticket_ids = result.iter().map(|ticket| ticket.id).collect();
+            safrole_state.ticket_accumulator.extend(result);
+
+        },
+        Err(_) => return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketProof)) 
+    }
+
+    /*for i in 0..tickets_extrinsic.len() {
+
+        let vrf_input_data = [&b"jam_ticket_seal"[..], &entropy_state.buf[2].encode(), &tickets_extrinsic[i].attempt.encode()].concat();
+        let aux_data = vec![];
+        // Verify ticket validity
+        let res = verifier.ring_vrf_verify(&vrf_input_data, &aux_data, &tickets_extrinsic[i].signature);
+        match res {
+            Ok(result) => {
+                new_ticket_ids.push(result);
+                safrole_state.ticket_accumulator.push(TicketBody {
+                    id: result,
+                    attempt: tickets_extrinsic[i].attempt,
+                });
+            },
+            Err(_) => { 
+                log::error!("Bad ticket proof. Ticket: {:?} Signature: {}", i, utils::print_hash!(tickets_extrinsic[i].signature)); 
+                return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketProof)); 
+            }
+        }
+    }*/
+    // Check tickets order
+    let start_order = std::time::Instant::now();
+    if bad_order(&new_ticket_ids) {
+        log::error!("Bad tickets order");
+        return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketOrder));
+    }
+    let end_order = start_order.elapsed();
+    log::info!("Order time: {:?}", end_order);
+
+    let start_duplicates = std::time::Instant::now();
+    // Check if there are duplicate tickets
+    let ids: Vec<OpaqueHash> = safrole_state.ticket_accumulator.iter().map(|ticket| ticket.id.clone()).collect();
+    if has_duplicates(&ids) {
+        log::error!("Duplicate ticket");
+        return Err(ProcessError::SafroleError(SafroleErrorCode::DuplicateTicket));
+    }
+    let end_duplicates = start_duplicates.elapsed();
+    log::info!("Duplicates time: {:?}", end_duplicates);
+
+    let start_sort = std::time::Instant::now();
+    // Sort tickets
+    safrole_state.ticket_accumulator.sort();
+    let end_sort = start_sort.elapsed();
+    log::info!("Sort time: {:?}", end_sort);
+
+    let start_drain = std::time::Instant::now();
+    // Remove old tickets to make space for new ones
+    if safrole_state.ticket_accumulator.len() > EPOCH_LENGTH {
+        safrole_state.ticket_accumulator.drain(EPOCH_LENGTH..);
+    }
+    let end_drain = start_drain.elapsed();
+    log::info!("Drain time: {:?}", end_drain);
+
+    //log::debug!("Extrinsic tickets processed succesfully");
+    // Return ok
+
+    let end_process = start_process.elapsed();
+    log::info!("End ticket process time: {:?}", end_process);
+    Ok(())
+}
+
+    /*
+    
     let verifier = Verifier::new(ring_set);
     let mut new_ticket_ids: Vec<OpaqueHash> = vec![];
     // Verify each ticket
@@ -71,27 +180,26 @@ pub fn process(
                 return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketProof)); 
             }
         }
-    }
-    // Check tickets order
-    if bad_order(&new_ticket_ids) {
-        log::error!("Bad tickets order");
-        return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketOrder));
-    }
-    // Check if there are duplicate tickets
-    let ids: Vec<OpaqueHash> = safrole_state.ticket_accumulator.iter().map(|ticket| ticket.id.clone()).collect();
-    if has_duplicates(&ids) {
-        log::error!("Duplicate ticket");
-        return Err(ProcessError::SafroleError(SafroleErrorCode::DuplicateTicket));
-    }
-    // Sort tickets
-    safrole_state.ticket_accumulator.sort();
+    }*/
 
-    // Remove old tickets to make space for new ones
-    if safrole_state.ticket_accumulator.len() > EPOCH_LENGTH {
-        safrole_state.ticket_accumulator.drain(EPOCH_LENGTH..);
-    }
 
-    log::debug!("Extrinsic tickets processed succesfully");
-    // Return ok
-    Ok(())
+fn ticket_seal_verify(verifier: &Verifier, ticket: &Ticket, fixed_input_data: &[u8]) -> Result<TicketBody, ProcessError> {
+
+    let vrf_input_data = [fixed_input_data, &ticket.attempt.encode()].concat();
+    let aux_data = vec![];
+    // Verify ticket validity
+    match verifier.ring_vrf_verify(&vrf_input_data, &aux_data, &ticket.signature) {
+        Ok(result) => {
+            return Ok(TicketBody { id: result, attempt: ticket.attempt });
+            /*new_ticket_ids.push(result);
+            safrole_state.ticket_accumulator.push(TicketBody {
+                id: result,
+                attempt: tickets_extrinsic[i].attempt,
+            });*/
+        },
+        Err(_) => { 
+            log::error!("Bad ticket proof. Ticket signature: {}", utils::print_hash!(ticket.signature)); 
+            return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketProof)); 
+        }
+    }
 }

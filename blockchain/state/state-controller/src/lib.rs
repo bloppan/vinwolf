@@ -103,7 +103,8 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
                                         new_state.privileges,
                                         &block.header.unsigned.slot,
                                         &new_available_workreports.reported)?;
-
+    
+    let start = std::time::Instant::now();
     new_state.recent_acc_outputs = recent_acc_outputs;
     new_state.service_accounts = service_accounts;
     new_state.next_validators = next_validators;
@@ -133,11 +134,12 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &reporters,
         &new_available_workreports.reported,
     );
+
     
     state_handler::set_state_root(merkle_state(&utils::serialization::serialize(&new_state).map, 0));
     state_handler::set_global_state(new_state);
 
     log::debug!("Block 0x{} processed succesfully", utils::print_hash!(header_hash));
-    
+
     Ok(())
 }

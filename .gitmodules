@@ -1,0 +1,3 @@
+[submodule "external/conformance_testing"]
+	path = external/conformance_testing
+	url = git@github.com:bloppan/conformance_testing.git

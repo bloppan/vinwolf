@@ -12,7 +12,7 @@ mod assurances;
 mod disputes;
 mod recent_history;
 mod preimages;
-mod pvm;
+//mod pvm;
 mod reports;
 mod safrole;
 mod shuffle;

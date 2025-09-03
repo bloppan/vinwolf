@@ -1,5 +1,5 @@
 use jam_types::{ServiceId, Preimage, PreimagesErrorCode, OutputPreimages};
-use crate::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
+use crate::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
 
 // Preimages are static data which is presently being requested to be available for workloads to be able to 
 // fetch on demand. Prior to accumulation, we must first integrate all preimages provided in the lookup extrinsic. 
@@ -13,7 +13,7 @@ impl Encode for Preimage {
         
         let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
 
-        self.requester.encode_to(&mut blob);
+        self.requester.encode_size(4).encode_to(&mut blob);
         self.blob.encode_len().encode_to(&mut blob);
 
         return blob;

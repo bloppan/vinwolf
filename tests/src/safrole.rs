@@ -3,9 +3,11 @@ mod tests {
 
     use once_cell::sync::Lazy;
     use crate::FromProcessError;
+    use std::collections::VecDeque;
     use crate::codec::tests::{TestBody, encode_decode_test};
     use jam_types::{Block, Header, Extrinsic, Safrole, OutputSafrole, DisputesRecords, ValidatorSet, ProcessError, OutputDataSafrole};
     use crate::test_types::{InputSafrole, SafroleState};
+    use safrole::{set_ring_set, get_ring_set, create_ring_set};
     use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, TICKET_ENTRIES_PER_VALIDATOR, MAX_TICKETS_PER_EXTRINSIC};
     use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
@@ -70,6 +72,15 @@ mod tests {
         state_handler::disputes::set(disputes);
 
         let mut state = get_global_state().lock().unwrap().clone();
+
+        set_ring_set(VecDeque::new());
+        let mut ring_set = get_ring_set();
+        let pending_validators = state.safrole.pending_validators.clone();
+        let curr_validators = state.curr_validators.clone();
+        ring_set.push_back(create_ring_set(&curr_validators));
+        ring_set.push_back(create_ring_set(&pending_validators));
+        set_ring_set(ring_set);
+
 
         let mut header = Header::default();
         header.unsigned.slot = input.slot;

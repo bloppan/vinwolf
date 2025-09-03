@@ -118,9 +118,9 @@ impl Encode for UnsignedHeader {
             (0u8).encode_to(&mut header_blob); // 0 = Mark there aren't tickets
         }
         
-        self.offenders_mark.encode_len().encode_to(&mut header_blob);
         self.author_index.encode_size(2).encode_to(&mut header_blob);
         self.entropy_source.encode_to(&mut header_blob);
+        self.offenders_mark.encode_len().encode_to(&mut header_blob);
         
         return header_blob;
     }
@@ -148,6 +148,8 @@ impl Decode for UnsignedHeader {
             } else {
                 None
             },
+            author_index: ValidatorIndex::decode(header_blob)?,
+            entropy_source: BandersnatchVrfSignature::decode(header_blob)?,
             offenders_mark: {
                 let num_offenders = decode_unsigned(header_blob)?;
                 let mut offenders_mark: Vec<Ed25519Public> = Vec::with_capacity(num_offenders);
@@ -156,8 +158,6 @@ impl Decode for UnsignedHeader {
                 }
                 offenders_mark
             },
-            author_index: ValidatorIndex::decode(header_blob)?,
-            entropy_source: BandersnatchVrfSignature::decode(header_blob)?,
         })
     }
 }

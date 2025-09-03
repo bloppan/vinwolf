@@ -377,19 +377,19 @@ impl Default for DeferredTransfer {
         }
     }
 }
-
-impl Default for AccumulationContext {
+use std::sync::Arc;
+/*impl Default for AccumulationContext<'a> {
     fn default() -> Self {
         AccumulationContext {
             service_id: 0,
-            partial_state: AccumulationPartialState::default(),
+            partial_state: &'a mut AccumulationPartialState::default(),
             index: 0,
             deferred_transfers: Vec::new(),
             y: None,
             preimages: Vec::new(),
         }
     }
-}
+}*/
 // ----------------------------------------------------------------------------------------------------------
 // Authorization
 // ----------------------------------------------------------------------------------------------------------

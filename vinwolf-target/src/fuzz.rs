@@ -1,9 +1,12 @@
+use std::collections::VecDeque;
+
 use jam_types::{Block, OpaqueHash, KeyValue, Header, GlobalState, ReadError};
 use state_handler::{get_global_state, get_state_root};
 use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 use utils::common::parse_state_keyvals;
 use utils::trie::merkle_state;
 use state_handler::set_global_state;
+use safrole::{get_ring_set, set_ring_set, create_ring_set};
 
 use tokio::net::{UnixListener, UnixStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt}; 
@@ -18,13 +21,13 @@ pub static VINWOLF_INFO: Lazy<PeerInfo> = Lazy::new(|| {
         name: "vinwolf-target".as_bytes().to_vec(),
         app_version: Version {
             major: 0,
-            minor: 1,
-            patch: 3,
+            minor: 2,
+            patch: 5,
         },
         jam_version: Version {
             major: 0,
-            minor: 6,
-            patch: 7,
+            minor: 7,
+            patch: 0,
         },
     }
 });
@@ -181,7 +184,19 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
     let vinwolf_info = &*VINWOLF_INFO;
 
     let listener = UnixListener::bind(socket_path)?;
-    
+    println!("Running {} mode {:?} version: {}.{}.{} protocol version: {}.{}.{} listening on {}", 
+                BUILD_PROFILE,
+                match String::from_utf8(vinwolf_info.name.clone()) {
+                Ok(name) => name,  
+                Err(_) => "Invalid UTF-8".to_string(),  
+                }, 
+                vinwolf_info.app_version.major, 
+                vinwolf_info.app_version.minor, 
+                vinwolf_info.app_version.patch,
+                vinwolf_info.jam_version.major, 
+                vinwolf_info.jam_version.minor, 
+                vinwolf_info.jam_version.patch,
+                socket_path);
     log::info!(
                 "Running {} mode {:?} version: {}.{}.{} protocol version: {}.{}.{} listening on {}", 
                 BUILD_PROFILE,
@@ -346,6 +361,15 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                     }
 
                                     set_global_state(global_state.clone());
+                                    set_ring_set(VecDeque::new());
+                                    let mut ring_set = get_ring_set();
+                                    let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
+                                    let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
+                                    ring_set.push_back(create_ring_set(&curr_validators));
+                                    ring_set.push_back(create_ring_set(&pending_validators));
+                                    
+                                    set_ring_set(ring_set);
+
                                     let state_root = merkle_state(&utils::serialization::serialize(&global_state).map, 0);
                                     state_handler::set_state_root(state_root.clone());
                                     socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)).await?;
@@ -371,9 +395,11 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                     
                                     match state_controller::stf(&block) {
                                         Ok(_) => {
+                                            println!("Block {} processed successfully", utils::print_hash!(header_hash));
                                             //log::info!("Block proccessed successfully");
                                         },
                                         Err(error) => {
+                                            println!("Refused block {}", utils::print_hash!(header_hash));
                                             log::error!("Bad block: {:?}", error);
                                         },
                                     }

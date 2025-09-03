@@ -12,6 +12,7 @@ jam-types = { workspace = true }
 codec = { workspace = true }
 utils = { workspace = true }
 block = { workspace = true }
+safrole = { workspace = true }
 state-handler = { workspace = true }
 state-controller = { workspace = true }
 log = { workspace = true }

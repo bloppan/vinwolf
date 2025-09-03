@@ -22,10 +22,10 @@ impl Encode for WorkReport {
         self.context.encode_to(&mut work_report_blob);
         encode_unsigned(self.core_index as usize).encode_to(&mut work_report_blob);
         self.authorizer_hash.encode_to(&mut work_report_blob);
+        encode_unsigned(self.auth_gas_used as usize).encode_to(&mut work_report_blob);
         self.auth_trace.encode_len().encode_to(&mut work_report_blob);
         self.segment_root_lookup.encode_len().encode_to(&mut work_report_blob);
         self.results.encode_len().encode_to(&mut work_report_blob);
-        encode_unsigned(self.auth_gas_used as usize).encode_to(&mut work_report_blob);
         
         return work_report_blob;
     }
@@ -50,10 +50,11 @@ impl Decode for WorkReport {
             context: RefineContext::decode(work_report)?,
             core_index: decode_unsigned(work_report)? as u16,
             authorizer_hash: OpaqueHash::decode(work_report)?,
+            auth_gas_used: decode_unsigned(work_report)? as Gas,
             auth_trace: Vec::<u8>::decode_len(work_report)?,
             segment_root_lookup: Vec::<SegmentRootLookupItem>::decode_len(work_report)?,
             results: Vec::<WorkResult>::decode_len(work_report)?,
-            auth_gas_used: decode_unsigned(work_report)? as Gas,
+            
         })
     }
 }
@@ -284,12 +285,12 @@ impl Encode for WorkItem {
         
         self.service.encode_size(4).encode_to(&mut work_item_blob);
         self.code_hash.encode_to(&mut work_item_blob);
-        self.payload.as_slice().encode_len().encode_to(&mut work_item_blob);
         self.refine_gas_limit.encode_size(8).encode_to(&mut work_item_blob);
         self.acc_gas_limit.encode_size(8).encode_to(&mut work_item_blob);
+        self.export_count.encode_size(2).encode_to(&mut work_item_blob);
+        self.payload.as_slice().encode_len().encode_to(&mut work_item_blob);       
         self.import_segments.encode_len().encode_to(&mut work_item_blob);
         self.extrinsic.encode_len().encode_to(&mut work_item_blob);
-        self.export_count.encode_size(2).encode_to(&mut work_item_blob);
         
         return work_item_blob;
     }
@@ -306,12 +307,12 @@ impl Decode for WorkItem {
         Ok(WorkItem {
             service: ServiceId::decode(work_item_blob)?,
             code_hash: OpaqueHash::decode(work_item_blob)?,
-            payload: Vec::<u8>::decode_len(work_item_blob)?,
             refine_gas_limit: Gas::decode(work_item_blob)?,
             acc_gas_limit: Gas::decode(work_item_blob)?,
+            export_count: u16::decode(work_item_blob)?,
+            payload: Vec::<u8>::decode_len(work_item_blob)?,
             import_segments: Vec::<ImportSpec>::decode_len(work_item_blob)?,
             extrinsic: Vec::<ExtrinsicSpec>::decode_len(work_item_blob)?,
-            export_count: u16::decode(work_item_blob)?,
         })
     }
 }
@@ -377,10 +378,11 @@ impl Encode for WorkPackage {
 
         let mut work_pkg_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<WorkPackage>());
 
-        self.authorization.as_slice().encode_len().encode_to(&mut work_pkg_blob);
         self.auth_code_host.encode_size(4).encode_to(&mut work_pkg_blob);
-        self.authorizer.encode_to(&mut work_pkg_blob);
+        self.auth_code_hash.encode_to(&mut work_pkg_blob);
         self.context.encode_to(&mut work_pkg_blob);
+        self.authorization.as_slice().encode_len().encode_to(&mut work_pkg_blob);
+        self.configuration_blob.encode_len().encode_to(&mut work_pkg_blob); 
         self.items.encode_len().encode_to(&mut work_pkg_blob);
         
         return work_pkg_blob;
@@ -396,10 +398,11 @@ impl Decode for WorkPackage {
     fn decode(work_pkg_blob: &mut BytesReader) -> Result<Self, ReadError> {
         
         Ok(WorkPackage {
-            authorization : Vec::<u8>::decode_len(work_pkg_blob)?,
-            auth_code_host : ServiceId::decode(work_pkg_blob)?,
-            authorizer: Authorizer::decode(work_pkg_blob)?, 
+            auth_code_host: ServiceId::decode(work_pkg_blob)?,
+            auth_code_hash: OpaqueHash::decode(work_pkg_blob)?,
             context : RefineContext::decode(work_pkg_blob)?,
+            authorization : Vec::<u8>::decode_len(work_pkg_blob)?,
+            configuration_blob: Vec::<u8>::decode_len(work_pkg_blob)?,         
             items : Vec::<WorkItem>::decode_len(work_pkg_blob)?,
         })
     }

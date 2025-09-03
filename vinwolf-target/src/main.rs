@@ -39,10 +39,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //env_logger::init();
 
 
-    dotenv().ok();
+    /*dotenv().ok();
     env_logger::Builder::new()
-    .filter_level(log::LevelFilter::Info)
-    .init();
+    .filter_level(log::LevelFilter::Debug)
+    .init();*/
 
     match args[1].as_ref() { 
         "--help" | "-h" => {
@@ -102,7 +102,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     skip_dirs.insert(args[i].clone());
                 }
             }
+            println!("Start to process all dirs");
+            let start = std::time::Instant::now();
             let _ = vinwolf_target::process_all_dirs(&PathBuf::from(&args[2]), &skip_dirs);
+            let end = start.elapsed();
+            println!("All tests processed in {:?}", end);
         },
         "--process_traces" => {
 
@@ -110,8 +114,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Bad arguments");
                 return Ok(());
             }
-
+            let start = std::time::Instant::now();
             let _ = vinwolf_target::process_all_bins(&PathBuf::from(&args[2]));
+            let end = start.elapsed();
+            println!("All tests processed in {:?}", end);
         },
         "--process_trace" => {
 
@@ -119,8 +125,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Bad arguments");
                 return Ok(());
             }
-
+            let start = std::time::Instant::now();
             vinwolf_target::process_trace(&PathBuf::from(&args[2]));
+            let end = start.elapsed();
+            println!("All tests processed in {:?}", end);
         } 
         _ => {
             println!("Error: Unknown argument '{}'", args[1]);

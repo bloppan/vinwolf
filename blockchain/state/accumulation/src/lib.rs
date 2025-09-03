@@ -13,6 +13,8 @@
 
 use std::collections::{HashSet, HashMap};
 use ark_vrf::reexports::ark_std::iterable::Iterable;
+use std::sync::{Arc, Mutex};
+use rayon::prelude::*;
 
 use constants::node::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT, CORES_COUNT};
 use jam_types::{
@@ -59,6 +61,11 @@ pub fn process(
         always_acc: privileges.always_acc,
     };
 
+    log::debug!("Accumulatable WR: ");
+    for report in current_block_accumulatable.iter() {
+        log::debug!("{}", hex::encode(&report.package_spec.hash));
+    }
+
     let (num_wi_accumulated, 
          mut post_partial_state, 
          transfers, 
@@ -102,24 +109,26 @@ fn outer_accumulation(
     gas_limit: &Gas,
     reports: &[WorkReport],
     partial_state: AccumulationPartialState,
-    service_gas_dict: &HashMap<ServiceId, Gas>
+    always_acc: &HashMap<ServiceId, Gas>
 
 ) -> Result<(u32, AccumulationPartialState, Vec<DeferredTransfer>, RecentAccOutputs, Vec<(ServiceId, Gas)>), ProcessError>
 {
-    log::debug!("Outer accumulation");
+    log::debug!("Outer accumulation, gas_limit: {:?}", gas_limit);
 
     let mut i: u32 = 0;
-    let mut gas_to_use = 0;
+    let mut gas_to_use: Gas = 0;
 
-    for report in reports.iter() {
+    'outer: for report in reports.iter() {
         for result in report.results.iter() {
             if result.gas + gas_to_use > *gas_limit {
-                break;
+                break 'outer;
             } 
             gas_to_use += result.gas;
         }
         i += 1;
     }
+    
+    log::debug!("Num reports to acc: {i}. Gas to use: {:?}", gas_to_use);
 
     if i == 0 {
         log::debug!("Exit outer accumulation: i = 0");
@@ -129,7 +138,9 @@ fn outer_accumulation(
     let (star_partial_state,
          star_deferred_transfers, 
          star_service_hash, 
-         star_gas_used) = parallelized_accumulation(partial_state, &reports[..i as usize], &service_gas_dict)?;
+         star_gas_used) = parallelized_accumulation(partial_state, &reports[..i as usize], &always_acc)?;
+
+    log::debug!("Gas used after parallelized acc: {:?}", star_gas_used);
 
     let total_gas_used: Gas = star_gas_used.iter().map(|(_, gas)| *gas).sum();
 
@@ -140,9 +151,9 @@ fn outer_accumulation(
         u_gas_used) = outer_accumulation(&(*gas_limit - total_gas_used), 
                                                             &reports[i as usize..], 
                                                             star_partial_state, 
-                                                            &HashMap::<ServiceId, Gas>::new())?;
+                                                            &HashMap::new())?;
 
-    log::debug!("Finalized outer accumulation");
+    log::debug!("Finalized outer accumulation. Gas used: {:?}. Star gas used: {:?}", u_gas_used, star_gas_used);
 
     let recent_acc_outputs = RecentAccOutputs {
             pairs: star_service_hash.pairs.iter().cloned()
@@ -157,13 +168,49 @@ fn outer_accumulation(
                [star_gas_used, u_gas_used].concat()));
 }
 
+type AccOutput = (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(u32, Vec<u8>)>);
+type AccOutputMap = Vec<(ServiceId, AccOutput)>;
+type GasUsed = Vec<(ServiceId, Gas)>;
+type Preimages = Vec<(ServiceId, Vec<u8>)>;
+type RemovedServices = HashSet<ServiceId>;
+
+struct AccResult {
+    acc_output_map: AccOutputMap,
+    gas_used: GasUsed,
+    recent_acc_outputs: RecentAccOutputs,
+    deferred_xfer: Vec<DeferredTransfer>,
+    services_accounts: ServiceAccounts,
+    removed_services: RemovedServices,
+    new_services: ServiceAccounts,
+    preimages: Preimages,
+}
+
+impl Default for AccResult {
+    fn default() -> Self {
+        AccResult { 
+            acc_output_map: AccOutputMap::default(), 
+            gas_used: GasUsed::default(), 
+            recent_acc_outputs: RecentAccOutputs::default(), 
+            deferred_xfer: Vec::new(), 
+            services_accounts: ServiceAccounts::default(), 
+            removed_services: RemovedServices::default(), 
+            new_services: ServiceAccounts::default(),
+            preimages: Preimages::default(), 
+        }
+    }
+}
+
+fn get_acc<'a>(v: &'a AccOutputMap, id: ServiceId) -> Option<&'a AccOutput> {
+    v.iter().find(|(sid, _)| *sid == id).map(|(_, acc)| acc)
+}
+
 fn parallelized_accumulation(
     partial_state: AccumulationPartialState,
     reports: &[WorkReport],
-    service_gas_dict: &HashMap<ServiceId, Gas>,
+    always_acc: &HashMap<ServiceId, Gas>,
 ) -> Result<(AccumulationPartialState, Vec<DeferredTransfer>, RecentAccOutputs, Vec<(ServiceId, Gas)>), ProcessError>
 {
-    //println!("\nParallelized accumulation");
+    log::debug!("\nParallelized accumulation");
 
     let mut s_services: Vec<ServiceId> = Vec::new();
     for report in reports.iter() {
@@ -174,28 +221,83 @@ fn parallelized_accumulation(
         }
     }
 
-    for service_gas_dict in service_gas_dict.iter() {
-        if !s_services.contains(service_gas_dict.0) {
-            s_services.push(service_gas_dict.0.clone());
+    for entry in always_acc.iter() {
+        if !s_services.contains(entry.0) {
+            s_services.push(entry.0.clone());
         }
     }
 
-    let mut acc_output_map: HashMap<ServiceId, (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(u32, Vec<u8>)>)> = HashMap::new();
+    /*let mut acc_output_map: HashMap<ServiceId, (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(u32, Vec<u8>)>)> = HashMap::new();
     let mut u_gas_used: Vec<(ServiceId, Gas)> = vec![];
     let mut b_service_hash: RecentAccOutputs = RecentAccOutputs::default();
     let mut t_deferred_transfers: Vec<DeferredTransfer> = vec![];
     let mut n_service_accounts: ServiceAccounts = ServiceAccounts::default();
     let mut m_service_accounts = HashSet::new();
-    let mut p_preimages: Vec<(ServiceId, Vec<u8>)> = Vec::new();
+    let mut p_preimages: Vec<(ServiceId, Vec<u8>)> = Vec::new();*/
     
-    log::info!("privileged services: manager: {:?}, assign: {:?}, designate: {:?}, always_acc: {:?}", 
-                                partial_state.manager, partial_state.assign, partial_state.designate, partial_state.always_acc);
-
+    log::debug!("privileged services: manager: {:?}, assign: {:?}, designate: {:?}, always_acc: {:?}", partial_state.manager, partial_state.assign, partial_state.designate, partial_state.always_acc);
     log::info!("Services to accumulate: {:?}", s_services);
+    log::info!("Always acc: {:?}", always_acc);    
+    // (AccOutputMap::default(), GasUsed::default(), RecentAccOutputs::default(), Vec::new(), ServiceAccounts::default(), HashSet::new(), Preimages::default()
+    let outputs: Vec<(ServiceId, AccOutput)> = s_services
+        .par_iter()
+        .filter_map(|service| {
+            let acc_output = single_service_accumulation(&partial_state, reports, always_acc, service);
+            if acc_output.3 > 0 {
+                Some((*service, acc_output))
+            } else {
+                None
+            }
+        })
+        .collect();
 
-    for service in s_services.iter() {
+    let mut acc_result = AccResult::default();
+
+    for (service, acc) in &outputs {
+        let (post_partial_state, transfers, service_hash, gas, preimages) = acc;
+        log::info!("Acc total service {:?} gas {:?}", service, gas);
+        acc_result.gas_used.push((*service, *gas));
+        if let Some(hash) = service_hash {
+            acc_result.recent_acc_outputs.pairs.push((*service, *hash));
+        }
+        acc_result.deferred_xfer.extend_from_slice(transfers);
+        acc_result.preimages.extend(preimages.iter().map(|(sid, v)| (*sid, v.clone())));
+
+        let o_d_services_keys: std::collections::HashSet<_> = post_partial_state
+            .service_accounts
+            .iter()
+            .map(|key| *key.0)
+            .collect();
+
+        let m: std::collections::HashSet<_> = partial_state
+            .service_accounts
+            .iter()
+            .filter(|(key, _)| !o_d_services_keys.contains(key))
+            .map(|(k, _)| k.clone())
+            .collect();
+
+        acc_result.removed_services.extend(m);
+
+        let mut d_services = partial_state.service_accounts.clone();
+        d_services.remove(service);
+        let d_keys_excluding_s: std::collections::HashSet<_> =
+            d_services.iter().map(|key| *key.0).collect();
+
+        let n: std::collections::HashMap<_, _> = post_partial_state
+            .service_accounts
+            .iter()
+            .filter(|(key, _)| !d_keys_excluding_s.contains(key))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+
+        acc_result.new_services.extend(n);
+    }
+
+    acc_result.acc_output_map = outputs;
+
+    /*for service in s_services.iter() {
         
-        let acc_output = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, service);
+        let acc_output = single_service_accumulation(partial_state.clone(), reports, always_acc, service);
 
         // Insert the acc_output only if the gas used in acc is > 0
         if acc_output.3 > 0 {
@@ -244,30 +346,30 @@ fn parallelized_accumulation(
         // New and modified services
         n_service_accounts.extend(n);
 
-    }
-    log::debug!("Accumulation of privileged services: {:?}, {:?}, {:?}, {:?}", 
-                    partial_state.manager, partial_state.assign, partial_state.designate, partial_state.always_acc);
+    }*/
+    log::info!("After threads: {:?}", acc_result.gas_used);
+    log::debug!("Accumulation of privileged services: {:?}, {:?}, {:?}, {:?}", partial_state.manager, partial_state.assign, partial_state.designate, partial_state.always_acc);
     // Different services may not each contribute the same index for a new, altered or removed service. This cannot happen for the set of
     // removed and altered services since the code hash of removable services has no known preimage and thus cannot execute itself to make
     // an alteration. For new services this should also never happen since new indices are explicitly selected to avoid such conflicts.
     // In the unlikely event it does happen, the block must be considered invalid.
-    for key in n_service_accounts.keys() {
-        if m_service_accounts.contains(key) {
+    for key in acc_result.new_services.keys() {
+        if acc_result.removed_services.contains(key) {
             log::error!("Service conflict: key {:?}", *key);
             return Err(ProcessError::AccumulateError(AccumulateErrorCode::ServiceConflict)); // Collision
         }
     }
 
-    if !acc_output_map.contains_key(&partial_state.manager) {
-        let acc_output = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &partial_state.manager);
+    if !acc_result.acc_output_map.iter().any(|(service, _) | *service == partial_state.manager) {
+        let acc_output = single_service_accumulation(&partial_state, reports, always_acc, &partial_state.manager);
         // Insert the acc_output only if the gas used in acc is > 0
         if acc_output.3 > 0 {
-            acc_output_map.insert(partial_state.manager, acc_output);
+            acc_result.acc_output_map.push((partial_state.manager, acc_output));
         }
     } 
     
-    let m_post_partial_state = if let Some(service) = acc_output_map.get(&partial_state.manager) {
-        service.0.clone()
+    let m_post_partial_state = if let Some((_, acc)) = acc_result.acc_output_map.iter().find(|(service, _)| *service == partial_state.manager) {
+        acc.0.clone()
     } else {
         partial_state.clone()
     };
@@ -286,45 +388,45 @@ fn parallelized_accumulation(
     let mut post_assign: Box<[ServiceId; CORES_COUNT]> = Box::new(std::array::from_fn(|_| ServiceId::default()));
 
     for core_index in 0..CORES_COUNT{
-
-        if !acc_output_map.contains_key(&star_assign[core_index]) {
-            let acc_output = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &star_assign[core_index]);
+        
+        if !acc_result.acc_output_map.iter().any(|(service, _) | *service == star_assign[core_index]) {
+            let acc_output = single_service_accumulation(&partial_state, reports, always_acc, &star_assign[core_index]);
             // Insert the acc_output only if the gas used in acc is > 0
             if acc_output.3 > 0 {
-                acc_output_map.insert(star_assign[core_index], acc_output);
+                acc_result.acc_output_map.push((star_assign[core_index], acc_output));
             }
         }
-        post_assign[core_index] = if let Some(service) = acc_output_map.get(&star_assign[core_index]) {
-            service.0.assign[core_index]
+        post_assign[core_index] = if let Some((_, acc)) = acc_result.acc_output_map.iter().find(|(service, _)| *service == star_assign[core_index]) {
+            acc.0.assign[core_index]
         } else {
             star_assign[core_index]
         };
     }
 
-    if !acc_output_map.contains_key(&star_v_designate) {
-        let acc_output = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &star_v_designate);
+    if !acc_result.acc_output_map.iter().any(|(service, _) | *service == star_v_designate) {
+        let acc_output = single_service_accumulation(&partial_state, reports, always_acc, &star_v_designate);
         // Insert the acc_output only if the gas used in acc is > 0
         if acc_output.3 > 0 {
-            acc_output_map.insert(star_v_designate, acc_output);
+            acc_result.acc_output_map.push((star_v_designate, acc_output));
         }
     }
 
-    let post_v_designate = if let Some(service) = acc_output_map.get(&star_v_designate) {
-        service.0.designate
+    let post_v_designate = if let Some((_, acc)) = acc_result.acc_output_map.iter().find(|(service, _)| *service == star_v_designate) {
+        acc.0.designate
     } else {
         star_v_designate
     };
-    
-    if !acc_output_map.contains_key(&partial_state.designate) {
-        let acc_output = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &partial_state.designate);
+
+    if !acc_result.acc_output_map.iter().any(|(service, _) | *service == partial_state.designate) {
+        let acc_output = single_service_accumulation(&partial_state, reports, always_acc, &partial_state.designate);
         // Insert the acc_output only if the gas used in acc is > 0
         if acc_output.3 > 0 {
-            acc_output_map.insert(partial_state.designate, acc_output);    
+            acc_result.acc_output_map.push((partial_state.designate, acc_output));    
         }
     }
 
-    let post_next_validators = if let Some(service) = acc_output_map.get(&partial_state.designate) {
-        service.0.next_validators.clone()
+    let post_next_validators = if let Some((_, acc)) = acc_result.acc_output_map.iter().find( |(service, _)| *service == partial_state.designate) {
+        acc.0.next_validators.clone()
     } else {
         partial_state.next_validators.clone()
     };
@@ -333,29 +435,29 @@ fn parallelized_accumulation(
 
     for core_index in 0..CORES_COUNT {
 
-        if !acc_output_map.contains_key(&partial_state.assign[core_index]) {
-            let acc_output = single_service_accumulation(partial_state.clone(), reports, service_gas_dict, &partial_state.assign[core_index]);
+        if !acc_result.acc_output_map.iter().any(|(service, _) | *service == partial_state.assign[core_index]) {
+            let acc_output = single_service_accumulation(&partial_state, reports, always_acc, &partial_state.assign[core_index]);
             if acc_output.3 > 0 {
-                acc_output_map.insert(partial_state.assign[core_index], acc_output);
+                acc_result.acc_output_map.push((partial_state.assign[core_index], acc_output));
             }
         }
-        post_queues_auth.0[core_index] = if let Some(service) = acc_output_map.get(&partial_state.assign[core_index]) {
-            service.0.queues_auth.0[core_index].clone()
+        post_queues_auth.0[core_index] = if let Some((_, acc)) = acc_result.acc_output_map.iter().find(|(service, _)| *service == partial_state.assign[core_index]) {
+            acc.0.queues_auth.0[core_index].clone()
         } else {
             partial_state.queues_auth.0[core_index].clone()
         };
     }
 
     let mut d_services = partial_state.service_accounts.clone();
-    d_services.extend(n_service_accounts);
+    d_services.extend(acc_result.new_services);
 
     let result_services: ServiceAccounts = d_services
                                             .iter()
-                                            .filter(|(key, _)| !m_service_accounts.contains(key))
+                                            .filter(|(key, _)| !acc_result.removed_services.contains(key))
                                             .map(|(k, v)| (k.clone(), v.clone()))
                                             .collect();
 
-    let final_services = preimage_integration(&result_services, &p_preimages);
+    let final_services = preimage_integration(&result_services, &acc_result.preimages);
     
     let result_partial_state = AccumulationPartialState {
         service_accounts: final_services,
@@ -368,17 +470,17 @@ fn parallelized_accumulation(
     };
 
     log::debug!("Finalized paralellized accumulation");
-    return Ok((result_partial_state, t_deferred_transfers, b_service_hash, u_gas_used));
+    return Ok((result_partial_state, acc_result.deferred_xfer, acc_result.recent_acc_outputs, acc_result.gas_used));
 }
 
 fn single_service_accumulation(
-    partial_state: AccumulationPartialState,
+    partial_state: &AccumulationPartialState,
     reports: &[WorkReport],
-    service_gas_dict: &HashMap<ServiceId, Gas>,
+    always_acc: &HashMap<ServiceId, Gas>,
     service_id: &ServiceId,
 ) -> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(ServiceId, Vec<u8>)>)
 {
-    log::debug!("Single service accumulation. Service {:?}", *service_id);
+    log::info!("Single service accumulation. Service {:?}. Service gas pairs: {:?}", *service_id, always_acc);
     
     let mut total_gas = 0;
     let mut accumulation_operands: Vec<AccumulationOperand> = vec![];
@@ -400,7 +502,7 @@ fn single_service_accumulation(
         }
     }
 
-    if let Some(gas) = service_gas_dict.get(service_id) {
+    if let Some(gas) = always_acc.get(service_id) {
         total_gas += *gas;
     } 
 
@@ -505,7 +607,11 @@ fn save_statistics(
             }
         }
         if acc_curr_block_reports.len() > 0 {
-            acc_stats.insert(*service_id, (*gas, acc_curr_block_reports.len() as u32));
+            if !acc_stats.contains_key(service_id) {
+                acc_stats.insert(*service_id, (0, acc_curr_block_reports.len() as u32));
+            }
+            let (gas_stored, num_repors_stored) = acc_stats.get(service_id).unwrap();
+            acc_stats.insert(*service_id, (*gas + gas_stored, *num_repors_stored));
         }
     }
 
@@ -555,6 +661,8 @@ fn get_gas_limit(always_acc: &HashMap<ServiceId, Gas>) -> Gas {
     for gas in always_acc.iter() {
         gas_privilege_services += gas.1;
     }
+
+
 
     return std::cmp::max(TOTAL_GAS_ALLOCATED, (WORK_REPORT_GAS_LIMIT * CORES_COUNT as Gas) + gas_privilege_services);
 }

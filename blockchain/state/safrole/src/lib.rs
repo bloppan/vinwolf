@@ -37,52 +37,47 @@ use utils::print_hash;
 use ark_vrf::suites::bandersnatch::RingProofParams;
 
 use once_cell::sync::Lazy;
+use std::collections::VecDeque;
 use std::sync::Mutex;
 use sp_core::blake2_256;
 
 use jam_types::{
-    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, Entropy, EntropyPool, EpochMark, Block,
-    OutputDataSafrole, Safrole, SafroleErrorCode, TicketBody, ProcessError, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorsData
+    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Block, Ed25519Public, Entropy, EntropyPool, EpochMark, OutputDataSafrole, ProcessError, Safrole, SafroleErrorCode, TicketBody, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorSet, ValidatorsData
 };
 use block::{extrinsic, header};
 use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 use codec::Encode;
 
-static RING_SET: Lazy<Mutex<Option<(u32, Vec<Public>)>>> = Lazy::new(|| { Mutex::new(None) });
+static RING_SET: Lazy<Mutex<VecDeque<Vec<Public>>>> = Lazy::new(|| { Mutex::new(VecDeque::new()) });
 
-fn set_ring_set(epoch: u32, ring_set: Vec<Public>) {
-    let mut ring_set_lock = RING_SET.lock().unwrap();
-    *ring_set_lock = Some((epoch, ring_set));
-}
+pub fn update_ring_set(new_ring_set: Vec<Public>, curr_validators: &ValidatorsData, epoch_diff: &TimeSlot) {
 
-fn _get_ring_set_cached() -> Option<(u32, Vec<Public>)> {
-    let ring_set_lock = RING_SET.lock().unwrap();
-    ring_set_lock.as_ref().map(|(epoch, vec)| (*epoch, vec.clone()))
-}
-
-fn _get_ring_set(epoch: u32, validators: &ValidatorsData) -> Vec<Public> {
-
-    let ring_set_cached = _get_ring_set_cached();
-
-    if ring_set_cached.is_none() {
-        log::debug!("The ring set is none... Create new ring");
-        let new_ring_set = create_ring_set(&validators);
-        set_ring_set(epoch, new_ring_set.clone());
-        return new_ring_set;
+    let mut ring_set = RING_SET.lock().unwrap().clone();
+    ring_set.push_back(new_ring_set);
+    ring_set.pop_front();
+    
+    if *epoch_diff > 1 {
+        ring_set[0] = create_ring_set(curr_validators);
     }
-
-    let epoch_ring_set_cached = ring_set_cached.as_ref().unwrap().0;
-    let ring_set_cached = ring_set_cached.unwrap().1;
-
-    if epoch_ring_set_cached != epoch {
-        log::debug!("The ring set catched was created in a different epoch... Create new ring");
-        let new_ring_set = create_ring_set(&validators);
-        set_ring_set(epoch, new_ring_set.clone());
-        return new_ring_set;
-    }
-
-    return ring_set_cached;
+    
+    set_ring_set(ring_set);
 }
+
+pub fn set_ring_set(ring_set_vec: VecDeque<Vec<Public>>) {
+    *RING_SET.lock().unwrap() = ring_set_vec;
+}
+
+pub fn get_ring_set() -> VecDeque<Vec<Public>> {
+    RING_SET.lock().unwrap().clone()
+}
+
+pub fn get_val_ring_set(validators: ValidatorSet) -> Vec<Public> {
+    match validators {
+        ValidatorSet::Current => RING_SET.lock().unwrap().get(0).unwrap().clone(),
+        ValidatorSet::Next => RING_SET.lock().unwrap().get(1).unwrap().clone(),
+        _ => Vec::new(),
+    }
+} 
 
 // Process Safrole state
 pub fn process(
@@ -123,7 +118,10 @@ pub fn process(
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
         validators::key_rotation(safrole_state, curr_validators, prev_validators, offenders);
         // Create the epoch root from next pending validators and update the safrole state
-        safrole_state.epoch_root = create_root_epoch(create_ring_set(&safrole_state.pending_validators));
+        let new_ring_set = create_ring_set(&safrole_state.pending_validators);
+        safrole_state.epoch_root = create_root_epoch(new_ring_set.clone());
+        // Update the ring set
+        update_ring_set(new_ring_set, curr_validators, &(post_epoch - epoch));
         // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
         // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
         log::debug!("New epoch mark");
@@ -168,14 +166,21 @@ pub fn process(
     
     /*// Get the ring set // TODO after M1
     let ring_set = get_ring_set(post_epoch, &safrole_state.pending_validators);*/
-    let curr_val_ring_set = create_ring_set(&curr_validators);
-    let pending_val_ring_set = create_ring_set(&safrole_state.pending_validators);
+    //let curr_val_ring_set = create_ring_set(&curr_validators);
+    //let pending_val_ring_set = create_ring_set(&safrole_state.pending_validators);
+
+    let pending_val_ring_set = get_val_ring_set(ValidatorSet::Next);
     // Process tickets extrinsic
     extrinsic::tickets::process(&block.extrinsic.tickets, safrole_state, entropy_pool, &post_tau, pending_val_ring_set)?;
+    //println!("Time tickets process: {:?}", end);
     // update tau which defines the most recent block's index
     *tau = post_tau;
+
+    let curr_val_ring_set = get_val_ring_set(ValidatorSet::Current);
     // Verify the header's seal
     let entropy_source_vrf_output = header::seal_verify(&block.header, &safrole_state, &entropy_pool, &curr_validators, curr_val_ring_set)?;
+    //println!("Time header seal verify: {:?}", end);
+    
     // Update recent entropy eta0
     entropy::update_recent(entropy_pool, entropy_source_vrf_output);
     

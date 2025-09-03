@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use serde::Deserialize;
 
 use constants::pvm::{NUM_REG, PAGE_SIZE, NUM_PAGES};
@@ -17,7 +17,7 @@ pub struct Context {
     pub pc: RegSize,
     pub gas: Gas,
     pub ram: RamMemory,
-    pub reg: [RegSize; NUM_REG as usize],
+    pub reg: Registers,
     pub page_fault: Option<RamAddress>,
 }
 
@@ -35,15 +35,15 @@ pub struct Page {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PageFlags {
-    pub access: HashSet<RamAccess>,
+    pub read_access: bool,
+    pub write_access: bool,
     pub referenced: bool,
     pub modified: bool,
 }
-#[derive(Debug, Clone, PartialEq, Eq, std::hash::Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, std::hash::Hash)]
 pub enum RamAccess {
     Read,
     Write,
-    None,
 }
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct Program {
@@ -204,7 +204,8 @@ impl Default for Page {
 impl Default for PageFlags {
     fn default() -> Self {
         PageFlags {
-            access: HashSet::new(),
+            read_access: false,
+            write_access: false,
             referenced: false,
             modified: false,
         }

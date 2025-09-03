@@ -69,13 +69,13 @@ mod tests {
                 },
                 data: Box::new([0u8; PAGE_SIZE as usize]),
             };
-            ram.pages[page_number as usize] = Some(page_content);
+            ram.pages.insert(page_number, page_content);
         }
 
         for chunk in &testcase.initial_memory {
             let page_number = chunk.address / PAGE_SIZE;
             let offset = chunk.address % PAGE_SIZE;
-            let page = ram.pages[page_number as usize].as_mut().unwrap();
+            let page = ram.pages.get_mut(&page_number).unwrap();
             for (i, byte) in chunk.contents.iter().enumerate() {
                 page.data[offset as usize + i] = *byte;
             }
@@ -101,10 +101,10 @@ mod tests {
             let page_target = address / PAGE_SIZE;
             let offset = address % PAGE_SIZE;
 
-            if let Some(page) = pvm_ctx.ram.pages[page_target as usize].as_ref() {
+            if pvm_ctx.ram.pages.contains_key(&page_target) {
                 let mut bytes_contents: Vec<u8> = vec![];
                 for (i, byte) in contents.iter().enumerate() {
-                    assert_eq!(*byte, page.data[offset as usize + i]);
+                    assert_eq!(*byte, pvm_ctx.ram.pages.get(&page_target).unwrap().data[offset as usize + i]);
                     bytes_contents.push(*byte);
                 }
                 let memory_chunk = MemoryChunk {

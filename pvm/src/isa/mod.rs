@@ -137,10 +137,15 @@ pub fn _branch(
 
 pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, reg: RegSize, signed: bool) -> ExitReason {
 
-    if let Err(check_error) = check_memory_access::<T>(pvm_ctx, address as RamAddress, RamAccess::Read) {
+    /*if let Err(check_error) = check_memory_access::<T>(pvm_ctx, address as RamAddress, RamAccess::Read) {
         return check_error;
-    }
+    }*/
 
+    let num_bytes = std::mem::size_of::<T>() as RamAddress;
+
+    if !pvm_ctx.ram.is_readable(address, num_bytes) {
+        return ExitReason::page_fault;
+    }
     //log::trace!("load address: {:?} to reg: {:?} num bytes: {:?}", address, reg, std::mem::size_of::<T>());
     /*println!("\nload address: {:?} to reg: {:?} num bytes: {:?}", address, reg, std::mem::size_of::<T>());
 
@@ -161,16 +166,18 @@ pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, r
     }*/
 
 
-    let mut value: Vec<u8> = Vec::new();
+    //let mut value: Vec<u8> = Vec::new();
     let n = std::mem::size_of::<T>();
 
-    for i in 0..std::mem::size_of::<T>() {
+    let value = pvm_ctx.ram.read(address, num_bytes as RamAddress);
+
+    /*for i in 0..std::mem::size_of::<T>() {
         let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE; 
         let offset = address.wrapping_add(i as RamAddress) % PAGE_SIZE;
-        let byte = pvm_ctx.ram.pages[page_target as usize].as_ref().unwrap().data[offset as usize] as u8;
+        let byte = pvm_ctx.ram.pages.get_mut(&page_target).unwrap().data[offset as usize] as u8;
         value.push(byte); 
-        pvm_ctx.ram.pages[page_target as usize].as_mut().unwrap().flags.referenced = true;
-    }
+        pvm_ctx.ram.pages.get_mut(&page_target).unwrap().flags.referenced = true;
+    }*/
     
     if signed {
         pvm_ctx.reg[reg as usize] = extend_sign(&value, n);
@@ -186,8 +193,14 @@ pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, r
 
 pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, value: RegSize) -> ExitReason {
 
-    if let Err(check_error) = check_memory_access::<T>(pvm_ctx, address as RamAddress, RamAccess::Write) {
+    /*if let Err(check_error) = check_memory_access::<T>(pvm_ctx, address as RamAddress, RamAccess::Write) {
         return check_error;
+    }*/
+
+    let num_bytes = std::mem::size_of::<T>();
+
+    if !pvm_ctx.ram.is_writable(address, num_bytes as RamAddress) {
+        return ExitReason::page_fault;
     }
     
     //log::trace!("store address: {:?} value: {:?} num bytes: {:?} pc: {:?}", address, value, std::mem::size_of::<T>(), pvm_ctx.pc);
@@ -209,19 +222,20 @@ pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, 
             println!("");  // Imprimir una nueva línea
         }
     }*/
+    pvm_ctx.ram.write(address, &value.encode_size(num_bytes));
 
-    for (i, byte) in value.encode_size(std::mem::size_of::<T>()).iter().enumerate() {
+    /*for (i, byte) in value.encode_size(std::mem::size_of::<T>()).iter().enumerate() {
         let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE;
         let offset = address.wrapping_add(i as RamAddress) % PAGE_SIZE;
-        pvm_ctx.ram.pages[page_target as usize].as_mut().unwrap().data[offset as usize] = *byte;
-        pvm_ctx.ram.pages[page_target as usize].as_mut().unwrap().flags.modified = true;
-    }
+        pvm_ctx.ram.pages.get_mut(&page_target).unwrap().data[offset as usize] = *byte;
+        pvm_ctx.ram.pages.get_mut(&page_target).unwrap().flags.modified = true;
+    }*/
 
     pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
     ExitReason::Continue
 }
 
-pub fn check_memory_access<T>(pvm_ctx: &mut Context, address: RamAddress, access: RamAccess) -> Result<(), ExitReason> {
+/*pub fn check_memory_access<T>(pvm_ctx: &mut Context, address: RamAddress, access: RamAccess) -> Result<(), ExitReason> {
     
     if pvm_ctx.pc == 34702 {
         //println!("aqui bernar address: {address} pc = {:?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), pvm_ctx.gas, pvm_ctx.reg);
@@ -258,9 +272,9 @@ pub fn check_memory_access<T>(pvm_ctx: &mut Context, address: RamAddress, access
             return Err(ExitReason::panic);
         }
         // Check if the page is in the page table
-        if let Some(page) = pvm_ctx.ram.pages[page_target as usize].as_ref() {
+        if pvm_ctx.ram.pages.contains_key(&page_target) {
             // Check the access flags
-            if page.flags.access.get(&access).is_none() {
+            if pvm_ctx.ram.pages.get(&page_target).unwrap().flags.access.get(&access).is_none() {
                 log::error!("Panic: page {page_target} access violation");
                 return Err(ExitReason::panic);
             }
@@ -273,7 +287,7 @@ pub fn check_memory_access<T>(pvm_ctx: &mut Context, address: RamAddress, access
     }
 
     return Ok(());
-}
+}*/
 
 pub fn djump(a: &RegSize, pc: &mut RegSize, program: &Program) -> ExitReason {
 
