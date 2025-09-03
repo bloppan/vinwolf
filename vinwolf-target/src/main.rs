@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     /*dotenv().ok();
     env_logger::Builder::new()
-    .filter_level(log::LevelFilter::Info)
+    .filter_level(log::LevelFilter::Debug)
     .init();*/
 
     match args[1].as_ref() { 

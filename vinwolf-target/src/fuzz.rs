@@ -1,9 +1,12 @@
+use std::collections::VecDeque;
+
 use jam_types::{Block, OpaqueHash, KeyValue, Header, GlobalState, ReadError};
 use state_handler::{get_global_state, get_state_root};
 use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 use utils::common::parse_state_keyvals;
 use utils::trie::merkle_state;
 use state_handler::set_global_state;
+use safrole::{get_ring_set, set_ring_set, create_ring_set};
 
 use tokio::net::{UnixListener, UnixStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt}; 
@@ -19,7 +22,7 @@ pub static VINWOLF_INFO: Lazy<PeerInfo> = Lazy::new(|| {
         app_version: Version {
             major: 0,
             minor: 2,
-            patch: 4,
+            patch: 5,
         },
         jam_version: Version {
             major: 0,
@@ -358,6 +361,15 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                     }
 
                                     set_global_state(global_state.clone());
+                                    set_ring_set(VecDeque::new());
+                                    let mut ring_set = get_ring_set();
+                                    let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
+                                    let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
+                                    ring_set.push_back(create_ring_set(&curr_validators));
+                                    ring_set.push_back(create_ring_set(&pending_validators));
+                                    
+                                    set_ring_set(ring_set);
+
                                     let state_root = merkle_state(&utils::serialization::serialize(&global_state).map, 0);
                                     state_handler::set_state_root(state_root.clone());
                                     socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)).await?;

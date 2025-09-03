@@ -1,5 +1,7 @@
+use safrole::{get_ring_set, set_ring_set, create_ring_set};
 use jam_types::{Block, RawState, GlobalState, ReadError};
 use codec::{Decode, BytesReader};
+use std::collections::VecDeque;
 use std::path::{PathBuf, Path};
 use std::{fs, collections::HashSet};
 use utils::{common::parse_state_keyvals, serialization, trie::merkle_state};
@@ -30,9 +32,16 @@ pub fn process_trace(path: &Path) {
     state_handler::set_global_state(pre_state.clone());
     state_handler::set_state_root(utils::trie::merkle_state(&utils::serialization::serialize(&pre_state).map, 0));
     
+    let mut ring_set = VecDeque::new();
+    let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
+    let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
+    ring_set.push_back(create_ring_set(&curr_validators));
+    ring_set.push_back(create_ring_set(&pending_validators));
+    set_ring_set(ring_set);
+    
     match state_controller::stf(&block) {
         Ok(_) => { println!("Block {:?} processed successfully", path); },
-        Err(e) => { log::error!("{:?}", e) },
+        Err(e) => { println!("Refused block: {:?}", e) },
     };
 
     let result_state = state_handler::get_global_state().lock().unwrap().clone();        
@@ -60,11 +69,11 @@ pub fn process_all_bins(dir_path: &Path) -> std::io::Result<()> {
         })
         .collect();
 
-    bin_files.sort_by_key(|(num, _)| *num);
+        bin_files.sort_by_key(|(num, _)| *num);
+
 
     for (_slot, bin_path) in bin_files {
-
-        log::info!("Process test file {:?}", bin_path);
+        
         process_trace(&bin_path);
         log::info!("{:?} processed successfully", bin_path);
     }

@@ -1,7 +1,10 @@
 use core::num;
+use std::collections::VecDeque;
 use std::hash::Hash;
+use std::sync::Arc;
 
 use rayon::prelude::*;
+use rayon::vec;
 use rayon::ThreadPoolBuilder;
 use std::collections::HashMap;
 
@@ -188,7 +191,7 @@ fn accumulate_vector(vector: &[u8]) -> Result<u32, &'static str> {
     Ok(vector.iter().fold(0, |acc, value| acc + *value as u32))
 }
 
-fn main() {
+fn try_fold_try_reduce_example_2() {
 
     let mut items: Vec<(u32, Vec<u8>)> = vec![];
     items.push((1, vec![1,2,3,4]));
@@ -264,7 +267,17 @@ fn main() {
         println!("{:?}", item)
     }
     //println!("result: {:?}", map);
+}
 
+fn main() {
+
+    let mut vector: VecDeque<u32> = VecDeque::new();
+    vector.push_back(1);
+    vector.push_back(2);
+    vector.push_back(3);
+    vector.pop_front();
+    
+    println!("vector: {:?}", vector);
 }
 
 
