@@ -40,8 +40,8 @@ pub fn process_trace(path: &Path) {
     set_ring_set(ring_set);
     
     match state_controller::stf(&block) {
-        Ok(_) => { println!("Block {:?} processed successfully", path); },
-        Err(e) => { println!("Refused block: {:?}", e) },
+        Ok(_) => { /*println!("Block {:?} processed successfully", path);*/ },
+        Err(e) => { /*println!("Refused block: {:?}", e)*/ },
     };
 
     let result_state = state_handler::get_global_state().lock().unwrap().clone();        

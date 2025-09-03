@@ -390,16 +390,16 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                         },
                                     };
 
-                                    let header_hash = sp_core::blake2_256(&(block.header.encode()));
-                                    log::info!("Header hash: 0x{}", hex::encode(header_hash));
+                                    //let header_hash = sp_core::blake2_256(&(block.header.encode()));
+                                    //log::info!("Header hash: 0x{}", hex::encode(header_hash));
                                     
                                     match state_controller::stf(&block) {
                                         Ok(_) => {
-                                            println!("Block {} processed successfully", utils::print_hash!(header_hash));
+                                            //println!("Block {} processed successfully", utils::print_hash!(header_hash));
                                             //log::info!("Block proccessed successfully");
                                         },
                                         Err(error) => {
-                                            println!("Refused block {}", utils::print_hash!(header_hash));
+                                            //println!("Refused block {}", utils::print_hash!(header_hash));
                                             log::error!("Bad block: {:?}", error);
                                         },
                                     }
