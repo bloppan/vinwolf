@@ -17,13 +17,13 @@ pub struct Context {
     pub pc: RegSize,
     pub gas: Gas,
     pub ram: RamMemory,
-    pub reg: [RegSize; NUM_REG as usize],
+    pub reg: Registers,
     pub page_fault: Option<RamAddress>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RamMemory {
-    pub pages: HashMap<PageNumber, Page>,
+    pub pages: Box<[Option<Page>]>,
     pub curr_heap_pointer: RamAddress,
 }
 
@@ -35,7 +35,8 @@ pub struct Page {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PageFlags {
-    pub access: HashSet<RamAccess>,
+    pub read_access: bool,
+    pub write_access: bool,
     pub referenced: bool,
     pub modified: bool,
 }
@@ -43,7 +44,6 @@ pub struct PageFlags {
 pub enum RamAccess {
     Read,
     Write,
-    None,
 }
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct Program {
@@ -181,8 +181,12 @@ pub enum ExitReason {
 // ----------------------------------------------------------------------------------------------------------
 impl Default for RamMemory {
     fn default() -> Self {
+        let mut v: Vec<Option<Page>> = Vec::with_capacity(NUM_PAGES as usize);
+        for _ in 0..NUM_PAGES {
+            v.push(None);
+        }
         RamMemory {
-            pages: HashMap::new(),  // Vacío, inicialización instantánea
+            pages: v.into_boxed_slice(),
             curr_heap_pointer: 0,
         }
     }
@@ -200,7 +204,8 @@ impl Default for Page {
 impl Default for PageFlags {
     fn default() -> Self {
         PageFlags {
-            access: HashSet::new(),
+            read_access: false,
+            write_access: false,
             referenced: false,
             modified: false,
         }

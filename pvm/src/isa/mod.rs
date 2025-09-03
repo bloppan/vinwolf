@@ -235,7 +235,7 @@ pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, 
     ExitReason::Continue
 }
 
-pub fn check_memory_access<T>(pvm_ctx: &mut Context, address: RamAddress, access: RamAccess) -> Result<(), ExitReason> {
+/*pub fn check_memory_access<T>(pvm_ctx: &mut Context, address: RamAddress, access: RamAccess) -> Result<(), ExitReason> {
     
     if pvm_ctx.pc == 34702 {
         //println!("aqui bernar address: {address} pc = {:?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), pvm_ctx.gas, pvm_ctx.reg);
@@ -287,7 +287,7 @@ pub fn check_memory_access<T>(pvm_ctx: &mut Context, address: RamAddress, access
     }
 
     return Ok(());
-}
+}*/
 
 pub fn djump(a: &RegSize, pc: &mut RegSize, program: &Program) -> ExitReason {
 
