@@ -17,5 +17,6 @@ pvm = { workspace = true }
 log = { workspace = true }
 ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring"] }
 once_cell = { workspace = true }
+rayon = { workspace = true }
 sp-core = "34.0.0"
 hex = { workspace = true }

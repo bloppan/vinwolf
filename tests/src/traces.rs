@@ -16,7 +16,7 @@ mod tests {
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
 
         let dir_base = Path::new(REPORTS_FUZZER_DIR);
-        let skip: HashSet<String> = ["1754982087", "RETIRED"]
+        let skip: HashSet<String> = ["RETIRED"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -28,7 +28,7 @@ mod tests {
         }
     }
 
-    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/1756548741";
+    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/1756792661";
 
     #[test]
     fn run_single_fuzz_report() {

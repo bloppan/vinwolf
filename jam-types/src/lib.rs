@@ -2,7 +2,7 @@ mod default;
 // JAM Protocol Types
 use std::collections::{HashMap, VecDeque};
 use serde::Deserialize;
-
+use std::sync::Arc;
 use constants::node::{AVAIL_BITFIELD_BYTES, CORES_COUNT, ENTROPY_POOL_SIZE, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, SEGMENT_SIZE, VALIDATORS_COUNT};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto

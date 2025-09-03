@@ -22,17 +22,17 @@ use isa::one_reg_one_imm_one_offset::*;
 use constants::pvm::*;
 
 
-pub fn invoke_pvm(pvm_ctx: &mut Context, program_blob: &[u8]) -> ExitReason {
+pub fn invoke_pvm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
 
     log::debug!("Invoke inner pvm");
 
-    let program = match Program::decode(&mut BytesReader::new(program_blob)) {
+    /*let program = match Program::decode(&mut BytesReader::new(program_blob)) {
         Ok(program) => { program },
         Err(_) => { 
             log::error!("Panic: Decoding program");
             return ExitReason::panic; 
         }
-    };
+    };*/
 
     let mut opcode_copy = program.code[pvm_ctx.pc.clone() as usize];
 
