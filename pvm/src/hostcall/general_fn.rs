@@ -240,13 +240,13 @@ pub fn read(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: &O
     
     log::debug!("service id: {star_service}");
 
-    let target_account: Option<Account> = if service_id == star_service {
-        account.clone()
+    let target_account: &Option<Account> = if service_id == star_service {
+        account
     } else if services.contains_key(&star_service) {
-        services.get(&star_service).cloned()
+        &services.get(&star_service).cloned()
     } else {
         log::debug!("target account is none");
-        None
+        &None
     };
     
     let start_read_address = reg[8] as RamAddress;
@@ -264,8 +264,8 @@ pub fn read(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: &O
     let storage_key = StateKeyType::Account(star_service, construct_storage_key(&storage_raw_key)).construct();
     log::debug!("service: {:?} storage key: 0x{}", star_service, hex::encode(&storage_key));
 
-    let value: Option<Vec<u8>> = if target_account.is_some() && target_account.as_ref().unwrap().storage.contains_key(&storage_key) {
-        Some(target_account.unwrap().storage.get(&storage_key).unwrap().clone())
+    let value: Option<&Vec<u8>> = if target_account.is_some() && target_account.as_ref().unwrap().storage.contains_key(&storage_key) {
+        Some(target_account.as_ref().unwrap().storage.get(&storage_key).unwrap())
     } else {
         None
     };
