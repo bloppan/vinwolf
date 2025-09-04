@@ -1,0 +1,9 @@
+[package]
+name = "threads-poc"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
