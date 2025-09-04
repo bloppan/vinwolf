@@ -118,6 +118,7 @@ impl Prover {
 type RingCommitment = ark_vrf::ring::RingCommitment<BandersnatchSha512Ell2>;
 
 // Verifier actor.
+#[derive (Clone)]
 pub struct Verifier {
     pub commitment: RingCommitment,
     pub ring: Vec<Public>,

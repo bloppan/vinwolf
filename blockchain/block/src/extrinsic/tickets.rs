@@ -8,7 +8,6 @@
     of valid tickets, each of which is a tuple of an entry index (a natural number less than N) and a proof of ticket validity.
 */
 
-use ark_vrf::suites::bandersnatch::Public;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use utils::bandersnatch::Verifier;
 
@@ -22,7 +21,7 @@ pub fn process(
     safrole_state: &mut Safrole,
     entropy_state: &mut EntropyPool,
     post_tau: &TimeSlot,
-    ring_set: Vec<Public>,
+    verifier: &Verifier,
 ) -> Result<(), ProcessError> {
 
     let start_process = std::time::Instant::now();
@@ -52,19 +51,17 @@ pub fn process(
         }
     }
 
-    let verifier = Verifier::new(ring_set);
     let mut new_ticket_ids: Vec<OpaqueHash> = vec![];
     let fixed_input_data = [&b"jam_ticket_seal"[..], &entropy_state.buf[2].encode()].concat();
     // Verify each ticket
 
-    let start_verify = std::time::Instant::now();
     let verify_result = tickets_extrinsic
             .par_iter()
             .try_fold(
                 || Vec::new(),
                 |mut tickets_acc: Vec<TicketBody>, ticket| {
                     let start = std::time::Instant::now();
-                    match ticket_seal_verify(&verifier, ticket, &fixed_input_data) {
+                    match ticket_seal_verify(verifier, ticket, &fixed_input_data) {
                         Ok(ticket_body) => {
                             let end = start.elapsed();
                             log::info!("Time per ticket: {:?}", end);
@@ -83,8 +80,7 @@ pub fn process(
                 }
             );
     
-    let end_verify = start_verify.elapsed();
-    log::info!("Tickets total verified in {:?}", end_verify);
+
     match verify_result {
 
         Ok(result) => {

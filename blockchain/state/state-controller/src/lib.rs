@@ -72,7 +72,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &mut new_state.time,
         &block,
         &new_state.disputes.offenders)?;
-
+    
     let new_available_workreports = reports::assurances::process(
         &mut new_state.availability,
         &block.extrinsic.assurances,
@@ -104,7 +104,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
                                         &block.header.unsigned.slot,
                                         &new_available_workreports.reported)?;
     
-    let start = std::time::Instant::now();
+    
     new_state.recent_acc_outputs = recent_acc_outputs;
     new_state.service_accounts = service_accounts;
     new_state.next_validators = next_validators;

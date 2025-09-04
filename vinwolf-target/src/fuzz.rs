@@ -6,7 +6,8 @@ use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 use utils::common::parse_state_keyvals;
 use utils::trie::merkle_state;
 use state_handler::set_global_state;
-use safrole::{get_ring_set, set_ring_set, create_ring_set};
+use safrole::{set_verifiers, create_ring_set};
+use utils::bandersnatch::Verifier;
 
 use tokio::net::{UnixListener, UnixStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt}; 
@@ -22,7 +23,7 @@ pub static VINWOLF_INFO: Lazy<PeerInfo> = Lazy::new(|| {
         app_version: Version {
             major: 0,
             minor: 2,
-            patch: 5,
+            patch: 6,
         },
         jam_version: Version {
             major: 0,
@@ -361,14 +362,14 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                     }
 
                                     set_global_state(global_state.clone());
-                                    set_ring_set(VecDeque::new());
-                                    let mut ring_set = get_ring_set();
+                                    set_verifiers(VecDeque::new());
+                                    let mut verifiers = VecDeque::new();
                                     let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
                                     let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
-                                    ring_set.push_back(create_ring_set(&curr_validators));
-                                    ring_set.push_back(create_ring_set(&pending_validators));
+                                    verifiers.push_back(Verifier::new(create_ring_set(&curr_validators)));
+                                    verifiers.push_back(Verifier::new(create_ring_set(&pending_validators)));
                                     
-                                    set_ring_set(ring_set);
+                                    set_verifiers(verifiers);
 
                                     let state_root = merkle_state(&utils::serialization::serialize(&global_state).map, 0);
                                     state_handler::set_state_root(state_root.clone());
@@ -390,12 +391,12 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                         },
                                     };
 
-                                    //let header_hash = sp_core::blake2_256(&(block.header.encode()));
-                                    //log::info!("Header hash: 0x{}", hex::encode(header_hash));
+                                    let header_hash = sp_core::blake2_256(&(block.header.encode()));
+                                    log::info!("Header hash: 0x{}", hex::encode(header_hash));
                                     
                                     match state_controller::stf(&block) {
                                         Ok(_) => {
-                                            //println!("Block {} processed successfully", utils::print_hash!(header_hash));
+                                            println!("Block {} processed successfully", utils::print_hash!(header_hash));
                                             //log::info!("Block proccessed successfully");
                                         },
                                         Err(error) => {

@@ -48,34 +48,34 @@ use block::{extrinsic, header};
 use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 use codec::Encode;
 
-static RING_SET: Lazy<Mutex<VecDeque<Vec<Public>>>> = Lazy::new(|| { Mutex::new(VecDeque::new()) });
+static VERIFIERS: Lazy<Mutex<VecDeque<Verifier>>> = Lazy::new(|| { Mutex::new(VecDeque::new()) });
 
-pub fn update_ring_set(new_ring_set: Vec<Public>, curr_validators: &ValidatorsData, epoch_diff: &TimeSlot) {
+pub fn update_verifiers(new_verifier: Verifier, curr_validators: &ValidatorsData, epoch_diff: &TimeSlot) {
 
-    let mut ring_set = RING_SET.lock().unwrap().clone();
-    ring_set.push_back(new_ring_set);
-    ring_set.pop_front();
+    let mut verifiers = VERIFIERS.lock().unwrap().clone();
+    verifiers.push_back(new_verifier);
+    verifiers.pop_front();
     
     if *epoch_diff > 1 {
-        ring_set[0] = create_ring_set(curr_validators);
+        verifiers[0] = Verifier::new(create_ring_set(curr_validators));
     }
     
-    set_ring_set(ring_set);
+    set_verifiers(verifiers);
 }
 
-pub fn set_ring_set(ring_set_vec: VecDeque<Vec<Public>>) {
-    *RING_SET.lock().unwrap() = ring_set_vec;
+pub fn set_verifiers(verifiers: VecDeque<Verifier>) {
+    *VERIFIERS.lock().unwrap() = verifiers;
 }
 
-pub fn get_ring_set() -> VecDeque<Vec<Public>> {
-    RING_SET.lock().unwrap().clone()
+pub fn get_verifiers() -> VecDeque<Verifier> {
+    VERIFIERS.lock().unwrap().clone()
 }
 
-pub fn get_val_ring_set(validators: ValidatorSet) -> Vec<Public> {
+pub fn get_verifier(validators: ValidatorSet) -> Verifier {
     match validators {
-        ValidatorSet::Current => RING_SET.lock().unwrap().get(0).unwrap().clone(),
-        ValidatorSet::Next => RING_SET.lock().unwrap().get(1).unwrap().clone(),
-        _ => Vec::new(),
+        ValidatorSet::Current => VERIFIERS.lock().unwrap().get(0).unwrap().clone(),
+        ValidatorSet::Next => VERIFIERS.lock().unwrap().get(1).unwrap().clone(),
+        _ => VERIFIERS.lock().unwrap().get(0).unwrap().clone(), // TODO arreglar esto
     }
 } 
 
@@ -120,8 +120,8 @@ pub fn process(
         // Create the epoch root from next pending validators and update the safrole state
         let new_ring_set = create_ring_set(&safrole_state.pending_validators);
         safrole_state.epoch_root = create_root_epoch(new_ring_set.clone());
-        // Update the ring set
-        update_ring_set(new_ring_set, curr_validators, &(post_epoch - epoch));
+        // Update the verifiers
+        update_verifiers(Verifier::new(new_ring_set), curr_validators, &(post_epoch - epoch));
         // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
         // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
         log::debug!("New epoch mark");
@@ -164,26 +164,17 @@ pub fn process(
         tickets_mark = Some(outside_in_sequencer(&safrole_state.ticket_accumulator));
     }
     
-    /*// Get the ring set // TODO after M1
-    let ring_set = get_ring_set(post_epoch, &safrole_state.pending_validators);*/
-    //let curr_val_ring_set = create_ring_set(&curr_validators);
-    //let pending_val_ring_set = create_ring_set(&safrole_state.pending_validators);
-
-    let pending_val_ring_set = get_val_ring_set(ValidatorSet::Next);
+    let pending_val_verifier = get_verifier(ValidatorSet::Next);
     // Process tickets extrinsic
-    extrinsic::tickets::process(&block.extrinsic.tickets, safrole_state, entropy_pool, &post_tau, pending_val_ring_set)?;
-    //println!("Time tickets process: {:?}", end);
+    extrinsic::tickets::process(&block.extrinsic.tickets, safrole_state, entropy_pool, &post_tau, &pending_val_verifier)?;
     // update tau which defines the most recent block's index
     *tau = post_tau;
 
-    let curr_val_ring_set = get_val_ring_set(ValidatorSet::Current);
+    let curr_val_verifier = get_verifier(ValidatorSet::Current);
     // Verify the header's seal
-    let entropy_source_vrf_output = header::seal_verify(&block.header, &safrole_state, &entropy_pool, &curr_validators, curr_val_ring_set)?;
-    //println!("Time header seal verify: {:?}", end);
-    
+    let entropy_source_vrf_output = header::seal_verify(&block.header, &safrole_state, &entropy_pool, &curr_validators, &curr_val_verifier)?;
     // Update recent entropy eta0
     entropy::update_recent(entropy_pool, entropy_source_vrf_output);
-    
     log::debug!("Safrole state processed successfully");
     return Ok(OutputDataSafrole {epoch_mark, tickets_mark});
 }

@@ -1,11 +1,12 @@
-use safrole::{get_ring_set, set_ring_set, create_ring_set};
+use safrole::{get_verifier, get_verifiers, set_verifiers, create_ring_set};
 use jam_types::{Block, RawState, GlobalState, ReadError};
 use codec::{Decode, BytesReader};
 use std::collections::VecDeque;
 use std::path::{PathBuf, Path};
 use std::{fs, collections::HashSet};
 use utils::{common::parse_state_keyvals, serialization, trie::merkle_state};
-    
+use utils::bandersnatch::Verifier;
+
 pub fn parse_trace_file(test_content: &[u8]) -> Result<(GlobalState, Block, GlobalState), ReadError>{
 
     let mut reader = BytesReader::new(&test_content);
@@ -32,16 +33,18 @@ pub fn process_trace(path: &Path) {
     state_handler::set_global_state(pre_state.clone());
     state_handler::set_state_root(utils::trie::merkle_state(&utils::serialization::serialize(&pre_state).map, 0));
     
-    let mut ring_set = VecDeque::new();
-    let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
-    let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
-    ring_set.push_back(create_ring_set(&curr_validators));
-    ring_set.push_back(create_ring_set(&pending_validators));
-    set_ring_set(ring_set);
+    if get_verifiers().len() == 0 {
+        let mut verifiers = VecDeque::new();
+        let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
+        let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
+        verifiers.push_back(Verifier::new(create_ring_set(&curr_validators)));
+        verifiers.push_back(Verifier::new(create_ring_set(&pending_validators)));
+        set_verifiers(verifiers);
+    }
     
     match state_controller::stf(&block) {
-        Ok(_) => { /*println!("Block {:?} processed successfully", path);*/ },
-        Err(e) => { /*println!("Refused block: {:?}", e)*/ },
+        Ok(_) => { println!("Block {:?} processed successfully", path); },
+        Err(e) => { println!("Refused block: {:?}", e) },
     };
 
     let result_state = state_handler::get_global_state().lock().unwrap().clone();        
@@ -109,6 +112,9 @@ pub fn process_all_dirs(base_dir: &Path, skip_dirs: &HashSet<String>) -> std::io
         process_all_bins(&path)?;
         println!("");
         dirs.push(path);
+
+        // Clean up the verifiers
+        set_verifiers(VecDeque::new());
     }
 
     Ok(dirs)

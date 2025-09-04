@@ -12,7 +12,6 @@
 // (a very much unexpected eventuality).The epoch marker is either empty or, if the block is the first in a new epoch, then a tuple of
 // the epoch randomness and a sequence of Bandersnatch keys defining the Bandersnatch validator keys (kb) beginning in the next epoch.
 
-use ark_vrf::suites::bandersnatch::Public;
 use std::collections::HashSet;
 use state_handler::get_state_root;
 use utils::bandersnatch::Verifier;
@@ -31,15 +30,13 @@ pub fn seal_verify(
         safrole: &Safrole,
         entropy: &EntropyPool,
         current_validators: &ValidatorsData,
-        ring_set: Vec<Public>,
+        verifier: &Verifier,
 ) -> Result<OpaqueHash, ProcessError> {
     // The header must contain a valid seal and valid vrf output. These are two signatures both using the current slot’s 
     // seal key; the message data of the former is the header’s serialization omitting the seal component Hs, whereas the 
     // latter is used as a bias-resistant entropy source and thus its message must already have been fixed: we use the entropy
     // stemming from the vrf of the seal signature. 
     let unsigned_header = header.unsigned.encode();
-    // Create the verifier object
-    let verifier = Verifier::new(ring_set.clone());
     // Get the block author
     let block_author = header.unsigned.author_index as usize;
     let i = header.unsigned.slot % EPOCH_LENGTH as TimeSlot;
@@ -76,6 +73,7 @@ pub fn seal_verify(
             log::debug!("Verify keys seal");
             // The context is "jam_fallback_seal" + entropy[3]
             let context = [&b"jam_fallback_seal"[..], &entropy.buf[3].encode()].concat();
+            
             // Verify the seal
             let seal_vrf_output_result = verifier.ietf_vrf_verify(
                                                         &context,
@@ -83,7 +81,6 @@ pub fn seal_verify(
                                                         &header.seal,
                                                         block_author,
             );
-
             let seal_vrf_output = match seal_vrf_output_result {
                 Ok(vrf_output) => vrf_output,
                 Err(_) => {
@@ -113,7 +110,6 @@ pub fn seal_verify(
                                                                             &[],
                                                                             &header.unsigned.entropy_source,
                                                                             block_author);
-
     let entropy_source_vrf_output = match entropy_source_vrf_result {
         Ok(_) => entropy_source_vrf_result.unwrap(),
         Err(_) => { 
