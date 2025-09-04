@@ -8,10 +8,9 @@
     of valid tickets, each of which is a tuple of an entry index (a natural number less than N) and a proof of ticket validity.
 */
 
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use utils::bandersnatch::Verifier;
 use std::thread;
-use std::sync::{Arc, Mutex, mpsc};
+use std::sync::mpsc;
 use constants::node::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR};
 use jam_types::{EntropyPool, OpaqueHash, Safrole, SafroleErrorCode, TicketBody, TimeSlot, Ticket, ProcessError};
 use codec::Encode;
@@ -65,13 +64,14 @@ pub fn process(
         }
     });
 
+    // Empty the tx channel
     drop(tx);
 
     let mut enum_result = Vec::new();
     for (i, r) in rx {
         match r {
             Ok(ticket) => enum_result.push((i, ticket)),
-            Err(e) => return Err(e), // retorna al primer error
+            Err(e) => return Err(e),
         }
     }
 

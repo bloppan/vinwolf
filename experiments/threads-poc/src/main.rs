@@ -1,4 +1,4 @@
-use std::{thread::{self, sleep}, time::Duration};
+use std::{thread::{self, sleep}, time::Duration, vec};
 use std::sync::{mpsc, Arc, Mutex};
 
 fn example_1() -> Result<i32, &'static str> {
@@ -49,8 +49,7 @@ fn example_2() {
 
 }
 
-
-fn main() {
+fn example_3() {
 
     let counter = Arc::new(Mutex::new(0));
     let mut handles = Vec::new();
@@ -70,6 +69,54 @@ fn main() {
     }
     
     println!("counter: {:?}", counter.lock().unwrap());
+}
+
+fn example_4() {
+
+    let data = vec![1, 2, 3, 4, 5];
+    
+    let results = Arc::new(Mutex::new(Vec::new()));
+
+    thread::scope(|s| {
+        for num in &data {
+            let ref_results = Arc::clone(&results);
+            s.spawn(move || {
+                let cuadrado = num * num;
+                let mut ref_results = ref_results.lock().unwrap();
+                ref_results.push(cuadrado);
+            });
+        }
+    });
+
+    let results = results.lock().unwrap();
+    println!("results: {:?}", results);
+}
+
+fn main() {
+
+    let data = vec![1, 2, 3, 4, 5];
+    let mut vector: Vec<(u32, u32)> = Vec::new();
+    vector.push((10, 20));
+
+    let arc_vector = Arc::new(Mutex::new(&vector));
+    let results = Arc::new(Mutex::new(Vec::new()));
+
+    thread::scope(|s| {
+        for num in &data {
+            let ref_vector = Arc::clone(&arc_vector);
+            let ref_results = Arc::clone(&results);
+            s.spawn(move || {
+                let cuadrado = num * num;
+
+                let mut ref_results = ref_results.lock().unwrap();
+                ref_results.push(cuadrado);
+            });
+        }
+    });
+    
+    println!("vector: {:?}", vector);
+    let results = results.lock().unwrap();
+    println!("results: {:?}", results);
 }
 
 

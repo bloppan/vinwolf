@@ -12,9 +12,8 @@
 */
 
 use std::collections::{HashSet, HashMap};
-use ark_vrf::reexports::ark_std::iterable::Iterable;
 use std::sync::{Arc, Mutex};
-use rayon::prelude::*;
+use std::thread;
 
 use constants::node::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT, CORES_COUNT};
 use jam_types::{
@@ -239,7 +238,41 @@ fn parallelized_accumulation(
     log::info!("Services to accumulate: {:?}", s_services);
     log::info!("Always acc: {:?}", always_acc);    
     // (AccOutputMap::default(), GasUsed::default(), RecentAccOutputs::default(), Vec::new(), ServiceAccounts::default(), HashSet::new(), Preimages::default()
-    let outputs: Vec<(ServiceId, AccOutput)> = s_services
+    
+    let acc_result = Arc::new(Mutex::new(AccResult::default()));
+    let arc_partial_state = Arc::new(partial_state.clone());
+    let arc_reports = Arc::new(reports);
+    let arc_always_acc = Arc::new(always_acc.clone());
+    
+    thread::scope(|s| {
+
+        for service in &s_services {
+            let ref_results = Arc::clone(&acc_result);
+            let ref_state = Arc::clone(&arc_partial_state);
+            let ref_reports = Arc::clone(&arc_reports);
+            let ref_always_acc = Arc::clone(&arc_always_acc);
+            s.spawn(move || {
+                let acc_output = single_service_accumulation(&ref_state, &ref_reports, &ref_always_acc, service);
+                if acc_output.3 > 0 {     
+                    ref_results.lock().unwrap().acc_output_map.push((*service, acc_output));
+                }
+            });
+        }    
+    });
+
+    let mut acc_result = acc_result.lock().unwrap();
+    /*for service in &s_services {
+        let results = Arc::clone(&acc_results);
+        let reports = Arc::new(Mutex::new(reports));
+        handles.push(thread::spawn(|| {
+            let acc_output = single_service_accumulation(&partial_state, reports, always_acc, service);
+            if acc_output.3 > 0 {
+                results.lock().unwrap().acc_output_map.push((*service, acc_output));
+            }
+        }))
+    }*/
+
+    /*let outputs: Vec<(ServiceId, AccOutput)> = s_services
         .par_iter()
         .filter_map(|service| {
             let acc_output = single_service_accumulation(&partial_state, reports, always_acc, service);
@@ -251,7 +284,8 @@ fn parallelized_accumulation(
         })
         .collect();
 
-    let mut acc_result = AccResult::default();
+    let mut acc_result = AccResult::default();*/
+    let outputs = acc_result.acc_output_map.clone();
 
     for (service, acc) in &outputs {
         let (post_partial_state, transfers, service_hash, gas, preimages) = acc;
@@ -293,7 +327,7 @@ fn parallelized_accumulation(
         acc_result.new_services.extend(n);
     }
 
-    acc_result.acc_output_map = outputs;
+    //acc_result.acc_output_map = outputs;
 
     /*for service in s_services.iter() {
         
@@ -449,7 +483,7 @@ fn parallelized_accumulation(
     }
 
     let mut d_services = partial_state.service_accounts.clone();
-    d_services.extend(acc_result.new_services);
+    d_services.extend(acc_result.new_services.clone());
 
     let result_services: ServiceAccounts = d_services
                                             .iter()
@@ -470,7 +504,7 @@ fn parallelized_accumulation(
     };
 
     log::debug!("Finalized paralellized accumulation");
-    return Ok((result_partial_state, acc_result.deferred_xfer, acc_result.recent_acc_outputs, acc_result.gas_used));
+    return Ok((result_partial_state, acc_result.deferred_xfer.clone(), acc_result.recent_acc_outputs.clone(), acc_result.gas_used.clone()));
 }
 
 fn single_service_accumulation(
@@ -547,8 +581,8 @@ fn preimage_integration(services: &ServiceAccounts, preimages: &[(ServiceId, Vec
                                                        .unwrap()
                                                        .storage
                                                        .get(&lookup_key);
-            
-            if timeslots.is_none() || (timeslots.is_some() && timeslots.len() == 0) {
+            // TODO fix this
+            if timeslots.is_none() || (timeslots.is_some() && timeslots.unwrap()[0] == 0) {
 
                 services_result.get_mut(&service_value.0)
                                .unwrap()
