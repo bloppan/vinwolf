@@ -1,7 +1,7 @@
 use crate::{Program, ExitReason};
 use crate::pvm_types::{Context, RamAccess, RamAddress, RegSize};
 use constants::pvm::{LOWEST_ACCESIBLE_PAGE, JUMP_ALIGNMENT, PAGE_SIZE};
-use codec::EncodeSize;
+use codec::{EncodeSize, FromLeBytes};
 use codec::generic_codec::decode;
 
 pub mod no_arg;
@@ -112,7 +112,7 @@ pub fn unsigned(a: i64, n: usize) -> u64 {
 }
 
 pub fn _branch(
-    pvm_ctx: &mut Context, 
+    pc: &mut RegSize, 
     program: &Program, 
     n: i64,
 ) -> ExitReason {
@@ -124,170 +124,66 @@ pub fn _branch(
     }
 
     // Check for the beginning of a basic-block
-    if !begin_basic_block(program, &pvm_ctx.pc, pvm_ctx.pc as usize + 1 + skip(&pvm_ctx.pc, &program.bitmask) as usize) {
+    if !begin_basic_block(program, pc, *pc as usize + 1 + skip(pc, &program.bitmask) as usize) {
         log::error!("Panic: not a basic block");
         return ExitReason::panic;
     }
 
     //pvm_ctx.pc = (n - 1) as RegSize;
-    pvm_ctx.pc = n as RegSize;
+    *pc = n as RegSize;
         
     return ExitReason::Continue;
 }
 
-pub fn _load<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, reg: RegSize, signed: bool) -> ExitReason {
-
-    /*if let Err(check_error) = check_memory_access::<T>(pvm_ctx, address as RamAddress, RamAccess::Read) {
-        return check_error;
-    }*/
+pub fn _load<T>(
+    program: &Program, 
+    pc: &mut RegSize, 
+    ram: &mut RamMemory, 
+    reg: &mut Registers, 
+    address: RamAddress, 
+    reg_target: RegSize, 
+    signed: bool
+) -> ExitReason {
 
     let num_bytes = std::mem::size_of::<T>() as RamAddress;
 
-    if !pvm_ctx.ram.is_readable(address, num_bytes) {
+    if !ram.is_readable(address, num_bytes) {
         return ExitReason::page_fault;
     }
-    //log::trace!("load address: {:?} to reg: {:?} num bytes: {:?}", address, reg, std::mem::size_of::<T>());
-    /*println!("\nload address: {:?} to reg: {:?} num bytes: {:?}", address, reg, std::mem::size_of::<T>());
 
-    let pagee = address / PAGE_SIZE;
-
-    if pagee == 1044447 {
-        for i in 88..(PAGE_SIZE / 32) - 26 {
-            // Calcular el offset y registrar la dirección
-            print!("{:08}:\t", (i * 32) + 4096 * pagee);
-
-            // Imprimir cada byte en formato hexadecimal
-            for j in 0..32 {
-                let index = i * 32 + j;
-                print!("{:02x?} ", pvm_ctx.ram.pages[1044447].as_ref().unwrap().data[index as usize])
-            }
-            println!("");  // Imprimir una nueva línea
-        }
-    }*/
-
-
-    //let mut value: Vec<u8> = Vec::new();
     let n = std::mem::size_of::<T>();
+    let value = ram.read(address, num_bytes as RamAddress);
 
-    let value = pvm_ctx.ram.read(address, num_bytes as RamAddress);
-
-    /*for i in 0..std::mem::size_of::<T>() {
-        let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE; 
-        let offset = address.wrapping_add(i as RamAddress) % PAGE_SIZE;
-        let byte = pvm_ctx.ram.pages.get_mut(&page_target).unwrap().data[offset as usize] as u8;
-        value.push(byte); 
-        pvm_ctx.ram.pages.get_mut(&page_target).unwrap().flags.referenced = true;
-    }*/
-    
     if signed {
-        pvm_ctx.reg[reg as usize] = extend_sign(&value, n);
-        pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
+        reg[reg_target as usize] = extend_sign(&value, n);
+        *pc += skip(pc, &program.bitmask) + 1;
         return ExitReason::Continue;
     } 
 
-    pvm_ctx.reg[reg as usize] = decode::<RegSize>(&value, n);
-    pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
+    reg[reg_target as usize] = decode::<RegSize>(&value, n);
+    *pc += skip(pc, &program.bitmask) + 1;
     return ExitReason::Continue;
 }
 
 
-pub fn _store<T>(pvm_ctx: &mut Context, program: &Program, address: RamAddress, value: RegSize) -> ExitReason {
-
-    /*if let Err(check_error) = check_memory_access::<T>(pvm_ctx, address as RamAddress, RamAccess::Write) {
-        return check_error;
-    }*/
+pub fn _store<T>(
+    program: &Program, 
+    pc: &mut RegSize,
+    ram: &mut RamMemory,
+    address: RamAddress, 
+    value: RegSize
+) -> ExitReason {
 
     let num_bytes = std::mem::size_of::<T>();
 
-    if !pvm_ctx.ram.is_writable(address, num_bytes as RamAddress) {
+    if !ram.is_writable(address, num_bytes as RamAddress) {
         return ExitReason::page_fault;
     }
     
-    //log::trace!("store address: {:?} value: {:?} num bytes: {:?} pc: {:?}", address, value, std::mem::size_of::<T>(), pvm_ctx.pc);
-
-    /*println!("\n store address: {:?} num bytes: {:?} pc: {:?}", address, std::mem::size_of::<T>(), pvm_ctx.pc);
-
-    let pagee = address / PAGE_SIZE;
-
-    if pagee == 1044447 {
-        for i in 88..(PAGE_SIZE / 32) - 26 {
-            // Calcular el offset y registrar la dirección
-            print!("{:08}:\t", (i * 32) + 4096 * pagee);
-
-            // Imprimir cada byte en formato hexadecimal
-            for j in 0..32 {
-                let index = i * 32 + j;
-                print!("{:02x?} ", pvm_ctx.ram.pages[1044447].as_ref().unwrap().data[index as usize])
-            }
-            println!("");  // Imprimir una nueva línea
-        }
-    }*/
-    pvm_ctx.ram.write(address, &value.encode_size(num_bytes));
-
-    /*for (i, byte) in value.encode_size(std::mem::size_of::<T>()).iter().enumerate() {
-        let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE;
-        let offset = address.wrapping_add(i as RamAddress) % PAGE_SIZE;
-        pvm_ctx.ram.pages.get_mut(&page_target).unwrap().data[offset as usize] = *byte;
-        pvm_ctx.ram.pages.get_mut(&page_target).unwrap().flags.modified = true;
-    }*/
-
-    pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
+    ram.write(address, &value.encode_size(num_bytes));
+    *pc += skip(pc, &program.bitmask) + 1;
     ExitReason::Continue
 }
-
-/*pub fn check_memory_access<T>(pvm_ctx: &mut Context, address: RamAddress, access: RamAccess) -> Result<(), ExitReason> {
-    
-    if pvm_ctx.pc == 34702 {
-        //println!("aqui bernar address: {address} pc = {:?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), pvm_ctx.gas, pvm_ctx.reg);
-    }
-
-    /*if pvm_ctx.pc == 23352 || pvm_ctx.pc == 23355 {
-        println!("aqui address: {address}");
-        println!("pc = {:?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), pvm_ctx.gas, pvm_ctx.reg); 
-    }*/
-
-    //if (address / PAGE_SIZE == 1044447 && access == RamAccess::Write) || pvm_ctx.pc == 34702 {
-    
-    /*if pvm_ctx.gas > 9999959 || address / PAGE_SIZE == 50 && (pvm_ctx.pc == 34702  || access == RamAccess::Write) {
-        println!("pc = {:?}, gas = {:?}, reg = {:?}", pvm_ctx.pc.clone(), pvm_ctx.gas, pvm_ctx.reg); 
-        println!();
-        //for i in 0..(4096 / 32) {
-        for i in 58..66 {
-            print!("{:08}:\t", (i * 32) as u64 + (4096 as u64 * 50 as u64) as u64);
-            for j in 0..32 {
-                let index = i * 32 + j;
-                print!("{:02x?} ", pvm_ctx.ram.pages[50].as_ref().unwrap().data[index as usize]);
-            }
-            println!();
-        }
-        println!();
-    }*/
-
-    for i in 0..std::mem::size_of::<T>() {
-        //println!("address = {:?}", address);
-        let page_target = address.wrapping_add(i as RamAddress) / PAGE_SIZE;
-        // Check if the page is in the range of the highest inaccessible page (0xFFFF0000)
-        if page_target < LOWEST_ACCESIBLE_PAGE {
-            log::error!("Panic: page target out of bounds");
-            return Err(ExitReason::panic);
-        }
-        // Check if the page is in the page table
-        if pvm_ctx.ram.pages.contains_key(&page_target) {
-            // Check the access flags
-            if pvm_ctx.ram.pages.get(&page_target).unwrap().flags.access.get(&access).is_none() {
-                log::error!("Panic: page {page_target} access violation");
-                return Err(ExitReason::panic);
-            }
-        } else {
-            pvm_ctx.page_fault = Some(address.wrapping_add(i as RamAddress));
-            return Err(ExitReason::page_fault);
-            // TODO cambiar esto
-            //return Err(ExitReason::PageFault(page_target));
-        }
-    }
-
-    return Ok(());
-}*/
 
 pub fn djump(a: &RegSize, pc: &mut RegSize, program: &Program) -> ExitReason {
 

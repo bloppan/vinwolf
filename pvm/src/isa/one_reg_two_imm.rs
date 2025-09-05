@@ -4,7 +4,7 @@
 
 use std::cmp::{min, max};
 use constants::pvm::RAM_SIZE;
-use crate::pvm_types::{Context, ExitReason, Program, RamAddress, RegSize};
+use crate::pvm_types::{RamMemory, Gas, Registers, ExitReason, Program, RamAddress, RegSize};
 use crate::isa::{skip, extend_sign, _store};
 
 fn get_reg(pc: &RegSize, program: &Program) -> RegSize {
@@ -33,10 +33,10 @@ fn get_y_imm(pc: &RegSize, program: &Program) -> RegSize {
     extend_sign(&program.code[start..end], n)
 }
 
-fn get_address(pvm_ctx: &Context, program: &Program) -> RamAddress {
-    let reg_a = get_reg(&pvm_ctx.pc, program);
-    let addr_reg_a = pvm_ctx.reg[reg_a as usize];
-    let vx = get_x_imm(&pvm_ctx.pc, program);
+fn get_address(pc: &RegSize, reg: &Registers, program: &Program) -> RamAddress {
+    let reg_a = get_reg(pc, program);
+    let addr_reg_a = reg[reg_a as usize];
+    let vx = get_x_imm(pc, program);
     ((addr_reg_a.wrapping_add(vx)) % RAM_SIZE) as RamAddress
 }
 
@@ -44,24 +44,24 @@ fn get_value<T>(pc: &RegSize, program: &Program) -> RegSize {
     ((get_y_imm(pc, program) as u128) % (1 << (std::mem::size_of::<T>() * 8))) as RegSize
 }
 
-fn store_imm_ind<T>(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    let address = get_address(pvm_ctx, program);
-    let value = get_value::<T>(&pvm_ctx.pc, program);
-    _store::<T>(pvm_ctx, program, address, value)
+fn store_imm_ind<T>(program: &Program, pc: &mut RegSize, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    let address = get_address(pc, reg, program);
+    let value = get_value::<T>(pc, program);
+    _store::<T>(program, pc, ram, address, value)
 }
 
-pub fn store_imm_ind_u8(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    store_imm_ind::<u8>(pvm_ctx, program)
+pub fn store_imm_ind_u8(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    store_imm_ind::<u8>(program, pc, ram, reg)
 }
 
-pub fn store_imm_ind_u16(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    store_imm_ind::<u16>(pvm_ctx, program)
+pub fn store_imm_ind_u16(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    store_imm_ind::<u16>(program, pc, ram, reg)
 }
 
-pub fn store_imm_ind_u32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    store_imm_ind::<u32>(pvm_ctx, program)
+pub fn store_imm_ind_u32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    store_imm_ind::<u32>(program, pc, ram, reg)
 }
 
-pub fn store_imm_ind_u64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    store_imm_ind::<u64>(pvm_ctx, program)
+pub fn store_imm_ind_u64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    store_imm_ind::<u64>(program, pc, ram, reg)
 }

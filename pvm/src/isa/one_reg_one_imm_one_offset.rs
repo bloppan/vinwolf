@@ -3,7 +3,7 @@
 */
 
 use std::cmp::{min, max};
-use crate::pvm_types::{Context, ExitReason, Program, RegSigned, RegSize};
+use crate::pvm_types::{RamMemory, Gas, ExitReason, Program, RegSigned, RegSize, Registers};
 use crate::isa::{skip, extend_sign, signed, _branch};
 use codec::BytesReader;
 use codec::generic_codec::decode_integer;
@@ -36,67 +36,68 @@ fn get_y_value(pc: &RegSize, program: &Program) -> i64 {
 }
 
 fn branch(
-    pvm_ctx: &mut Context,
+    pc: &mut RegSize,
+    reg: &mut Registers,
     program: &Program,
     compare: impl Fn(u64, u64) -> bool,
 ) -> ExitReason {
-    let reg = get_reg(&pvm_ctx.pc, program);
-    let l_value = pvm_ctx.reg[reg as usize];
-    let r_value = get_x_value(&pvm_ctx.pc, program);
-    let n = get_y_value(&pvm_ctx.pc, program);
+    let reg_target = get_reg(pc, program);
+    let l_value = reg[reg_target as usize];
+    let r_value = get_x_value(pc, program);
+    let n = get_y_value(pc, program);
     if !compare(l_value, r_value) {
-        pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
+        *pc += skip(pc, &program.bitmask) + 1;
         return ExitReason::Continue;
     }
-    _branch(pvm_ctx, program, n as RegSigned)
+    _branch(pc, program, n as RegSigned)
 }
 
-pub fn load_imm_jump(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    let reg_a = get_reg(&pvm_ctx.pc, program);
-    let vx = get_x_value(&pvm_ctx.pc, program);
-    let vy = get_y_value(&pvm_ctx.pc, program);
-    let exit_reason = _branch(pvm_ctx, program, vy);
-    pvm_ctx.reg[reg_a as usize] = vx as RegSize;
+pub fn load_imm_jump(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    let reg_a = get_reg(pc, program);
+    let vx = get_x_value(pc, program);
+    let vy = get_y_value(pc, program);
+    let exit_reason = _branch(pc, program, vy);
+    reg[reg_a as usize] = vx as RegSize;
     return exit_reason;
 }
 
-pub fn branch_eq_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch(pvm_ctx, program, |a, b| a as RegSize == b as RegSize)
+pub fn branch_eq_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    branch(pc, reg, program, |a, b| a as RegSize == b as RegSize)
 }
 
-pub fn branch_ne_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch(pvm_ctx, program, |a, b| a as RegSize != b as RegSize)
+pub fn branch_ne_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    branch(pc, reg, program, |a, b| a as RegSize != b as RegSize)
 }
 
-pub fn branch_lt_u_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch(pvm_ctx, program, |a, b| (a as RegSize) < (b as RegSize))
+pub fn branch_lt_u_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    branch(pc, reg, program, |a, b| (a as RegSize) < (b as RegSize))
 }
 
-pub fn branch_le_u_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch(pvm_ctx, program, |a, b| a as RegSize <= b as RegSize)
+pub fn branch_le_u_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    branch(pc, reg, program, |a, b| a as RegSize <= b as RegSize)
 }
 
-pub fn branch_ge_u_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch(pvm_ctx, program, |a, b| a as RegSize >= b as RegSize) 
+pub fn branch_ge_u_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    branch(pc, reg, program, |a, b| a as RegSize >= b as RegSize) 
 }
 
-pub fn branch_gt_u_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch(pvm_ctx, program, |a, b| a as RegSize > b as RegSize)
+pub fn branch_gt_u_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    branch(pc, reg, program, |a, b| a as RegSize > b as RegSize)
 }
 
-pub fn branch_lt_s_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch(pvm_ctx, program, |a, b| signed(a, 8) < signed(b, 8))
+pub fn branch_lt_s_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    branch(pc, reg, program, |a, b| signed(a, 8) < signed(b, 8))
 }
 
-pub fn branch_le_s_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch(pvm_ctx, program, |a, b| signed(a, 8) <= signed(b, 8))
+pub fn branch_le_s_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    branch(pc, reg, program, |a, b| signed(a, 8) <= signed(b, 8))
 }
 
-pub fn branch_ge_s_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch(pvm_ctx, program, |a, b| signed(a, 8) >= signed(b, 8))
+pub fn branch_ge_s_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    branch(pc, reg, program, |a, b| signed(a, 8) >= signed(b, 8))
 }
 
-pub fn branch_gt_s_imm(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    branch(pvm_ctx, program, |a, b| signed(a, 8) > signed(b, 8))
+pub fn branch_gt_s_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    branch(pc, reg, program, |a, b| signed(a, 8) > signed(b, 8))
 }
 
