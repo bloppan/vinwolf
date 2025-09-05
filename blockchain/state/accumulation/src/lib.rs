@@ -16,6 +16,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use constants::node::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT, CORES_COUNT};
+use constants::pvm::CORE;
 use jam_types::{
     Account, AccumulateErrorCode, AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, Gas, 
     OpaqueHash, Privileges, ProcessError, ReadyQueue, ReadyRecord, RecentAccOutputs, ServiceAccounts, ServiceId, StateKeyType, TimeSlot, 
@@ -226,6 +227,26 @@ fn parallelized_accumulation(
         }
     }
 
+    let mut all_services_to_acc: Vec<ServiceId> = Vec::new();
+    all_services_to_acc.extend_from_slice(&s_services);
+
+    // Manager service
+    if !all_services_to_acc.contains(&partial_state.manager) {
+        all_services_to_acc.push(partial_state.manager);
+    }
+    // Assign (Cores) services
+    let assign_to_add: Vec<ServiceId> = (0..CORES_COUNT)
+            .filter(|&core| !all_services_to_acc.contains(&partial_state.assign[core]))
+            .map(|core| partial_state.assign[core])
+            .collect();
+
+    all_services_to_acc.extend_from_slice(&assign_to_add);
+
+    // Desigate (Validators) service
+    if !all_services_to_acc.contains(&partial_state.designate) {
+        all_services_to_acc.push(partial_state.designate);
+    }
+    
     /*let mut acc_output_map: HashMap<ServiceId, (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(u32, Vec<u8>)>)> = HashMap::new();
     let mut u_gas_used: Vec<(ServiceId, Gas)> = vec![];
     let mut b_service_hash: RecentAccOutputs = RecentAccOutputs::default();
@@ -246,7 +267,7 @@ fn parallelized_accumulation(
     
     thread::scope(|s| {
 
-        for service in &s_services {
+        for service in &all_services_to_acc {
             let ref_results = Arc::clone(&acc_result);
             let ref_state = Arc::clone(&arc_partial_state);
             let ref_reports = Arc::clone(&arc_reports);
@@ -261,33 +282,14 @@ fn parallelized_accumulation(
     });
 
     let mut acc_result = acc_result.lock().unwrap();
-    /*for service in &s_services {
-        let results = Arc::clone(&acc_results);
-        let reports = Arc::new(Mutex::new(reports));
-        handles.push(thread::spawn(|| {
-            let acc_output = single_service_accumulation(&partial_state, reports, always_acc, service);
-            if acc_output.3 > 0 {
-                results.lock().unwrap().acc_output_map.push((*service, acc_output));
-            }
-        }))
-    }*/
 
-    /*let outputs: Vec<(ServiceId, AccOutput)> = s_services
-        .par_iter()
-        .filter_map(|service| {
-            let acc_output = single_service_accumulation(&partial_state, reports, always_acc, service);
-            if acc_output.3 > 0 {
-                Some((*service, acc_output))
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    let mut acc_result = AccResult::default();*/
     let outputs = acc_result.acc_output_map.clone();
 
     for (service, acc) in &outputs {
+        if !s_services.contains(service) {
+            // Only process s services
+            continue;
+        }
         let (post_partial_state, transfers, service_hash, gas, preimages) = acc;
         log::info!("Acc total service {:?} gas {:?}", service, gas);
         acc_result.gas_used.push((*service, *gas));
@@ -394,13 +396,13 @@ fn parallelized_accumulation(
         }
     }
 
-    if !acc_result.acc_output_map.iter().any(|(service, _) | *service == partial_state.manager) {
+    /*if !acc_result.acc_output_map.iter().any(|(service, _) | *service == partial_state.manager) {
         let acc_output = single_service_accumulation(&partial_state, reports, always_acc, &partial_state.manager);
         // Insert the acc_output only if the gas used in acc is > 0
         if acc_output.3 > 0 {
             acc_result.acc_output_map.push((partial_state.manager, acc_output));
         }
-    } 
+    }*/ 
     
     let m_post_partial_state = if let Some((_, acc)) = acc_result.acc_output_map.iter().find(|(service, _)| *service == partial_state.manager) {
         acc.0.clone()
@@ -408,8 +410,6 @@ fn parallelized_accumulation(
         partial_state.clone()
     };
 
-    /*let result = acc_output_map.get(&partial_state.manager).unwrap();
-    let m_post_partial_state = result.0.clone();*/
 
     let (post_manager, star_assign, star_v_designate, post_always_acc) = (m_post_partial_state.manager, 
                                                                                     m_post_partial_state.assign.clone(),
@@ -451,13 +451,13 @@ fn parallelized_accumulation(
         star_v_designate
     };
 
-    if !acc_result.acc_output_map.iter().any(|(service, _) | *service == partial_state.designate) {
+    /*if !acc_result.acc_output_map.iter().any(|(service, _) | *service == partial_state.designate) {
         let acc_output = single_service_accumulation(&partial_state, reports, always_acc, &partial_state.designate);
         // Insert the acc_output only if the gas used in acc is > 0
         if acc_output.3 > 0 {
             acc_result.acc_output_map.push((partial_state.designate, acc_output));    
         }
-    }
+    }*/
 
     let post_next_validators = if let Some((_, acc)) = acc_result.acc_output_map.iter().find( |(service, _)| *service == partial_state.designate) {
         acc.0.next_validators.clone()
@@ -469,12 +469,12 @@ fn parallelized_accumulation(
 
     for core_index in 0..CORES_COUNT {
 
-        if !acc_result.acc_output_map.iter().any(|(service, _) | *service == partial_state.assign[core_index]) {
+        /*if !acc_result.acc_output_map.iter().any(|(service, _) | *service == partial_state.assign[core_index]) {
             let acc_output = single_service_accumulation(&partial_state, reports, always_acc, &partial_state.assign[core_index]);
             if acc_output.3 > 0 {
                 acc_result.acc_output_map.push((partial_state.assign[core_index], acc_output));
             }
-        }
+        }*/
         post_queues_auth.0[core_index] = if let Some((_, acc)) = acc_result.acc_output_map.iter().find(|(service, _)| *service == partial_state.assign[core_index]) {
             acc.0.queues_auth.0[core_index].clone()
         } else {
