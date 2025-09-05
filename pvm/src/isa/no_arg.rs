@@ -4,7 +4,7 @@
 use crate::{RegSize, Gas, RamMemory, Registers, Program, ExitReason};
 use crate::isa::skip;
 
-pub fn trap() -> ExitReason {
+pub fn trap(_program: &Program, _pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, _reg: &mut Registers) -> ExitReason {
     ExitReason::panic
 }
 

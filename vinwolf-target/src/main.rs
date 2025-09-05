@@ -88,7 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let socket_path = path.to_str().unwrap();
             run_unix_server(socket_path).await?;
         },
-        "--process_dirs" => {
+        "--process-dirs" => {
 
             if args.len() < 3 {
                 println!("Bad arguments");
@@ -108,7 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let end = start.elapsed();
             println!("All tests processed in {:?}", end);
         },
-        "--process_traces" => {
+        "--process-traces" => {
 
             if args.len() != 3 {
                 println!("Bad arguments");
@@ -119,7 +119,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let end = start.elapsed();
             println!("All tests processed in {:?}", end);
         },
-        "--process_trace" => {
+        "--process-trace" => {
 
             if args.len() != 3 {
                 println!("Bad arguments");
@@ -129,7 +129,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             vinwolf_target::process_trace(&PathBuf::from(&args[2]));
             let end = start.elapsed();
             println!("All tests processed in {:?}", end);
-        } 
+        }
+        "--speed-test" => {
+
+            if args.len() != 3 {
+                println!("Bad arguments");
+                return Ok(());
+            }
+            let start = std::time::Instant::now();
+            for _ in 0..50 {
+                let _ = vinwolf_target::process_all_bins(&PathBuf::from(&args[2]));
+            }
+            let end = start.elapsed();
+            println!("All tests processed in {:?}", end);
+        },
         _ => {
             println!("Error: Unknown argument '{}'", args[1]);
             print_help();
