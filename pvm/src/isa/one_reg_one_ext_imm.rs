@@ -17,6 +17,7 @@ fn get_imm(pc: &RegSize, program: &Program) -> RegSize {
     decode::<RegSize>(&program.code[start..end], 8)
 }
 
+#[inline(always)]
 pub fn load_imm_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let reg_a = get_reg(pc, program);
     let value = get_imm(pc, program);

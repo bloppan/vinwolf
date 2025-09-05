@@ -44,26 +44,32 @@ fn branch(
     _branch(pc, program, n)
 }
 
+#[inline(always)]
 pub fn branch_eq(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     branch(pc, reg, program, |a, b| a as RegSize == b as RegSize)
 }
 
+#[inline(always)]
 pub fn branch_ne(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     branch(pc, reg, program, |a, b| a as RegSize != b as RegSize)
 }
 
+#[inline(always)]
 pub fn branch_lt_u(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     branch(pc, reg, program, |a, b| (a as RegSize) < (b as RegSize))
 }
 
+#[inline(always)]
 pub fn branch_lt_s(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     branch(pc, reg, program, |a, b| signed(a, 8) < signed(b, 8))
 }
 
+#[inline(always)]
 pub fn branch_ge_u(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     branch(pc, reg, program, |a, b| a as RegSize >= b as RegSize)
 }
 
+#[inline(always)]
 pub fn branch_ge_s(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     branch(pc, reg, program, |a, b| signed(a, 8) >= signed(b, 8))
 }

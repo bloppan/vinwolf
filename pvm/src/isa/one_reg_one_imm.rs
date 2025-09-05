@@ -22,6 +22,7 @@ fn get_x_imm(pc: &RegSize, program: &Program) -> RegSize {
     extend_sign(&program.code[start..end], n) as RegSize
 }
 
+#[inline(always)]
 pub fn jump_ind(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let reg_a = get_reg(pc, program);
     let value_imm = get_x_imm(pc, program);
@@ -30,6 +31,7 @@ pub fn jump_ind(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     djump(&a, pc, program)
 }
 
+#[inline(always)]
 pub fn load_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers)-> ExitReason {
     let reg_a = get_reg(pc, program);
     let value = get_x_imm(pc, program);
@@ -78,7 +80,6 @@ pub fn store<T>(program: &Program, pc: &mut RegSize, ram: &mut RamMemory, reg: &
     let value = ((reg[reg_a as usize] as u128) % (1 << (std::mem::size_of::<T>() * 8))) as RegSize;
     _store::<T>( program, pc, ram, address, value)
 }
-
 
 pub fn store_u8(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     store::<u8>(program, pc, ram, reg)

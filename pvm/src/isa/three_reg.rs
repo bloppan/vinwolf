@@ -6,6 +6,7 @@ use crate::pvm_types::{RamMemory, Registers, Gas, ExitReason, Program, RegSize};
 use crate::isa::{extend_sign, signed, unsigned};
 use crate::isa::skip;
 
+#[inline(always)]
 fn get_reg(pc: &u64, program: &Program) -> (usize, usize, usize) {
     let reg_a = std::cmp::min(12, program.code[*pc as usize + 1] % 16) as usize;
     let reg_b = std::cmp::min(12, program.code[*pc as usize + 1] >> 4) as usize;
@@ -13,6 +14,7 @@ fn get_reg(pc: &u64, program: &Program) -> (usize, usize, usize) {
     (reg_a, reg_b, reg_d)
 }
 
+#[inline(always)]
 pub fn add_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let result = (reg[reg_a].wrapping_add(reg[reg_b]) % (1 << 32)) as u32;
@@ -21,6 +23,7 @@ pub fn add_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut Ra
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn sub_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let result = (reg[reg_a as usize].wrapping_add(1 << 32).wrapping_sub(reg[reg_b as usize] % (1 << 32)) % (1 << 32)) as u32;
@@ -29,6 +32,7 @@ pub fn sub_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut Ra
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn mul_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let result = reg[reg_a as usize].wrapping_mul(reg[reg_b as usize] % (1 << 32)) as u32;
@@ -37,6 +41,7 @@ pub fn mul_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut Ra
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn div_u_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
 
@@ -52,6 +57,7 @@ pub fn div_u_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     return ExitReason::Continue;
 }
 
+#[inline(always)]
 pub fn div_s_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let a = signed(reg[reg_a as usize] % (1 << 32), 4);
@@ -67,6 +73,7 @@ pub fn div_s_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn rem_u_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
 
@@ -83,6 +90,7 @@ pub fn rem_u_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn rem_s_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let a = signed(reg[reg_a as usize] % (1 << 32), 4);
@@ -98,6 +106,7 @@ pub fn rem_s_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn shlo_l_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let value_reg_a = (reg[reg_a as usize] % (1 << 32)) as u64;
@@ -108,6 +117,7 @@ pub fn shlo_l_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn shlo_r_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let value_reg_a = reg[reg_a as usize] % (1 << 32);
@@ -117,6 +127,7 @@ pub fn shlo_r_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn shar_r_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let value_reg_a = (reg[reg_a as usize] % (1 << 32)) as u32;
@@ -126,6 +137,7 @@ pub fn shar_r_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn add_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     reg[reg_d] = reg[reg_a].wrapping_add(reg[reg_b]) as u64;
@@ -133,6 +145,7 @@ pub fn add_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut Ra
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn sub_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     reg[reg_d as usize] = ((reg[reg_a as usize] as u128).wrapping_add(1 << 64).wrapping_sub(reg[reg_b as usize] as u128) % (1 << 64)) as u64;
@@ -140,6 +153,7 @@ pub fn sub_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut Ra
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn and(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     reg[reg_d as usize] = reg[reg_a as usize] & reg[reg_b as usize];
@@ -147,6 +161,7 @@ pub fn and(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMe
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn xor(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     reg[reg_d as usize] = reg[reg_a as usize] ^ reg[reg_b as usize];
@@ -154,6 +169,7 @@ pub fn xor(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMe
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn or(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     reg[reg_d as usize] = reg[reg_a as usize] | reg[reg_b as usize];
@@ -161,6 +177,7 @@ pub fn or(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMem
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn mul_upper_s_s(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let a = signed(reg[reg_a as usize], 8) as i128;
@@ -171,6 +188,7 @@ pub fn mul_upper_s_s(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: 
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn mul_upper_u_u(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let a = reg[reg_a as usize] as u128;
@@ -181,6 +199,7 @@ pub fn mul_upper_u_u(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: 
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn mul_upper_s_u(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let a = signed(reg[reg_a as usize], 8) as i128;
@@ -191,6 +210,7 @@ pub fn mul_upper_s_u(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: 
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn mul_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     reg[reg_d as usize] = reg[reg_a as usize].wrapping_mul(reg[reg_b as usize]) as u64;
@@ -198,6 +218,7 @@ pub fn mul_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut Ra
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn div_u_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     if reg[reg_b as usize] == 0 {
@@ -209,6 +230,7 @@ pub fn div_u_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn div_s_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let a = signed(reg[reg_a as usize], 8);
@@ -224,6 +246,7 @@ pub fn div_s_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn rem_u_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
 
@@ -240,6 +263,7 @@ pub fn rem_u_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn rem_s_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let value_reg_a = reg[reg_a as usize] as RegSize;
@@ -258,6 +282,7 @@ pub fn rem_s_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn shlo_l_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let value_reg_a = reg[reg_a as usize] as u128;
@@ -267,6 +292,7 @@ pub fn shlo_l_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn shlo_r_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let value_reg_a = reg[reg_a as usize] as u64;
@@ -276,6 +302,7 @@ pub fn shlo_r_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn shar_r_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let value_reg_a = reg[reg_a as usize] as u64;
@@ -285,6 +312,7 @@ pub fn shar_r_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn set_lt_u(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     if reg[reg_a as usize] < reg[reg_b as usize] {
@@ -297,6 +325,7 @@ pub fn set_lt_u(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     return ExitReason::Continue;
 }
 
+#[inline(always)]
 pub fn set_lt_s(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     
@@ -311,6 +340,7 @@ pub fn set_lt_s(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     return ExitReason::Continue;
 }
 
+#[inline(always)]
 pub fn cmov_iz(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     if reg[reg_b as usize] == 0 {
@@ -320,6 +350,7 @@ pub fn cmov_iz(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut R
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn cmov_nz(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     if reg[reg_b as usize] != 0 {
@@ -329,6 +360,7 @@ pub fn cmov_nz(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut R
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn rot_l_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let value_reg_a = reg[reg_a as usize] as u128;
@@ -343,6 +375,7 @@ pub fn rot_l_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn rot_l_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, &program);
     let value_reg_a = reg[reg_a as usize] as u32;
@@ -357,6 +390,7 @@ pub fn rot_l_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn rot_r_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, &program);
     let value_reg_a = reg[reg_a as usize] as u64;
@@ -371,6 +405,7 @@ pub fn rot_r_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn rot_r_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, &program);
     let value_reg_a = reg[reg_a as usize] as u32;
@@ -385,6 +420,7 @@ pub fn rot_r_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn and_inv(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     reg[reg_d as usize] = reg[reg_a as usize] & !reg[reg_b as usize];
@@ -392,6 +428,7 @@ pub fn and_inv(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut R
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn or_inv(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     reg[reg_d as usize] = reg[reg_a as usize] | !reg[reg_b as usize];
@@ -399,6 +436,7 @@ pub fn or_inv(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut Ra
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn xnor(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, &program);
     reg[reg_d as usize] = !(reg[reg_a as usize] ^ reg[reg_b as usize]);
@@ -406,6 +444,7 @@ pub fn xnor(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamM
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn max(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let a = signed(reg[reg_a as usize], 8);
@@ -415,6 +454,7 @@ pub fn max(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMe
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn max_u(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     reg[reg_d as usize] = std::cmp::max(reg[reg_a as usize], reg[reg_b as usize]);
@@ -422,6 +462,7 @@ pub fn max_u(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut Ram
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn min(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let a = signed(reg[reg_a as usize], 8);
@@ -431,6 +472,7 @@ pub fn min(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMe
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn min_u(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     reg[reg_d as usize] = std::cmp::min(reg[reg_a as usize], reg[reg_b as usize]);

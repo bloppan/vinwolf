@@ -34,7 +34,7 @@ fn get_y_value(pc: &RegSize, program: &Program) -> u64 {
     extend_sign(&program.code[start..end], get_y_length(pc, program) as usize)
 }
 
-
+#[inline(always)]
 pub fn load_imm_jump_ind(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b) = get_reg(pc, program);
     let vx = get_x_value(pc, program);

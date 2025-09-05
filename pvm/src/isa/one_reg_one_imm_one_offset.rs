@@ -52,6 +52,7 @@ fn branch(
     _branch(pc, program, n as RegSigned)
 }
 
+#[inline(always)]
 pub fn load_imm_jump(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let reg_a = get_reg(pc, program);
     let vx = get_x_value(pc, program);
@@ -61,42 +62,52 @@ pub fn load_imm_jump(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: 
     return exit_reason;
 }
 
+#[inline(always)]
 pub fn branch_eq_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     branch(pc, reg, program, |a, b| a as RegSize == b as RegSize)
 }
 
+#[inline(always)]
 pub fn branch_ne_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     branch(pc, reg, program, |a, b| a as RegSize != b as RegSize)
 }
 
+#[inline(always)]
 pub fn branch_lt_u_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     branch(pc, reg, program, |a, b| (a as RegSize) < (b as RegSize))
 }
 
+#[inline(always)]
 pub fn branch_le_u_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     branch(pc, reg, program, |a, b| a as RegSize <= b as RegSize)
 }
 
+#[inline(always)]
 pub fn branch_ge_u_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     branch(pc, reg, program, |a, b| a as RegSize >= b as RegSize) 
 }
 
+#[inline(always)]
 pub fn branch_gt_u_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     branch(pc, reg, program, |a, b| a as RegSize > b as RegSize)
 }
 
+#[inline(always)]
 pub fn branch_lt_s_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     branch(pc, reg, program, |a, b| signed(a, 8) < signed(b, 8))
 }
 
+#[inline(always)]
 pub fn branch_le_s_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     branch(pc, reg, program, |a, b| signed(a, 8) <= signed(b, 8))
 }
 
+#[inline(always)]
 pub fn branch_ge_s_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     branch(pc, reg, program, |a, b| signed(a, 8) >= signed(b, 8))
 }
 
+#[inline(always)]
 pub fn branch_gt_s_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     branch(pc, reg, program, |a, b| signed(a, 8) > signed(b, 8))
 }

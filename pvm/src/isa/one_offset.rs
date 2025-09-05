@@ -21,6 +21,7 @@ fn get_lx_imm(pc: &u64, program: &Program) -> i64 {
     signed(value, lx) + *pc as i64
 }
 
+#[inline(always)]
 pub fn jump(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, _reg: &mut Registers) -> ExitReason {
     let value_x = get_lx_imm(pc, program);
     _branch(pc, program, value_x)

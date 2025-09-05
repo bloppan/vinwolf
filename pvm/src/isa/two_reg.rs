@@ -15,6 +15,7 @@ fn get_reg(pc: &u64, code: &[u8]) -> (u8, u8) {
     (reg_a, reg_d)
 }
 
+#[inline(always)]
 pub fn move_reg(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_d) = get_reg(pc, &program.code);
     reg[reg_d as usize] = reg[reg_a as usize];
@@ -50,6 +51,7 @@ pub fn sbrk(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMe
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn count_set_bits_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_d) = get_reg(pc, &program.code);
     reg[reg_d as usize] = reg[reg_a as usize].count_ones() as RegSize;
@@ -57,6 +59,7 @@ pub fn count_set_bits_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _r
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn count_set_bits_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_d) = get_reg(pc, &program.code);
     reg[reg_d as usize] = (reg[reg_a as usize] as u32).count_ones() as RegSize;
@@ -64,6 +67,7 @@ pub fn count_set_bits_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _r
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn leading_zero_bits_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_d) = get_reg(pc, &program.code);
     reg[reg_d as usize] = reg[reg_a as usize].leading_zeros() as RegSize;
@@ -71,6 +75,7 @@ pub fn leading_zero_bits_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas,
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn leading_zero_bits_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_d) = get_reg(pc, &program.code);
     reg[reg_d as usize] = (reg[reg_a as usize] as u32).leading_zeros() as RegSize;
@@ -78,6 +83,7 @@ pub fn leading_zero_bits_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas,
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn trailing_zero_bits_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_d) = get_reg(pc, &program.code);
     reg[reg_d as usize] = reg[reg_a as usize].trailing_zeros() as RegSize;
@@ -85,6 +91,7 @@ pub fn trailing_zero_bits_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn trailing_zero_bits_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_d) = get_reg(pc, &program.code);
     reg[reg_d as usize] = (reg[reg_a as usize] as u32).trailing_zeros() as RegSize;
@@ -92,6 +99,7 @@ pub fn trailing_zero_bits_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn sign_extend_8(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_d) = get_reg(pc, &program.code);
     reg[reg_d as usize] = unsigned(signed((reg[reg_a as usize] as u8) as u64, 1), 8) as RegSize;
@@ -99,6 +107,7 @@ pub fn sign_extend_8(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: 
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn sign_extend_16(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_d) = get_reg(pc, &program.code);
     reg[reg_d as usize] = unsigned(signed((reg[reg_a as usize] as u16) as u64, 2), 8) as RegSize;
@@ -106,6 +115,7 @@ pub fn sign_extend_16(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram:
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn zero_extend_16(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_d) = get_reg(pc, &program.code);
     reg[reg_d as usize] = (reg[reg_a as usize] as u16) as RegSize;
@@ -113,6 +123,7 @@ pub fn zero_extend_16(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram:
     ExitReason::Continue
 }
 
+#[inline(always)]
 pub fn reverse_bytes(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_d) = get_reg(pc, &program.code);
     reg[reg_d as usize] = reg[reg_a as usize].swap_bytes();

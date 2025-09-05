@@ -17,6 +17,7 @@ fn get_imm(pc: &RegSize, program: &Program) -> RegSize {
      min(4, max(0, skip(pc, &program.bitmask)))
  }
  
+ #[inline(always)]
  pub fn ecalli(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, _reg: &mut Registers) -> ExitReason {
      let value_imm = get_imm(&pc, program) as u8;
      *pc += skip(&pc, &program.bitmask) + 1;
