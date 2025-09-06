@@ -25,8 +25,20 @@ pub fn parse_trace_file(test_content: &[u8]) -> Result<(GlobalState, Block, Glob
     return Ok((state, block, expected_state));
 }
 
-pub fn process_trace(path: &Path) {
+pub fn parse_genesis_file(test_content: &[u8]) -> Result<(Block, GlobalState), ReadError>{
 
+    let mut reader = BytesReader::new(&test_content);
+    let block = Block::decode(&mut reader).expect("Error decoding the block");
+    let first_state = RawState::decode(&mut reader).expect("Error decoding post state");
+    let mut state = GlobalState::default();
+    parse_state_keyvals(&first_state.keyvals, &mut state).expect("Error decoding post state keyvals");
+    assert_eq!(first_state.state_root.clone(), merkle_state(&serialization::serialize(&state).map, 0));
+
+    return Ok((block, state));
+}
+
+pub fn process_trace(path: &Path) {
+    
     let test_content = utils::common::read_bin_file(&path).expect("Error reading the trace bin file");
     let (pre_state, block, post_state) = parse_trace_file(&test_content).unwrap();
 

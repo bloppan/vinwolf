@@ -12,6 +12,7 @@
 // (a very much unexpected eventuality).The epoch marker is either empty or, if the block is the first in a new epoch, then a tuple of
 // the epoch randomness and a sequence of Bandersnatch keys defining the Bandersnatch validator keys (kb) beginning in the next epoch.
 
+use {once_cell::sync::Lazy, std::sync::Mutex};
 use std::collections::HashSet;
 use state_handler::get_state_root;
 use utils::bandersnatch::Verifier;
@@ -23,6 +24,18 @@ use jam_types::{
 };
 use codec::{Encode, EncodeLen, EncodeSize};
 use codec::generic_codec::encode_unsigned;
+
+static PARENT_HEADER: Lazy<Mutex<OpaqueHash>> = Lazy::new(|| {
+    Mutex::new(OpaqueHash::default())
+});
+
+fn get_parent_header() -> OpaqueHash {
+    *PARENT_HEADER.lock().unwrap()
+}
+
+pub fn set_parent_header(parent_header: OpaqueHash) {
+    *PARENT_HEADER.lock().unwrap() = parent_header;
+}
 
 // Sealing using the ticket is of greater security, and we utilize this knowledge when determining a candidate block
 // on which to extend the chain.
@@ -126,10 +139,12 @@ pub fn seal_verify(
 pub fn epoch_mark_verify(header: &Header, entropy_pool: &EntropyPool) -> Result<(), ProcessError> {
 
     if header.unsigned.epoch_mark.as_ref().unwrap().entropy != entropy_pool.buf[0] {
+        log::error!("Entropy epoch mark doesn't match with η0");
         return Err(ProcessError::SafroleError(SafroleErrorCode::WrongEpochMark));
     }
 
     if header.unsigned.epoch_mark.as_ref().unwrap().tickets_entropy != entropy_pool.buf[1] {
+        log::error!("Tickets entropy doesn't match with η1");
         return Err(ProcessError::SafroleError(SafroleErrorCode::WrongEpochMark));
     }
 
@@ -138,6 +153,7 @@ pub fn epoch_mark_verify(header: &Header, entropy_pool: &EntropyPool) -> Result<
     let _ = next_validators.list.iter().enumerate().map(|v| {
         if v.1.bandersnatch != header.unsigned.epoch_mark.as_ref().unwrap().validators[v.0].0 
         || v.1.ed25519 != header.unsigned.epoch_mark.as_ref().unwrap().validators[v.0].1 {
+            log::error!("Pending validators index {:?} doesn't match with the ones in the epoch mark", v.0);
             return Err(ProcessError::SafroleError(SafroleErrorCode::WrongEpochMark));
         } else {
             Ok(())
@@ -153,7 +169,14 @@ pub fn verify(block: &Block) -> Result<(), ProcessError> {
     extrinsic_verify(&block)?;
     validator_index_verify(&block.header)?;
     offenders_verify(&block)?;
-    state_root_verify(&block.header)?;
+    // Check if the current block is the parent of the last block (the slot difference must be 1)
+    if (block.header.unsigned.slot).saturating_sub(state_handler::time::get()) == 1 {
+        // If the slot difference is not 1, then don't check the parent state root
+        state_root_verify(&block.header)?;
+        // And the parent header
+        parent_header_verify(&block.header)?;
+    }
+    
     log::debug!("Header verified successfully");
     return Ok(());
 }
@@ -174,7 +197,6 @@ fn tickets_verify(header: &Header) -> Result<(), ProcessError> {
 }
 
 pub fn offenders_verify(block: &Block) -> Result<(), ProcessError> {
-    
     
     let mut extrinsic_offenders: HashSet<Ed25519Public> = HashSet::new();
 
@@ -198,13 +220,20 @@ pub fn offenders_verify(block: &Block) -> Result<(), ProcessError> {
     return Ok(());
 }
 
-pub fn state_root_verify(header: &Header) -> Result<(), ProcessError> {
+fn parent_header_verify(header: &Header) -> Result<(), ProcessError> {
 
-    // Check if the current block is the parent of the last block (the slot difference must be 1)
-    if (header.unsigned.slot).saturating_sub(state_handler::time::get()) != 1 {
-        // If the slot difference is not 1, then don't check the parent state root
-        return Ok(());
+    let parent_header = get_parent_header();
+
+    if header.unsigned.slot > 1 && parent_header != [0u8; 32] { // TODO. For now skip the first block and ensure that PARENT_HEADER has been set ever
+        if parent_header != header.unsigned.parent {
+            return Err(ProcessError::HeaderError(HeaderErrorCode::BadParentHeader));
+        }
     }
+
+    return Ok(());
+}
+
+pub fn state_root_verify(header: &Header) -> Result<(), ProcessError> {
 
     let parent_state_root = get_state_root().lock().unwrap();
 

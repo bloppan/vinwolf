@@ -109,10 +109,8 @@ mod tests {
     fn run_fallback_traces_tests() {
         dotenv().ok();
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
-        let start = std::time::Instant::now();
         let dir_base = Path::new(TRACES_DIR).join("fallback");
         run_traces(&dir_base);
-        
     }
 
     #[test]

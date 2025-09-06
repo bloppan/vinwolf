@@ -116,6 +116,7 @@ pub fn process(
         // If the block is the first in a new epoch, then a tuple of the next and current epoch randomness, along with a sequence of a tuples 
         // containing both Bandersnatch keys and Ed25519 keys for each validator defining the validator keys beginning in the next epoch
         if post_m == 0 && block.header.unsigned.epoch_mark.is_none() {
+            log::error!("Empty epoch mark");
             return Err(ProcessError::SafroleError(SafroleErrorCode::EmptyEpochMark));
         }
         header::epoch_mark_verify(&block.header, entropy_pool)?;
