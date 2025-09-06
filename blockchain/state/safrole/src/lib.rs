@@ -113,6 +113,12 @@ pub fn process(
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
         log::debug!("We are in a new epoch: {:?}", post_epoch);
+        // If the block is the first in a new epoch, then a tuple of the next and current epoch randomness, along with a sequence of a tuples 
+        // containing both Bandersnatch keys and Ed25519 keys for each validator defining the validator keys beginning in the next epoch
+        if post_m == 0 && block.header.unsigned.epoch_mark.is_none() {
+            return Err(ProcessError::SafroleError(SafroleErrorCode::EmptyEpochMark));
+        }
+        header::epoch_mark_verify(&block.header, entropy_pool)?;
         // On an epoch transition, we therefore rotate the accumulator value into the history eta1, eta2 eta3
         entropy::rotate_pool(entropy_pool);
         // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated

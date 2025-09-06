@@ -23,7 +23,7 @@ pub static VINWOLF_INFO: Lazy<PeerInfo> = Lazy::new(|| {
         app_version: Version {
             major: 0,
             minor: 2,
-            patch: 7,
+            patch: 8,
         },
         jam_version: Version {
             major: 0,

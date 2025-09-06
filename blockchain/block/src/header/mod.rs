@@ -18,7 +18,8 @@ use utils::bandersnatch::Verifier;
 
 use constants::node::{EPOCH_LENGTH, VALIDATORS_COUNT, TICKET_ENTRIES_PER_VALIDATOR};
 use jam_types::{
-    EntropyPool, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, TicketsOrKeys, TimeSlot, ValidatorsData, Header, Block, Ed25519Public
+    EntropyPool, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, TicketsOrKeys, TimeSlot, ValidatorsData, Header, Block, Ed25519Public,
+    ValidatorSet
 };
 use codec::{Encode, EncodeLen, EncodeSize};
 use codec::generic_codec::encode_unsigned;
@@ -120,6 +121,30 @@ pub fn seal_verify(
 
     log::debug!("Seal header verified successfully. vrf output: 0x{}", utils::print_hash!(entropy_source_vrf_output));
     Ok(entropy_source_vrf_output)
+}
+
+pub fn epoch_mark_verify(header: &Header, entropy_pool: &EntropyPool) -> Result<(), ProcessError> {
+
+    if header.unsigned.epoch_mark.as_ref().unwrap().entropy != entropy_pool.buf[0] {
+        return Err(ProcessError::SafroleError(SafroleErrorCode::WrongEpochMark));
+    }
+
+    if header.unsigned.epoch_mark.as_ref().unwrap().tickets_entropy != entropy_pool.buf[1] {
+        return Err(ProcessError::SafroleError(SafroleErrorCode::WrongEpochMark));
+    }
+
+    let next_validators = state_handler::validators::get(ValidatorSet::Next);
+
+    let _ = next_validators.list.iter().enumerate().map(|v| {
+        if v.1.bandersnatch != header.unsigned.epoch_mark.as_ref().unwrap().validators[v.0].0 
+        || v.1.ed25519 != header.unsigned.epoch_mark.as_ref().unwrap().validators[v.0].1 {
+            return Err(ProcessError::SafroleError(SafroleErrorCode::WrongEpochMark));
+        } else {
+            Ok(())
+        } 
+    });
+
+    return Ok(())
 }
 
 pub fn verify(block: &Block) -> Result<(), ProcessError> {
