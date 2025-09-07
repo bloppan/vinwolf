@@ -22,8 +22,7 @@ fn print_help() {
     println!();
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let vinwolf_info = &*VINWOLF_INFO;
 
@@ -72,7 +71,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             
             let socket_path = path.to_str().unwrap();
 
-            run_fuzzer(socket_path).await?;
+            let result = run_fuzzer(socket_path);
+
+            println!("End target: {:?}", result);
         }
         "--fuzz" => {
 
@@ -86,7 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let _ = std::fs::remove_file(path.clone());
             
             let socket_path = path.to_str().unwrap();
-            run_unix_server(socket_path).await?;
+            let _ = run_unix_server(socket_path);
         },
         "--process-dirs" => {
 

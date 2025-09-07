@@ -9,9 +9,10 @@ use state_handler::set_global_state;
 use safrole::{set_verifiers, create_ring_set};
 use utils::bandersnatch::Verifier;
 
-use tokio::net::{UnixListener, UnixStream};
-use tokio::io::{AsyncReadExt, AsyncWriteExt}; 
-use bytes::BytesMut;
+use std::io::{Read, Write};
+use std::thread;
+use std::time::Duration;
+use std::os::unix::net::{UnixListener, UnixStream};
 use once_cell::sync::Lazy;
 
 use super::BUILD_PROFILE;
@@ -168,19 +169,19 @@ impl Decode for SetState {
     }
 }
 
-pub async fn connect_to_unix_socket(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn connect_to_unix_socket(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
-    let mut stream = UnixStream::connect(path).await?;
+    let mut stream = UnixStream::connect(path)?;
     // Write
-    stream.write_all(&vec![0, 0]).await?;
-    tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
+    stream.write_all(&vec![0, 0])?;
+    std::thread::sleep(std::time::Duration::from_millis(2000));
     let mut buffer = [0u8; 1024];
     // Read
-    let _n = stream.read(&mut buffer).await?;
+    let _n = stream.read(&mut buffer)?;
     Ok(())
 }
 
-pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     
     let vinwolf_info = &*VINWOLF_INFO;
 
@@ -214,38 +215,47 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                 socket_path);
 
     loop {
-        match listener.accept().await {
+        //println!("waiting for connection");
+        match listener.accept() {
 
             Ok((mut socket, _)) => {
 
                 log::info!("New incomming connection accepted...");
 
                 loop {
-                    let mut buffer = BytesMut::with_capacity(1024);
 
-                    let read_result = socket.read_buf(&mut buffer).await;
-
-                    match read_result {
+                    let mut buffer = vec![0u8; 1024];
+                    match socket.read(&mut buffer) {
                         
                         Ok(0) => {
-                            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                            std::thread::sleep(std::time::Duration::from_millis(200));
+                            //println!("Connection closed");
                             break;
                         }
                         Ok(n) => {
-
+                            //println!("Reading msg......");
                             let mut bytes_read = n;
 
                             while bytes_read < std::mem::size_of::<u32>() {
-
-                                bytes_read += socket.read_buf(&mut buffer).await?;
+                                //println!("reading len");
+                                match socket.read(&mut buffer[bytes_read..]) {
+                                    Ok(n) => bytes_read += n ,
+                                    Err(e) => { break; }
+                                }; 
                             }
 
                             let msg_len = u32::from_le_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]);
 
-                            while bytes_read < 4 + msg_len as usize {
+                            if msg_len > buffer.len() as u32 {
+                                buffer.resize((msg_len + 4) as usize, 0);
+                            }
 
-                                bytes_read += socket.read_buf(&mut buffer).await?;
- 
+                            while bytes_read < 4 + msg_len as usize {
+                                //println!("reading msg");
+                                match socket.read(&mut buffer[bytes_read..]) {
+                                    Ok(n) => bytes_read += n ,
+                                    Err(e) => { break; }
+                                }; 
                             }
 
                             let mut reader = BytesReader::new(&buffer);
@@ -321,9 +331,13 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                         vinwolf_info.encode(),
                                     ].concat();
                                     
-                                    socket.write_all(&msg).await?;                                   
+                                    match socket.write_all(&msg) {
+                                        Ok(_) => {},
+                                        Err(e) => { break; }
+                                    }; 
                                 },
                                 Message::SetState => {
+                                    //println!("SetState frame received");
                                     log::info!("SetState frame received");
                                     
                                     let _header = match Header::decode(&mut reader) {
@@ -331,7 +345,10 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                         Err(error) => {
                                             log::error!("Failed to decode Header: {:?}", error);
                                             let state_root = get_state_root().lock().unwrap().clone();
-                                            socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)).await?;
+                                            match socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)) {
+                                                Ok(_) => {},
+                                                Err(e) => { break; }
+                                            }; 
                                             log::info!("SetState - same state root {}", hex::encode(state_root));
                                             continue;
                                         },
@@ -342,7 +359,10 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                         Err(error) => {
                                             log::error!("Failed to decode the state key-values: {:?}", error);
                                             let state_root = get_state_root().lock().unwrap().clone();
-                                            socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)).await?;
+                                            match socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)) {
+                                                Ok(_) => {},
+                                                Err(e) => { break; }
+                                            };
                                             log::info!("SetState - same state root {}", hex::encode(state_root));
                                             continue;
                                         },
@@ -355,7 +375,10 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                         Err(error) => {
                                             log::error!("Failed to decode state: {:?}", error);
                                             let state_root = get_state_root().lock().unwrap().clone();
-                                            socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)).await?;
+                                            match socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)) {
+                                                Ok(_) => {},
+                                                Err(e) => { break; }
+                                            };
                                             log::info!("SetState - same state root {}", hex::encode(state_root));
                                             continue;
                                         },
@@ -368,12 +391,15 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                     let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
                                     verifiers.push_back(Verifier::new(create_ring_set(&curr_validators)));
                                     verifiers.push_back(Verifier::new(create_ring_set(&pending_validators)));
-                                    
                                     set_verifiers(verifiers);
+                                    block::header::set_parent_header(OpaqueHash::default());
 
                                     let state_root = merkle_state(&utils::serialization::serialize(&global_state).map, 0);
                                     state_handler::set_state_root(state_root.clone());
-                                    socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)).await?;
+                                    match socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)) {
+                                        Ok(_) => {},
+                                        Err(e) => { break; }
+                                    };
                                     log::info!("SetState - state root {}", hex::encode(state_root));
                                 },
                                 Message::ImportBlock => {
@@ -385,7 +411,10 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                         Err(error) => {
                                             log::error!("Failed to decode block: {:?}", error);
                                             let state_root = get_state_root().lock().unwrap().clone();
-                                            socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)).await?;
+                                            match socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)) {
+                                                Ok(_) => {},
+                                                Err(e) => { break; }
+                                            };
                                             log::info!("SetState - same state root {}", hex::encode(state_root));
                                             continue;
                                         },
@@ -396,7 +425,7 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                     
                                     match state_controller::stf(&block) {
                                         Ok(_) => {
-                                            println!("Block {} processed successfully", utils::print_hash!(header_hash));
+                                            //println!("Block {} processed successfully", utils::print_hash!(header_hash));
                                             //log::info!("Block proccessed successfully");
                                         },
                                         Err(error) => {
@@ -406,7 +435,10 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
                                     }
                                     let state_root = get_state_root().lock().unwrap().clone();
                                     log::info!("SetState - state root {}", hex::encode(state_root));
-                                    socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)).await?;
+                                    match socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)) {
+                                        Ok(_) => {},
+                                        Err(e) => { break; }
+                                    };
                                 },
                                 Message::GetState => {
 
@@ -434,22 +466,28 @@ pub async fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error
 
                                     let serialized_state = keyvalues.encode_len();
                                     let state_frame = construct_fuzz_msg(Message::State, &serialized_state);
-                                    socket.write_all(&state_frame).await?;
+                                    match socket.write_all(&state_frame) {
+                                        Ok(_) => {},
+                                        Err(e) => { break; }
+                                    };
                                 },
                                 _ => {
                                     log::error!("Message type not supported: {:?}", msg_type);
-                                    return Err(Box::new(ReadError::InvalidData));
+                                    println!("Message type not supported {:?}", msg_type);
+                                    break;
                                  },
                             };
                         }
                         Err(error) => {
+                            println!("Error reading fuzzer data");
                             log::error!("Error reading fuzzer data: {}", error);
-                            return Err(Box::new(error));
+                            break;
                         }
                     }
                 }
             }
             Err(error) => {
+                println!("Error accepting connection");
                 log::error!("Accepting connection: {}", error);
                 return Err(Box::new(error));
             }
@@ -464,11 +502,11 @@ fn construct_fuzz_msg(msg_type: Message, msg: &[u8]) -> Vec<u8> {
     return buffer;
 }
 
-pub async fn run_fuzzer(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run_fuzzer(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     let vinwolf_info = &*VINWOLF_INFO;
 
-    let mut socket = UnixStream::connect(path).await?;
+    let mut socket = UnixStream::connect(path)?;
 
     let peer_info_len = vinwolf_info.name.len() + 7 + 1; // OJO con esto !!!
 
@@ -478,12 +516,12 @@ pub async fn run_fuzzer(path: &str) -> Result<(), Box<dyn std::error::Error>> {
         vinwolf_info.encode(),
     ].concat();
 
-    socket.write_all(&msg).await?;
+    socket.write_all(&msg)?;
 
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    std::thread::sleep(std::time::Duration::from_millis(500));
     let mut buffer = [0u8; 1024];
     // Read
-    let n = socket.read(&mut buffer).await?;
+    let n = socket.read(&mut buffer)?;
     let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces/TESTING/1755796851/00000015.bin")).unwrap();
     let mut reader = BytesReader::new(&test_content);
     let pre_state_root = OpaqueHash::decode(&mut reader).unwrap();
@@ -509,16 +547,16 @@ pub async fn run_fuzzer(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let set_state_msg = [vec![2], set_state.encode()].concat();
     let msg = [(set_state_msg.len() as u32).encode(), set_state_msg].concat();
 
-    socket.write_all(&msg).await?;
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    socket.write_all(&msg)?;
+    std::thread::sleep(std::time::Duration::from_millis(500));
 
     let import_block_msg = [vec![1], block.encode()].concat();
     let msg = [(import_block_msg.len() as u32).encode(), import_block_msg].concat();
 
-    socket.write_all(&msg).await?;
+    socket.write_all(&msg)?;
 
 
-    tokio::time::sleep(std::time::Duration::from_millis(50000)).await;
+    std::thread::sleep(std::time::Duration::from_millis(50000));
     Ok(())
 }
 
