@@ -13,5 +13,5 @@ jam-types = { workspace = true }
 state-handler = { workspace = true }
 utils = { workspace = true }
 
-ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring"] }
-sp-core = "34.0.0"
+ark-vrf = { workspace = true }
+sp-core = { workspace = true }
