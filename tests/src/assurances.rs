@@ -1,16 +1,16 @@
 #[cfg(test)]
 mod tests {
 
-    use once_cell::sync::Lazy;
+    use std::sync::LazyLock;
     use crate::{codec::tests::{TestBody, encode_decode_test}, FromProcessError, test_types::{InputAssurances, StateAssurances}};
-    use dotenv::dotenv;
     use std::path::Path;
     use constants::node::{CORES_COUNT, VALIDATORS_COUNT};
     use jam_types::{OutputDataAssurances, OutputAssurances, ValidatorSet, ProcessError};
     use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
-
-    static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
+    use utils::log;
+    
+    static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if VALIDATORS_COUNT == 6 && CORES_COUNT == 2 {
             "tiny"
         } else if VALIDATORS_COUNT == 1023 && CORES_COUNT == 341 {
@@ -81,8 +81,10 @@ mod tests {
     #[test]
     fn run_assurances_tests() {
         
-        dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+
         log::info!("Assurances tests in {} mode", *TEST_TYPE);
 
         let test_files = vec![

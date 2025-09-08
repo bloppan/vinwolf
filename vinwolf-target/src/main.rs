@@ -9,8 +9,6 @@ use fuzz::*;
 use fuzz::VINWOLF_INFO;
 use constants::BUILD_PROFILE;
 
-use dotenv::dotenv;
-
 fn print_help() {    
     println!("vinwolf-target mode {}", BUILD_PROFILE);
     println!();

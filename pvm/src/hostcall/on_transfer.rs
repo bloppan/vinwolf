@@ -1,20 +1,20 @@
-use {once_cell::sync::Lazy, std::sync::Mutex};
+use std::sync::{LazyLock, Mutex};
 
 use jam_types::{Account, DeferredTransfer, Gas, Balance, ServiceId, TimeSlot, ServiceAccounts, StateKeyType};
 use crate::pvm_types::{ExitReason, HostCallFn, RamMemory, Registers};
 use constants::pvm::WHAT;
 use constants::node::MAX_SERVICE_CODE_SIZE;
-use utils::common::decode_preimage;
+use utils::{common::decode_preimage, hex, log};
 use utils::serialization::{StateKeyTrait, construct_preimage_key};
 use codec::generic_codec::encode_unsigned;
 use super::general_fn::{write, info, read, lookup};
 use crate::hostcall::{hostcall_argument, HostCallContext};
 
-static SERVICE_ACCOUNTS: Lazy<Mutex<ServiceAccounts>> = Lazy::new(|| {
+static SERVICE_ACCOUNTS: LazyLock<Mutex<ServiceAccounts>> = LazyLock::new(|| {
     Mutex::new(ServiceAccounts::default())
 });
 
-static SERVICE_ID: Lazy<Mutex<ServiceId>> = Lazy::new(|| {
+static SERVICE_ID: LazyLock<Mutex<ServiceId>> = LazyLock::new(|| {
     Mutex::new(ServiceId::default())
 });
 

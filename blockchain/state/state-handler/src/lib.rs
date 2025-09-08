@@ -1,4 +1,4 @@
-use {once_cell::sync::Lazy, std::sync::Mutex};
+use {std::sync::LazyLock, std::sync::Mutex};
 
 use jam_types::{
     AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, RecentBlocks, DisputesRecords, EntropyPool, GlobalState, CoreIndex,
@@ -7,11 +7,11 @@ use jam_types::{
 };
 use codec::Encode;
 
-static GLOBAL_STATE: Lazy<Mutex<GlobalState>> = Lazy::new(|| {
+static GLOBAL_STATE: LazyLock<Mutex<GlobalState>> = LazyLock::new(|| {
     Mutex::new(GlobalState::default())
 });
 
-static STATE_ROOT: Lazy<Mutex<OpaqueHash>> = Lazy::new(|| {
+static STATE_ROOT: LazyLock<Mutex<OpaqueHash>> = LazyLock::new(|| {
     Mutex::new(OpaqueHash::default())
 });
 
@@ -30,7 +30,7 @@ pub fn get_state_root() -> &'static Mutex<OpaqueHash> {
     &STATE_ROOT
 }
 
-static CURRENT_SLOT: Lazy<Mutex<TimeSlot>> = Lazy::new(|| {
+static CURRENT_SLOT: LazyLock<Mutex<TimeSlot>> = LazyLock::new(|| {
     Mutex::new(TimeSlot::default())
 });
 
@@ -52,7 +52,7 @@ pub mod time {
     }
 }
 
-static RECENT_ENTROPY: Lazy<Mutex<OpaqueHash>> = Lazy::new(|| {
+static RECENT_ENTROPY: LazyLock<Mutex<OpaqueHash>> = LazyLock::new(|| {
     Mutex::new(OpaqueHash::default())
 });
 
@@ -74,7 +74,7 @@ pub mod entropy {
     }
 }
 
-static CURR_BLOCK_HISTORY: Lazy<Mutex<RecentBlocks>> = Lazy::new(|| {
+static CURR_BLOCK_HISTORY: LazyLock<Mutex<RecentBlocks>> = LazyLock::new(|| {
     Mutex::new(RecentBlocks::default())
 });
 

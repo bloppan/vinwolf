@@ -14,7 +14,7 @@ use jam_types::{
     ReportedPackage, WorkResult
 };
 use constants::node::{ EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR };
-use utils::{shuffle::shuffle, common::{VerifySignature, set_offenders_null}};
+use utils::{shuffle::shuffle, common::{VerifySignature, set_offenders_null}, log};
 use utils::common::is_sorted_and_unique;
 use codec::Encode;
 

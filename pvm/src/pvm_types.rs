@@ -1,5 +1,4 @@
 use std::collections::{HashSet, HashMap};
-use serde::Deserialize;
 
 use constants::pvm::{NUM_REG, PAGE_SIZE, NUM_PAGES};
 use jam_types::ReadError;
@@ -45,7 +44,7 @@ pub enum RamAccess {
     Read,
     Write,
 }
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Program {
     pub code: Vec<u8>,          // Instruction data (c)
     pub bitmask: Vec<bool>,     // Bitmask (k)
@@ -116,7 +115,7 @@ impl TryFrom<u8> for HostCallFn {
 // ----------------------------------------------------------------------------------------------------------
 // Host Call
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Deserialize, Eq, Debug, Clone, PartialEq)]
+#[derive(Eq, Debug, Clone, PartialEq)]
 pub enum HostCallFn {
     Gas = 0,
     Fetch = 1,
@@ -149,7 +148,7 @@ pub enum HostCallFn {
     Unknown,
 }
 
-#[derive(Deserialize, Eq, Debug, Clone, PartialEq)]
+#[derive(Eq, Debug, Clone, PartialEq)]
 pub enum HostCallError {
     InvalidContext,
     InvalidHostCall,
@@ -157,7 +156,7 @@ pub enum HostCallError {
 
 #[allow(unreachable_patterns)]
 #[allow(non_snake_case)]
-#[derive(Deserialize, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ExitReason {
     #[allow(non_camel_case_types)]
     trap,
@@ -165,13 +164,11 @@ pub enum ExitReason {
     halt,
     Continue,
     Branch,
-    #[serde(rename = "halt")]
     Halt,
     #[allow(non_camel_case_types)]
     panic,
     OutOfGas,
     #[allow(non_camel_case_types)]
-    #[serde(rename = "page-fault")]
     page_fault,
     PageFault(u32),     
     HostCall(HostCallFn),      

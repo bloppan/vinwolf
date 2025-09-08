@@ -7,10 +7,10 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
+block = { workspace = true }
+codec = { workspace = true }
 constants = { workspace = true }
 jam-types = { workspace = true }
-codec = { workspace = true }
 utils = { workspace = true }
-block = { workspace = true }
-once_cell = { workspace = true }
+
 sp-core = "34.0.0"

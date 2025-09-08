@@ -3,6 +3,7 @@ use crate::pvm_types::{Context, RamAccess, RamAddress, RegSize};
 use constants::pvm::{LOWEST_ACCESIBLE_PAGE, JUMP_ALIGNMENT, PAGE_SIZE};
 use codec::{EncodeSize, FromLeBytes};
 use codec::generic_codec::decode;
+use utils::log;
 
 pub mod no_arg;
 pub mod one_imm;

@@ -23,7 +23,7 @@ use jam_types::{
     ValidatorsData, WorkPackageHash, WorkReport
 };
 use codec::{Encode, EncodeLen};
-use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
+use utils::{serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key}, hex, log};
 use pvm::hostcall::accumulate::invoke_accumulation;
 use pvm::hostcall::on_transfer::invoke_on_transfer;
 

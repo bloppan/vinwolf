@@ -1,5 +1,6 @@
 use std::collections::{HashSet, HashMap};
 use std::hash::Hash;
+use super::log;
 use sp_core::{ed25519, Pair};
 use std::path::Path;
 use std::fs::File;

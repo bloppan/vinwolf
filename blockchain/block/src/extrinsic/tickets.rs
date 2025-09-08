@@ -14,7 +14,7 @@ use std::sync::mpsc;
 use constants::node::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR};
 use jam_types::{EntropyPool, OpaqueHash, Safrole, SafroleErrorCode, TicketBody, TimeSlot, Ticket, ProcessError};
 use codec::Encode;
-use utils::common::{has_duplicates, bad_order};
+use utils::{common::{has_duplicates, bad_order}, log};
 
 pub fn process(
     tickets_extrinsic: &[Ticket],

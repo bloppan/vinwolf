@@ -3,6 +3,10 @@ pub mod shuffle;
 pub mod trie;
 pub mod bandersnatch;
 pub mod serialization;
+pub mod hex;
+pub mod serde;
+pub mod json;
+pub mod log;
 
 #[macro_export] macro_rules! print_hash {
     ($hash:expr) => {{

@@ -1,7 +1,7 @@
-use core::time;
+use utils::hex;
 use std::collections::HashMap;
 use sp_core::blake2_256;
-use {once_cell::sync::Lazy, std::sync::Mutex};
+use std::sync::{LazyLock, Mutex};
 
 use jam_types::{
     Account, AccumulationContext, AccumulationOperand, AccumulationPartialState, CoreIndex, DeferredTransfer, Gas, OpaqueHash, ServiceAssigns, 
@@ -13,14 +13,14 @@ use constants::pvm::*;
 use constants::node::{
     CORES_COUNT, MAX_ITEMS_AUTHORIZATION_QUEUE, MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE, TRANSFER_MEMO_SIZE, VALIDATORS_COUNT, MAX_SERVICE_CODE_SIZE
 };
-use utils::common::parse_preimage;
+use utils::{{common::parse_preimage}, log};
 use crate::hostcall::{hostcall_argument, HostCallContext};
 use codec::{BytesReader, DecodeLen, DecodeSize, Encode, EncodeLen, EncodeSize};
 use codec::generic_codec::{encode_unsigned, decode};
 use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 use crate::hostcall::general_fn::{fetch, write, info, read, lookup, log};
 
-static OPERANDS: Lazy<Mutex<Vec<AccumulationOperand>>> = Lazy::new(|| {
+static OPERANDS: LazyLock<Mutex<Vec<AccumulationOperand>>> = LazyLock::new(|| {
     Mutex::new(Vec::new())
 });
 

@@ -7,9 +7,9 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
+block = { workspace = true }
 constants = { workspace = true }
 jam-types = { workspace = true }
-utils = { workspace = true }
 state-handler = { workspace = true }
-block = { workspace = true }
-log = { workspace = true }
+utils = { workspace = true }
+

@@ -9,7 +9,7 @@ mod tests {
     use std::collections::HashMap;
     use std::convert::TryInto;
     use serde::de::{self, Deserializer};
-    use utils::trie::merkle;
+    use utils::{trie::merkle, hex};
 
     #[derive(Debug, Deserialize)]
     struct Entry {
@@ -31,11 +31,11 @@ mod tests {
         let mut result = HashMap::new();
 
         for (key_hex, value_hex) in map {
-            let key_bytes = hex::decode(key_hex).map_err(de::Error::custom)?;
+            let key_bytes = hex::decode(key_hex).unwrap();
             let value_bytes = if value_hex.is_empty() {
                 Vec::new()  // If the value is empty then represent it as empty Vec<u8>
             } else {
-                hex::decode(value_hex).map_err(de::Error::custom)?  // Convert hex value to Vec<u8>
+                hex::decode(value_hex).unwrap()  // Convert hex value to Vec<u8>
             };
             result.insert(key_bytes, value_bytes);
         }
@@ -49,7 +49,7 @@ mod tests {
     {
         let hex_str: String = String::deserialize(deserializer)?;
         let output_bytes = hex::decode(&hex_str)
-            .map_err(de::Error::custom)?
+            .unwrap()
             .try_into()
             .map_err(|_| de::Error::custom("Output must be 32 bytes long"))?;
         Ok(output_bytes)
@@ -66,8 +66,6 @@ mod tests {
 
         key1.copy_from_slice(&key_vec1);
         key2.copy_from_slice(&key_vec2);
-        
-        
     }
 
     #[test]

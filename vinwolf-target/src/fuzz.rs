@@ -4,7 +4,7 @@ use jam_types::{Block, OpaqueHash, KeyValue, Header, GlobalState, ReadError};
 use state_handler::{get_global_state, get_state_root};
 use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 use utils::common::parse_state_keyvals;
-use utils::trie::merkle_state;
+use utils::{trie::merkle_state, log, hex};
 use state_handler::set_global_state;
 use safrole::{set_verifiers, create_ring_set};
 use utils::bandersnatch::Verifier;
@@ -13,11 +13,11 @@ use std::io::{Read, Write};
 use std::thread;
 use std::time::Duration;
 use std::os::unix::net::{UnixListener, UnixStream};
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 use super::BUILD_PROFILE;
 
-pub static VINWOLF_INFO: Lazy<PeerInfo> = Lazy::new(|| {
+pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
     
     PeerInfo {
         name: "vinwolf-target".as_bytes().to_vec(),
@@ -603,10 +603,6 @@ fn test_get_state() {
 
 #[test]
 fn test_state() {
-
-    use dotenv::dotenv;
-    dotenv().ok();
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
     
     let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-proto/examples/2_set_state.bin")).unwrap();
     let mut reader = BytesReader::new(&test_content);

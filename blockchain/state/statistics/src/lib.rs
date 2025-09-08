@@ -15,22 +15,22 @@
     the accumulator and the second the previous epoch’s statistics. For each epoch we track a performance record for each validator.
 */
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::collections::{HashMap, HashSet};
 
 use jam_types::{
     Block, CoresStatistics, Ed25519Public, Gas, ServiceId, ServicesStatistics, SeviceActivityRecord, Statistics, ValidatorStatistics, ValidatorsData, WorkReport
 };
-use utils::common::VerifySignature;
+use utils::{{common::VerifySignature}, log};
 use codec::Encode;
 use constants::node::{CORES_COUNT, EPOCH_LENGTH, SEGMENT_SIZE, VALIDATORS_COUNT};
 
-static ACC_STATS: Lazy<Mutex<HashMap<ServiceId, (Gas, u32)>>> = Lazy::new(|| {
+static ACC_STATS: LazyLock<Mutex<HashMap<ServiceId, (Gas, u32)>>> = LazyLock::new(|| {
     Mutex::new(HashMap::default())
 });
 
-static XFER_STATS: Lazy<Mutex<HashMap<ServiceId, (u32, Gas)>>> = Lazy::new(|| {
+static XFER_STATS: LazyLock<Mutex<HashMap<ServiceId, (u32, Gas)>>> = LazyLock::new(|| {
     Mutex::new(HashMap::default())
 });
 

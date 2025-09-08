@@ -1,5 +1,5 @@
 use sp_core::blake2_256;
-use utils::{print_hash, print_hash_start};
+use utils::{{print_hash, print_hash_start}, log};
 
 use jam_types::{Entropy, EntropyPool, OpaqueHash};
 

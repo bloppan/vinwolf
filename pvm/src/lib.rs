@@ -3,9 +3,11 @@ pub mod mm;
 pub mod hostcall;
 pub mod pvm_types;
 
+use std::sync::{Mutex, LazyLock};
 use codec::{BytesReader, Decode};
 use crate::pvm_types::{Gas, RegSize, RamMemory, Registers};
 use crate::pvm_types::{Context, ExitReason, Program};
+use utils::log;
 
 use isa::one_offset::*;
 use isa::no_arg::*;
@@ -247,11 +249,7 @@ fn dispatch_instr(index: u8, program: &Program, pc: &mut RegSize, gas: &mut Gas,
     FUNCTION_ARRAY[index as usize](program, pc, gas, ram, reg)
 }
 
-
-use once_cell::sync::Lazy;
-use std::sync::Mutex;
-static INDEX: Lazy<Mutex<u32>> = Lazy::new(|| {Mutex::new(0)});
-
+static INDEX: LazyLock<Mutex<u32>> = LazyLock::new(|| {Mutex::new(0)});
 
 fn single_step_pvm(program: &Program, pc: &mut RegSize, gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
 

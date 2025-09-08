@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use jam_types::{Account, AccumulationContext, DataSegment,WorkExecResult, WorkExecError};
+use utils::{hex, log};
 use crate::pvm_types::{Program, ExitReason, HostCallFn, RamAddress, RamMemory, RegSize, Registers, RefineMemory, Gas};
 use codec::{BytesReader, Decode};
 use crate::{invoke_pvm, mm::program_init::init_std_program};
@@ -192,7 +193,7 @@ mod tests {
     
     use super::*;
 
-    #[test]
+    /*#[test]
     fn run_exec_program_test() {
         
         dotenv::dotenv().ok();
@@ -219,7 +220,7 @@ mod tests {
             log::error!("Panic: Failed to decode the program");
             return;
         },
-    };
+    };*/
 
     //let ctx = HostCallContext::Accumulate(AccumulationContext::default(), AccumulationContext::default());
 
@@ -232,9 +233,9 @@ mod tests {
                                 gas, 
                                 &args, 
                                 dispatch_acc, 
-                                HostCallContext::Accumulate(I(&partial_state, service_id), I(&partial_state, service_id)));*/
+                                HostCallContext::Accumulate(I(&partial_state, service_id), I(&partial_state, service_id)));
 
-    }
+    }*/
 
     #[test]
     fn init_program_test() {

@@ -1,15 +1,16 @@
 #[cfg(test)]
 mod tests {
 
-    use once_cell::sync::Lazy;
+    use std::sync::LazyLock;
     use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputStatistics, StateStatistics};
     use constants::node::{CORES_COUNT, EPOCH_LENGTH, VALIDATORS_COUNT};
     use jam_types::{Block, Ed25519Public, Header, Statistics, ValidatorSet};
     use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
+    use utils::log;
 
-    static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
+    static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && CORES_COUNT == 2 {
             "tiny"
         } else if VALIDATORS_COUNT == 1023 && EPOCH_LENGTH == 600 && CORES_COUNT == 341 {
@@ -71,8 +72,10 @@ mod tests {
     #[test]
     fn run_statistics_tests() {
         
-        dotenv::dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+    
         log::info!("Statitstics tests in {} mode", *TEST_TYPE);
 
         let test_files = vec![

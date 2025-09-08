@@ -3,6 +3,7 @@ use jam_types::{
     ServiceAccounts, ServiceId, StateKeyType, WorkPackage, WorkExecResult, WorkItem};
 use crate::pvm_types::{ExitReason, RamAddress, RamMemory, RegSize, Registers};
 use constants::pvm::*;
+use utils::{hex, log};
 use constants::node::{
     CORES_COUNT, EPOCH_LENGTH, VALIDATORS_COUNT, MIN_BALANCE_PER_ITEM, MIN_BALANCE_PER_OCTET, MIN_BALANCE, MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE,
     WORK_REPORT_GAS_LIMIT, WORK_PACKAGE_GAS_LIMIT, WORK_PACKAGE_REFINE_GAS, TOTAL_GAS_ALLOCATED, RECENT_HISTORY_SIZE, MAX_WORK_ITEMS, MAX_DEPENDENCY_ITEMS, MAX_AGE_LOOKUP_ANCHOR,

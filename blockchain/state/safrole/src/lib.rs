@@ -33,10 +33,10 @@
 use ark_vrf::reexports::ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_vrf::suites::bandersnatch::Public;
 use utils::bandersnatch::Verifier;
-use utils::print_hash;
+use utils::{print_hash, log};
 use ark_vrf::suites::bandersnatch::RingProofParams;
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use std::collections::VecDeque;
 use std::sync::Mutex;
 use sp_core::blake2_256;
@@ -48,7 +48,7 @@ use block::{extrinsic, header};
 use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 use codec::Encode;
 
-static VERIFIERS: Lazy<Mutex<VecDeque<Verifier>>> = Lazy::new(|| { Mutex::new(VecDeque::new()) });
+static VERIFIERS: LazyLock<Mutex<VecDeque<Verifier>>> = LazyLock::new(|| { Mutex::new(VecDeque::new()) });
 
 pub fn update_verifiers(new_verifier: Verifier, curr_validators: &ValidatorsData, epoch_diff: &TimeSlot) {
 

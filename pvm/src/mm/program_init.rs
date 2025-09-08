@@ -7,7 +7,7 @@
     left unallocated between sections in order to reduce accidental overrun. Sections are padded with zeroes to the nearest pvm 
     memory page boundary.
 */
-use {once_cell::sync::Lazy, std::sync::Mutex};
+use std::sync::{LazyLock, Mutex};
 use crate::pvm_types::{RamAccess, RamAddress, RamMemory, Registers, StandardProgram, ProgramFormat, Page};
 use jam_types::ReadError;
 use constants::pvm::{Zi, Zz, NUM_PAGES, NUM_REG, PAGE_SIZE, PVM_INIT_ZONE_SIZE};

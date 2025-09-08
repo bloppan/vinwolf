@@ -26,7 +26,7 @@
 
 use sp_core::blake2_256;
 use jam_types::{Block, ProcessError, OutputDataReports};
-use utils::trie::merkle_state;
+use utils::{{trie::merkle_state}, log};
 use block::header;
 use codec::Encode;
 

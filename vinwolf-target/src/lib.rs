@@ -4,7 +4,7 @@ use codec::{Decode, BytesReader};
 use std::collections::VecDeque;
 use std::path::{PathBuf, Path};
 use std::{fs, collections::HashSet};
-use utils::{common::parse_state_keyvals, serialization, trie::merkle_state};
+use utils::{common::parse_state_keyvals, serialization, trie::merkle_state, log, hex};
 use utils::bandersnatch::Verifier;
 
 pub fn parse_trace_file(test_content: &[u8]) -> Result<(GlobalState, Block, GlobalState), ReadError>{

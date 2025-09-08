@@ -1,8 +1,6 @@
 mod default;
 // JAM Protocol Types
 use std::collections::{HashMap, VecDeque};
-use serde::Deserialize;
-use std::sync::Arc;
 use constants::node::{AVAIL_BITFIELD_BYTES, CORES_COUNT, ENTROPY_POOL_SIZE, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, SEGMENT_SIZE, VALIDATORS_COUNT};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
@@ -108,7 +106,7 @@ impl std::fmt::Display for ReadError {
 
 impl std::error::Error for ReadError {}
 
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Entropy {
     pub entropy: OpaqueHash,
 }
@@ -940,7 +938,7 @@ pub struct TicketsMark {
 }
 
 pub type OffendersMark = Vec<Ed25519Public>;
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum StateKeyType {
     U8(u8),
     Service(u8, ServiceId),
@@ -999,14 +997,13 @@ pub enum HeaderErrorCode {
 // ----------------------------------------------------------------------------------------------------------
 // Polkadot Virtual Machine
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PageMap {
     pub address: u32,
     pub length: u32,
-    #[serde(rename = "is-writable")]
     pub is_writable: bool,
 }
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MemoryChunk {
     pub address: u32,
     pub contents: Vec<u8>,
