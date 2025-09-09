@@ -110,6 +110,11 @@ pub fn process(
     let mut epoch_mark: Option<EpochMark> = None;
     let mut tickets_mark: Option<TicketsMark> = None;
 
+    // The epoch mark can be some only if the block is the first in a new epoch 
+    if block.header.unsigned.epoch_mark.is_some() && (post_epoch == epoch || post_m != 0){
+        return Err(ProcessError::SafroleError(SafroleErrorCode::UnexpectedEpochMark));
+    }
+
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
         log::debug!("We are in a new epoch: {:?}", post_epoch);

@@ -643,6 +643,7 @@ pub enum SafroleErrorCode {
     InvalidSignerKeyIndex = 18,
     EmptyEpochMark = 19,
     WrongEpochMark = 20,
+    UnexpectedEpochMark = 21,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Disputes
