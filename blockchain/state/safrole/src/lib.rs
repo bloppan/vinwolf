@@ -114,7 +114,16 @@ pub fn process(
     if block.header.unsigned.epoch_mark.is_some() && (post_epoch == epoch || post_m != 0){
         return Err(ProcessError::SafroleError(SafroleErrorCode::UnexpectedEpochMark));
     }
-
+    // The winning-tickets marker is either empty or, if the block is the first after the end of the submission period for tickets and if the
+    // ticket accumulator is saturated, then the final sequence of tickets identifiers.
+    if block.header.unsigned.tickets_mark.is_some() &&
+        (post_epoch != epoch
+        || m >= TICKET_SUBMISSION_ENDS as TimeSlot
+        || TICKET_SUBMISSION_ENDS as TimeSlot > post_m
+        || safrole_state.ticket_accumulator.len() != EPOCH_LENGTH) 
+    {
+        return Err(ProcessError::SafroleError(SafroleErrorCode::UnexpectedTicketsMark));
+    }
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
         log::debug!("We are in a new epoch: {:?}", post_epoch);
@@ -158,11 +167,12 @@ pub fn process(
         // gamma_s is the current epoch's slot-sealer series, which is either a full complement of EPOCH_LENGTH tickets
         // or, in case of fallback, a series of EPOCH_LENGTH bandersnatch keys
         if post_epoch == (epoch + 1) && m >= TICKET_SUBMISSION_ENDS as u32 && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
-            // If the block is the first after the end of the submission period for tickets and if the ticket accumulator 
-            // is saturated, then the final sequence of ticket identifiers
+            // If the block signals the next epoch (by epoch index) and the previous block’s slot was within the closing period of
+            // the previous epoch, then it takes the value of the prior ticket accumulator
             log::debug!("First block after the end of submission period for tickets and the ticket accumulator is saturated");
             safrole_state.seal = TicketsOrKeys::Tickets(outside_in_sequencer(&safrole_state.ticket_accumulator));
         } else if post_epoch == epoch {
+            // If the block is not the first in an epoch, then it remains unchanged from the prior seal
             // gamma_s' = gamma_s
         } else {
             // Otherwise, it takes the value of the fallback key sequence
@@ -172,8 +182,14 @@ pub fn process(
         } 
         safrole_state.ticket_accumulator = vec![];
     } else if post_epoch == epoch && m < TICKET_SUBMISSION_ENDS as u32 && TICKET_SUBMISSION_ENDS as u32 <= post_m && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
+        if block.header.unsigned.tickets_mark.is_none() {
+            return Err(ProcessError::SafroleError(SafroleErrorCode::EmptyTicketsMark));
+        }
         // gamma_a is the ticket accumulator, a series of highestscoring ticket identifiers to be used for the next epoch.
         tickets_mark = Some(outside_in_sequencer(&safrole_state.ticket_accumulator));
+        if tickets_mark != block.header.unsigned.tickets_mark {
+            return Err(ProcessError::SafroleError(SafroleErrorCode::WrongTicketsMark));
+        }
     }
     
     let pending_val_verifier = get_verifier(ValidatorSet::Next);

@@ -644,6 +644,9 @@ pub enum SafroleErrorCode {
     EmptyEpochMark = 19,
     WrongEpochMark = 20,
     UnexpectedEpochMark = 21,
+    EmptyTicketsMark = 22,
+    UnexpectedTicketsMark = 23,
+    WrongTicketsMark = 24,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Disputes

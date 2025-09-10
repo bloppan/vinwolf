@@ -27,8 +27,13 @@ mod tests {
             log::info!("Test {:?} processed successfully", dir);
         }
     }
-
-    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/1757422206";
+    // 1757422206 // Preimage key ea4b6db0794d570ef854ed7cad310a7866ec12221c7f8c3ccdd48b6123631e not found for service: 1467575786
+    // 1757422771 // Refused block: HeaderError(BadParentHeader)
+    // 1757423102 // 2.json post_state_root != 3.json pre_state_root
+    // 1757423365 // 73.json post_state_root != 74.json pre_state_root
+    // 1757423433 // Arreglar tickets mark
+    // 1757423902 // Creo que lo mismo de la preimage key del primero
+    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/1757423433";
 
     #[test]
     fn run_single_fuzz_report() {

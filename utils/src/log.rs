@@ -97,17 +97,27 @@ struct SimpleLogger;
 
 impl Log for SimpleLogger {
     fn enabled(&self, _level: Level) -> bool { true }
+
     fn log(&self, record: &Record) {
         let ts = timestamp();
-        let lvl = match record.level {
-            Level::Error => "ERROR",
-            Level::Warn => "WARN",
-            Level::Info => "INFO",
-            Level::Debug => "DEBUG",
-            Level::Trace => "TRACE",
+        let (lvl_str, color) = match record.level {
+            Level::Error => ("ERROR", "\x1b[31m"),   // rojo
+            Level::Warn  => ("WARN",  "\x1b[33m"),   // amarillo
+            Level::Info  => ("INFO",  "\x1b[32m"),   // verde
+            Level::Debug => ("DEBUG", "\x1b[34m"),   // azul
+            Level::Trace => ("TRACE", "\x1b[35m"),   // magenta
         };
-        let mut w = io::stderr().lock();
-        let _ = writeln!(w, "{} {} {}: {}", ts, lvl, record.target, record.args);
+        let reset = "\x1b[0m";
+
+        let mut w = std::io::stderr().lock();
+        let _ = writeln!(
+            w,
+            "{} {}{}{} {}: {}",
+            ts,
+            color, lvl_str, reset,
+            record.target,
+            record.args
+        );
     }
 }
 

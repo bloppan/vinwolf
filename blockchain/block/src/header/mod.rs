@@ -226,6 +226,7 @@ fn parent_header_verify(header: &Header) -> Result<(), ProcessError> {
 
     if header.unsigned.slot > 1 && parent_header != [0u8; 32] { // TODO. For now skip the first block and ensure that PARENT_HEADER has been set ever
         if parent_header != header.unsigned.parent {
+            log::error!("Expected parent header {} != received parent header {}", utils::print_hash!(parent_header), utils::print_hash!(header.unsigned.parent));
             return Err(ProcessError::HeaderError(HeaderErrorCode::BadParentHeader));
         }
     }

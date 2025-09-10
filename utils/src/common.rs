@@ -1,6 +1,6 @@
 use std::collections::{HashSet, HashMap};
 use std::hash::Hash;
-use super::log;
+use super::{log, hex};
 use sp_core::{ed25519, Pair};
 use std::path::Path;
 use std::fs::File;
@@ -141,11 +141,11 @@ pub fn set_offenders_null(validators_data: &mut ValidatorsData, offenders: &[Ed2
 pub fn parse_preimage(service_accounts: &ServiceAccounts, service_id: &ServiceId) -> Result<Option<PreimageData>, ReadError> {
 
     let preimage_blob = if let Some(account) = service_accounts.get(service_id) {
-        let preimage_key = StateKeyType::Account(*service_id, construct_preimage_key(&account.code_hash).to_vec()).construct();
+        let preimage_key = StateKeyType::Account(*service_id, construct_preimage_key(&account.code_hash)).construct();
         if let Some(preimage) = account.storage.get(&preimage_key) {
             preimage
         } else {
-            log::error!("Preimage key not found for service: {:?}", service_id);
+            log::error!("Preimage key {} not found for service: {:?}. Code hash: {}", hex::encode(&preimage_key), service_id, hex::encode(account.code_hash));
             return Ok(None);
         }
     } else {
