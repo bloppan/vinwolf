@@ -481,8 +481,7 @@ pub fn info(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, service_id:
 
     log::debug!("code_hash: 0x{}", hex::encode(account.as_ref().unwrap().code_hash));
     let threshold = utils::common::get_threshold(account.as_ref().unwrap());
-    log::debug!("balance: {:?}, threshold: {:?}, acc gas: {:?}, xfer gas: {:?}, items: {:?}, octets: {:?},
-                 gratis_offset: {:?}, created_at: {:?}, last_acc: {:?}, parent_service: {:?}", 
+    log::debug!("balance: {:?}, threshold: {:?}, acc gas: {:?}, xfer gas: {:?}, items: {:?}, octets: {:?}, gratis_offset: {:?}, created_at: {:?}, last_acc: {:?}, parent_service: {:?}", 
                 account.as_ref().unwrap().balance, threshold, account.as_ref().unwrap().acc_min_gas,
                 account.as_ref().unwrap().xfer_min_gas, account.as_ref().unwrap().items, account.as_ref().unwrap().octets,
                 account.as_ref().unwrap().gratis_storage_offset, account.as_ref().unwrap().created_at, account.as_ref().unwrap().last_acc,

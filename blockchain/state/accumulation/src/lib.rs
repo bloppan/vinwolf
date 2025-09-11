@@ -210,7 +210,7 @@ fn parallelized_accumulation(
     always_acc: &HashMap<ServiceId, Gas>,
 ) -> Result<(AccumulationPartialState, Vec<DeferredTransfer>, RecentAccOutputs, Vec<(ServiceId, Gas)>), ProcessError>
 {
-    log::debug!("\nParallelized accumulation");
+    log::debug!("Parallelized accumulation");
 
     let mut s_services: Vec<ServiceId> = Vec::new();
     for report in reports.iter() {
