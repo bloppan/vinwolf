@@ -13,7 +13,7 @@ pub mod accumulate; pub mod refine; pub mod on_transfer; pub mod is_authorized; 
 fn hostcall<F>(
     program_code: &Program, 
     pc: &mut RegSize, 
-    mut gas: Gas, 
+    gas: &mut Gas, 
     reg: &mut Registers, 
     ram: &mut RamMemory, 
     dispatch_hostcall: F, 
@@ -23,14 +23,14 @@ fn hostcall<F>(
 where 
     F: for<'m, 'c, 'r, 'g> Fn(HostCallFn, &'g mut Gas, &'r mut Registers, &'m mut RamMemory, &'c mut HostCallContext) -> ExitReason
 {
-    log::debug!("Execute hostcall");
+    log::debug!("Execute hostcall. gas: {gas}");
 
     loop {
         // On exit, the instruction counter references the instruction which caused the exit. Should the machine be invoked
         // again using this instruction counter and code, then the same instruction which caused the exit would be executed. This
         // is sensible when the instruction is one which necessarily needs re-executing such as in the case of an out-of-gas or page
         // fault reason.
-        let exit_reason = invoke_pvm(program_code, pc, &mut gas, ram, reg);
+        let exit_reason = invoke_pvm(program_code, pc, gas, ram, reg);
         
         if exit_reason == ExitReason::Halt 
             || exit_reason == ExitReason::panic 
@@ -39,7 +39,7 @@ where
             
             log::error!("Exit reason: {:?}", exit_reason);
             //return (exit_reason, pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram);
-            return (exit_reason, gas);
+            return (exit_reason, *gas);
         } 
         
         if let ExitReason::HostCall(n) = exit_reason {
@@ -51,13 +51,13 @@ where
             // We use both values of instruction-counter for the definition of ΨH since if the host-call results in a page fault we need
             // to allow the outer environment to resolve the fault and re-try the host-call. Conversely, if we successfully transition state
             // according to the host-call, then on resumption we wish to begin with the instruction directly following the host-call.
-            let hostcall_exit_reason = dispatch_hostcall(n, &mut gas, reg, ram, ctx);
+            let hostcall_exit_reason = dispatch_hostcall(n, gas, reg, ram, ctx);
 
             match hostcall_exit_reason {
                 ExitReason::PageFault(hostcall_page_fault) => {
                     log::error!("Page fault: {:?}", hostcall_page_fault);
                     //return (ExitReason::PageFault(hostcall_page_fault), pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram);
-                    return (ExitReason::PageFault(hostcall_page_fault), gas);
+                    return (ExitReason::PageFault(hostcall_page_fault), *gas);
                 },
                 ExitReason::Continue => {
                     continue;
@@ -68,25 +68,25 @@ where
                 | ExitReason::OutOfGas => {
                     log::error!("Hostcall exit reason: {:?}", hostcall_exit_reason);
                     //return (hostcall_exit_reason, pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram);
-                    return (hostcall_exit_reason, gas);
+                    return (hostcall_exit_reason, *gas);
                 },
                 _ => {
                     log::error!("Incorrect hostcall exit reason: {:?}", hostcall_exit_reason);
                     //return (hostcall_exit_reason, pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram);
-                    return (hostcall_exit_reason, gas);
+                    return (hostcall_exit_reason, *gas);
                 }
             }
         }
 
         log::debug!("Hostcall exit: {:?}", exit_reason);   
         //return (exit_reason, pvm_ctx.pc, pvm_ctx.gas, pvm_ctx.reg, pvm_ctx.ram);
-        return (exit_reason, gas);
+        return (exit_reason, *gas);
     }
 }
 
 /// The four instances where the pvm is utilized each expect to be able to pass argument data in and receive some return data back. 
 /// We thus define the common pvm program-argument invocation function
-fn hostcall_argument<F>(program_code: &[u8], mut pc: RegSize, gas: Gas, arg: &[u8], f: F, ctx: &mut HostCallContext) 
+fn hostcall_argument<F>(program_code: &[u8], mut pc: RegSize, mut gas: Gas, arg: &[u8], f: F, ctx: &mut HostCallContext) 
 
 -> (Gas, WorkExecResult) 
 where 
@@ -116,8 +116,9 @@ where
     };
 
     let gas_init = gas;
+    log::info!("gas init: {gas_init}");
 
-    R(gas_init, hostcall(&program, &mut pc, gas, &mut std_program_decoded.reg, &mut std_program_decoded.ram, f, ctx), &std_program_decoded.reg, &std_program_decoded.ram)
+    R(gas_init, hostcall(&program, &mut pc, &mut gas, &mut std_program_decoded.reg, &mut std_program_decoded.ram, f, ctx), &std_program_decoded.reg, &std_program_decoded.ram)
 }
 
 #[allow(non_snake_case)]
@@ -125,6 +126,7 @@ fn R(gas_init: Gas, hostcall_result: (ExitReason, Gas), reg: &Registers, ram: &R
 
     //let (exit_reason, _post_pc, post_gas, post_reg, post_ram) = hostcall_result;
     let (exit_reason, post_gas) = hostcall_result;
+    log::info!("post_gas: {post_gas}, gas_init: {gas_init}");
     let gas_consumed = gas_init - std::cmp::max(post_gas, 0);
     
     if exit_reason == ExitReason::OutOfGas {

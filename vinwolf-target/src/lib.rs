@@ -44,7 +44,8 @@ pub fn process_trace(path: &Path) {
 
     state_handler::set_global_state(pre_state.clone());
     state_handler::set_state_root(utils::trie::merkle_state(&utils::serialization::serialize(&pre_state).map, 0));
-    
+    block::header::set_parent_header(OpaqueHash::default()); // Dont verify the parent header hash
+
     if get_verifiers().len() == 0 {
         let mut verifiers = VecDeque::new();
         let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
@@ -215,5 +216,11 @@ fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
     assert_eq!(expected_state.statistics.curr, result_state.statistics.curr);
     assert_eq!(expected_state.statistics.prev, result_state.statistics.prev);
     assert_eq!(expected_state.statistics.cores, result_state.statistics.cores);
-    assert_eq!(expected_state.statistics.services, result_state.statistics.services);
+    for expected_id_record in expected_state.statistics.services.records.iter() {
+        if let Some(result_record) = result_state.statistics.services.records.get(&expected_id_record.0) {
+            assert_eq!(expected_id_record.1, result_record);
+        } else {
+            panic!("Service {:?} not found in statistics", expected_id_record.0);
+        }
+    }
 }

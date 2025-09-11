@@ -191,6 +191,7 @@ pub fn djump(a: &RegSize, pc: &mut RegSize, program: &Program) -> ExitReason {
     let jump_table_position = (*a as usize / JUMP_ALIGNMENT).saturating_sub(1);
 
     if *a == 0xFFFF0000 {
+        log::info!("JUMP TO HALT");
         return ExitReason::Halt;
     } else if *a == 0 
             || *a as usize > program.jump_table.len() * JUMP_ALIGNMENT 

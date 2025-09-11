@@ -33,7 +33,7 @@ mod tests {
     // 1757423365 // 73.json post_state_root != 74.json pre_state_root
     // 1757423433 // Arreglar tickets mark
     // 1757423902 // Creo que lo mismo de la preimage key del primero
-    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/1757423902";
+    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/1757422771";
 
     #[test]
     fn run_single_fuzz_report() {

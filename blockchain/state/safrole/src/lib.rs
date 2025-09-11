@@ -111,7 +111,7 @@ pub fn process(
     let mut tickets_mark: Option<TicketsMark> = None;
 
     // The epoch mark can be some only if the block is the first in a new epoch 
-    if block.header.unsigned.epoch_mark.is_some() && (post_epoch == epoch || post_m != 0){
+    if block.header.unsigned.epoch_mark.is_some() && post_epoch == epoch {
         return Err(ProcessError::SafroleError(SafroleErrorCode::UnexpectedEpochMark));
     }
     // The winning-tickets marker is either empty or, if the block is the first after the end of the submission period for tickets and if the
@@ -129,7 +129,7 @@ pub fn process(
         log::debug!("We are in a new epoch: {:?}", post_epoch);
         // If the block is the first in a new epoch, then a tuple of the next and current epoch randomness, along with a sequence of a tuples 
         // containing both Bandersnatch keys and Ed25519 keys for each validator defining the validator keys beginning in the next epoch
-        if post_m == 0 && block.header.unsigned.epoch_mark.is_none() {
+        if block.header.unsigned.epoch_mark.is_none() {
             log::error!("Empty epoch mark");
             return Err(ProcessError::SafroleError(SafroleErrorCode::EmptyEpochMark));
         }
