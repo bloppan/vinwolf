@@ -70,23 +70,34 @@ pub fn process_trace(path: &Path) {
     log::info!("Trace {:?} processed successfully", path);
 }
 
-pub fn process_all_bins(dir_path: &Path) -> std::io::Result<()> {
-    let mut bin_files: Vec<(u32, PathBuf)> = std::fs::read_dir(dir_path)?
-        .filter_map(|f| {
-            let f = f.ok()?.path();
-            if f.extension()? == "bin" {
-                if let Some(stem) = f.file_stem()?.to_str() {
-                    if let Ok(num) = stem.parse::<u32>() {
-                        return Some((num, f));
-                    }
+pub fn read_all_bins(dir_path: &Path) -> Vec<(u32, PathBuf)> {
+
+    let dir= match std::fs::read_dir(dir_path) {
+        Ok(bin_files) => bin_files,
+        Err(error) => panic!("Dir {:?} could not be open: {:?}", dir_path, error),
+    };
+
+    let mut bin_files: Vec<(u32, PathBuf)> = dir.filter_map(|f| {
+        let f = f.ok()?.path();
+        if f.extension()? == "bin" {
+            if let Some(stem) = f.file_stem()?.to_str() {
+                if let Ok(num) = stem.parse::<u32>() {
+                    return Some((num, f));
                 }
             }
-            None
-        })
-        .collect();
+        }
+        None
+    })
+    .collect();
 
-        bin_files.sort_by_key(|(num, _)| *num);
+    bin_files.sort_by_key(|(num, _)| *num);
 
+    return bin_files;
+}
+
+pub fn process_all_bins(dir_path: &Path) -> std::io::Result<()> {
+
+    let bin_files = read_all_bins(dir_path);
 
     for (_slot, bin_path) in bin_files {
         

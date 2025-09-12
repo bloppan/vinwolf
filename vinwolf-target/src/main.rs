@@ -3,6 +3,7 @@
 // Vamos Marcos!
 use std::path::PathBuf;
 use std::collections::HashSet;
+use utils::log;
 
 mod fuzz;
 use fuzz::*;
@@ -30,6 +31,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         print_help();
         return Ok(());
     }
+
+    /*log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();*/
 
     /*dotenv().ok();
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();*/

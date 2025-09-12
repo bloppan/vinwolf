@@ -1,19 +1,22 @@
+use std::alloc::GlobalAlloc;
 use std::collections::VecDeque;
 
-use jam_types::{Block, OpaqueHash, KeyValue, Header, GlobalState, ReadError};
+use jam_types::{Block, GlobalState, Hash, Header, KeyValue, OpaqueHash, ReadError, TimeSlot};
 use state_handler::{get_global_state, get_state_root};
 use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 use utils::common::parse_state_keyvals;
 use utils::{trie::merkle_state, log, hex};
 use state_handler::set_global_state;
-use safrole::{set_verifiers, create_ring_set};
+use safrole::{create_ring_set, get_verifiers, set_verifiers};
 use utils::bandersnatch::Verifier;
+use vinwolf_target::read_all_bins;
 
 use std::io::{Read, Write};
 use std::thread;
 use std::time::Duration;
+use std::collections::HashMap;
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::sync::LazyLock;
+use std::sync::{LazyLock, Mutex};
 
 use super::BUILD_PROFILE;
 
@@ -24,7 +27,7 @@ pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
         app_version: Version {
             major: 0,
             minor: 2,
-            patch: 9,
+            patch: 10,
         },
         jam_version: Version {
             major: 0,
@@ -179,6 +182,44 @@ pub fn connect_to_unix_socket(path: &str) -> Result<(), Box<dyn std::error::Erro
     // Read
     let _n = stream.read(&mut buffer)?;
     Ok(())
+}
+
+static STATE_RECORD: LazyLock<Mutex<VecDeque<(OpaqueHash, GlobalState, VecDeque<Verifier>)>>> = LazyLock::new(|| { Mutex::new(VecDeque::new())});
+
+fn update_state_record(pre_state_root: &OpaqueHash, post_state_root: &OpaqueHash, state: GlobalState, verifiers_record: VecDeque<Verifier>) {
+
+    let mut state_record = STATE_RECORD.lock().unwrap().clone();
+
+    if state_record[0].0 == *pre_state_root {
+        // We are in a fork process
+        return;
+    } 
+
+    state_record.push_back((*post_state_root, state.clone(), verifiers_record));
+    state_record.pop_front();
+    
+    set_state_record(state_record);
+}
+
+fn set_state_record(state_record: VecDeque<(OpaqueHash, GlobalState, VecDeque<Verifier>)>) {
+    *STATE_RECORD.lock().unwrap() = state_record;
+}
+
+fn get_state_record() -> VecDeque<(OpaqueHash, GlobalState, VecDeque<Verifier>)> {
+    STATE_RECORD.lock().unwrap().clone()
+}
+
+fn simple_fork(state_root: &OpaqueHash) -> (OpaqueHash, GlobalState, VecDeque<Verifier>) {
+
+    let state_record = get_state_record();
+
+    let state = if let Some((pre_state_root, pre_state, verifiers_records)) = state_record.iter().find(|(s_root, _, _)| *state_root == *s_root ) {
+        (*pre_state_root, pre_state.clone(), verifiers_records.clone())
+    } else {
+        state_record.back().unwrap().clone()
+    };
+
+    return state;
 }
 
 pub fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -340,7 +381,7 @@ pub fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error::Erro
                                     //println!("SetState frame received");
                                     log::info!("SetState frame received");
                                     
-                                    let _header = match Header::decode(&mut reader) {
+                                    let header = match Header::decode(&mut reader) {
                                         Ok(header) => header,
                                         Err(error) => {
                                             log::error!("Failed to decode Header: {:?}", error);
@@ -384,18 +425,25 @@ pub fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error::Erro
                                         },
                                     }
 
+                                    let state_root = merkle_state(&utils::serialization::serialize(&global_state).map, 0);
+                                    state_handler::set_state_root(state_root.clone());
                                     set_global_state(global_state.clone());
+
                                     set_verifiers(VecDeque::new());
                                     let mut verifiers = VecDeque::new();
                                     let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
                                     let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
                                     verifiers.push_back(Verifier::new(create_ring_set(&curr_validators)));
                                     verifiers.push_back(Verifier::new(create_ring_set(&pending_validators)));
-                                    set_verifiers(verifiers);
+                                    set_verifiers(verifiers.clone());
                                     block::header::set_parent_header(OpaqueHash::default());
 
-                                    let state_root = merkle_state(&utils::serialization::serialize(&global_state).map, 0);
-                                    state_handler::set_state_root(state_root.clone());
+                                    //set_global_state(global_state.clone());
+                                    let mut state_record = VecDeque::new();
+                                    state_record.push_back((OpaqueHash::default(), GlobalState::default(), VecDeque::new()));
+                                    state_record.push_back((state_root, global_state.clone(), verifiers));
+                                    set_state_record(state_record);
+
                                     match socket.write_all(&construct_fuzz_msg(Message::StateRoot, &state_root)) {
                                         Ok(_) => {},
                                         Err(e) => { break; }
@@ -423,10 +471,18 @@ pub fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error::Erro
                                     let header_hash = sp_core::blake2_256(&(block.header.encode()));
                                     log::info!("Header hash: 0x{}", hex::encode(header_hash));
                                     
+                                    let (pre_state_root, pre_state, verifiers) = simple_fork(&block.header.unsigned.parent_state_root);
+
+                                    set_verifiers(verifiers);
+                                    set_global_state(pre_state.clone());
+                                    state_handler::set_state_root(pre_state_root.clone());
+
                                     match state_controller::stf(&block) {
                                         Ok(_) => {
                                             //println!("Block {} processed successfully", utils::print_hash!(header_hash));
-                                            //log::info!("Block proccessed successfully");
+                                            log::info!("Block proccessed successfully");
+                                            let post_state_root = get_state_root().lock().unwrap().clone();
+                                            update_state_record(&block.header.unsigned.parent_state_root, &post_state_root, get_global_state().lock().unwrap().clone(), get_verifiers());
                                         },
                                         Err(error) => {
                                             //println!("Refused block {}", utils::print_hash!(header_hash));
@@ -519,48 +575,74 @@ pub fn run_fuzzer(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     socket.write_all(&msg)?;
 
     std::thread::sleep(std::time::Duration::from_millis(500));
-    let mut buffer = [0u8; 1024];
-    // Read
+    let mut buffer = [0u8; 1024000];
     let n = socket.read(&mut buffer)?;
-    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces/TESTING/1755796851/00000015.bin")).unwrap();
-    let mut reader = BytesReader::new(&test_content);
-    let pre_state_root = OpaqueHash::decode(&mut reader).unwrap();
-    let pre_keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();
-    let old_block = Block::decode(&mut reader).unwrap();
-    let post_state_root = OpaqueHash::decode(&mut reader).unwrap();
-    let post_keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();  
 
-    let test_content = utils::common::read_bin_file(std::path::Path::new("/home/bernar/workspace/jam-stuff/fuzz-reports/0.6.7/traces/TESTING/1755796851/00000016.bin")).unwrap();
-    let mut reader = BytesReader::new(&test_content);
+    let path = std::path::Path::new("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/");
 
-    let pre_state_root = OpaqueHash::decode(&mut reader).unwrap();
-    let pre_keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();
-    let block = Block::decode(&mut reader).unwrap();
-    let post_state_root = OpaqueHash::decode(&mut reader).unwrap();
-    let post_keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();    
+    for entry in std::fs::read_dir(path).unwrap() {
 
-    let set_state = SetState {
-        header: old_block.header.clone(),
-        state: pre_keyvals,
-    };
+        let dir_entry = entry.unwrap();
+        let dir_path = dir_entry.path();
 
-    let set_state_msg = [vec![2], set_state.encode()].concat();
-    let msg = [(set_state_msg.len() as u32).encode(), set_state_msg].concat();
+        if !dir_path.is_dir() {
+            continue;
+        }
 
-    socket.write_all(&msg)?;
-    std::thread::sleep(std::time::Duration::from_millis(500));
+        log::info!("Fuzzing dir: {:?}", dir_path);
+        println!("Fuzzing dir: {:?}", dir_path);
+        fuzz_dir(&mut socket, &dir_path);
+    }
 
-    let import_block_msg = [vec![1], block.encode()].concat();
-    let msg = [(import_block_msg.len() as u32).encode(), import_block_msg].concat();
-
-    socket.write_all(&msg)?;
-
-
-    std::thread::sleep(std::time::Duration::from_millis(50000));
     Ok(())
 }
 
+fn fuzz_dir(socket: &mut UnixStream, dir_path: &std::path::Path) {
 
+    let bin_files = read_all_bins(dir_path);
+
+    for trace in bin_files.iter().enumerate() {
+        
+        let mut buffer = [0u8; 1024000];
+
+        let test_content = std::fs::read(&trace.1.1).unwrap();
+        let mut reader = BytesReader::new(&test_content);
+        let pre_state_root = OpaqueHash::decode(&mut reader).unwrap();
+        let pre_keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();
+        let block = Block::decode(&mut reader).unwrap();
+        let post_state_root = OpaqueHash::decode(&mut reader).unwrap();
+        let post_keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();
+
+        if trace.0 == 0 {
+            // Set state
+            let set_state = SetState {
+                header: block.header.clone(),
+                state: pre_keyvals,
+            };
+            log::info!("Set state");
+            let set_state_msg = [vec![Message::SetState as u8], set_state.encode()].concat();
+            let msg = [(set_state_msg.len() as u32).encode(), set_state_msg].concat();
+            socket.write_all(&msg).unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            let bytes_read = socket.read(&mut buffer).unwrap();
+            let state_root_received: OpaqueHash = buffer[5..bytes_read].try_into().unwrap();
+            log::info!("state_root received: {}", hex::encode(&state_root_received));
+            assert_eq!(pre_state_root, state_root_received);
+        }
+
+        // Export block
+        log::info!("Exporting block {}", utils::print_hash!(&(sp_core::blake2_256(&block.header.encode()))));
+        let import_block_msg = [vec![Message::ImportBlock as u8], block.encode()].concat();
+        let msg = [(import_block_msg.len() as u32).encode(), import_block_msg].concat();
+        socket.write_all(&msg).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        let bytes_read = socket.read(&mut buffer).unwrap();
+        let state_root_received: OpaqueHash = buffer[5..bytes_read].try_into().unwrap();
+        log::info!("state_root received: {}", hex::encode(&state_root_received));
+        assert_eq!(post_state_root, state_root_received);
+        log::info!("OK - The state root received matches");
+    }
+}
 
 #[test]
 fn test_set_state() {
