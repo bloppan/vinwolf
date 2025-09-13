@@ -29,7 +29,6 @@ impl Decode for Block {
         
         let header = Header::decode(block_blob)?;
         let extrinsic = Extrinsic::decode(block_blob)?;
-
         Ok(Block { header, extrinsic })
     }
 }

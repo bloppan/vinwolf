@@ -6,6 +6,8 @@ use std::collections::HashSet;
 use utils::log;
 
 mod fuzz;
+mod fuzz_codec;
+pub mod fuzz_types;
 use fuzz::*;
 use fuzz::VINWOLF_INFO;
 use constants::BUILD_PROFILE;
@@ -32,19 +34,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    /*log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+    log::Builder::from_env(log::Env::default().default_filter_or("debug"))
         .with_dotenv(true)
-        .init();*/
+        .init();
 
-    /*dotenv().ok();
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();*/
-    //env_logger::init();
-
-
-    /*dotenv().ok();
-    env_logger::Builder::new()
-    .filter_level(log::LevelFilter::Debug)
-    .init();*/
 
     match args[1].as_ref() { 
         "--help" | "-h" => {
@@ -53,7 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         "--version" | "-v" => {
             println!("{:?} target-version: {}.{}.{} GP-version: {}.{}.{} {} mode",
-            String::from_utf8(vinwolf_info.name.clone()).unwrap(),
+            String::from_utf8(vinwolf_info.app_name.clone()).unwrap(),
             vinwolf_info.app_version.major, 
                 vinwolf_info.app_version.minor, 
                 vinwolf_info.app_version.patch,
