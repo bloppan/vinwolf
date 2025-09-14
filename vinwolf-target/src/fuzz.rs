@@ -25,7 +25,7 @@ pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
         app_version: Version {
             major: 0,
             minor: 2,
-            patch: 11,
+            patch: 12,
         },
         jam_version: Version {
             major: 0,
@@ -147,6 +147,7 @@ fn read_socket(socket: &mut UnixStream) {
             
             Ok(0) => {
                 std::thread::sleep(std::time::Duration::from_millis(200));
+                break;
             }
             Ok(n) => {
 
