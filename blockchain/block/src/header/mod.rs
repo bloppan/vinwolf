@@ -12,17 +12,30 @@
 // (a very much unexpected eventuality).The epoch marker is either empty or, if the block is the first in a new epoch, then a tuple of
 // the epoch randomness and a sequence of Bandersnatch keys defining the Bandersnatch validator keys (kb) beginning in the next epoch.
 
-use ark_vrf::suites::bandersnatch::Public;
+use {std::sync::LazyLock, std::sync::Mutex};
 use std::collections::HashSet;
 use state_handler::get_state_root;
-use utils::bandersnatch::Verifier;
+use utils::{{bandersnatch::Verifier}, log};
 
 use constants::node::{EPOCH_LENGTH, VALIDATORS_COUNT, TICKET_ENTRIES_PER_VALIDATOR};
 use jam_types::{
-    EntropyPool, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, TicketsOrKeys, TimeSlot, ValidatorsData, Header, Block, Ed25519Public
+    EntropyPool, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, TicketsOrKeys, TimeSlot, ValidatorsData, Header, Block, Ed25519Public,
+    ValidatorSet
 };
 use codec::{Encode, EncodeLen, EncodeSize};
 use codec::generic_codec::encode_unsigned;
+
+static PARENT_HEADER: LazyLock<Mutex<OpaqueHash>> = LazyLock::new(|| {
+    Mutex::new(OpaqueHash::default())
+});
+
+fn get_parent_header() -> OpaqueHash {
+    *PARENT_HEADER.lock().unwrap()
+}
+
+pub fn set_parent_header(parent_header: OpaqueHash) {
+    *PARENT_HEADER.lock().unwrap() = parent_header;
+}
 
 // Sealing using the ticket is of greater security, and we utilize this knowledge when determining a candidate block
 // on which to extend the chain.
@@ -31,15 +44,13 @@ pub fn seal_verify(
         safrole: &Safrole,
         entropy: &EntropyPool,
         current_validators: &ValidatorsData,
-        ring_set: Vec<Public>,
+        verifier: &Verifier,
 ) -> Result<OpaqueHash, ProcessError> {
     // The header must contain a valid seal and valid vrf output. These are two signatures both using the current slot’s 
     // seal key; the message data of the former is the header’s serialization omitting the seal component Hs, whereas the 
     // latter is used as a bias-resistant entropy source and thus its message must already have been fixed: we use the entropy
     // stemming from the vrf of the seal signature. 
     let unsigned_header = header.unsigned.encode();
-    // Create the verifier object
-    let verifier = Verifier::new(ring_set.clone());
     // Get the block author
     let block_author = header.unsigned.author_index as usize;
     let i = header.unsigned.slot % EPOCH_LENGTH as TimeSlot;
@@ -76,6 +87,7 @@ pub fn seal_verify(
             log::debug!("Verify keys seal");
             // The context is "jam_fallback_seal" + entropy[3]
             let context = [&b"jam_fallback_seal"[..], &entropy.buf[3].encode()].concat();
+            
             // Verify the seal
             let seal_vrf_output_result = verifier.ietf_vrf_verify(
                                                         &context,
@@ -83,7 +95,6 @@ pub fn seal_verify(
                                                         &header.seal,
                                                         block_author,
             );
-
             let seal_vrf_output = match seal_vrf_output_result {
                 Ok(vrf_output) => vrf_output,
                 Err(_) => {
@@ -113,7 +124,6 @@ pub fn seal_verify(
                                                                             &[],
                                                                             &header.unsigned.entropy_source,
                                                                             block_author);
-
     let entropy_source_vrf_output = match entropy_source_vrf_result {
         Ok(_) => entropy_source_vrf_result.unwrap(),
         Err(_) => { 
@@ -126,13 +136,47 @@ pub fn seal_verify(
     Ok(entropy_source_vrf_output)
 }
 
+pub fn epoch_mark_verify(header: &Header, entropy_pool: &EntropyPool) -> Result<(), ProcessError> {
+
+    if header.unsigned.epoch_mark.as_ref().unwrap().entropy != entropy_pool.buf[0] {
+        log::error!("Entropy epoch mark doesn't match with η0");
+        return Err(ProcessError::SafroleError(SafroleErrorCode::WrongEpochMark));
+    }
+
+    if header.unsigned.epoch_mark.as_ref().unwrap().tickets_entropy != entropy_pool.buf[1] {
+        log::error!("Tickets entropy doesn't match with η1");
+        return Err(ProcessError::SafroleError(SafroleErrorCode::WrongEpochMark));
+    }
+
+    let next_validators = state_handler::validators::get(ValidatorSet::Next);
+
+    let _ = next_validators.list.iter().enumerate().map(|v| {
+        if v.1.bandersnatch != header.unsigned.epoch_mark.as_ref().unwrap().validators[v.0].0 
+        || v.1.ed25519 != header.unsigned.epoch_mark.as_ref().unwrap().validators[v.0].1 {
+            log::error!("Pending validators index {:?} doesn't match with the ones in the epoch mark", v.0);
+            return Err(ProcessError::SafroleError(SafroleErrorCode::WrongEpochMark));
+        } else {
+            Ok(())
+        } 
+    });
+
+    return Ok(())
+}
+
 pub fn verify(block: &Block) -> Result<(), ProcessError> {
 
     tickets_verify(&block.header)?;
     extrinsic_verify(&block)?;
     validator_index_verify(&block.header)?;
     offenders_verify(&block)?;
-    state_root_verify(&block.header)?;
+    // Check if the current block is the parent of the last block (the slot difference must be 1)
+    if (block.header.unsigned.slot).saturating_sub(state_handler::time::get()) == 1 {
+        // If the slot difference is not 1, then don't check the parent state root
+        state_root_verify(&block.header)?;
+        // And the parent header
+        parent_header_verify(&block.header)?;
+    }
+    
     log::debug!("Header verified successfully");
     return Ok(());
 }
@@ -153,7 +197,6 @@ fn tickets_verify(header: &Header) -> Result<(), ProcessError> {
 }
 
 pub fn offenders_verify(block: &Block) -> Result<(), ProcessError> {
-    
     
     let mut extrinsic_offenders: HashSet<Ed25519Public> = HashSet::new();
 
@@ -177,13 +220,21 @@ pub fn offenders_verify(block: &Block) -> Result<(), ProcessError> {
     return Ok(());
 }
 
-pub fn state_root_verify(header: &Header) -> Result<(), ProcessError> {
+fn parent_header_verify(header: &Header) -> Result<(), ProcessError> {
 
-    // Check if the current block is the parent of the last block (the slot difference must be 1)
-    if (header.unsigned.slot).saturating_sub(state_handler::time::get()) != 1 {
-        // If the slot difference is not 1, then don't check the parent state root
-        return Ok(());
+    let parent_header = get_parent_header();
+
+    if header.unsigned.slot > 1 && parent_header != [0u8; 32] { // TODO. For now skip the first block and ensure that PARENT_HEADER has been set ever
+        if parent_header != header.unsigned.parent {
+            log::error!("Expected parent header {} != received parent header {}", utils::print_hash!(parent_header), utils::print_hash!(header.unsigned.parent));
+            //return Err(ProcessError::HeaderError(HeaderErrorCode::BadParentHeader));
+        }
     }
+
+    return Ok(());
+}
+
+pub fn state_root_verify(header: &Header) -> Result<(), ProcessError> {
 
     let parent_state_root = get_state_root().lock().unwrap();
 

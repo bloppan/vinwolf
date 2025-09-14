@@ -1,14 +1,16 @@
 /*
     Instructions with Arguments of One Offset.
 */
-use crate::{Context, Program, ExitReason};
+use crate::{RegSize, Gas, RamMemory, Registers, Program, ExitReason};
 use crate::isa::skip;
 
-pub fn trap() -> ExitReason {
+#[inline(always)]
+pub fn trap(_program: &Program, _pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, _reg: &mut Registers) -> ExitReason {
     ExitReason::panic
 }
 
-pub fn fallthrough(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
+#[inline(always)]
+pub fn fallthrough(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, _reg: &mut Registers) -> ExitReason {
+    *pc += skip(pc, &program.bitmask) + 1;
     ExitReason::Continue
 }

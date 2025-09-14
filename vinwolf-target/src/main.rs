@@ -3,13 +3,14 @@
 // Vamos Marcos!
 use std::path::PathBuf;
 use std::collections::HashSet;
+use utils::log;
 
 mod fuzz;
+mod fuzz_codec;
+pub mod fuzz_types;
 use fuzz::*;
 use fuzz::VINWOLF_INFO;
 use constants::BUILD_PROFILE;
-
-use dotenv::dotenv;
 
 fn print_help() {    
     println!("vinwolf-target mode {}", BUILD_PROFILE);
@@ -22,8 +23,7 @@ fn print_help() {
     println!();
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let vinwolf_info = &*VINWOLF_INFO;
 
@@ -34,15 +34,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    /*dotenv().ok();
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();*/
-    //env_logger::init();
+    /*log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();*/
 
-
-    /*dotenv().ok();
-    env_logger::Builder::new()
-    .filter_level(log::LevelFilter::Debug)
-    .init();*/
 
     match args[1].as_ref() { 
         "--help" | "-h" => {
@@ -51,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         "--version" | "-v" => {
             println!("{:?} target-version: {}.{}.{} GP-version: {}.{}.{} {} mode",
-            String::from_utf8(vinwolf_info.name.clone()).unwrap(),
+            String::from_utf8(vinwolf_info.app_name.clone()).unwrap(),
             vinwolf_info.app_version.major, 
                 vinwolf_info.app_version.minor, 
                 vinwolf_info.app_version.patch,
@@ -72,7 +67,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             
             let socket_path = path.to_str().unwrap();
 
-            run_fuzzer(socket_path).await?;
+            let result = run_fuzzer(socket_path);
+
+            println!("End target: {:?}", result);
         }
         "--fuzz" => {
 
@@ -86,9 +83,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let _ = std::fs::remove_file(path.clone());
             
             let socket_path = path.to_str().unwrap();
-            run_unix_server(socket_path).await?;
+            let _ = run_unix_server(socket_path);
         },
-        "--process_dirs" => {
+        "--process-dirs" => {
 
             if args.len() < 3 {
                 println!("Bad arguments");
@@ -108,7 +105,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let end = start.elapsed();
             println!("All tests processed in {:?}", end);
         },
-        "--process_traces" => {
+        "--process-traces" => {
 
             if args.len() != 3 {
                 println!("Bad arguments");
@@ -119,7 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let end = start.elapsed();
             println!("All tests processed in {:?}", end);
         },
-        "--process_trace" => {
+        "--process-trace" => {
 
             if args.len() != 3 {
                 println!("Bad arguments");
@@ -129,7 +126,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             vinwolf_target::process_trace(&PathBuf::from(&args[2]));
             let end = start.elapsed();
             println!("All tests processed in {:?}", end);
-        } 
+        }
+        "--speed-test" => {
+
+            if args.len() != 3 {
+                println!("Bad arguments");
+                return Ok(());
+            }
+            let start = std::time::Instant::now();
+            for _ in 0..50 {
+                let _ = vinwolf_target::process_all_bins(&PathBuf::from(&args[2]));
+            }
+            let end = start.elapsed();
+            println!("All tests processed in {:?}", end);
+        },
         _ => {
             println!("Error: Unknown argument '{}'", args[1]);
             print_help();

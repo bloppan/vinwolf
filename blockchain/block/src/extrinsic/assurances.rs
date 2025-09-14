@@ -12,6 +12,7 @@ use jam_types::{
 use constants::node::{AVAIL_BITFIELD_BYTES, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY, REPORTED_WORK_REPLACEMENT_PERIOD};
 use codec::Encode;
 use utils::common::{is_sorted_and_unique, VerifySignature};
+use utils::log;
 
 pub fn process(
     assurances_extrinsic: &[Assurance],

@@ -1,3 +1,6 @@
 [submodule "external/conformance_testing"]
 	path = external/conformance_testing
 	url = git@github.com:bloppan/conformance_testing.git
+[submodule "external/jam-conformance"]
+	path = external/jam-conformance
+	url = https://github.com/davxy/jam-conformance

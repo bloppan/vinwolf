@@ -5,6 +5,7 @@ mod tests {
     use std::path::PathBuf;
     use jam_types::Entropy;
     use utils::shuffle::shuffle;
+    use utils::hex;
 
     // Test case struct
     #[derive(Debug, Deserialize)]
@@ -19,15 +20,14 @@ mod tests {
     mod hex_array {
         use serde::{self, Deserialize, Deserializer};
         use jam_types::Entropy;
-        use hex;
         use std::fmt;
-
+        use utils::hex;
         pub fn deserialize<'de, D>(deserializer: D) -> Result<Entropy, D::Error>
         where
             D: Deserializer<'de>,
         {
             let hex_str: &str = Deserialize::deserialize(deserializer)?;
-            let bytes = hex::decode(hex_str).map_err(serde::de::Error::custom)?;
+            let bytes = hex::decode(hex_str).unwrap();
             if bytes.len() != 32 {
                 return Err(serde::de::Error::invalid_length(bytes.len(), &HexLen));
             }

@@ -26,7 +26,7 @@
 
 use sp_core::blake2_256;
 use jam_types::{Block, ProcessError, OutputDataReports};
-use utils::trie::merkle_state;
+use utils::{{trie::merkle_state}, log};
 use block::header;
 use codec::Encode;
 
@@ -72,7 +72,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &mut new_state.time,
         &block,
         &new_state.disputes.offenders)?;
-
+    
     let new_available_workreports = reports::assurances::process(
         &mut new_state.availability,
         &block.extrinsic.assurances,
@@ -104,7 +104,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
                                         &block.header.unsigned.slot,
                                         &new_available_workreports.reported)?;
     
-    let start = std::time::Instant::now();
+    
     new_state.recent_acc_outputs = recent_acc_outputs;
     new_state.service_accounts = service_accounts;
     new_state.next_validators = next_validators;
@@ -135,7 +135,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &new_available_workreports.reported,
     );
 
-    
+    header::set_parent_header(header_hash);
     state_handler::set_state_root(merkle_state(&utils::serialization::serialize(&new_state).map, 0));
     state_handler::set_global_state(new_state);
 

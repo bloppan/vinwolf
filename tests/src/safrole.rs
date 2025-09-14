@@ -1,18 +1,19 @@
 #[cfg(test)]
 mod tests {
 
-    use once_cell::sync::Lazy;
+    use std::sync::LazyLock;
+    use utils::{{bandersnatch::Verifier}, log};
     use crate::FromProcessError;
     use std::collections::VecDeque;
     use crate::codec::tests::{TestBody, encode_decode_test};
     use jam_types::{Block, Header, Extrinsic, Safrole, OutputSafrole, DisputesRecords, ValidatorSet, ProcessError, OutputDataSafrole};
     use crate::test_types::{InputSafrole, SafroleState};
-    use safrole::{set_ring_set, get_ring_set, create_ring_set};
+    use safrole::{set_verifiers, create_ring_set};
     use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, TICKET_ENTRIES_PER_VALIDATOR, MAX_TICKETS_PER_EXTRINSIC};
     use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
 
-    static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
+    static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && TICKET_SUBMISSION_ENDS == 10 
         && TICKET_ENTRIES_PER_VALIDATOR == 3 && MAX_TICKETS_PER_EXTRINSIC == 3 {
             "tiny"
@@ -73,13 +74,12 @@ mod tests {
 
         let mut state = get_global_state().lock().unwrap().clone();
 
-        set_ring_set(VecDeque::new());
-        let mut ring_set = get_ring_set();
-        let pending_validators = state.safrole.pending_validators.clone();
-        let curr_validators = state.curr_validators.clone();
-        ring_set.push_back(create_ring_set(&curr_validators));
-        ring_set.push_back(create_ring_set(&pending_validators));
-        set_ring_set(ring_set);
+        let mut verifiers = VecDeque::new();
+        let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
+        let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
+        verifiers.push_back(Verifier::new(create_ring_set(&curr_validators)));
+        verifiers.push_back(Verifier::new(create_ring_set(&pending_validators)));
+        set_verifiers(verifiers);
 
 
         let mut header = Header::default();
@@ -149,8 +149,10 @@ mod tests {
     #[test]
     fn run_safrole_tests() {
         
-        dotenv::dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+    
         log::info!("Safrole tests in {} mode", *TEST_TYPE);
 
         let test_files = vec![

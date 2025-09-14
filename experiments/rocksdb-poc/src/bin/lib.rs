@@ -1,6 +1,7 @@
 use rocksdb::{Options, DB, IteratorMode};
 use std::path::Path;
 use thiserror::Error;
+use utils::hex;
 
 #[derive(Error, Debug)]
 pub enum KvError {

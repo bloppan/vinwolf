@@ -3,6 +3,7 @@ use jam_types::{
     ServiceAccounts, ServiceId, StateKeyType, WorkPackage, WorkExecResult, WorkItem};
 use crate::pvm_types::{ExitReason, RamAddress, RamMemory, RegSize, Registers};
 use constants::pvm::*;
+use utils::{hex, log};
 use constants::node::{
     CORES_COUNT, EPOCH_LENGTH, VALIDATORS_COUNT, MIN_BALANCE_PER_ITEM, MIN_BALANCE_PER_OCTET, MIN_BALANCE, MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE,
     WORK_REPORT_GAS_LIMIT, WORK_PACKAGE_GAS_LIMIT, WORK_PACKAGE_REFINE_GAS, TOTAL_GAS_ALLOCATED, RECENT_HISTORY_SIZE, MAX_WORK_ITEMS, MAX_DEPENDENCY_ITEMS, MAX_AGE_LOOKUP_ANCHOR,
@@ -480,8 +481,7 @@ pub fn info(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, service_id:
 
     log::debug!("code_hash: 0x{}", hex::encode(account.as_ref().unwrap().code_hash));
     let threshold = utils::common::get_threshold(account.as_ref().unwrap());
-    log::debug!("balance: {:?}, threshold: {:?}, acc gas: {:?}, xfer gas: {:?}, items: {:?}, octets: {:?},
-                 gratis_offset: {:?}, created_at: {:?}, last_acc: {:?}, parent_service: {:?}", 
+    log::debug!("balance: {:?}, threshold: {:?}, acc gas: {:?}, xfer gas: {:?}, items: {:?}, octets: {:?}, gratis_offset: {:?}, created_at: {:?}, last_acc: {:?}, parent_service: {:?}", 
                 account.as_ref().unwrap().balance, threshold, account.as_ref().unwrap().acc_min_gas,
                 account.as_ref().unwrap().xfer_min_gas, account.as_ref().unwrap().items, account.as_ref().unwrap().octets,
                 account.as_ref().unwrap().gratis_storage_offset, account.as_ref().unwrap().created_at, account.as_ref().unwrap().last_acc,

@@ -3,7 +3,7 @@ set -euo pipefail
 
 BIN="vinwolf-target"
 CONFIGS=(tiny full)
-ARCHS=(aarch64-unknown-linux-musl x86_64-apple-darwin aarch64-apple-darwin)
+ARCHS=(x86_64-unknown-linux-musl aarch64-unknown-linux-musl x86_64-apple-darwin aarch64-apple-darwin)
 
 SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -17,11 +17,6 @@ fi
 for arch in "${ARCHS[@]}"; do
   rustup target add "$arch" >/dev/null 2>&1 || true
 done
-
-cargo build --manifest-path "$MANIFEST_PATH" --release
-cp "$ROOT_DIR/target/release/$BIN" "$SUBMODULE_DIR/linux/tiny/x86_64/"
-cargo build --manifest-path "$MANIFEST_PATH" --release --features=full --no-default-features
-cp "$ROOT_DIR/target/release/$BIN" "$SUBMODULE_DIR/linux/full/x86_64/"
 
 for cfg in "${CONFIGS[@]}"; do
   for arch in "${ARCHS[@]}"; do
@@ -63,6 +58,3 @@ for cfg in "${CONFIGS[@]}"; do
     echo "OK -> $SUBMODULE_DIR/$BIN"
   done
 done
-
-
-

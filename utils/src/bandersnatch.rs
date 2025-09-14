@@ -2,6 +2,7 @@
 use ark_vrf::reexports::ark_serialize::{self, CanonicalDeserialize, CanonicalSerialize};
 use ark_vrf::suites::bandersnatch;
 use bandersnatch::{BandersnatchSha512Ell2, IetfProof, Input, Output, Public, RingProof, RingProofParams, Secret};
+use super::log;
 
 use constants::node::VALIDATORS_COUNT;
 use jam_types::{ProcessError, SafroleErrorCode};
@@ -118,6 +119,7 @@ impl Prover {
 type RingCommitment = ark_vrf::ring::RingCommitment<BandersnatchSha512Ell2>;
 
 // Verifier actor.
+#[derive (Clone)]
 pub struct Verifier {
     pub commitment: RingCommitment,
     pub ring: Vec<Public>,

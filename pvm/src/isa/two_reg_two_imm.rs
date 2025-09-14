@@ -4,7 +4,7 @@
 
 use std::cmp::{min, max};
 
-use crate::pvm_types::{Context, ExitReason, Program, RegSize};
+use crate::pvm_types::{RamMemory, Registers, Gas, ExitReason, Program, RegSize};
 use crate::isa::{skip, extend_sign, djump};
 
 fn get_reg(pc: &RegSize, program: &Program) -> (usize, usize) {
@@ -34,14 +34,14 @@ fn get_y_value(pc: &RegSize, program: &Program) -> u64 {
     extend_sign(&program.code[start..end], get_y_length(pc, program) as usize)
 }
 
-
-pub fn load_imm_jump_ind(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    let (reg_a, reg_b) = get_reg(&pvm_ctx.pc, program);
-    let vx = get_x_value(&pvm_ctx.pc, program);
-    let vy = get_y_value(&pvm_ctx.pc, program);
-    let n = pvm_ctx.reg[reg_b].wrapping_add(vy) % (1 << 32);
-    let exit_reason = djump(&n, &mut pvm_ctx.pc, program);
-    pvm_ctx.reg[reg_a] = vx as RegSize;
+#[inline(always)]
+pub fn load_imm_jump_ind(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    let (reg_a, reg_b) = get_reg(pc, program);
+    let vx = get_x_value(pc, program);
+    let vy = get_y_value(pc, program);
+    let n = reg[reg_b].wrapping_add(vy) % (1 << 32);
+    let exit_reason = djump(&n, pc, program);
+    reg[reg_a] = vx as RegSize;
     return exit_reason;
 }
 

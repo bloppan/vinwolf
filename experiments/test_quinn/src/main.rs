@@ -5,6 +5,7 @@ use rustls_pemfile::{certs, pkcs8_private_keys};
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 use anyhow::{Result, bail};
+use utils::hex;
 use tokio::io::AsyncReadExt;
 
 #[tokio::main]

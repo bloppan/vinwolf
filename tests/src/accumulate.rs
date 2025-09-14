@@ -1,16 +1,16 @@
 #[cfg(test)]
 mod tests {
 
-    use once_cell::sync::Lazy;
+    use std::sync::LazyLock;
     use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputAccumulate, StateAccumulate};
     use jam_types::{Account, Block, EntropyPool, Extrinsic, Header, OutputAccumulation, ServiceAccounts, StateKeyType, Statistics, ValidatorSet, ValidatorsData};
     use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH};
     use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
-    use utils::serialization::{StateKeyTrait, construct_preimage_key, construct_storage_key};
+    use utils::{serialization::{StateKeyTrait, construct_preimage_key, construct_storage_key}, log};
 
-    static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
+    static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 {
             "tiny"
         } else if VALIDATORS_COUNT == 1023 && EPOCH_LENGTH == 600 {
@@ -153,8 +153,10 @@ mod tests {
     #[test]
     fn run_accumulate_test() {
 
-        dotenv::dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+
         log::info!("Accumulate tests in {} mode", *TEST_TYPE);
 
         let test_files = vec![

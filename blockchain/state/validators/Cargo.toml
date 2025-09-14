@@ -9,6 +9,5 @@ repository.workspace = true
 [dependencies]
 constants = { workspace = true }
 jam-types = { workspace = true }
-utils = { workspace = true }
 state-handler = { workspace = true }
-log = { workspace = true }
+utils = { workspace = true }

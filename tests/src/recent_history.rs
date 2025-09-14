@@ -5,6 +5,7 @@ mod tests {
     use codec::{Decode, BytesReader};
     use jam_types::{RecentBlocks, ReportedWorkPackages};
     use crate::test_types::InputHistory;
+    use utils::log;
 
     fn run_test(filename: &str) {
         
@@ -48,8 +49,10 @@ mod tests {
     #[test]
     fn run_recent_history_tests() {
         
-        dotenv::dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+    
         log::info!("Recent history tests");
         
         let test_files = vec![

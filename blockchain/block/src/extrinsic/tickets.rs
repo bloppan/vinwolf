@@ -8,24 +8,21 @@
     of valid tickets, each of which is a tuple of an entry index (a natural number less than N) and a proof of ticket validity.
 */
 
-use ark_vrf::suites::bandersnatch::Public;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use utils::bandersnatch::Verifier;
-
+use std::thread;
+use std::sync::mpsc;
 use constants::node::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR};
 use jam_types::{EntropyPool, OpaqueHash, Safrole, SafroleErrorCode, TicketBody, TimeSlot, Ticket, ProcessError};
 use codec::Encode;
-use utils::common::{has_duplicates, bad_order};
+use utils::{common::{has_duplicates, bad_order}, log};
 
 pub fn process(
     tickets_extrinsic: &[Ticket],
     safrole_state: &mut Safrole,
     entropy_state: &mut EntropyPool,
     post_tau: &TimeSlot,
-    ring_set: Vec<Public>,
+    verifier: &Verifier,
 ) -> Result<(), ProcessError> {
-
-    let start_process = std::time::Instant::now();
 
     if tickets_extrinsic.is_empty() {
         return Ok(());
@@ -52,22 +49,48 @@ pub fn process(
         }
     }
 
-    let verifier = Verifier::new(ring_set);
-    let mut new_ticket_ids: Vec<OpaqueHash> = vec![];
-    let fixed_input_data = [&b"jam_ticket_seal"[..], &entropy_state.buf[2].encode()].concat();
+    let fixed_input_data: &[u8] = &[&b"jam_ticket_seal"[..], &entropy_state.buf[2].encode()].concat();
+    
     // Verify each ticket
+    let (tx, rx) = mpsc::channel();
 
-    let start_verify = std::time::Instant::now();
-    let verify_result = tickets_extrinsic
+    thread::scope(|s| {
+        for (i, ticket) in tickets_extrinsic.iter().enumerate() {
+            let tx = tx.clone();
+            s.spawn(move || {
+                let r = ticket_seal_verify(verifier, ticket, fixed_input_data);
+                let _ = tx.send((i, r));
+            });
+        }
+    });
+
+    // Empty the tx channel
+    drop(tx);
+
+    let mut enum_result = Vec::new();
+    for (i, r) in rx {
+        match r {
+            Ok(ticket) => enum_result.push((i, ticket)),
+            Err(e) => return Err(e),
+        }
+    }
+
+    // Sort again the tickets after the verification
+    enum_result.sort_by_key(|(index, _)| *index);
+    // Collect the ticket bodies
+    let result: Vec<TicketBody> = enum_result.iter().map(|(_, ticket_body)| ticket_body.clone() ).collect();
+    // Collect the tickets ids
+    let new_ticket_ids: Vec<OpaqueHash> = result.iter().map(|ticket| ticket.id).collect();
+    // Update the ticket accumulator
+    safrole_state.ticket_accumulator.extend(result);
+
+    /*let verify_result = tickets_extrinsic
             .par_iter()
             .try_fold(
                 || Vec::new(),
                 |mut tickets_acc: Vec<TicketBody>, ticket| {
-                    let start = std::time::Instant::now();
-                    match ticket_seal_verify(&verifier, ticket, &fixed_input_data) {
+                    match ticket_seal_verify(verifier, ticket, &fixed_input_data) {
                         Ok(ticket_body) => {
-                            let end = start.elapsed();
-                            log::info!("Time per ticket: {:?}", end);
                             tickets_acc.push(ticket_body);
                             Ok(tickets_acc)
                         }
@@ -83,8 +106,7 @@ pub fn process(
                 }
             );
     
-    let end_verify = start_verify.elapsed();
-    log::info!("Tickets total verified in {:?}", end_verify);
+
     match verify_result {
 
         Ok(result) => {
@@ -93,7 +115,7 @@ pub fn process(
 
         },
         Err(_) => return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketProof)) 
-    }
+    }*/
 
     /*for i in 0..tickets_extrinsic.len() {
 
@@ -149,10 +171,7 @@ pub fn process(
     log::info!("Drain time: {:?}", end_drain);
 
     //log::debug!("Extrinsic tickets processed succesfully");
-    // Return ok
 
-    let end_process = start_process.elapsed();
-    log::info!("End ticket process time: {:?}", end_process);
     Ok(())
 }
 

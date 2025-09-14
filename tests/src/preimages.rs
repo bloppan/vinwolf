@@ -8,7 +8,7 @@ mod tests {
     use jam_types::{Account, Block, Extrinsic, Header, OutputPreimages, ProcessError, ServiceAccounts, StateKeyType, Statistics, ValidatorsData};
     use state_handler::{get_global_state};
     use codec::{EncodeLen, Decode, BytesReader};
-    use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
+    use utils::{serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key}, log};
 
     impl FromProcessError for OutputPreimages {
         fn from_process_error(error: ProcessError) -> Self {
@@ -135,9 +135,9 @@ mod tests {
     #[test]
     fn run_preimages_tests() {
         
-        println!("Preimages tests");
-        dotenv::dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
 
         let test_files = vec![
             // Nothing is provided.

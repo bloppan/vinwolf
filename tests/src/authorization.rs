@@ -6,10 +6,11 @@ mod tests {
     use state_handler::{get_global_state};
     use codec::{BytesReader, Decode};
     use jam_types::{Guarantee, WorkReport};
-    use once_cell::sync::Lazy;
+    use std::sync::LazyLock;
     use constants::node::CORES_COUNT;
+    use utils::log;
 
-    static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
+    static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if CORES_COUNT == 2 {
             "tiny"
         } else if CORES_COUNT == 341 {
@@ -61,8 +62,10 @@ mod tests {
     #[test]
     fn run_authorizations_tests() {
         
-        dotenv::dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+       log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+    
         log::info!("Authorizations tests in {} mode", *TEST_TYPE);
 
         let test_files = vec![

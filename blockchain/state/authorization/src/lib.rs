@@ -25,6 +25,7 @@
 */
 use constants::node::{CORES_COUNT, MAX_ITEMS_AUTHORIZATION_POOL, MAX_ITEMS_AUTHORIZATION_QUEUE};
 use jam_types::{AuthPools, TimeSlot, Guarantee};
+use utils::log;
 
 pub fn process(
         auth_pools: &mut AuthPools, 

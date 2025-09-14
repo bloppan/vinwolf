@@ -1,6 +1,7 @@
 use constants::pvm::{NUM_PAGES, PAGE_SIZE, LOWEST_ACCESIBLE_PAGE};
 use crate::pvm_types::{RamMemory, RamAddress, PageFlags, RamAccess, Page};
 pub mod program_init;
+use utils::log;
 
 impl RamMemory {
 
@@ -36,7 +37,7 @@ impl RamMemory {
             let remaining_in_page = PAGE_SIZE - offset;
             let bytes_to_read = std::cmp::min(remaining_in_page, start_address + num_bytes - current_address);
 
-            let page = self.pages[page_target as usize].as_ref().unwrap();
+            let page = self.pages.get(&page_target).unwrap();
             let slice = &page.data[offset as usize..(offset + bytes_to_read) as usize];
             bytes.extend_from_slice(slice);
 
@@ -67,7 +68,7 @@ impl RamMemory {
             let offset = current_address % PAGE_SIZE;
             let remaining_in_page = PAGE_SIZE - offset;
             let bytes_to_write = std::cmp::min(remaining_in_page as usize, data.len() - data_idx);
-            let page = self.pages[page_target as usize].as_mut().unwrap();
+            let page = self.pages.get_mut(&page_target).unwrap();
 
             page.flags.modified = true;
             let dest_slice = &mut page.data[offset as usize..(offset + remaining_in_page) as usize];
@@ -88,7 +89,7 @@ impl RamMemory {
                 return false;
             }
 
-            if let Some(page) = self.pages[(page % NUM_PAGES) as usize].as_ref() {
+            if let Some(page) = self.pages.get(&page) {
                 match access {
                     RamAccess::Read => {
                         if !page.flags.read_access {
@@ -122,10 +123,10 @@ impl RamMemory {
 
         for page in from_page..=to_page {
             //println!("allocate page: {:?}", page);
-            let mut new_page = Some(Page::default());
-            new_page.as_mut().unwrap().flags.read_access = true;
-            new_page.as_mut().unwrap().flags.write_access = true;
-            self.pages[(page % NUM_PAGES) as usize] = new_page;
+            let mut new_page = Page::default();
+            new_page.flags.read_access = true;
+            new_page.flags.write_access = true;
+            self.pages.insert(page, new_page);
         }
 
         return true;

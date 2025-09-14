@@ -1,6 +1,6 @@
 use constants::node::VALIDATORS_COUNT;
 use jam_types::{Ed25519Public, Safrole, ValidatorSet, ValidatorsData, ValidatorData};
-use utils::common::set_offenders_null;
+use utils::{{common::set_offenders_null}, log};
 
 pub fn key_rotation(safrole_state: &mut Safrole, 
                     curr_validators: &mut ValidatorsData, 

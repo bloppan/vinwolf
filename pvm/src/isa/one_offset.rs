@@ -3,7 +3,7 @@
 */
 
 use std::cmp::min;
-use crate::{Context, ExitReason, Program};
+use crate::{Gas, RegSize, Registers, RamMemory, ExitReason, Program};
 use codec::generic_codec::decode_integer;
 use codec::BytesReader;
 use crate::isa::{skip, _branch, signed};
@@ -21,7 +21,8 @@ fn get_lx_imm(pc: &u64, program: &Program) -> i64 {
     signed(value, lx) + *pc as i64
 }
 
-pub fn jump(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    let value_x = get_lx_imm(&pvm_ctx.pc, program);
-    _branch(pvm_ctx, program, value_x)
+#[inline(always)]
+pub fn jump(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, _reg: &mut Registers) -> ExitReason {
+    let value_x = get_lx_imm(pc, program);
+    _branch(pc, program, value_x)
 }

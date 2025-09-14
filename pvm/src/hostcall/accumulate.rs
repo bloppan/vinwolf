@@ -1,7 +1,7 @@
-use core::time;
+use utils::hex;
 use std::collections::HashMap;
 use sp_core::blake2_256;
-use {once_cell::sync::Lazy, std::sync::Mutex};
+use std::sync::{LazyLock, Mutex};
 
 use jam_types::{
     Account, AccumulationContext, AccumulationOperand, AccumulationPartialState, CoreIndex, DeferredTransfer, Gas, OpaqueHash, ServiceAssigns, 
@@ -13,25 +13,29 @@ use constants::pvm::*;
 use constants::node::{
     CORES_COUNT, MAX_ITEMS_AUTHORIZATION_QUEUE, MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE, TRANSFER_MEMO_SIZE, VALIDATORS_COUNT, MAX_SERVICE_CODE_SIZE
 };
-use utils::common::parse_preimage;
+use utils::{{common::parse_preimage}, log};
 use crate::hostcall::{hostcall_argument, HostCallContext};
 use codec::{BytesReader, DecodeLen, DecodeSize, Encode, EncodeLen, EncodeSize};
 use codec::generic_codec::{encode_unsigned, decode};
 use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 use crate::hostcall::general_fn::{fetch, write, info, read, lookup, log};
 
-static OPERANDS: Lazy<Mutex<Vec<AccumulationOperand>>> = Lazy::new(|| {
-    Mutex::new(Vec::new())
+static OPERANDS: LazyLock<Mutex<HashMap<ServiceId, Vec<AccumulationOperand>>>> = LazyLock::new(|| {
+    Mutex::new(HashMap::new())
 });
 
-fn set_operands(operands: &[AccumulationOperand]) {
+fn clear_operands(service_id: &ServiceId) {
     let mut lock = OPERANDS.lock().unwrap();
-    lock.clear();
-    lock.extend_from_slice(operands);
+    lock.remove(service_id);
 }
 
-fn get_operands() -> std::sync::MutexGuard<'static, Vec<AccumulationOperand>> {
-    OPERANDS.lock().unwrap()
+fn set_operands(service_id: &ServiceId, operands: &[AccumulationOperand]) {
+    let mut lock = OPERANDS.lock().unwrap();
+    lock.insert(*service_id, operands.to_vec());
+}
+
+fn get_operands(service_id: &ServiceId) -> Vec<AccumulationOperand> {
+    OPERANDS.lock().unwrap().get(service_id).unwrap().clone()
 }
 
 pub fn invoke_accumulation(
@@ -65,7 +69,7 @@ pub fn invoke_accumulation(
     let args = [encode_unsigned(*slot as usize), encode_unsigned(*service_id as usize), encode_unsigned(operands.len())].concat();
     log::debug!("Hostcall args: {}", hex::encode(&args));
     //log::debug!("Operands: {:x?}", operands);
-    set_operands(operands);
+    set_operands(service_id, operands);
     //log::debug!("encoded_len accumulate operands: {:x?}", operands.encode_len());
     let mut ctx = HostCallContext::Accumulate(I(&partial_state, service_id), I(&partial_state, service_id));
     let hostcall_arg_result: (i64, WorkExecResult) = hostcall_argument(
@@ -76,6 +80,7 @@ pub fn invoke_accumulation(
                                 dispatch_acc, 
                                 &mut ctx);
     
+    clear_operands(service_id);
     let (gas, exec_result) = hostcall_arg_result;
 
     collapse(gas, exec_result, &mut ctx)
@@ -83,8 +88,8 @@ pub fn invoke_accumulation(
 
 pub fn dispatch_acc(n: HostCallFn, gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx: &mut HostCallContext) -> ExitReason {
 
-    log::debug!("Dispatch accumulate: {:?} hostcall", n);
     let (ctx_x, ctx_y) = ctx.to_acc_ctx();
+    log::debug!("Dispatch accumulate: {:?} hostcall for service {:?}", n, ctx_x.service_id);
 
     match n {
         HostCallFn::Gas         => crate::hostcall::general_fn::gas(gas, reg),
@@ -102,7 +107,7 @@ pub fn dispatch_acc(n: HostCallFn, gas: &mut Gas, reg: &mut Registers, ram: &mut
         HostCallFn::Yield       => yield_(gas, reg, ram, ctx_x),
         HostCallFn::Provide     => provide(gas, reg, ram, ctx_x, ctx_x.service_id),
         HostCallFn::Fetch => {
-            let operands: Vec<AccumulationOperand> = get_operands().clone();
+            let operands: Vec<AccumulationOperand> = get_operands(&ctx_x.service_id);
             fetch(gas, reg, ram, None, Some(state_handler::entropy::get_recent().entropy), None, None, None, Some(operands), None, ctx)
         }
         HostCallFn::Write => {

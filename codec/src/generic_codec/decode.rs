@@ -132,7 +132,6 @@ impl Decode for i64 {
 }*/
 
 
-
 impl Decode for Vec<u32> {
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
         let len = decode_unsigned(reader)?;

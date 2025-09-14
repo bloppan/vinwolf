@@ -3,7 +3,7 @@
 */
 
 use std::cmp::{min, max};
-use crate::pvm_types::{Context, ExitReason, Program, RamAddress, RegSize};
+use crate::pvm_types::{Gas, RamMemory, Registers, ExitReason, Program, RamAddress, RegSize};
 use crate::isa::{skip, extend_sign};
 
 use super::_store;
@@ -28,24 +28,24 @@ fn get_y_imm(pc: &RegSize, program: &Program) -> RegSize {
     extend_sign(&program.code[start..end], get_y_length(pc, program) as usize) as RegSize
 }
 
-pub fn store_imm_u8(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    store_imm::<u8>(pvm_ctx, program)
+pub fn store_imm_u8(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    store_imm::<u8>(program, pc, ram, reg)
 }
 
-pub fn store_imm_u16(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    store_imm::<u16>(pvm_ctx, program)
+pub fn store_imm_u16(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    store_imm::<u16>(program, pc, ram, reg)
 }
 
-pub fn store_imm_u32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    store_imm::<u32>(pvm_ctx, program)
+pub fn store_imm_u32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    store_imm::<u32>(program, pc, ram, reg)
 }
 
-pub fn store_imm_u64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    store_imm::<u64>(pvm_ctx, program)
+pub fn store_imm_u64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    store_imm::<u64>(program, pc, ram, reg)
 }
 
-fn store_imm<T>(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    let address = get_x_imm(&pvm_ctx.pc, program) as RamAddress;
-    let value = ((get_y_imm(&pvm_ctx.pc, program) as u128) % (1 << (std::mem::size_of::<T>() * 8))) as RegSize;
-    _store::<T>(pvm_ctx, program, address, value)
+fn store_imm<T>(program: &Program, pc: &mut RegSize, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    let address = get_x_imm(pc, program) as RamAddress;
+    let value = ((get_y_imm(pc, program) as u128) % (1 << (std::mem::size_of::<T>() * 8))) as RegSize;
+    _store::<T>(program, pc, ram, address, value)
 }

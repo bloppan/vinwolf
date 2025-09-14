@@ -234,7 +234,6 @@ impl Decode for WorkResult {
                     5 => WorkExecResult::Error(WorkExecError::BadCode),
                     6 => WorkExecResult::Error(WorkExecError::CodeOversize),
                     _ => { 
-                        log::error!("Invalid value in WorkExecResult: {}", exec_result);
                         return Err(ReadError::InvalidData);
                     }
                 };

@@ -4,7 +4,7 @@
 
 use std::cmp::{min, max};
 
-use crate::pvm_types::{Context, ExitReason, Program, RamAddress, RegSize};
+use crate::pvm_types::{Gas, RamMemory, Registers, ExitReason, Program, RamAddress, RegSize};
 use crate::isa::{skip, extend_sign, _load, _store, djump};
 
 fn get_reg(pc: &RegSize, program: &Program) -> RegSize {
@@ -22,77 +22,78 @@ fn get_x_imm(pc: &RegSize, program: &Program) -> RegSize {
     extend_sign(&program.code[start..end], n) as RegSize
 }
 
-pub fn jump_ind(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    let reg_a = get_reg(&pvm_ctx.pc, program);
-    let value_imm = get_x_imm(&pvm_ctx.pc, program);
-    let value_reg_a = pvm_ctx.reg[reg_a as usize];
+#[inline(always)]
+pub fn jump_ind(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    let reg_a = get_reg(pc, program);
+    let value_imm = get_x_imm(pc, program);
+    let value_reg_a = reg[reg_a as usize];
     let a = (value_reg_a.wrapping_add(value_imm) % (1 << 32)) as RegSize;
-    djump(&a, &mut pvm_ctx.pc, program)
+    djump(&a, pc, program)
 }
 
-pub fn load_imm(pvm_ctx: &mut Context, program: &Program)-> ExitReason {
-    let reg_a = get_reg(&pvm_ctx.pc, program);
-    let value = get_x_imm(&pvm_ctx.pc, program);
-    pvm_ctx.reg[reg_a as usize] = value;
-    pvm_ctx.pc += skip(&pvm_ctx.pc, &program.bitmask) + 1;
+#[inline(always)]
+pub fn load_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers)-> ExitReason {
+    let reg_a = get_reg(pc, program);
+    let value = get_x_imm(pc, program);
+    reg[reg_a as usize] = value;
+    *pc += skip(pc, &program.bitmask) + 1;
     ExitReason::Continue
 }
 
-pub fn load<T>(pvm_ctx: &mut Context, program: &Program, signed: bool) -> ExitReason {
-    let to_reg = get_reg(&pvm_ctx.pc, program) as RegSize;
-    let address = get_x_imm(&pvm_ctx.pc, program) as RamAddress;
-    _load::<T>(pvm_ctx, program, address as RamAddress, to_reg, signed)
+pub fn load<T>(program: &Program, pc: &mut RegSize, ram: &mut RamMemory, reg: &mut Registers, signed: bool) -> ExitReason {
+    let to_reg = get_reg(pc, program) as RegSize;
+    let address = get_x_imm(pc, program) as RamAddress;
+    _load::<T>(program, pc, ram, reg, address as RamAddress, to_reg, signed)
 }
 
-pub fn load_u8(pvm_ctx: &mut Context, program: &Program)-> ExitReason {
-    load::<u8>(pvm_ctx, program, false)
+pub fn load_u8(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers)-> ExitReason {
+    load::<u8>(program, pc, ram, reg, false)
 }
 
-pub fn load_u16(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    load::<u16>(pvm_ctx, program, false)
+pub fn load_u16(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    load::<u16>(program, pc, ram, reg, false)
 }
 
-pub fn load_u32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    load::<u32>(pvm_ctx, program, false)
+pub fn load_u32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    load::<u32>(program, pc, ram, reg, false)
 }
 
-pub fn load_u64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    load::<u64>(pvm_ctx, program, false)
+pub fn load_u64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    load::<u64>(program, pc, ram, reg, false)
 }
 
-pub fn load_i8(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    load::<i8>(pvm_ctx, program, true)
+pub fn load_i8(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    load::<i8>(program, pc, ram, reg, true)
 }
 
-pub fn load_i16(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    load::<i16>(pvm_ctx, program, true)
+pub fn load_i16(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    load::<i16>(program, pc, ram, reg, true)
 }
 
-pub fn load_i32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    load::<i32>(pvm_ctx, program, true)
+pub fn load_i32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    load::<i32>(program, pc, ram, reg, true)
 }
 
-pub fn store<T>(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    let reg_a = get_reg(&pvm_ctx.pc, program);
-    let address = get_x_imm(&pvm_ctx.pc, program) as RamAddress;
-    let value = ((pvm_ctx.reg[reg_a as usize] as u128) % (1 << (std::mem::size_of::<T>() * 8))) as RegSize;
-    _store::<T>(pvm_ctx, program, address, value)
+pub fn store<T>(program: &Program, pc: &mut RegSize, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    let reg_a = get_reg(pc, program);
+    let address = get_x_imm(pc, program) as RamAddress;
+    let value = ((reg[reg_a as usize] as u128) % (1 << (std::mem::size_of::<T>() * 8))) as RegSize;
+    _store::<T>( program, pc, ram, address, value)
 }
 
-
-pub fn store_u8(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    store::<u8>(pvm_ctx, program)
+pub fn store_u8(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    store::<u8>(program, pc, ram, reg)
 }
 
-pub fn store_u16(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    store::<u16>(pvm_ctx, program)
+pub fn store_u16(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    store::<u16>(program, pc, ram, reg)
 }
 
-pub fn store_u32(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    store::<u32>(pvm_ctx, program)
+pub fn store_u32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    store::<u32>(program, pc, ram, reg)
 }
 
-pub fn store_u64(pvm_ctx: &mut Context, program: &Program) -> ExitReason {
-    store::<u64>(pvm_ctx, program)
+pub fn store_u64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
+    store::<u64>(program, pc, ram, reg)
 }
 

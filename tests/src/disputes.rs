@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod test {
 
-    use once_cell::sync::Lazy;
+    use std::sync::LazyLock;
+    use utils::log;
     use crate::FromProcessError;
     use crate::codec::tests::{TestBody, encode_decode_test};
     use state_handler::{get_global_state};
@@ -10,7 +11,7 @@ mod test {
     use codec::{Decode, BytesReader};
     use crate::test_types::{DisputesState, OutputDisputes};
 
-    static TEST_TYPE: Lazy<&'static str> = Lazy::new(|| {
+    static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && CORES_COUNT == 2 {
             "tiny"
         } else if VALIDATORS_COUNT == 1023 && EPOCH_LENGTH == 600 && CORES_COUNT == 341 {
@@ -94,8 +95,10 @@ mod test {
     #[test]
     fn run_disputes_tests() {
         
-        dotenv::dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+
         log::info!("Dispute tests in {} mode", *TEST_TYPE);
 
         let test_files = vec![

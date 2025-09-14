@@ -3,7 +3,7 @@ mod tests {
     
     use std::collections::HashSet;
     use std::path::Path;
-    use dotenv::dotenv;
+    use utils::log;
     use vinwolf_target::{process_all_bins, process_all_dirs, process_trace};
     
     const REPORTS_FUZZER_DIR: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces";
@@ -11,9 +11,9 @@ mod tests {
     #[test]
     fn run_reports_fuzzer_tests() {
 
-        use dotenv::dotenv;
-        dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
 
         let dir_base = Path::new(REPORTS_FUZZER_DIR);
         let skip: HashSet<String> = ["RETIRED"]
@@ -27,15 +27,20 @@ mod tests {
             log::info!("Test {:?} processed successfully", dir);
         }
     }
-
-    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/1756792661";
+    // 1757422206 // Preimage key ea4b6db0794d570ef854ed7cad310a7866ec12221c7f8c3ccdd48b6123631e not found for service: 1467575786
+    // 1757422771 // Refused block: HeaderError(BadParentHeader)
+    // 1757423102 // 2.json post_state_root != 3.json pre_state_root
+    // 1757423365 // 73.json post_state_root != 74.json pre_state_root
+    // 1757423433 // Arreglar tickets mark
+    // 1757423902 // Creo que lo mismo de la preimage key del primero
+    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/1757422771";
 
     #[test]
     fn run_single_fuzz_report() {
 
-        use dotenv::dotenv;
-        dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
 
         let dir_base = Path::new(FUZZ_REPORT);
         let _ = process_all_bins(dir_base);
@@ -46,8 +51,9 @@ mod tests {
     #[test]
     fn run_all_traces_tests() {
 
-        dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
         
         let dir_base = Path::new(TRACES_DIR);
         let skip: HashSet<String> = [""]
@@ -63,36 +69,40 @@ mod tests {
 
     #[test]
     fn run_preimages_light_traces_tests() {
-        use dotenv::dotenv;
-        dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+    
         let dir_base = Path::new(TRACES_DIR).join("preimages_light");
         run_traces(&dir_base);
     }
 
     #[test]
     fn run_preimages_traces_tests() {
-        use dotenv::dotenv;
-        dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+
         let dir_base = Path::new(TRACES_DIR).join("preimages");
         run_traces(&dir_base);
     }
 
     #[test]
     fn run_storage_light_traces_tests() {
-        use dotenv::dotenv;
-        dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+
         let dir_base = Path::new(TRACES_DIR).join("storage_light");
         run_traces(&dir_base);
     }
 
     #[test]
     fn run_storage_traces_tests() {
-        use dotenv::dotenv;
-        dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+
         let dir_base = Path::new(TRACES_DIR).join("storage");
         run_traces(&dir_base);
     }
@@ -107,19 +117,21 @@ mod tests {
 
     #[test]
     fn run_fallback_traces_tests() {
-        dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
-        let start = std::time::Instant::now();
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+
         let dir_base = Path::new(TRACES_DIR).join("fallback");
         run_traces(&dir_base);
-        
     }
 
     #[test]
     fn run_single_trace() {
-        
-        dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
+
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+
         let start = std::time::Instant::now();
         process_trace(Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/safrole/00000089.bin"));
         let duration = start.elapsed();
@@ -127,9 +139,10 @@ mod tests {
     }
 
     fn run_traces(path: &Path) {
+        /*log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();*/
 
-        /*dotenv().ok();
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();*/
         let start = std::time::Instant::now();
         let _ = process_all_bins(path);
         let end = start.elapsed();

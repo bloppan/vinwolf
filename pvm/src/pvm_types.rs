@@ -1,5 +1,4 @@
 use std::collections::{HashSet, HashMap};
-use serde::Deserialize;
 
 use constants::pvm::{NUM_REG, PAGE_SIZE, NUM_PAGES};
 use jam_types::ReadError;
@@ -23,7 +22,7 @@ pub struct Context {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RamMemory {
-    pub pages: Box<[Option<Page>]>,
+    pub pages: HashMap<PageNumber, Page>,
     pub curr_heap_pointer: RamAddress,
 }
 
@@ -45,7 +44,7 @@ pub enum RamAccess {
     Read,
     Write,
 }
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Program {
     pub code: Vec<u8>,          // Instruction data (c)
     pub bitmask: Vec<bool>,     // Bitmask (k)
@@ -116,7 +115,7 @@ impl TryFrom<u8> for HostCallFn {
 // ----------------------------------------------------------------------------------------------------------
 // Host Call
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Deserialize, Eq, Debug, Clone, PartialEq)]
+#[derive(Eq, Debug, Clone, PartialEq)]
 pub enum HostCallFn {
     Gas = 0,
     Fetch = 1,
@@ -149,7 +148,7 @@ pub enum HostCallFn {
     Unknown,
 }
 
-#[derive(Deserialize, Eq, Debug, Clone, PartialEq)]
+#[derive(Eq, Debug, Clone, PartialEq)]
 pub enum HostCallError {
     InvalidContext,
     InvalidHostCall,
@@ -157,7 +156,7 @@ pub enum HostCallError {
 
 #[allow(unreachable_patterns)]
 #[allow(non_snake_case)]
-#[derive(Deserialize, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ExitReason {
     #[allow(non_camel_case_types)]
     trap,
@@ -165,13 +164,11 @@ pub enum ExitReason {
     halt,
     Continue,
     Branch,
-    #[serde(rename = "halt")]
     Halt,
     #[allow(non_camel_case_types)]
     panic,
     OutOfGas,
     #[allow(non_camel_case_types)]
-    #[serde(rename = "page-fault")]
     page_fault,
     PageFault(u32),     
     HostCall(HostCallFn),      
@@ -179,7 +176,7 @@ pub enum ExitReason {
 // ----------------------------------------------------------------------------------------------------------
 // Default
 // ----------------------------------------------------------------------------------------------------------
-impl Default for RamMemory {
+/*impl Default for RamMemory {
     fn default() -> Self {
         let mut v: Vec<Option<Page>> = Vec::with_capacity(NUM_PAGES as usize);
         for _ in 0..NUM_PAGES {
@@ -189,6 +186,11 @@ impl Default for RamMemory {
             pages: v.into_boxed_slice(),
             curr_heap_pointer: 0,
         }
+    }
+}*/
+impl Default for RamMemory {
+    fn default() -> Self {
+        RamMemory { pages: HashMap::new(), curr_heap_pointer: 0 }
     }
 }
 

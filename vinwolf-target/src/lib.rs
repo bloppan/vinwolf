@@ -1,11 +1,12 @@
-use safrole::{get_ring_set, set_ring_set, create_ring_set};
-use jam_types::{Block, RawState, GlobalState, ReadError};
+use safrole::{get_verifier, get_verifiers, set_verifiers, create_ring_set};
+use jam_types::{Block, RawState, GlobalState, ReadError, OpaqueHash};
 use codec::{Decode, BytesReader};
 use std::collections::VecDeque;
 use std::path::{PathBuf, Path};
 use std::{fs, collections::HashSet};
-use utils::{common::parse_state_keyvals, serialization, trie::merkle_state};
-    
+use utils::{common::parse_state_keyvals, serialization, trie::merkle_state, log, hex};
+use utils::bandersnatch::Verifier;
+
 pub fn parse_trace_file(test_content: &[u8]) -> Result<(GlobalState, Block, GlobalState), ReadError>{
 
     let mut reader = BytesReader::new(&test_content);
@@ -24,20 +25,35 @@ pub fn parse_trace_file(test_content: &[u8]) -> Result<(GlobalState, Block, Glob
     return Ok((state, block, expected_state));
 }
 
-pub fn process_trace(path: &Path) {
+pub fn parse_genesis_file(test_content: &[u8]) -> Result<(Block, GlobalState), ReadError>{
 
+    let mut reader = BytesReader::new(&test_content);
+    let block = Block::decode(&mut reader).expect("Error decoding the block");
+    let first_state = RawState::decode(&mut reader).expect("Error decoding post state");
+    let mut state = GlobalState::default();
+    parse_state_keyvals(&first_state.keyvals, &mut state).expect("Error decoding post state keyvals");
+    assert_eq!(first_state.state_root.clone(), merkle_state(&serialization::serialize(&state).map, 0));
+
+    return Ok((block, state));
+}
+
+pub fn process_trace(path: &Path) {
+    
     let test_content = utils::common::read_bin_file(&path).expect("Error reading the trace bin file");
     let (pre_state, block, post_state) = parse_trace_file(&test_content).unwrap();
 
     state_handler::set_global_state(pre_state.clone());
     state_handler::set_state_root(utils::trie::merkle_state(&utils::serialization::serialize(&pre_state).map, 0));
-    
-    let mut ring_set = VecDeque::new();
-    let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
-    let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
-    ring_set.push_back(create_ring_set(&curr_validators));
-    ring_set.push_back(create_ring_set(&pending_validators));
-    set_ring_set(ring_set);
+    block::header::set_parent_header(OpaqueHash::default()); // Dont verify the parent header hash
+
+    if get_verifiers().len() == 0 {
+        let mut verifiers = VecDeque::new();
+        let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
+        let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
+        verifiers.push_back(Verifier::new(create_ring_set(&curr_validators)));
+        verifiers.push_back(Verifier::new(create_ring_set(&pending_validators)));
+        set_verifiers(verifiers);
+    }
     
     match state_controller::stf(&block) {
         Ok(_) => { println!("Block {:?} processed successfully", path); },
@@ -54,23 +70,34 @@ pub fn process_trace(path: &Path) {
     log::info!("Trace {:?} processed successfully", path);
 }
 
-pub fn process_all_bins(dir_path: &Path) -> std::io::Result<()> {
-    let mut bin_files: Vec<(u32, PathBuf)> = std::fs::read_dir(dir_path)?
-        .filter_map(|f| {
-            let f = f.ok()?.path();
-            if f.extension()? == "bin" {
-                if let Some(stem) = f.file_stem()?.to_str() {
-                    if let Ok(num) = stem.parse::<u32>() {
-                        return Some((num, f));
-                    }
+pub fn read_all_bins(dir_path: &Path) -> Vec<(u32, PathBuf)> {
+
+    let dir= match std::fs::read_dir(dir_path) {
+        Ok(bin_files) => bin_files,
+        Err(error) => panic!("Dir {:?} could not be open: {:?}", dir_path, error),
+    };
+
+    let mut bin_files: Vec<(u32, PathBuf)> = dir.filter_map(|f| {
+        let f = f.ok()?.path();
+        if f.extension()? == "bin" {
+            if let Some(stem) = f.file_stem()?.to_str() {
+                if let Ok(num) = stem.parse::<u32>() {
+                    return Some((num, f));
                 }
             }
-            None
-        })
-        .collect();
+        }
+        None
+    })
+    .collect();
 
-        bin_files.sort_by_key(|(num, _)| *num);
+    bin_files.sort_by_key(|(num, _)| *num);
 
+    return bin_files;
+}
+
+pub fn process_all_bins(dir_path: &Path) -> std::io::Result<()> {
+
+    let bin_files = read_all_bins(dir_path);
 
     for (_slot, bin_path) in bin_files {
         
@@ -109,6 +136,11 @@ pub fn process_all_dirs(base_dir: &Path, skip_dirs: &HashSet<String>) -> std::io
         process_all_bins(&path)?;
         println!("");
         dirs.push(path);
+
+        // Clean up the verifiers
+        set_verifiers(VecDeque::new());
+        // Clean up the stored parent header
+        block::header::set_parent_header(OpaqueHash::default());
     }
 
     Ok(dirs)
@@ -195,5 +227,11 @@ fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
     assert_eq!(expected_state.statistics.curr, result_state.statistics.curr);
     assert_eq!(expected_state.statistics.prev, result_state.statistics.prev);
     assert_eq!(expected_state.statistics.cores, result_state.statistics.cores);
-    assert_eq!(expected_state.statistics.services, result_state.statistics.services);
+    for expected_id_record in expected_state.statistics.services.records.iter() {
+        if let Some(result_record) = result_state.statistics.services.records.get(&expected_id_record.0) {
+            assert_eq!(expected_id_record.1, result_record);
+        } else {
+            panic!("Service {:?} not found in statistics", expected_id_record.0);
+        }
+    }
 }
