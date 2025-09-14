@@ -8,7 +8,7 @@ use codec::generic_codec::decode_integer;
 use codec::BytesReader;
 use crate::isa::{skip, _branch, signed};
 
-fn get_lx_length(pc: &u64, bitmask: &[bool]) -> u64 {
+fn get_lx_length(pc: &u64, bitmask: &[u8]) -> u64 {
     min(4, skip(pc, bitmask)) as u64
 }
 

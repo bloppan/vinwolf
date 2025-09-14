@@ -210,9 +210,16 @@ impl Decode for Program {
         let code: Vec<u8> = program_code_slice.to_vec().into_iter().chain(std::iter::repeat(0).take(25)).collect();
 
         let num_bitmask_bytes = (program_code_size + 7) / 8;
-        let mut bitmask = decode_to_bits(blob, num_bitmask_bytes as usize)?;
+        let mut bitmask: Vec<u8> = blob.read_bytes(num_bitmask_bytes)?.to_vec();
+        bitmask.extend(vec![0, 0, 0, 0, 0]);
+
+
+        /*let mut bitmask = decode_to_bits(blob, num_bitmask_bytes as usize)?;
         bitmask.truncate(program_code_size);
-        bitmask.extend(std::iter::repeat(true).take(code.len() - bitmask.len()));
+        bitmask.extend(std::iter::repeat(true).take(code.len() - bitmask.len()));*/
+
+
+
 
         /*println!("\nProgram code len  = {} | Bitmask len = {}", program_code.len(), bitmask.len());
         println!("Jump table = {:?} \n", jump_table);

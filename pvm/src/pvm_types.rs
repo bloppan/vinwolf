@@ -47,7 +47,7 @@ pub enum RamAccess {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
     pub code: Vec<u8>,          // Instruction data (c)
-    pub bitmask: Vec<bool>,     // Bitmask (k)
+    pub bitmask: Vec<u8>,     // Bitmask (k)
     pub jump_table: Vec<usize>,    // Dynamic jump table (j)
 }
 

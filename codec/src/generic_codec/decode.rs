@@ -380,6 +380,26 @@ mod test {
     }
 
     #[test]
+    fn decode_to_bits_test() {
+
+        let value: Vec<u8> = vec![0x40, 0x10];
+
+        let mut reader = BytesReader::new(&value);
+        let decoded = decode_to_bits(&mut reader, 2).unwrap();
+        println!("number: {:x?}", value);
+        println!("decoded: {:?}", decoded);
+
+        let mut value_array = [0u8; 2];
+        value_array.copy_from_slice(&value);
+
+        let u16_be_value = u16::from_le_bytes(value_array) >> 7;
+        println!("u16_be_value: {:?}", u16_be_value);
+
+        println!("cuantos ceros: {:?}", u16_be_value.trailing_zeros());
+
+    }
+
+    #[test]
     fn decode_test() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
         let value: u32 = decode::<u32>(&bytes, 4);

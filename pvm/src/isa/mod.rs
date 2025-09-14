@@ -46,28 +46,41 @@ static BASIC_BLOCK_TERMINATORS: &[u8] = &[
     BRANCH_GT_S_IMM,
 ];
 
+#[inline(always)]
 pub fn begin_basic_block(program: &Program, pc: &RegSize, next_instr: usize) -> bool {
     
     if *pc == 0 {
         return true;
     }
 
-    if program.bitmask[next_instr] && BASIC_BLOCK_TERMINATORS.contains(&program.code[*pc as usize]) {
+    let byte_index = next_instr >> 3;
+    let bit_offset = (next_instr & 0b111) as u8;
+
+    if byte_index >= program.bitmask.len() {
+        return false; 
+    }
+
+    let mask = 1 << bit_offset; 
+    let is_bit_set = (program.bitmask[byte_index] & mask) != 0;
+
+    if is_bit_set && BASIC_BLOCK_TERMINATORS.contains(&program.code[*pc as usize]) {
         return true;
     }
 
     return false;
 }
 
-pub fn skip(i: &u64, k: &[bool]) -> u64 {
-    let mut j = *i + 1;
-    //println!("k = {:?}", k);
-    while k[j as usize] == false && j < k.len() as u64 {
-        j += 1;
-        //println!("j = {}", j);
-    }
-    //println!("j = {}", j-1);
-    std::cmp::min(24, (j - 1).saturating_sub(*i))
+#[inline(always)]
+pub fn skip(i: &u64, k: &[u8]) -> u64 {
+
+    let byte_index = *i >> 3;
+    let bit_offset = (*i & 0b111) as u8;
+
+    let mut bitmask_array = [0u8; 4];
+    bitmask_array.copy_from_slice(&k[byte_index as usize..byte_index as usize + 4]);
+    let bitmask: u32 = u32::from_le_bytes(bitmask_array) >> (bit_offset + 1);
+
+    std::cmp::min(24, bitmask.trailing_zeros() as u64)
 }
 
 // TODO creo que no deberia devolver 0 

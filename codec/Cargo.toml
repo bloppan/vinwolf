@@ -10,3 +10,7 @@ repository.workspace = true
 constants = { workspace = true }
 jam-types = { workspace = true }
 
+[features]
+default = ["tiny"]
+tiny = ["constants/tiny"]
+full = ["constants/full"]
