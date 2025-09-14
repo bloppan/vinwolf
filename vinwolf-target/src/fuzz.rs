@@ -25,7 +25,7 @@ pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
         app_version: Version {
             major: 0,
             minor: 2,
-            patch: 10,
+            patch: 11,
         },
         jam_version: Version {
             major: 0,
@@ -178,9 +178,6 @@ fn read_socket(socket: &mut UnixStream) {
                     Ok(len) => { len },
                     Err(error) => {
                         log::error!("Failed to decode msg len: {:?}", error);
-                        if send_to_peer(&fuzz_msg(Message::Error, &format!("Failed to decode msg len: {:?}", error).as_bytes().to_vec().encode_len()), socket).is_err() {
-                            break;
-                        }
                         continue;
                     },
                 };
@@ -189,9 +186,6 @@ fn read_socket(socket: &mut UnixStream) {
                     Ok(m_type) => { m_type.into() },
                     Err(error) => {
                         log::error!("Failed to decode msg type: {:?}", error);
-                        if send_to_peer(&fuzz_msg(Message::Error, &format!("Failed to decode msg type: {:?}", error).as_bytes().to_vec().encode_len()), socket).is_err() {
-                            break;
-                        }
                         continue;
                     },
                 };
@@ -205,9 +199,6 @@ fn read_socket(socket: &mut UnixStream) {
                             Ok(fuzzer_info) => fuzzer_info,
                             Err(error) => {
                                 log::error!("Failed to decode the peer info: {:?}", error);
-                                if send_to_peer(&fuzz_msg(Message::Error, &format!("Failed to decode peer info: {:?}", error).as_bytes().to_vec().encode_len()), socket).is_err() {
-                                    break;
-                                }
                                 continue;
                             }
                         };
@@ -227,9 +218,6 @@ fn read_socket(socket: &mut UnixStream) {
                             Ok(initialize) => initialize,
                             Err(error) => {
                                 log::error!("Failed to decode initialize frame: {:?}", error);
-                                if send_to_peer(&fuzz_msg(Message::Error, &format!("Failed to decode initialize message: {:?}", error).as_bytes().to_vec().encode_len()), socket).is_err() {
-                                    break;
-                                }
                                 continue;
                             }
                         };
@@ -240,9 +228,6 @@ fn read_socket(socket: &mut UnixStream) {
                             Ok(_) => { },
                             Err(error) => {
                                 log::error!("Failed to parse the state keyvals: {:?}", error);
-                                if send_to_peer(&fuzz_msg(Message::Error, &format!("Failed to parse the state keyvals: {:?}", error).as_bytes().to_vec().encode_len()), socket).is_err() {
-                                    break;
-                                }
                                 continue;
                             },
                         }
@@ -319,9 +304,6 @@ fn read_socket(socket: &mut UnixStream) {
                             Ok(header_hash) => header_hash,
                             Err(error) => {
                                 log::error!("Failed to decode the header hash: {:?}", error);
-                                if send_to_peer(&fuzz_msg(Message::Error, &format!("Failed to decode the header hash: {:?}", error).as_bytes().to_vec().encode_len()), socket).is_err() {
-                                    break;
-                                }
                                 continue;
                             }
                         };
@@ -354,7 +336,7 @@ fn read_socket(socket: &mut UnixStream) {
                 };
             }
             Err(error) => {
-                println!("Error reading fuzzer data");
+                //println!("Error reading fuzzer data");
                 log::error!("Error reading fuzzer data: {}", error);
                 break;
             }
@@ -443,19 +425,19 @@ fn fuzz_dir(socket: &mut UnixStream, dir_path: &std::path::Path) {
                 keyvals: pre_keyvals,
                 ancestry: VecDeque::new(),
             };
-            log::info!("Set state");
+            println!("Set state");
             let set_state_msg = [vec![Message::Initialize as u8], set_state.encode()].concat();
             let msg = [(set_state_msg.len() as u32).encode(), set_state_msg].concat();
             socket.write_all(&msg).unwrap();
             std::thread::sleep(std::time::Duration::from_millis(500));
             let bytes_read = socket.read(&mut buffer).unwrap();
             let state_root_received: OpaqueHash = buffer[5..bytes_read].try_into().unwrap();
-            log::info!("state_root received: {}", hex::encode(&state_root_received));
+            println!("state_root received: {}", hex::encode(&state_root_received));
             assert_eq!(pre_state_root, state_root_received);
         }
 
         // Export block
-        log::info!("Exporting block {}", utils::print_hash!(&(sp_core::blake2_256(&block.header.encode()))));
+        println!("Exporting block {}", utils::print_hash!(&(sp_core::blake2_256(&block.header.encode()))));
         let import_block_msg = [vec![Message::ImportBlock as u8], block.encode()].concat();
         let msg = [(import_block_msg.len() as u32).encode(), import_block_msg].concat();
         socket.write_all(&msg).unwrap();
@@ -465,12 +447,13 @@ fn fuzz_dir(socket: &mut UnixStream, dir_path: &std::path::Path) {
         if buffer[4] == Message::Error as u8 {
             let mut reader = BytesReader::new(&buffer[5..bytes_read]);
             let msg = Vec::<u8>::decode_len(&mut reader).unwrap();
-            log::error!("MSG ERROR FROM TARGET: {:?}", String::from_utf8(msg).unwrap());
+            println!("MSG ERROR FROM TARGET: {:?}", String::from_utf8(msg).unwrap());
         } else {
             let state_root_received: OpaqueHash = buffer[5..bytes_read].try_into().unwrap();
-            log::info!("state_root received: {}", hex::encode(&state_root_received));
+            println!("state_root received: {}", hex::encode(&state_root_received));
             assert_eq!(post_state_root, state_root_received);
-            log::info!("OK - The state root received matches");
+            println!("OK - The state root received matches");
         }
     }
 }
+
