@@ -2,43 +2,43 @@
     TINY CONFIG
 */
 // Total number of validators
-#[cfg(feature = "tiny")]
+#[cfg(all(feature = "tiny", not(feature = "full")))]
 pub const VALIDATORS_COUNT: usize = 6;
 // The length of an epoch timeslots.
-#[cfg(feature = "tiny")]
+#[cfg(all(feature = "tiny", not(feature = "full")))]
 pub const EPOCH_LENGTH: usize = 12;
 // Total number of cores
-#[cfg(feature = "tiny")]
+#[cfg(all(feature = "tiny", not(feature = "full")))]
 pub const CORES_COUNT: usize = 2;
 // The rotation period of validator-core assignments, in timeslots.
-#[cfg(feature = "tiny")]
+#[cfg(all(feature = "tiny", not(feature = "full")))]
 pub const ROTATION_PERIOD: u32 = 4;
 // The number of slots into an epoch at which ticket-submission ends
-#[cfg(feature = "tiny")]
+#[cfg(all(feature = "tiny", not(feature = "full")))]
 pub const TICKET_SUBMISSION_ENDS: usize = 10;
 // The number of ticket entries per validator.
-#[cfg(feature = "tiny")]
+#[cfg(all(feature = "tiny", not(feature = "full")))]
 pub const TICKET_ENTRIES_PER_VALIDATOR: u8 = 3;
 // The maximum number of tickets which may be submitted in a single extrinsic.
-#[cfg(feature = "tiny")]
+#[cfg(all(feature = "tiny", not(feature = "full")))]
 pub const MAX_TICKETS_PER_EXTRINSIC: usize = 3;
 // The period in timeslots after which an unreferenced preimage may be expunged.
-#[cfg(feature = "tiny")]
+#[cfg(all(feature = "tiny", not(feature = "full")))]
 pub const MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE: u32 = 32;
 // The total gas allocated across for all Accumulation.
-#[cfg(feature = "tiny")]
+#[cfg(all(feature = "tiny", not(feature = "full")))]
 pub const TOTAL_GAS_ALLOCATED: i64 = 20_000_000;
 // The gas allocated to invoke a work-package's Refine logic.
-#[cfg(feature = "tiny")]
+#[cfg(all(feature = "tiny", not(feature = "full")))]
 pub const WORK_PACKAGE_REFINE_GAS: i64 = 1_000_000_000;
 // The number of erasure-coded pieces in a segment.
-#[cfg(feature = "tiny")]
+#[cfg(all(feature = "tiny", not(feature = "full")))]
 pub const SEGMENT_PIECES: usize = 1026;
 // The basic size of erasure-coded pieces in octets.
-#[cfg(feature = "tiny")]
+#[cfg(all(feature = "tiny", not(feature = "full")))]
 pub const PIECE_SIZE: usize = 4;
 // The maximum age in timeslots of the lookup anchor.
-#[cfg(feature = "tiny")]
+#[cfg(all(feature = "tiny", not(feature = "full")))]
 pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 24;
 
 /*
