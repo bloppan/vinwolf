@@ -135,6 +135,10 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &new_available_workreports.reported,
     );
 
+    if state_handler::is_ancestors_feature_enabled() {
+        state_handler::header::update_ancestors(&block.header.unsigned.slot, &header_hash); 
+    }
+    
     header::set_parent_header(header_hash);
     state_handler::set_state_root(merkle_state(&utils::serialization::serialize(&new_state).map, 0));
     state_handler::set_global_state(new_state);

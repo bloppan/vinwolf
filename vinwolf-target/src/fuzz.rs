@@ -412,6 +412,7 @@ fn fuzz_dir(socket: &mut UnixStream, dir_path: &std::path::Path) {
 
     for trace in bin_files.iter().enumerate() {
         
+        println!("Fuzzing file: {:?}", trace.1.1);
         let mut buffer = [0u8; 1024000];
 
         let test_content = std::fs::read(&trace.1.1).unwrap();

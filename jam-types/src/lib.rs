@@ -338,8 +338,17 @@ pub enum ReportErrorCode {
     BadLookupAnchorSlot = 30,
     NoResults = 31,
     TooManyResults = 32,
+    MissingAncestor = 33,
 }
 
+pub type Ancestors = HashMap<TimeSlot, OpaqueHash>;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AncestorsInfo {
+    pub map: Ancestors,
+    pub min_timeslot: TimeSlot,
+    pub max_timeslot: TimeSlot,
+}
 // The Work Result is the data conduit by which services states may be altered through the computation done within a work-package. 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorkResult {
