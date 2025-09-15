@@ -37,6 +37,9 @@ pub const SEGMENT_PIECES: usize = 1026;
 // The basic size of erasure-coded pieces in octets.
 #[cfg(feature = "tiny")]
 pub const PIECE_SIZE: usize = 4;
+// The maximum age in timeslots of the lookup anchor.
+#[cfg(feature = "tiny")]
+pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 24;
 
 /*
     FULL CONFIG
@@ -65,6 +68,8 @@ pub const WORK_PACKAGE_REFINE_GAS: i64 = 5_000_000_000;
 pub const SEGMENT_PIECES: usize = 6;
 #[cfg(feature = "full")]
 pub const PIECE_SIZE: usize = 684;
+#[cfg(feature = "full")]
+pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 14_400;
 
 // The size of the on-chain entropy pool
 pub const ENTROPY_POOL_SIZE: usize = 4;
@@ -96,8 +101,6 @@ pub const MAX_OUTPUT_BLOB_SIZE: usize = 48 << 10;
 pub const WORK_REPORT_GAS_LIMIT: i64 = 10_000_000;
 // The gas allocated to invoke a work-package's Is-Authorized logic.
 pub const WORK_PACKAGE_GAS_LIMIT: i64 = 50_000_000;
-// The maximum age in timeslots of the lookup anchor.
-pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 14_400;
 // The maximum size of service code in octets
 pub const MAX_SERVICE_CODE_SIZE: usize = 4_000_000;
 // The slot period, in seconds.

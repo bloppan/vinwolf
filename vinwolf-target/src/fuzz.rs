@@ -25,7 +25,7 @@ pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
         app_version: Version {
             major: 0,
             minor: 2,
-            patch: 12,
+            patch: 13,
         },
         jam_version: Version {
             major: 0,
@@ -45,6 +45,8 @@ fn update_state_record(pre_state_root: &OpaqueHash, post_state_root: &OpaqueHash
 
     if state_record[0].0 == *pre_state_root {
         // We are in a fork process
+        state_record[1] = (*post_state_root, state.clone(), verifiers_record);
+        set_state_record(state_record);
         return;
     } 
 
@@ -52,6 +54,18 @@ fn update_state_record(pre_state_root: &OpaqueHash, post_state_root: &OpaqueHash
     state_record.pop_front();
     
     set_state_record(state_record);
+}
+
+fn simple_fork(state_root: &OpaqueHash) -> (OpaqueHash, GlobalState, VecDeque<Verifier>) {
+
+    let state_record = get_state_record();
+    let state = if let Some((pre_state_root, pre_state, verifiers_records)) = state_record.iter().find(|(s_root, _, _)| *state_root == *s_root ) {
+        (*pre_state_root, pre_state.clone(), verifiers_records.clone())
+    } else {
+        state_record.back().unwrap().clone()
+    };
+
+    return state;
 }
 
 fn set_state_record(state_record: VecDeque<(OpaqueHash, GlobalState, VecDeque<Verifier>)>) {
@@ -356,19 +370,6 @@ fn fuzz_msg(msg_type: Message, msg: &[u8]) -> Vec<u8> {
     [(msg.len() as u32 + 1).encode(), msg_type.encode(), msg.encode()].concat()
 }
 
-fn simple_fork(state_root: &OpaqueHash) -> (OpaqueHash, GlobalState, VecDeque<Verifier>) {
-
-    let state_record = get_state_record();
-
-    let state = if let Some((pre_state_root, pre_state, verifiers_records)) = state_record.iter().find(|(s_root, _, _)| *state_root == *s_root ) {
-        (*pre_state_root, pre_state.clone(), verifiers_records.clone())
-    } else {
-        state_record.back().unwrap().clone()
-    };
-
-    return state;
-}
-
 pub fn run_fuzzer(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     let vinwolf_info = &*VINWOLF_INFO;
@@ -384,7 +385,9 @@ pub fn run_fuzzer(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let n = socket.read(&mut buffer)?;
 
 
-    let path = std::path::Path::new("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/");
+    let path = std::path::Path::new("/home/bernar/workspace/vinwolf/external/jam-conformance/fuzz-reports/0.7.0/traces/");
+
+    //fuzz_dir(&mut socket, &path);
 
     for entry in std::fs::read_dir(path).unwrap() {
 
