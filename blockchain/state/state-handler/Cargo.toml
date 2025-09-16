@@ -10,6 +10,7 @@ repository.workspace = true
 codec = { workspace = true }
 constants = { workspace = true }
 jam-types = { workspace = true }
+storage = { workspace = true }
 utils = { workspace = true }
 
 sp-core = { workspace = true }

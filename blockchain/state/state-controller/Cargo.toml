@@ -21,6 +21,7 @@ safrole = { workspace = true }
 services = { workspace = true }
 statistics = { workspace = true }
 state-handler = { workspace = true }
+storage = { workspace = true }
 utils = { workspace = true }
 validators = { workspace = true }
 

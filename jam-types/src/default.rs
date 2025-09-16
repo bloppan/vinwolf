@@ -12,7 +12,7 @@ use crate::{
     ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportedPackage, ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, 
     ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsMark, TicketsOrKeys, 
     TimeSlot, ValidatorData, ValidatorSignature, ValidatorStatistics, ValidatorsData, WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, Block,
-    Header, Extrinsic, UnsignedHeader, DisputesExtrinsic, Verdict, Culprit, Fault, RecentBlocks, Mmr, RecentAccOutputs, AncestorsInfo, Ancestors
+    Header, Extrinsic, UnsignedHeader, DisputesExtrinsic, Verdict, Culprit, Fault, RecentBlocks, Mmr, RecentAccOutputs,
 };
 
 impl Default for GlobalState {
@@ -321,15 +321,6 @@ impl Default for AvailabilityAssignments {
     }
 }
 
-impl Default for AncestorsInfo {
-    fn default() -> Self {
-        AncestorsInfo { 
-            map: Ancestors::default(), 
-            min_timeslot: TimeSlot::default(), 
-            max_timeslot: TimeSlot::default()
-        }
-    }
-}
 // ----------------------------------------------------------------------------------------------------------
 // Accumulation
 // ----------------------------------------------------------------------------------------------------------

@@ -135,8 +135,8 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &new_available_workreports.reported,
     );
 
-    if state_handler::is_ancestors_feature_enabled() {
-        state_handler::header::update_ancestors(&block.header.unsigned.slot, &header_hash); 
+    if storage::is_ancestors_feature_enabled() {
+        storage::update_ancestors(&block.header.unsigned.slot, &header_hash); 
     }
     
     header::set_parent_header(header_hash);

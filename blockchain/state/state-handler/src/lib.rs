@@ -1,11 +1,8 @@
-use std::collections::{HashMap, VecDeque};
-
 use {std::sync::LazyLock, std::sync::Mutex};
-use constants::node::MAX_AGE_LOOKUP_ANCHOR;
 use jam_types::{
     AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignment, AvailabilityAssignments, CoreIndex, DisputesErrorCode, DisputesRecords, Entropy, EntropyPool, 
-    GlobalState, Hash, Offenders, OpaqueHash, Privileges, ProcessError, ReadyQueue, RecentBlocks, Safrole, ServiceAccounts, Statistics, TimeSlot, ValidatorSet, 
-    ValidatorsData, WorkReportHash, Ancestors, AncestorsInfo
+    GlobalState, Offenders, OpaqueHash, Privileges, ProcessError, ReadyQueue, RecentBlocks, Safrole, ServiceAccounts, Statistics, TimeSlot, ValidatorSet, 
+    ValidatorsData, WorkReportHash,
 };
 use codec::Encode;
 
@@ -95,65 +92,6 @@ pub mod recent_history {
     }
     pub fn set_current(new_state: RecentBlocks) {
         *CURR_BLOCK_HISTORY.lock().unwrap() = new_state;
-    }
-}
-
-static ANCESTORS: LazyLock<Mutex<AncestorsInfo>> = LazyLock::new(|| { Mutex::new(AncestorsInfo::default()) });
-static ANCESTORS_ENABLED: LazyLock<Mutex<bool>> = LazyLock::new(|| { Mutex::new(false)});
-
-pub fn is_ancestors_feature_enabled() -> bool {
-    *ANCESTORS_ENABLED.lock().unwrap()
-}
-pub fn set_ancestors_feature(status: bool) {
-    *ANCESTORS_ENABLED.lock().unwrap() = status;
-}
-
-pub mod header {
-
-    use super::*;
-
-    pub fn get_ancestors() -> &'static Mutex<AncestorsInfo> {
-        &ANCESTORS
-    }
-    pub fn set_ancestors(ancestors: AncestorsInfo) {
-        *ANCESTORS.lock().unwrap() = ancestors;
-    }
-    pub fn lookup_ancestor(slot: &TimeSlot, header_hash: &OpaqueHash) -> bool {
-
-        let ancestors = get_ancestors().lock().unwrap();
-
-        if ancestors.map.is_empty() {
-            return true;
-        }
-    
-        if *slot < ancestors.min_timeslot || *slot > ancestors.max_timeslot {
-            return false;
-        }
-
-        ancestors.map.get(slot).map_or(false,  |hash| *hash == *header_hash)
-    }
-    pub fn update_ancestors(slot: &TimeSlot, header_hash: &OpaqueHash) {
-
-        let mut ancestors = get_ancestors().lock().unwrap();
-        ancestors.map.insert(*slot, *header_hash);
-        ancestors.max_timeslot = *slot;
-
-        if ancestors.min_timeslot == 0 {
-            ancestors.min_timeslot = *slot;
-        }
-
-        let mut to_remove: Vec<TimeSlot> = vec![];
-        let mut ancestors_len = ancestors.map.len();
-
-        while ancestors_len > MAX_AGE_LOOKUP_ANCHOR as usize {
-            to_remove.push(ancestors.min_timeslot);
-            ancestors.min_timeslot += 1;
-            ancestors_len -= 1;
-        }
-
-        for item in to_remove.iter() {
-            ancestors.map.remove(item);
-        }
     }
 }
 

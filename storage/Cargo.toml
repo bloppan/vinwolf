@@ -1,5 +1,5 @@
 [package]
-name = "block"
+name = "storage"
 version.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -7,12 +7,9 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-codec = { workspace = true }
 constants = { workspace = true }
+rocksdb = { workspace = true, optional = true }
 jam-types = { workspace = true }
-state-handler = { workspace = true }
-storage = { workspace = true }
-utils = { workspace = true }
 
-ark-vrf = { workspace = true }
-sp-core = { workspace = true }
+[features]
+DB = ["rocksdb"]

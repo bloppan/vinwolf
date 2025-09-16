@@ -1,5 +1,5 @@
-use safrole::{get_verifier, get_verifiers, set_verifiers, create_ring_set};
-use jam_types::{AncestorsInfo, Block, GlobalState, OpaqueHash, RawState, ReadError};
+use safrole::{get_verifiers, set_verifiers, create_ring_set};
+use jam_types::{Block, GlobalState, OpaqueHash, RawState, ReadError};
 use codec::{Decode, BytesReader};
 use std::collections::VecDeque;
 use std::path::{PathBuf, Path};
@@ -142,7 +142,7 @@ pub fn process_all_dirs(base_dir: &Path, skip_dirs: &HashSet<String>) -> std::io
         // Clean up the stored parent header
         block::header::set_parent_header(OpaqueHash::default());
         // Clean up the ancestors
-        state_handler::header::set_ancestors(AncestorsInfo::default());
+        storage::set_ancestors(storage::AncestorsInfo::default());
     }
 
     Ok(dirs)

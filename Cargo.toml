@@ -7,6 +7,7 @@ members = [
     "experiments/*", 
     "jam-types",
     "pvm", 
+    "storage",
     "tests",
     "utils",
     "vinwolf-target", 
@@ -27,7 +28,7 @@ accumulation = { path = "blockchain/state/accumulation" }
 authorization = { path = "blockchain/state/authorization" }
 block = { path = "blockchain/block" }
 codec = { path = "codec" }
-constants = { path = "constants", default-features = false }
+constants = { path = "constants" }
 disputes = { path = "blockchain/state/disputes" }
 entropy = { path = "blockchain/state/entropy" }
 jam-types = { path = "jam-types" }
@@ -39,11 +40,13 @@ services = { path = "blockchain/state/services" }
 state-controller = { path = "blockchain/state/state-controller" }
 state-handler = { path = "blockchain/state/state-handler" }
 statistics = { path = "blockchain/state/statistics" }
+storage = { path = "storage" }
 utils = { path = "utils" }
 validators = { path = "blockchain/state/validators" }
 vinwolf-target = { path = "vinwolf-target" }
 
 # Third party libraries
 ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring"] }
-sp-core = "34.0.0"
 quinn = { version = "0.11", features = ["rustls"] }
+rocksdb = "0.24.0"
+sp-core = "34.0.0"

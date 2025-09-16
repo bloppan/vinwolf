@@ -243,7 +243,7 @@ pub mod work_report {
         }
 
         // TODO 11.35
-        if state_handler::is_ancestors_feature_enabled() && !state_handler::header::lookup_ancestor(&work_report.context.lookup_anchor_slot, &work_report.context.lookup_anchor) {
+        if storage::is_ancestors_feature_enabled() && !storage::lookup_ancestor(&work_report.context.lookup_anchor_slot, &work_report.context.lookup_anchor) {
             return Err(ProcessError::ReportError(ReportErrorCode::MissingAncestor));
         }
 
