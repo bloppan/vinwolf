@@ -22,7 +22,7 @@ pub struct Context {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RamMemory {
-    pub pages: HashMap<PageNumber, Page>,
+    pub pages: Box<[Option<Page>]>,
     pub curr_heap_pointer: RamAddress,
 }
 
@@ -176,23 +176,19 @@ pub enum ExitReason {
 // ----------------------------------------------------------------------------------------------------------
 // Default
 // ----------------------------------------------------------------------------------------------------------
-/*impl Default for RamMemory {
+impl Default for RamMemory {
     fn default() -> Self {
-        let mut v: Vec<Option<Page>> = Vec::with_capacity(NUM_PAGES as usize);
-        for _ in 0..NUM_PAGES {
-            v.push(None);
-        }
         RamMemory {
-            pages: v.into_boxed_slice(),
+            pages: vec![None; NUM_PAGES as usize].into_boxed_slice(),
             curr_heap_pointer: 0,
         }
     }
-}*/
-impl Default for RamMemory {
+}
+/*impl Default for RamMemory {
     fn default() -> Self {
         RamMemory { pages: HashMap::new(), curr_heap_pointer: 0 }
     }
-}
+}*/
 
 impl Default for Page {
     fn default() -> Self {
