@@ -117,7 +117,7 @@ impl RamMemory {
         end: RamAddress, 
         section: RamSection) 
     {
-        let start_page = start / PAGE_SIZE;
+        let start_page = crate::page_index!(start);
         let end_page = (end - 1) / PAGE_SIZE;
 
         for i in start_page..=(end_page % NUM_PAGES) {

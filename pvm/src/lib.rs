@@ -6,7 +6,7 @@ pub mod pvm_types;
 use std::sync::{Mutex, LazyLock};
 use codec::{BytesReader, Decode};
 use crate::pvm_types::{Gas, RegSize, RamMemory, Registers};
-use crate::pvm_types::{Context, ExitReason, Program};
+use crate::pvm_types::{RamAddress, ExitReason, Program};
 use utils::log;
 
 use isa::one_offset::*;
@@ -23,6 +23,28 @@ use isa::one_reg_one_imm::*;
 use isa::one_reg_two_imm::*;
 use isa::one_reg_one_imm_one_offset::*;
 use constants::pvm::*;
+
+const PAGE_SHIFT: RamAddress = PAGE_SIZE.trailing_zeros();
+const PAGE_MASK: RamAddress = PAGE_SIZE - 1;
+const BOUNDS_MASK: RamAddress = NUM_PAGES - 1;
+
+#[macro_export] macro_rules! page_index {
+    ($addr:expr) => {
+        $addr >> crate::PAGE_SHIFT
+    };
+}
+
+#[macro_export] macro_rules! page_offset {
+    ($addr:expr) => {
+        $addr & crate::PAGE_MASK
+    };
+}
+
+#[macro_export] macro_rules! mem_bounds {
+    ($addr:expr) => {
+        $addr & crate::BOUNDS_MASK
+    };
+}
 
 
 /*#[derive(Debug, Clone, PartialEq)]

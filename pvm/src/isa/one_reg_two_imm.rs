@@ -8,11 +8,11 @@ use crate::pvm_types::{RamMemory, Gas, Registers, ExitReason, Program, RamAddres
 use crate::isa::{skip, extend_sign, _store};
 
 fn get_reg(pc: &RegSize, program: &Program) -> RegSize {
-    min(12, program.code[*pc as usize + 1] % 16) as u64
+    min(12, program.code[*pc as usize + 1] & 15) as u64
 }
 
 fn get_x_length(pc: &RegSize, program: &Program) -> RegSize {
-    min(4, max(0, (program.code[*pc as usize + 1] >> 4) % 8) as u64)
+    min(4, max(0, (program.code[*pc as usize + 1] >> 4) & 7) as u64)
 }
 
 fn get_y_length(pc: &RegSize, program: &Program) -> RegSize {
@@ -41,7 +41,7 @@ fn get_address(pc: &RegSize, reg: &Registers, program: &Program) -> RamAddress {
 }
 
 fn get_value<T>(pc: &RegSize, program: &Program) -> RegSize {
-    ((get_y_imm(pc, program) as u128) % (1 << (std::mem::size_of::<T>() * 8))) as RegSize
+    ((get_y_imm(pc, program) as u128) & (1 << (std::mem::size_of::<T>() * 8)) - 1) as RegSize
 }
 
 fn store_imm_ind<T>(program: &Program, pc: &mut RegSize, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {

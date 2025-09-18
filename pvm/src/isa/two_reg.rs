@@ -11,7 +11,7 @@ use crate::isa::{signed, unsigned};
 
 fn get_reg(pc: &u64, code: &[u8]) -> (u8, u8) {
     let reg_a: u8 = min(12, code[*pc as usize + 1] >> 4);
-    let reg_d: u8 = min(12, code[*pc as usize + 1] % 16);
+    let reg_d: u8 = min(12, code[*pc as usize + 1] & 15);
     (reg_a, reg_d)
 }
 

@@ -9,11 +9,11 @@ use codec::BytesReader;
 use codec::generic_codec::decode_integer;
 
 fn get_reg(pc: &RegSize, program: &Program) -> u8 {
-    min(12, program.code[*pc as usize + 1] % 16)
+    min(12, program.code[*pc as usize + 1] & 15)
 }
 
 fn get_x_length(pc: &RegSize, program: &Program) -> RegSize {
-    (min(4, program.code[*pc as usize + 1] >> 4) % 8) as RegSize
+    (min(4, program.code[*pc as usize + 1] >> 4) & 7) as RegSize
 }
 
 fn get_y_length(pc: &RegSize, program: &Program) -> RegSize {

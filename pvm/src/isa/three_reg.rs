@@ -8,7 +8,7 @@ use crate::isa::skip;
 
 #[inline(always)]
 fn get_reg(pc: &u64, program: &Program) -> (usize, usize, usize) {
-    let reg_a = std::cmp::min(12, program.code[*pc as usize + 1] % 16) as usize;
+    let reg_a = std::cmp::min(12, program.code[*pc as usize + 1] & 15) as usize;
     let reg_b = std::cmp::min(12, program.code[*pc as usize + 1] >> 4) as usize;
     let reg_d = std::cmp::min(12, program.code[*pc as usize + 2]) as usize;
     (reg_a, reg_b, reg_d)

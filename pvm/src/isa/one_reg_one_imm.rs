@@ -8,7 +8,7 @@ use crate::pvm_types::{Gas, RamMemory, Registers, ExitReason, Program, RamAddres
 use crate::isa::{skip, extend_sign, _load, _store, djump};
 
 fn get_reg(pc: &RegSize, program: &Program) -> RegSize {
-    min(12, program.code[*pc as usize + 1] % 16) as RegSize
+    min(12, program.code[*pc as usize + 1] & 15) as RegSize
 }
 
 fn get_x_length(pc: &RegSize, program: &Program) -> RegSize {
@@ -27,7 +27,7 @@ pub fn jump_ind(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     let reg_a = get_reg(pc, program);
     let value_imm = get_x_imm(pc, program);
     let value_reg_a = reg[reg_a as usize];
-    let a = (value_reg_a.wrapping_add(value_imm) % (1 << 32)) as RegSize;
+    let a = (value_reg_a.wrapping_add(value_imm) as u32) as RegSize;
     djump(&a, pc, program)
 }
 
@@ -77,7 +77,7 @@ pub fn load_i32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut R
 pub fn store<T>(program: &Program, pc: &mut RegSize, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let reg_a = get_reg(pc, program);
     let address = get_x_imm(pc, program) as RamAddress;
-    let value = ((reg[reg_a as usize] as u128) % (1 << (std::mem::size_of::<T>() * 8))) as RegSize;
+    let value = ((reg[reg_a as usize] as u128) & (1 << (std::mem::size_of::<T>() * 8)) - 1) as RegSize;
     _store::<T>( program, pc, ram, address, value)
 }
 

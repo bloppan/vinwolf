@@ -10,7 +10,7 @@ use codec::BytesReader;
 use codec::generic_codec::decode_integer;
 
 fn get_reg(pc: &RegSize, program: &Program) -> (usize, usize) {
-    let reg_a = min(12, program.code[*pc as usize + 1] % 16) as usize;
+    let reg_a = min(12, program.code[*pc as usize + 1] & 15) as usize;
     let reg_b = min(12, program.code[*pc as usize + 1] >> 4) as usize;
     (reg_a, reg_b)
 }
