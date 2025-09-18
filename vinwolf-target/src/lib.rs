@@ -97,6 +97,7 @@ pub fn read_all_bins(dir_path: &Path) -> Vec<(u32, PathBuf)> {
 
 pub fn process_all_bins(dir_path: &Path) -> std::io::Result<()> {
 
+    //storage::ancestors::set_ancestors_feature(true);
     let bin_files = read_all_bins(dir_path);
 
     for (_slot, bin_path) in bin_files {
@@ -142,7 +143,7 @@ pub fn process_all_dirs(base_dir: &Path, skip_dirs: &HashSet<String>) -> std::io
         // Clean up the stored parent header
         block::header::set_parent_header(OpaqueHash::default());
         // Clean up the ancestors
-        storage::set_ancestors(storage::AncestorsInfo::default());
+        storage::ancestors::set(storage::ancestors::AncestorsInfo::default());
     }
 
     Ok(dirs)

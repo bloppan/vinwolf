@@ -10,6 +10,11 @@ repository.workspace = true
 constants = { workspace = true }
 rocksdb = { workspace = true, optional = true }
 jam-types = { workspace = true }
+utils = { workspace = true }
 
 [features]
 DB = ["rocksdb"]
+
+[[bin]]
+name = "storage_debug"
+path = "src/bin/storage_debug.rs"
