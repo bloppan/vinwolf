@@ -243,24 +243,9 @@ pub mod work_report {
         }
 
         // TODO 11.35
-        
-        // We require that the prerequisite work-packages, if present, and any work-packages mentioned in the segment-root lookup,
-        // be either in the extrinsic or in our recent history.
-        /*let mut wp_hashes_in_our_pipeline: HashSet<OpaqueHash> = HashSet::new();
-
-        let acc_queue = get_ready_queue();
-        for epoch in acc_queue.queue.iter() {
-            for ready_record in epoch.iter() {
-                wp_hashes_in_our_pipeline.extend(ready_record.dependencies.clone());
-            }
+        if storage::ancestors::is_ancestors_feature_enabled() && !storage::ancestors::lookup(&work_report.context.lookup_anchor_slot, &work_report.context.lookup_anchor) {
+            return Err(ProcessError::ReportError(ReportErrorCode::MissingAncestor));
         }
-        
-        let assurance_state = get_reporting_assurance();
-        for item in assurance_state.list.iter() {
-            if let Some(assignment) = item {
-                wp_hashes_in_our_pipeline.extend(&assignment.report.context.prerequisites);
-            }
-        }*/
 
         let OutputDataReports {
             reported: new_reported,

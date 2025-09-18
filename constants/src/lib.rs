@@ -2,7 +2,7 @@ pub mod node;
 pub mod pvm;
 
 pub const BUILD_PROFILE: &str = {
-    #[cfg(feature = "tiny")]
+    #[cfg(all(feature = "tiny", not(feature = "full")))]
     { "tiny" }
     #[cfg(feature = "full")]
     { "full" }

@@ -1,9 +1,8 @@
 use {std::sync::LazyLock, std::sync::Mutex};
-
 use jam_types::{
-    AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, RecentBlocks, DisputesRecords, EntropyPool, GlobalState, CoreIndex,
-    OpaqueHash, Privileges, ReadyQueue, Safrole, ServiceAccounts, Statistics, TimeSlot, ValidatorSet, ValidatorsData, AvailabilityAssignment,
-    Offenders, WorkReportHash, ProcessError, DisputesErrorCode, Entropy
+    AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignment, AvailabilityAssignments, CoreIndex, DisputesErrorCode, DisputesRecords, Entropy, EntropyPool, 
+    GlobalState, Offenders, OpaqueHash, Privileges, ProcessError, ReadyQueue, RecentBlocks, Safrole, ServiceAccounts, Statistics, TimeSlot, ValidatorSet, 
+    ValidatorsData, WorkReportHash,
 };
 use codec::Encode;
 
