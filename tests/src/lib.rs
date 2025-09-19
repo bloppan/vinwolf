@@ -6,17 +6,18 @@ use jam_types::ProcessError;
 mod test_codec;
 mod test_types;
 mod codec;
+
 mod accumulate;
 mod authorization;
 mod assurances;
 mod disputes;
+mod merkle;
 mod recent_history;
 mod preimages;
 //mod pvm;
 mod reports;
 mod safrole;
 mod shuffle;
-//mod trie;
 mod statistics;
 mod traces;
 
