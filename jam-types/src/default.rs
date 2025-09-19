@@ -518,12 +518,14 @@ impl Default for EpochMark {
         Self {
             entropy: Entropy::default(),
             tickets_entropy: Entropy::default(),
-            validators: Box::new(std::array::from_fn(|_| {
-                (BandersnatchPublic::default(), Ed25519Public::default())
-            }))
+            validators: Box::new([(
+                BandersnatchPublic::default(),
+                Ed25519Public::default(),
+            ); VALIDATORS_COUNT]),
         }
     }
 }
+
 impl Default for BandersnatchEpoch {
     fn default() -> Self {
         Self {

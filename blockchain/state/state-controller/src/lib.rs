@@ -63,7 +63,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &mut new_state.availability,
         &block.extrinsic.disputes,
     )?;
-    
+
     safrole::process(
         &mut new_state.safrole,
         &mut new_state.entropy,
@@ -72,7 +72,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &mut new_state.time,
         &block,
         &new_state.disputes.offenders)?;
-    
+
     let new_available_workreports = reports::assurances::process(
         &mut new_state.availability,
         &block.extrinsic.assurances,
