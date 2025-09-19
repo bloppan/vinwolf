@@ -7,8 +7,7 @@
     left unallocated between sections in order to reduce accidental overrun. Sections are padded with zeroes to the nearest pvm 
     memory page boundary.
 */
-use std::sync::{LazyLock, Mutex};
-use crate::pvm_types::{RamAccess, RamAddress, RamMemory, Registers, StandardProgram, ProgramFormat, Page};
+use crate::pvm_types::{RamAddress, RamMemory, Registers, StandardProgram, ProgramFormat, Page};
 use jam_types::ReadError;
 use constants::pvm::{Zi, Zz, NUM_PAGES, NUM_REG, PAGE_SIZE, PVM_INIT_ZONE_SIZE};
 use codec::{Decode, DecodeSize, BytesReader};
@@ -117,12 +116,12 @@ impl RamMemory {
         end: RamAddress, 
         section: RamSection) 
     {
-        let start_page = start / PAGE_SIZE;
+        let start_page = crate::page_index!(start);
         let end_page = (end - 1) / PAGE_SIZE;
 
         for i in start_page..=(end_page % NUM_PAGES) {
-            if !self.pages.contains_key(&(i % NUM_PAGES)) {
-                self.pages.insert(i % NUM_PAGES,Page::default());
+            if self.pages[(i % NUM_PAGES) as usize].is_none() {
+                self.pages[(i % NUM_PAGES) as usize] = Some(Page::default());
             }
         }
 
@@ -132,22 +131,22 @@ impl RamMemory {
                 for i in start..end {
                     let page = i / PAGE_SIZE;
                     let offset = i % PAGE_SIZE;
-                    self.pages.get_mut(&page).unwrap().flags.read_access = true;
-                    self.pages.get_mut(&page).unwrap().data[offset as usize] = params.ro_data[i as usize - Zz as usize];
+                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
+                    self.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.ro_data[i as usize - Zz as usize];
                 }
             },
             RamSection::Zone2 => {
                 for page in start_page..=end_page {
-                    self.pages.get_mut(&page).unwrap().flags.read_access = true;
+                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
                 }
             },
             RamSection::Zone3 => {
                 for i in start..end {
                     let page = i / PAGE_SIZE;
                     let offset = i % PAGE_SIZE;
-                    self.pages.get_mut(&page).unwrap().flags.write_access = true;
-                    self.pages.get_mut(&page).unwrap().flags.read_access = true;
-                    self.pages.get_mut(&page).unwrap().data[offset as usize] = params.rw_data[i as usize - (2 * Zz + zone(params.ro_data.len()) as u64) as usize];
+                    self.pages[page as usize].as_mut().unwrap().flags.write_access = true;
+                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
+                    self.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.rw_data[i as usize - (2 * Zz + zone(params.ro_data.len()) as u64) as usize];
                 }
                //println!("END: {:?}", end);
                 self.curr_heap_pointer = page(end as usize) as RamAddress;
@@ -155,28 +154,28 @@ impl RamMemory {
             },
             RamSection::Zone4 => {
                 for page in start_page..=end_page {
-                    self.pages.get_mut(&page).unwrap().flags.write_access = true;
-                    self.pages.get_mut(&page).unwrap().flags.read_access = true;
+                    self.pages[page as usize].as_mut().unwrap().flags.write_access = true;
+                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
                 }
                 //println!("ram zone 4 page 50: {:x?}", self.pages[50].as_ref().unwrap().data);
             },
             RamSection::Zone5 => {
                 for page in start_page..=end_page {
-                    self.pages.get_mut(&page).unwrap().flags.write_access = true;
-                    self.pages.get_mut(&page).unwrap().flags.read_access = true;
+                    self.pages[page as usize].as_mut().unwrap().flags.write_access = true;
+                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
                 }
             },
             RamSection::Zone6 => {
                 for i in start..end {
                     let page = i / PAGE_SIZE;
                     let offset = i % PAGE_SIZE;
-                    self.pages.get_mut(&page).unwrap().flags.read_access = true;
-                    self.pages.get_mut(&page).unwrap().data[offset as usize] = arg[i as usize - ((1 << 32) - Zz - Zi) as usize]; 
+                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
+                    self.pages[page as usize].as_mut().unwrap().data[offset as usize] = arg[i as usize - ((1 << 32) - Zz - Zi) as usize]; 
                 }
             },
             RamSection::Zone7 => {
                 for page in start_page..=end_page {
-                    self.pages.get_mut(&page).unwrap().flags.read_access = true;
+                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
                 }
             },
         }
@@ -189,8 +188,8 @@ impl RamMemory {
 
 }
 
-use crate::{Program};
-use codec::generic_codec::{decode_integer, decode_to_bits, decode_unsigned};
+use crate::pvm_types::Program;
+use codec::generic_codec::{decode_integer, decode_unsigned};
 
 impl Decode for Program {
 
@@ -210,9 +209,28 @@ impl Decode for Program {
         let code: Vec<u8> = program_code_slice.to_vec().into_iter().chain(std::iter::repeat(0).take(25)).collect();
 
         let num_bitmask_bytes = (program_code_size + 7) / 8;
-        let mut bitmask = decode_to_bits(blob, num_bitmask_bytes as usize)?;
+        utils::log::trace!("program bytes: {:?} bitmask bytes: {:?}", program_code_size, num_bitmask_bytes);
+        let mut bitmask: Vec<u8> = blob.read_bytes(num_bitmask_bytes)?.to_vec();
+        utils::log::trace!("bitmask: {:?}", bitmask);
+
+        let tail_offset = program_code_size & 7;
+
+        if tail_offset != 0 {
+            let tail_mask: u8 =  (0xFF << tail_offset) as u8;
+            if let Some(last) = bitmask.last_mut() {
+                *last |= tail_mask;
+            }
+        }
+        
+        bitmask.extend(vec![0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
+        utils::log::trace!("bitmask: {:?}", bitmask);
+
+        /*let mut bitmask = decode_to_bits(blob, num_bitmask_bytes as usize)?;
         bitmask.truncate(program_code_size);
-        bitmask.extend(std::iter::repeat(true).take(code.len() - bitmask.len()));
+        bitmask.extend(std::iter::repeat(true).take(code.len() - bitmask.len()));*/
+
+
+
 
         /*println!("\nProgram code len  = {} | Bitmask len = {}", program_code.len(), bitmask.len());
         println!("Jump table = {:?} \n", jump_table);

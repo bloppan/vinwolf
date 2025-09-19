@@ -140,9 +140,10 @@ pub fn process(
         validators::key_rotation(safrole_state, curr_validators, prev_validators, offenders);
         // Create the epoch root from next pending validators and update the safrole state
         let new_ring_set = create_ring_set(&safrole_state.pending_validators);
-        safrole_state.epoch_root = create_root_epoch(new_ring_set.clone());
+        let new_verifier = Verifier::new(new_ring_set);
+        safrole_state.epoch_root = create_root_epoch(&new_verifier);
         // Update the verifiers
-        update_verifiers(Verifier::new(new_ring_set), curr_validators, &(post_epoch - epoch));
+        update_verifiers(new_verifier, curr_validators, &(post_epoch - epoch));
         // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
         // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
         log::debug!("New epoch mark");
@@ -178,7 +179,7 @@ pub fn process(
             // Otherwise, it takes the value of the fallback key sequence
             log::warn!("Fallback mode!");
             let bandersnatch_keys = validators::extract_keys(curr_validators,|v| v.bandersnatch);
-            safrole_state.seal = TicketsOrKeys::Keys(fallback(&entropy_pool.buf[2], &bandersnatch_keys));
+            safrole_state.seal = TicketsOrKeys::Keys(fallback(&entropy_pool.buf[2], bandersnatch_keys));
         } 
         safrole_state.ticket_accumulator = vec![];
     } else if post_epoch == epoch && m < TICKET_SUBMISSION_ENDS as u32 && TICKET_SUBMISSION_ENDS as u32 <= post_m && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
@@ -191,13 +192,11 @@ pub fn process(
             return Err(ProcessError::SafroleError(SafroleErrorCode::WrongTicketsMark));
         }
     }
-    
     let pending_val_verifier = get_verifier(ValidatorSet::Next);
     // Process tickets extrinsic
     extrinsic::tickets::process(&block.extrinsic.tickets, safrole_state, entropy_pool, &post_tau, &pending_val_verifier)?;
     // update tau which defines the most recent block's index
     *tau = post_tau;
-
     let curr_val_verifier = get_verifier(ValidatorSet::Current);
     // Verify the header's seal
     let entropy_source_vrf_output = header::seal_verify(&block.header, &safrole_state, &entropy_pool, &curr_validators, &curr_val_verifier)?;
@@ -221,8 +220,7 @@ pub fn create_ring_set(validators: &ValidatorsData) -> Vec<Public> {
         .collect()
 }
 
-pub fn create_root_epoch(ring_set: Vec<Public>) -> BandersnatchRingCommitment {
-    let verifier = Verifier::new(ring_set);
+pub fn create_root_epoch(verifier: &Verifier) -> BandersnatchRingCommitment {
     let mut proof: BandersnatchRingCommitment = [0u8; std::mem::size_of::<BandersnatchRingCommitment>()];
     verifier.commitment.serialize_compressed(&mut proof[..]).unwrap();
     log::debug!("Create root epoch: 0x{}", print_hash!(proof));
@@ -241,19 +239,20 @@ fn outside_in_sequencer(tickets: &[TicketBody]) -> TicketsMark {
     return new_ticket_accumulator;
 }
 
-fn fallback(buf: &Entropy, current_keys: &Box<[BandersnatchPublic; VALIDATORS_COUNT]>) -> BandersnatchEpoch {
+fn fallback(buf: &Entropy, current_keys: Box<[BandersnatchPublic; VALIDATORS_COUNT]>) -> BandersnatchEpoch {
     // This is the fallback key sequence function which selects an epoch's worth of validator Bandersnatch keys from the 
     // validator key set using the entropy collected on-chain
-    let mut new_epoch_keys: BandersnatchEpoch = BandersnatchEpoch::default();
-    for i in 0u32..EPOCH_LENGTH as u32 { 
-        let index_le = (i as u32).encode();
+    let epoch_array = std::array::from_fn(|i| {
+        let index_le = (i as u32).to_le_bytes();
         let hash = blake2_256(&[&buf.entropy[..], &index_le].concat());
         let hash_4 = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
         let id = (hash_4 % VALIDATORS_COUNT as u32) as usize;
-        new_epoch_keys.epoch[i as usize] = current_keys[id].clone();
-    }
+        current_keys[id]
+    });
 
-    return new_epoch_keys;
+    BandersnatchEpoch {
+        epoch: Box::new(epoch_array),
+    }
 }
 
 

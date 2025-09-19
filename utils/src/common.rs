@@ -8,7 +8,7 @@ use std::io::Read;
 
 use jam_types::{
     Account, AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignments, Balance, BandersnatchPublic, BlsPublic, DisputesRecords, Ed25519Public, 
-    Ed25519Signature, EntropyPool, Gas, GlobalState, KeyValue, Metadata, OpaqueHash, PreimageData, Privileges, ReadError, ReadyQueue, RecentAccOutputs, 
+    Ed25519Signature, EntropyPool, GlobalState, KeyValue, Metadata, OpaqueHash, PreimageData, Privileges, ReadError, ReadyQueue, RecentAccOutputs, 
     RecentBlocks, Safrole, ServiceAccounts, ServiceId, StateKeyType, Statistics, TimeSlot, ValidatorsData, ServiceInfo
 };
 use constants::node::{
@@ -16,7 +16,7 @@ use constants::node::{
     CURR_VALIDATORS, PREV_VALIDATORS, AVAILABILITY, TIME, PRIVILEGES, STATISTICS, READY_QUEUE, ACCUMULATION_HISTORY, RECENT_ACC_OUTPUTS
 };
 use crate::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
-use codec::{ Encode, Decode, DecodeLen, BytesReader};
+use codec::{ Decode, DecodeLen, BytesReader};
 use codec::generic_codec::{decode_unsigned, decode};
 
 pub fn dict_subtract<K: Eq + std::hash::Hash + Clone, V: Clone>(
@@ -335,11 +335,13 @@ fn is_service_info_key(keyval: &KeyValue) -> bool {
     keyval.key[0] == 0xFF && keyval.key[2] == 0x00 && keyval.key[4] == 0x00 && keyval.key[6] == 0x00 && keyval.key[8..].iter().all(|&b| b == 0)
 }
 
+#[allow(dead_code)]
 fn is_storage_key(keyval: &KeyValue) -> bool {
 
     keyval.key[1] == 0xFF && keyval.key[3] == 0xFF && keyval.key[5] == 0xFF && keyval.key[7] == 0xFF
 }
 
+#[allow(dead_code)]
 fn is_preimage_key(keyval: &KeyValue) -> bool {
 
     keyval.key[1] == 0xFE && keyval.key[3] == 0xFF && keyval.key[5] == 0xFF && keyval.key[7] == 0xFF

@@ -1,47 +1,40 @@
 #[cfg(test)]
 mod tests {
 
-    use serde::Deserialize;
     use std::path::PathBuf;
-    use jam_types::Entropy;
-    use utils::shuffle::shuffle;
-    use utils::hex;
+    use jam_types::{OpaqueHash, Entropy};
+    use utils::{serde::{Deserialize, Value, from_json_str}, shuffle::shuffle};
 
-    // Test case struct
-    #[derive(Debug, Deserialize)]
-    struct TestCase<T> {
-        input: usize,
-        #[serde(with = "hex_array")]
+    #[derive(Debug, PartialEq)]
+    struct TestCase {
+        input: u64,
         entropy: Entropy,
-        output: Vec<T>,
+        output: Vec<u64>,
     }
 
-    // Entropy deserializer module
-    mod hex_array {
-        use serde::{self, Deserialize, Deserializer};
-        use jam_types::Entropy;
-        use std::fmt;
-        use utils::hex;
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Entropy, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            let hex_str: &str = Deserialize::deserialize(deserializer)?;
-            let bytes = hex::decode(hex_str).unwrap();
-            if bytes.len() != 32 {
-                return Err(serde::de::Error::invalid_length(bytes.len(), &HexLen));
-            }
-            let mut array = [0u8; 32];
-            array.copy_from_slice(&bytes);
-            Ok(Entropy{ entropy: array })
+    fn hex_to_bytes(s: &str) -> Result<OpaqueHash, String> {
+        if s.len() != 64 {
+            return Err("entropy must be 64 hex characters".into());
         }
+        let mut bytes = OpaqueHash::default();
+        for i in 0..32 {
+            let byte_str = &s[i * 2..i * 2 + 2];
+            bytes[i] = u8::from_str_radix(byte_str, 16).map_err(|_| "invalid hex character".to_string())?;
+        }
+        Ok(bytes)
+    }
 
-        struct HexLen;
-
-        impl serde::de::Expected for HexLen {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f, "expected 32 bytes")
-            }
+    impl Deserialize for TestCase {
+        fn from_value(v: &Value) -> Result<Self, String> {
+            let o = match v {
+                Value::Object(o) => o,
+                _ => return Err("expected object".into()),
+            };
+            let input = u64::from_value(o.get("input").ok_or("missing field input")?)?;
+            let entropy_str = String::from_value(o.get("entropy").ok_or("missing field entropy")?)?;
+            let entropy = Entropy { entropy: hex_to_bytes(&entropy_str)? };
+            let output = Vec::<u64>::from_value(o.get("output").ok_or("missing field output")?)?;
+            Ok(TestCase { input, entropy, output })
         }
     }
 
@@ -53,42 +46,38 @@ mod tests {
         // Read JSON file as string
         let file_content = std::fs::read_to_string(file_path).expect("Could not read JSON shuffle test file");
 
-        // Try to deserialize as u8
-        match serde_json::from_str::<Vec<TestCase<u8>>>(&file_content) {
-            Ok(test_cases_u8) => {
-                for test_case in test_cases_u8 {
-                    let sequence: Vec<u8> = (0..test_case.input)
-                        .map(|x| x as u8) // Convert usize to u8
-                        .collect();
-                    let output_result = shuffle(&sequence, &test_case.entropy);
-                    println!("expected: {:0x?}", test_case.output);
-                    println!("result:   {:0x?}", output_result);
-                    assert_eq!(test_case.output, output_result);
-                    println!("\n");
-                }
+        let tests: Vec<TestCase> = from_json_str(&file_content).unwrap();
+        for test_case in tests {
+            let max_val = test_case.input.saturating_sub(1);
+            if max_val <= u8::MAX as u64 {
+                let sequence: Vec<u8> = (0..test_case.input).map(|i| i as u8).collect();
+                let output_result: Vec<u8> = shuffle(&sequence, &test_case.entropy);
+                let result_u64: Vec<u64> = output_result.iter().map(|&x| x as u64).collect();
+                println!("expected: {:0x?}", test_case.output);
+                println!("result:   {:0x?}", result_u64);
+                assert_eq!(test_case.output, result_u64);
+            } else if max_val <= u16::MAX as u64 {
+                let sequence: Vec<u16> = (0..test_case.input).map(|i| i as u16).collect();
+                let output_result: Vec<u16> = shuffle(&sequence, &test_case.entropy);
+                let result_u64: Vec<u64> = output_result.iter().map(|&x| x as u64).collect();
+                println!("expected: {:0x?}", test_case.output);
+                println!("result:   {:0x?}", result_u64);
+                assert_eq!(test_case.output, result_u64);
+            } else if max_val <= u32::MAX as u64 {
+                let sequence: Vec<u32> = (0..test_case.input).map(|i| i as u32).collect();
+                let output_result: Vec<u32> = shuffle(&sequence, &test_case.entropy);
+                let result_u64: Vec<u64> = output_result.iter().map(|&x| x as u64).collect();
+                println!("expected: {:0x?}", test_case.output);
+                println!("result:   {:0x?}", result_u64);
+                assert_eq!(test_case.output, result_u64);
+            } else {
+                let sequence: Vec<u64> = (0..test_case.input).collect();
+                let output_result: Vec<u64> = shuffle(&sequence, &test_case.entropy);
+                println!("expected: {:0x?}", test_case.output);
+                println!("result:   {:0x?}", output_result);
+                assert_eq!(test_case.output, output_result);
             }
-            Err(_e) => {
-                //println!("Could not deserialize as u8: {}", e);
-            }
-        }
-
-        // Try to deserialize as u16
-        match serde_json::from_str::<Vec<TestCase<u16>>>(&file_content) {
-            Ok(test_cases_u16) => {
-                for test_case in test_cases_u16 {
-                    let sequence: Vec<u16> = (0..test_case.input)
-                        .map(|x| x as u16) // Convertir usize to u16
-                        .collect();
-                    let output_result = shuffle(&sequence, &test_case.entropy);
-                    println!("expected: {:0x?}", test_case.output);
-                    println!("result:   {:0x?}", output_result);
-                    assert_eq!(test_case.output, output_result);
-                    println!("\n");
-                }
-            }
-            Err(_e) => {
-                //println!("Could not convert to u16: {}", e);
-            }
+            println!("\n");
         }
     }
 }

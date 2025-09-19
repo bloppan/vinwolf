@@ -202,7 +202,7 @@ mod test {
             .unwrap()
             .to_path_buf();
 
-        workspace_root.join("external/jam-conformance/fuzz-proto/examples/v1")
+        workspace_root.join("external/jam-conformance/fuzz-proto/examples/v1/faulty")
     });
 
     #[test]

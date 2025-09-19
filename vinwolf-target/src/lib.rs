@@ -1,5 +1,5 @@
-use safrole::{get_verifier, get_verifiers, set_verifiers, create_ring_set};
-use jam_types::{Block, RawState, GlobalState, ReadError, OpaqueHash};
+use safrole::{get_verifiers, set_verifiers, create_ring_set};
+use jam_types::{Block, GlobalState, OpaqueHash, RawState, ReadError};
 use codec::{Decode, BytesReader};
 use std::collections::VecDeque;
 use std::path::{PathBuf, Path};
@@ -97,6 +97,7 @@ pub fn read_all_bins(dir_path: &Path) -> Vec<(u32, PathBuf)> {
 
 pub fn process_all_bins(dir_path: &Path) -> std::io::Result<()> {
 
+    //storage::ancestors::set_ancestors_feature(true);
     let bin_files = read_all_bins(dir_path);
 
     for (_slot, bin_path) in bin_files {
@@ -141,6 +142,8 @@ pub fn process_all_dirs(base_dir: &Path, skip_dirs: &HashSet<String>) -> std::io
         set_verifiers(VecDeque::new());
         // Clean up the stored parent header
         block::header::set_parent_header(OpaqueHash::default());
+        // Clean up the ancestors
+        storage::ancestors::set(storage::ancestors::AncestorsInfo::default());
     }
 
     Ok(dirs)

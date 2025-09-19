@@ -18,11 +18,13 @@ jam-types = { workspace = true }
 pvm = { workspace = true }
 recent-history = { workspace = true }
 reports = { workspace = true }
+rocksdb = { workspace = true, optional = true }
 safrole = { workspace = true }
 services = { workspace = true }
 state-controller = { workspace = true }
 state-handler = { workspace = true }
 statistics = { workspace = true }
+storage = { workspace = true }
 utils = { workspace = true }
 vinwolf-target = { workspace = true }
 validators = { workspace = true }
@@ -34,3 +36,4 @@ sp-core = { workspace = true }
 default = ["tiny"]
 tiny = ["constants/tiny"]
 full = ["constants/full"]
+DB = ["rocksdb", "storage/DB"]

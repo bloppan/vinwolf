@@ -1,12 +1,12 @@
 /*
     Instructions with Arguments of One Offset.
 */
-use crate::{RegSize, Gas, RamMemory, Registers, Program, ExitReason};
-use crate::isa::skip;
+use crate::pvm_types::{RegSize, Gas, RamMemory, Registers, Program, ExitReason};
+use crate::pvmi::skip;
 
 #[inline(always)]
 pub fn trap(_program: &Program, _pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, _reg: &mut Registers) -> ExitReason {
-    ExitReason::panic
+    ExitReason::Panic
 }
 
 #[inline(always)]

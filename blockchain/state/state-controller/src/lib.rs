@@ -63,7 +63,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &mut new_state.availability,
         &block.extrinsic.disputes,
     )?;
-    
+
     safrole::process(
         &mut new_state.safrole,
         &mut new_state.entropy,
@@ -72,7 +72,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &mut new_state.time,
         &block,
         &new_state.disputes.offenders)?;
-    
+
     let new_available_workreports = reports::assurances::process(
         &mut new_state.availability,
         &block.extrinsic.assurances,
@@ -135,6 +135,10 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &new_available_workreports.reported,
     );
 
+    if storage::ancestors::is_ancestors_feature_enabled() {
+        storage::ancestors::update(&block.header.unsigned.slot, &header_hash); 
+    }
+    
     header::set_parent_header(header_hash);
     state_handler::set_state_root(merkle_state(&utils::serialization::serialize(&new_state).map, 0));
     state_handler::set_global_state(new_state);

@@ -1,5 +1,3 @@
-use std::collections::{HashSet, HashMap};
-
 use constants::pvm::{NUM_REG, PAGE_SIZE, NUM_PAGES};
 use jam_types::ReadError;
 
@@ -12,17 +10,8 @@ pub type Gas = i64;
 pub type Registers = [RegSize; NUM_REG as usize];
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Context {
-    pub pc: RegSize,
-    pub gas: Gas,
-    pub ram: RamMemory,
-    pub reg: Registers,
-    pub page_fault: Option<RamAddress>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct RamMemory {
-    pub pages: HashMap<PageNumber, Page>,
+    pub pages: Box<[Option<Page>]>,
     pub curr_heap_pointer: RamAddress,
 }
 
@@ -47,8 +36,8 @@ pub enum RamAccess {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
     pub code: Vec<u8>,          // Instruction data (c)
-    pub bitmask: Vec<bool>,     // Bitmask (k)
-    pub jump_table: Vec<usize>,    // Dynamic jump table (j)
+    pub bitmask: Vec<u8>,       // Bitmask (k)
+    pub jump_table: Vec<usize>, // Dynamic jump table (j)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -154,43 +143,25 @@ pub enum HostCallError {
     InvalidHostCall,
 }
 
-#[allow(unreachable_patterns)]
-#[allow(non_snake_case)]
 #[derive(Debug, PartialEq, Eq)]
 pub enum ExitReason {
-    #[allow(non_camel_case_types)]
-    trap,
-    #[allow(non_camel_case_types)]
-    halt,
     Continue,
+    Panic,
     Branch,
     Halt,
-    #[allow(non_camel_case_types)]
-    panic,
     OutOfGas,
-    #[allow(non_camel_case_types)]
-    page_fault,
-    PageFault(u32),     
+    PageFault(RamAddress),     
     HostCall(HostCallFn),      
 }
 // ----------------------------------------------------------------------------------------------------------
 // Default
 // ----------------------------------------------------------------------------------------------------------
-/*impl Default for RamMemory {
-    fn default() -> Self {
-        let mut v: Vec<Option<Page>> = Vec::with_capacity(NUM_PAGES as usize);
-        for _ in 0..NUM_PAGES {
-            v.push(None);
-        }
-        RamMemory {
-            pages: v.into_boxed_slice(),
-            curr_heap_pointer: 0,
-        }
-    }
-}*/
 impl Default for RamMemory {
     fn default() -> Self {
-        RamMemory { pages: HashMap::new(), curr_heap_pointer: 0 }
+        RamMemory {
+            pages: vec![None; NUM_PAGES as usize].into_boxed_slice(),
+            curr_heap_pointer: 0,
+        }
     }
 }
 
@@ -210,18 +181,6 @@ impl Default for PageFlags {
             write_access: false,
             referenced: false,
             modified: false,
-        }
-    }
-}
-
-impl Default for Context {
-    fn default() -> Self {
-        Context {
-            pc: 0,
-            gas: 0,
-            reg: [0; NUM_REG as usize],
-            ram: RamMemory::default(),
-            page_fault: None,
         }
     }
 }

@@ -5,10 +5,10 @@
 use std::cmp::min;
 use crate::pvm_types::{Gas, RamMemory, Registers, ExitReason, Program, RegSize};
 use codec::generic_codec::decode;
-use crate::isa::skip;
+use crate::pvmi::skip;
 
 fn get_reg(pc: &RegSize, program: &Program) -> usize {
-    min(12, program.code[*pc as usize + 1] % 16) as usize
+    min(12, program.code[*pc as usize + 1] & 15) as usize
 }
 
 fn get_imm(pc: &RegSize, program: &Program) -> RegSize {

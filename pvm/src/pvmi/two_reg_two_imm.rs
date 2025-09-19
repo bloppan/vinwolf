@@ -5,16 +5,16 @@
 use std::cmp::{min, max};
 
 use crate::pvm_types::{RamMemory, Registers, Gas, ExitReason, Program, RegSize};
-use crate::isa::{skip, extend_sign, djump};
+use crate::pvmi::{skip, extend_sign, djump};
 
 fn get_reg(pc: &RegSize, program: &Program) -> (usize, usize) {
-    let reg_a = min(12, program.code[*pc as usize + 1] % 16) as usize;
+    let reg_a = min(12, program.code[*pc as usize + 1] & 15) as usize;
     let reg_b = min(12, program.code[*pc as usize + 1] >> 4) as usize;
     (reg_a, reg_b)
 }
 
 fn get_x_length(pc: &RegSize, program: &Program) -> RegSize {
-    min(4, program.code[*pc as usize + 2] % 8) as RegSize
+    min(4, program.code[*pc as usize + 2] & 7) as RegSize
 }
 
 fn get_y_length(pc: &RegSize, program: &Program) -> RegSize {
@@ -39,7 +39,7 @@ pub fn load_imm_jump_ind(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _r
     let (reg_a, reg_b) = get_reg(pc, program);
     let vx = get_x_value(pc, program);
     let vy = get_y_value(pc, program);
-    let n = reg[reg_b].wrapping_add(vy) % (1 << 32);
+    let n = reg[reg_b].wrapping_add(vy) & (u32::MAX as u64);
     let exit_reason = djump(&n, pc, program);
     reg[reg_a] = vx as RegSize;
     return exit_reason;

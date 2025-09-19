@@ -7,11 +7,11 @@ use crate::{
     BandersnatchRingVrfSignature, Ticket, Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, Assurance, AuthPool, AuthPools, AuthQueues, 
     AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlsPublic, CodeAuthorizer, 
     CodeAuthorizers, CoreActivityRecord, CoresStatistics, DeferredTransfer, DisputesRecords, Ed25519Public, Ed25519Signature, Entropy, EntropyPool, EpochMark, 
-    ExtrinsicSpec, GlobalState, Guarantee, ImportSpec, Judgement, KeyValue, MemoryChunk, Metadata, OpaqueHash, PageMap, Preimage, Privileges, AccumulationContext,
+    ExtrinsicSpec, GlobalState, Guarantee, ImportSpec, Judgement, KeyValue, Metadata, OpaqueHash, Preimage, Privileges,
     ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportedPackage, ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, 
     ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsMark, TicketsOrKeys, 
     TimeSlot, ValidatorData, ValidatorSignature, ValidatorStatistics, ValidatorsData, WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, Block,
-    Header, Extrinsic, UnsignedHeader, DisputesExtrinsic, Verdict, Culprit, Fault, RecentBlocks, Mmr, RecentAccOutputs
+    Header, Extrinsic, UnsignedHeader, DisputesExtrinsic, Verdict, Culprit, Fault, RecentBlocks, Mmr, RecentAccOutputs,
 };
 
 impl Default for GlobalState {
@@ -319,6 +319,7 @@ impl Default for AvailabilityAssignments {
         }
     }
 }
+
 // ----------------------------------------------------------------------------------------------------------
 // Accumulation
 // ----------------------------------------------------------------------------------------------------------
@@ -377,19 +378,6 @@ impl Default for DeferredTransfer {
         }
     }
 }
-use std::sync::Arc;
-/*impl Default for AccumulationContext<'a> {
-    fn default() -> Self {
-        AccumulationContext {
-            service_id: 0,
-            partial_state: &'a mut AccumulationPartialState::default(),
-            index: 0,
-            deferred_transfers: Vec::new(),
-            y: None,
-            preimages: Vec::new(),
-        }
-    }
-}*/
 // ----------------------------------------------------------------------------------------------------------
 // Authorization
 // ----------------------------------------------------------------------------------------------------------
@@ -516,12 +504,14 @@ impl Default for EpochMark {
         Self {
             entropy: Entropy::default(),
             tickets_entropy: Entropy::default(),
-            validators: Box::new(std::array::from_fn(|_| {
-                (BandersnatchPublic::default(), Ed25519Public::default())
-            }))
+            validators: Box::new([(
+                BandersnatchPublic::default(),
+                Ed25519Public::default(),
+            ); VALIDATORS_COUNT]),
         }
     }
 }
+
 impl Default for BandersnatchEpoch {
     fn default() -> Self {
         Self {
@@ -704,37 +694,6 @@ impl Default for Assurance {
             bitfield: [0u8; AVAIL_BITFIELD_BYTES], 
             validator_index: 0, 
             signature: [0u8; std::mem::size_of::<Ed25519Signature>()] 
-        }
-    }
-}
-
-
-// ----------------------------------------------------------------------------------------------------------
-// Polkadot Virtual Machine
-// ----------------------------------------------------------------------------------------------------------
-/*impl Default for PageTable {
-    fn default() -> Self {
-        PageTable {
-            pages: HashMap::new(),
-        }
-    }
-}*/
-
-impl Default for PageMap {
-    fn default() -> Self {
-        PageMap {
-            address: 0,
-            length: 0,
-            is_writable: false,
-        }
-    }
-}
-
-impl Default for MemoryChunk {
-    fn default() -> Self {
-        MemoryChunk {
-            address: 0,
-            contents: vec![],
         }
     }
 }

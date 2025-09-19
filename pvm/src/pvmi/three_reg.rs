@@ -3,12 +3,12 @@
 */
 
 use crate::pvm_types::{RamMemory, Registers, Gas, ExitReason, Program, RegSize};
-use crate::isa::{extend_sign, signed, unsigned};
-use crate::isa::skip;
+use crate::pvmi::{extend_sign, signed, unsigned};
+use crate::pvmi::skip;
 
 #[inline(always)]
 fn get_reg(pc: &u64, program: &Program) -> (usize, usize, usize) {
-    let reg_a = std::cmp::min(12, program.code[*pc as usize + 1] % 16) as usize;
+    let reg_a = std::cmp::min(12, program.code[*pc as usize + 1] & 15) as usize;
     let reg_b = std::cmp::min(12, program.code[*pc as usize + 1] >> 4) as usize;
     let reg_d = std::cmp::min(12, program.code[*pc as usize + 2]) as usize;
     (reg_a, reg_b, reg_d)
@@ -17,7 +17,7 @@ fn get_reg(pc: &u64, program: &Program) -> (usize, usize, usize) {
 #[inline(always)]
 pub fn add_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
-    let result = (reg[reg_a].wrapping_add(reg[reg_b]) % (1 << 32)) as u32;
+    let result = reg[reg_a].wrapping_add(reg[reg_b]) as u32;
     reg[reg_d] = extend_sign(&result.to_le_bytes(), 4);
     *pc += skip(pc, &program.bitmask) + 1;
     ExitReason::Continue
@@ -26,7 +26,7 @@ pub fn add_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut Ra
 #[inline(always)]
 pub fn sub_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
-    let result = (reg[reg_a as usize].wrapping_add(1 << 32).wrapping_sub(reg[reg_b as usize] % (1 << 32)) % (1 << 32)) as u32;
+    let result = reg[reg_a as usize].wrapping_sub(reg[reg_b as usize]) as u32;
     reg[reg_d as usize] = extend_sign(&result.to_le_bytes(), 4);
     *pc += skip(pc, &program.bitmask) + 1;
     ExitReason::Continue
@@ -35,7 +35,7 @@ pub fn sub_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut Ra
 #[inline(always)]
 pub fn mul_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
-    let result = reg[reg_a as usize].wrapping_mul(reg[reg_b as usize] % (1 << 32)) as u32;
+    let result = reg[reg_a as usize].wrapping_mul(reg[reg_b as usize]) as u32;
     reg[reg_d as usize] = extend_sign(&result.to_le_bytes(), 4);
     *pc += skip(pc, &program.bitmask) + 1;
     ExitReason::Continue
@@ -45,7 +45,7 @@ pub fn mul_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut Ra
 pub fn div_u_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
 
-    if reg[reg_b as usize] % (1 << 32) == 0 {
+    if reg[reg_b as usize] & u32::MAX as u64 == 0 {
         reg[reg_d as usize] = u64::MAX;
         *pc += skip(pc, &program.bitmask) + 1;
         return ExitReason::Continue;
@@ -60,8 +60,8 @@ pub fn div_u_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
 #[inline(always)]
 pub fn div_s_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
-    let a = signed(reg[reg_a as usize] % (1 << 32), 4);
-    let b = signed(reg[reg_b as usize] % (1 << 32), 4);
+    let a = signed(reg[reg_a as usize] & u32::MAX as u64, 4);
+    let b = signed(reg[reg_b as usize] & u32::MAX as u64, 4);
     if reg[reg_b as usize] == 0 {
         reg[reg_d as usize] = u64::MAX;
     } else if a == i32::MIN as i64 && b == -1 {
@@ -77,14 +77,14 @@ pub fn div_s_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
 pub fn rem_u_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
 
-    if reg[reg_b as usize] % (1 << 32) == 0 {
+    if reg[reg_b as usize] & u32::MAX as u64 == 0 {
         reg[reg_d as usize] = extend_sign(&(reg[reg_a as usize] as u32).to_le_bytes(), 4);
         *pc += skip(pc, &program.bitmask) + 1;
         return ExitReason::Continue;
     }
 
-    let value_reg_a = (reg[reg_a as usize] % (1 << 32)) as u32;
-    let value_reg_b = (reg[reg_b as usize] % (1 << 32)) as u32;
+    let value_reg_a = reg[reg_a as usize] as u32;
+    let value_reg_b = reg[reg_b as usize] as u32;
     reg[reg_d as usize] = extend_sign(&(value_reg_a % value_reg_b).to_le_bytes(), 4) as RegSize;
     *pc += skip(pc, &program.bitmask) + 1;
     ExitReason::Continue
@@ -93,8 +93,8 @@ pub fn rem_u_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
 #[inline(always)]
 pub fn rem_s_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
-    let a = signed(reg[reg_a as usize] % (1 << 32), 4);
-    let b = signed(reg[reg_b as usize] % (1 << 32), 4);
+    let a = signed(reg[reg_a as usize] & u32::MAX as u64, 4);
+    let b = signed(reg[reg_b as usize] & u32::MAX as u64, 4);
     if b == 0 {
         reg[reg_d as usize] = unsigned(a, 8) as RegSize;
     } else if a == i32::MIN as i64 && b == -1 { // TODO revisar esto a ver si esta bien
@@ -109,9 +109,9 @@ pub fn rem_s_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
 #[inline(always)]
 pub fn shlo_l_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
-    let value_reg_a = (reg[reg_a as usize] % (1 << 32)) as u64;
+    let value_reg_a = (reg[reg_a as usize] & u32::MAX as u64) as u64;
     let reg_b_mod32 = (reg[reg_b as usize] % 32) as u32;
-    let result = ((value_reg_a << reg_b_mod32) % (1 << 32)) as u32;
+    let result = (value_reg_a << reg_b_mod32) as u32;
     reg[reg_d as usize] = extend_sign(&result.to_le_bytes(), 4);
     *pc += skip(pc, &program.bitmask) + 1;
     ExitReason::Continue
@@ -120,7 +120,7 @@ pub fn shlo_l_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut
 #[inline(always)]
 pub fn shlo_r_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
-    let value_reg_a = reg[reg_a as usize] % (1 << 32);
+    let value_reg_a = reg[reg_a as usize] & u32::MAX as u64;
     let reg_b_mod32 = (reg[reg_b as usize] % 32) as u32;
     reg[reg_d as usize] = extend_sign(&((value_reg_a >> reg_b_mod32) as u32).to_le_bytes(), 4);
     *pc += skip(pc, &program.bitmask) + 1;
@@ -130,7 +130,7 @@ pub fn shlo_r_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut
 #[inline(always)]
 pub fn shar_r_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
-    let value_reg_a = (reg[reg_a as usize] % (1 << 32)) as u32;
+    let value_reg_a = reg[reg_a as usize] as u32;
     let reg_b_mod32 = (reg[reg_b as usize] % 32) as u32;
     reg[reg_d as usize] = unsigned(signed(value_reg_a as u64, 4) >> reg_b_mod32, 8) as RegSize;
     *pc += skip(pc, &program.bitmask) + 1;
@@ -148,7 +148,7 @@ pub fn add_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut Ra
 #[inline(always)]
 pub fn sub_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
-    reg[reg_d as usize] = ((reg[reg_a as usize] as u128).wrapping_add(1 << 64).wrapping_sub(reg[reg_b as usize] as u128) % (1 << 64)) as u64;
+    reg[reg_d as usize] = (reg[reg_a as usize] as u128).wrapping_sub(reg[reg_b as usize] as u128) as u64;
     *pc += skip(pc, &program.bitmask) + 1;
     ExitReason::Continue
 }
@@ -287,7 +287,7 @@ pub fn shlo_l_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
     let value_reg_a = reg[reg_a as usize] as u128;
     let reg_b_mod64 = (reg[reg_b as usize] % 64) as u64;
-    reg[reg_d as usize] = ((value_reg_a << reg_b_mod64) % (1 << 64)) as u64;
+    reg[reg_d as usize] = (value_reg_a << reg_b_mod64) as u64;
     *pc += skip(pc, &program.bitmask) + 1;
     ExitReason::Continue
 }
@@ -363,14 +363,9 @@ pub fn cmov_nz(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut R
 #[inline(always)]
 pub fn rot_l_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, program);
-    let value_reg_a = reg[reg_a as usize] as u128;
+    let value_reg_a = reg[reg_a as usize];
     let value_reg_b = reg[reg_b as usize];
-    let mut result = 0 as u64;
-    for i in 0..64 {
-        let bit_a = (value_reg_a >> i) & 1;
-        result |= (bit_a << (((i as u64).wrapping_add(value_reg_b)) % 64)) as u64;
-    }
-    reg[reg_d as usize] = result as RegSize;
+    reg[reg_d as usize] = value_reg_a.rotate_left(value_reg_b as u32);
     *pc += skip(pc, &program.bitmask) + 1;
     ExitReason::Continue
 }
@@ -380,11 +375,7 @@ pub fn rot_l_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     let (reg_a, reg_b, reg_d) = get_reg(pc, &program);
     let value_reg_a = reg[reg_a as usize] as u32;
     let value_reg_b = reg[reg_b as usize] as u32;
-    let mut result = 0 as u32;
-    for i in 0..32 {
-        let bit_a = (value_reg_a >> i) & 1;
-        result |= (bit_a << (((i as u32).wrapping_add(value_reg_b)) % 32)) as u32;
-    }
+    let result = value_reg_a.rotate_left(value_reg_b as u32);
     reg[reg_d as usize] = extend_sign(&result.to_le_bytes(), 4) as RegSize;
     *pc += skip(pc, &program.bitmask) + 1;
     ExitReason::Continue
@@ -393,14 +384,9 @@ pub fn rot_l_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
 #[inline(always)]
 pub fn rot_r_64(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_b, reg_d) = get_reg(pc, &program);
-    let value_reg_a = reg[reg_a as usize] as u64;
+    let value_reg_a = reg[reg_a as usize];
     let value_reg_b = reg[reg_b as usize];
-    let mut result = 0 as u64;
-    for i in 0..64 {
-        let bit_a = (value_reg_a >> ((i as u64).wrapping_add(value_reg_b)) % 64) & 1;
-        result |= (bit_a << i) as u64;
-    }
-    reg[reg_d as usize] = result as RegSize;
+    reg[reg_d as usize] = value_reg_a.rotate_right(value_reg_b as u32);
     *pc += skip(pc, &program.bitmask) + 1;
     ExitReason::Continue
 }
@@ -410,11 +396,7 @@ pub fn rot_r_32(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
     let (reg_a, reg_b, reg_d) = get_reg(pc, &program);
     let value_reg_a = reg[reg_a as usize] as u32;
     let value_reg_b = reg[reg_b as usize] as u32;
-    let mut result = 0 as u32;
-    for i in 0..32 {
-        let bit_a = (value_reg_a >> ((i as u32).wrapping_add(value_reg_b)) % 32) & 1;
-        result |= (bit_a << i) as u32;
-    }
+    let result = value_reg_a.rotate_right(value_reg_b as u32);
     reg[reg_d as usize] = extend_sign(&result.to_le_bytes(), 4) as RegSize;
     *pc += skip(pc, &program.bitmask) + 1;
     ExitReason::Continue
@@ -478,55 +460,4 @@ pub fn min_u(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut Ram
     reg[reg_d as usize] = std::cmp::min(reg[reg_a as usize], reg[reg_b as usize]);
     *pc += skip(pc, &program.bitmask) + 1;
     ExitReason::Continue
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[cfg(test)]
-    mod test {
-        use super::*;
-        
-        /*#[test]
-        fn test_sub_32() {
-            let mut pvm_ctx = Context::default();
-            reg[8] = 0xFFFFFFFFFFFFFFFF;
-            reg[7] = 0x2;
-            let mut program = Program::default();
-            program.code = vec![191, 0x78, 0x9, 191, 0x78, 0x9];
-            program.bitmask = vec![true, false, false, true, false, false, true];
-            
-            sub_32(&mut pvm_ctx, &program);
-            assert_eq!(reg[9], 0xFFFFFFFFFFFFFFFD);
-
-            //pc += skip(pc, &program.bitmask) + 1; // Next instruction
-            reg[8] = 0x1;
-            reg[7] = 0x2;
-
-            sub_32(&mut pvm_ctx, &program);
-            assert_eq!(reg[9], 0xFFFFFFFFFFFFFFFF);
-        }*/
-
-        /*#[test]
-        fn test_sub_64() {
-            let mut pvm_ctx = Context::default();
-            reg[8] = 0xFFFFFFFFFFFFFFFF;
-            reg[7] = 0x2;
-            let mut program = Program::default();
-            program.code = vec![201, 0x78, 0x9, 201, 0x78, 0x9];
-            program.bitmask = vec![true, false, false, true, false, false, true];
-            
-            sub_64(&mut pvm_ctx, &program);
-            assert_eq!(reg[9], 0xFFFFFFFFFFFFFFFD);
-
-
-            //pc += skip(pc, &program.bitmask) + 1; // Next instruction
-            reg[8] = 0x2;
-            reg[7] = 0x0;
-
-            sub_64(&mut pvm_ctx, &program);
-            assert_eq!(reg[9], 2);
-        }*/
-    }  
 }
