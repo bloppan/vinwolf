@@ -15,7 +15,7 @@ mod preimages;
 //mod pvm;
 mod reports;
 mod safrole;
-//mod shuffle;
+mod shuffle;
 //mod trie;
 mod statistics;
 mod traces;
