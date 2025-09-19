@@ -1,5 +1,5 @@
-use constants::pvm::{NUM_PAGES, PAGE_SIZE, LOWEST_ACCESIBLE_PAGE};
-use crate::pvm_types::{ExitReason, Page, PageFlags, RamAccess, RamAddress, RamMemory};
+use constants::pvm::{PAGE_SIZE, LOWEST_ACCESIBLE_PAGE};
+use crate::pvm_types::{ExitReason, Page, RamAccess, RamAddress, RamMemory};
 pub mod program_init;
 use utils::log;
 use crate::{mem_bounds, page_index, page_offset};

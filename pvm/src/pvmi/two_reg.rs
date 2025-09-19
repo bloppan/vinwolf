@@ -6,8 +6,8 @@ use std::cmp::min;
 use constants::pvm::PAGE_SIZE;
 use crate::mm::program_init;
 use crate::pvm_types::{ExitReason, RamMemory, Registers, Gas, Program, RamAddress, RegSize};
-use crate::isa::skip;
-use crate::isa::{signed, unsigned};
+use crate::pvmi::skip;
+use crate::pvmi::{signed, unsigned};
 
 fn get_reg(pc: &u64, code: &[u8]) -> (u8, u8) {
     let reg_a: u8 = min(12, code[*pc as usize + 1] >> 4);

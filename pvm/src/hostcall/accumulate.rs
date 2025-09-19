@@ -219,7 +219,7 @@ fn transfer(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut
 
     if let Err(_) = ram.is_readable(start_address as RamAddress, TRANSFER_MEMO_SIZE as RamAddress) {
         log::error!("Panic: RAM is not readable from address: {:?} num_bytes: {:?}", start_address, TRANSFER_MEMO_SIZE);
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     let transfer = DeferredTransfer {
@@ -279,7 +279,7 @@ fn eject(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Ac
 
     if let Err(_) = ram.is_readable(start_address, 32) {
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: 32", start_address);
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     let hash: OpaqueHash = ram.read(start_address, 32).try_into().unwrap();
@@ -349,7 +349,7 @@ fn query(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Ac
 
     if let Err(_) = ram.is_readable(start_address, 32) {
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: 32", start_address);
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     let hash: OpaqueHash = ram.read(start_address, 32).try_into().unwrap();
@@ -458,7 +458,7 @@ fn new(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Accu
     }
     
     log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: 32", start_address);
-    return ExitReason::panic;
+    return ExitReason::Panic;
 }
 
 fn upgrade(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut AccumulationContext) -> ExitReason
@@ -476,7 +476,7 @@ fn upgrade(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
 
     if let Err(_) = ram.is_readable(start_address, 32) {
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: 32", start_address);
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     let code_hash: OpaqueHash = ram.read(start_address, 32).try_into().unwrap();
@@ -506,7 +506,7 @@ fn solicit(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
     
     if let Err(_) = ram.is_readable(start_address, 32){
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: 32", start_address);
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     let hash: OpaqueHash = ram.read(start_address,  32).try_into().unwrap();
@@ -568,12 +568,12 @@ fn bless(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Ac
 
     if let Err(_) = ram.is_readable(assign_start_address, (std::mem::size_of::<ServiceId>() * CORES_COUNT) as RamAddress) {
         log::error!("Panic: The RAM is not readable from assign start address: {:?} num_bytes: {:?}", assign_start_address, std::mem::size_of::<ServiceId>() * CORES_COUNT);
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     if let Err(_) = ram.is_readable(start_address, 12 * n_pairs) {
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: {:?}", start_address, 12 * n_pairs);
-        return ExitReason::panic;    
+        return ExitReason::Panic;    
     }
 
     if ctx_x.service_id != ctx_x.partial_state.manager {
@@ -629,7 +629,7 @@ fn designate(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mu
 
     if let Err(_) = ram.is_readable(start_address, 336 * VALIDATORS_COUNT as RamAddress) {
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: {:?}", start_address, 336 * VALIDATORS_COUNT);
-        return ExitReason::panic;    
+        return ExitReason::Panic;    
     }
 
     if ctx_x.service_id != ctx_x.partial_state.designate {
@@ -671,7 +671,7 @@ fn assign(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut A
 
     if let Err(_) = ram.is_readable(start_address, 32 * MAX_ITEMS_AUTHORIZATION_QUEUE as RamAddress) {
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: {:?}", start_address, 32 * MAX_ITEMS_AUTHORIZATION_QUEUE);
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     if core_index >= CORES_COUNT as CoreIndex {
@@ -730,7 +730,7 @@ fn forget(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut A
 
     if let Err(_) = ram.is_readable(start_address, 32) {
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: {:?}", start_address, 32);
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     let hash = ram.read(start_address, 32).try_into().unwrap();
@@ -794,7 +794,7 @@ fn yield_(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut A
 
     if let Err(_) = ram.is_readable(start_address, 32) {
         log::error!("Panic: The RAM is not readable from address: {start_address} num_bytes: 32");
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     ctx_x.y = Some(ram.read(start_address, 32).try_into().unwrap());
@@ -828,7 +828,7 @@ fn provide(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
 
     if let Err(_) = ram.is_readable(start_address, size) {
         log::error!("Panic: The RAM is not readable from address: {start_address} num_bytes: {size}");
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     let account: Option<Account> = if ctx_x.partial_state.service_accounts.contains_key(&star_service) {

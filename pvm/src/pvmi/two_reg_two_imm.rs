@@ -5,7 +5,7 @@
 use std::cmp::{min, max};
 
 use crate::pvm_types::{RamMemory, Registers, Gas, ExitReason, Program, RegSize};
-use crate::isa::{skip, extend_sign, djump};
+use crate::pvmi::{skip, extend_sign, djump};
 
 fn get_reg(pc: &RegSize, program: &Program) -> (usize, usize) {
     let reg_a = min(12, program.code[*pc as usize + 1] & 15) as usize;

@@ -1,4 +1,3 @@
-use core::num;
 /*
     The software programs which will run in each of the four instances where the pvm is utilized in the main document have a 
     very typical setup pattern characteristic of an output of a compiler and linker. This means that ram has sections for 
@@ -8,8 +7,7 @@ use core::num;
     left unallocated between sections in order to reduce accidental overrun. Sections are padded with zeroes to the nearest pvm 
     memory page boundary.
 */
-use std::sync::{LazyLock, Mutex};
-use crate::pvm_types::{RamAccess, RamAddress, RamMemory, Registers, StandardProgram, ProgramFormat, Page};
+use crate::pvm_types::{RamAddress, RamMemory, Registers, StandardProgram, ProgramFormat, Page};
 use jam_types::ReadError;
 use constants::pvm::{Zi, Zz, NUM_PAGES, NUM_REG, PAGE_SIZE, PVM_INIT_ZONE_SIZE};
 use codec::{Decode, DecodeSize, BytesReader};
@@ -190,8 +188,8 @@ impl RamMemory {
 
 }
 
-use crate::{Program};
-use codec::generic_codec::{decode_integer, decode_to_bits, decode_unsigned};
+use crate::pvm_types::Program;
+use codec::generic_codec::{decode_integer, decode_unsigned};
 
 impl Decode for Program {
 

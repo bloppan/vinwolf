@@ -7,7 +7,7 @@ mod tests {
 
     use codec::{BytesReader, Decode};
     use constants::pvm::{NUM_REG, PAGE_SIZE};
-    use pvm::invoke_pvm;
+    use pvm::pvmi::invoke_pvm;
     use jam_types::{Gas};
     use pvm::pvm_types::{Program, PageFlags, RamAddress, ExitReason, Page, RamMemory};
     use utils::serde::{Deserialize, Value, from_json_str};
@@ -122,8 +122,8 @@ mod tests {
                 None => None,
             };
             let expected_status = match status_str.as_str() {
-                "panic" => ExitReason::panic,
-                "halt" => ExitReason::halt,
+                "panic" => ExitReason::Panic,
+                "halt" => ExitReason::Halt,
                 "page-fault" => ExitReason::PageFault(
                     expected_page_fault_address.ok_or("missing expected-page-fault-address for page-fault status")?
                 ),

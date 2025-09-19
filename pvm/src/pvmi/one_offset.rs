@@ -3,10 +3,10 @@
 */
 
 use std::cmp::min;
-use crate::{Gas, RegSize, Registers, RamMemory, ExitReason, Program};
+use crate::pvm_types::{Gas, RegSize, Registers, RamMemory, ExitReason, Program};
 use codec::generic_codec::decode_integer;
 use codec::BytesReader;
-use crate::isa::{skip, _branch, signed};
+use crate::pvmi::{skip, _branch, signed};
 
 fn get_lx_length(pc: &u64, bitmask: &[u8]) -> u64 {
     min(4, skip(pc, bitmask)) as u64

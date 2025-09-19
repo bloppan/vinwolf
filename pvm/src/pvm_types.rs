@@ -1,5 +1,3 @@
-use std::collections::{HashSet, HashMap};
-
 use constants::pvm::{NUM_REG, PAGE_SIZE, NUM_PAGES};
 use jam_types::ReadError;
 
@@ -10,15 +8,6 @@ pub type RegSize = u64;
 pub type RegSigned = i64;
 pub type Gas = i64;
 pub type Registers = [RegSize; NUM_REG as usize];
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Context {
-    pub pc: RegSize,
-    pub gas: Gas,
-    pub ram: RamMemory,
-    pub reg: Registers,
-    pub page_fault: Option<RamAddress>,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RamMemory {
@@ -47,8 +36,8 @@ pub enum RamAccess {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
     pub code: Vec<u8>,          // Instruction data (c)
-    pub bitmask: Vec<u8>,     // Bitmask (k)
-    pub jump_table: Vec<usize>,    // Dynamic jump table (j)
+    pub bitmask: Vec<u8>,       // Bitmask (k)
+    pub jump_table: Vec<usize>, // Dynamic jump table (j)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -154,23 +143,14 @@ pub enum HostCallError {
     InvalidHostCall,
 }
 
-#[allow(unreachable_patterns)]
-#[allow(non_snake_case)]
 #[derive(Debug, PartialEq, Eq)]
 pub enum ExitReason {
-    #[allow(non_camel_case_types)]
-    trap,
-    #[allow(non_camel_case_types)]
-    halt,
     Continue,
+    Panic,
     Branch,
     Halt,
-    #[allow(non_camel_case_types)]
-    panic,
     OutOfGas,
-    #[allow(non_camel_case_types)]
-    page_fault,
-    PageFault(u32),     
+    PageFault(RamAddress),     
     HostCall(HostCallFn),      
 }
 // ----------------------------------------------------------------------------------------------------------
@@ -184,11 +164,6 @@ impl Default for RamMemory {
         }
     }
 }
-/*impl Default for RamMemory {
-    fn default() -> Self {
-        RamMemory { pages: HashMap::new(), curr_heap_pointer: 0 }
-    }
-}*/
 
 impl Default for Page {
     fn default() -> Self {
@@ -206,18 +181,6 @@ impl Default for PageFlags {
             write_access: false,
             referenced: false,
             modified: false,
-        }
-    }
-}
-
-impl Default for Context {
-    fn default() -> Self {
-        Context {
-            pc: 0,
-            gas: 0,
-            reg: [0; NUM_REG as usize],
-            ram: RamMemory::default(),
-            page_fault: None,
         }
     }
 }

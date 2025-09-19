@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use sp_core::{blake2_256, keccak_256};
 use jam_types::{Hash, Mmr, MmrPeak, StateKey};
 use codec::{Encode, EncodeSize};
-use super::hex;
 
 // State Merklization involves transforming the serialized mapping into a cryptographic commitment. 
 // We define this commitment as the root of the binary Patricia Merkle Trie with a format optimized 
@@ -238,7 +237,7 @@ mod tests {
     fn test_merkle_balanced() {
 
         let encoded_str = "0x00000000d15f17c300000000000000000000000000000000000000000000000000000000";
-        let encoded: Vec<u8> = hex::decode(&encoded_str[2..]).unwrap().try_into().unwrap();
+        let encoded: Vec<u8> = crate::hex::decode(&encoded_str[2..]).unwrap().try_into().unwrap();
         let mut pairs: Vec<Vec<u8>> = Vec::new();
         pairs.push(encoded.to_vec());
         let accumulation_root = merkle_balanced(pairs, sp_core::keccak_256);
@@ -249,9 +248,9 @@ mod tests {
         let encoded_str1 = "0x03f9883f0100000001000000000000000000000000000000000000000000000000000000";
         let encoded_str2 = "0xe9ac0c500100000001000000000000000000000000000000000000000000000000000000";
         let encoded_str3 = "0xd15f17c30100000002000000000000000000000000000000000000000000000000000000";
-        let encoded1: Vec<u8> = hex::decode(&encoded_str1[2..]).unwrap().try_into().unwrap();
-        let encoded2: Vec<u8> = hex::decode(&encoded_str2[2..]).unwrap().try_into().unwrap();
-        let encoded3: Vec<u8> = hex::decode(&encoded_str3[2..]).unwrap().try_into().unwrap();
+        let encoded1: Vec<u8> = crate::hex::decode(&encoded_str1[2..]).unwrap().try_into().unwrap();
+        let encoded2: Vec<u8> = crate::hex::decode(&encoded_str2[2..]).unwrap().try_into().unwrap();
+        let encoded3: Vec<u8> = crate::hex::decode(&encoded_str3[2..]).unwrap().try_into().unwrap();
 
         let mut pairs: Vec<Vec<u8>> = Vec::new();
         pairs.push(encoded1.to_vec());

@@ -41,7 +41,7 @@ pub fn fetch(gas: &mut Gas,
              _work_items: Option<Vec<WorkItem>>,
              operands: Option<Vec<AccumulationOperand>>,
              transfers: Option<Vec<DeferredTransfer>>,
-             ctx: &mut HostCallContext) 
+             _ctx: &mut HostCallContext) 
 
 -> ExitReason 
 {
@@ -133,7 +133,7 @@ pub fn fetch(gas: &mut Gas,
 
     if let Err(_) = ram.is_writable(start_address, l as RamAddress) {
         log::error!("Panic: The RAM is not readable from address: {start_address} num_bytes: {l}");
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     if value.is_none() {
@@ -176,7 +176,7 @@ pub fn lookup(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: 
 
     if let Err(_) = ram.is_readable(read_start_address, 32) {
         log::debug!("Panic: The RAM is not readable from address: {read_start_address} num_bytes: 32");
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     let hash: OpaqueHash = ram.read(read_start_address, 32).try_into().unwrap();
@@ -205,7 +205,7 @@ pub fn lookup(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: 
 
     if let Err(_) = ram.is_writable(write_start_address, l as RamAddress) {
         log::error!("Panic: The RAM is not writable from address: {write_start_address} num_bytes: {l}");
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     if preimage_blob.is_none() {
@@ -256,7 +256,7 @@ pub fn read(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: &O
 
     if let Err(_) = ram.is_readable(start_read_address, bytes_to_read) {
         log::error!("Panic: The RAM is not readable from address: {start_read_address} num_bytes: {bytes_to_read}");
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     let storage_raw_key= ram.read(start_read_address, bytes_to_read);
@@ -284,7 +284,7 @@ pub fn read(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: &O
     
     if let Err(_) = ram.is_writable(start_write_address, l as RamAddress) {
         log::error!("Panic: The RAM is not writable from address: {start_write_address} num_bytes: {l}");
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     if value.is_none() {
@@ -318,12 +318,12 @@ pub fn write(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: &
 
     if let Err(_) = ram.is_readable(key_start_address as RamAddress, key_size as RamAddress) {
         log::error!("Panic: The RAM is not readable from address: {key_start_address} num_bytes: {key_size}");
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
     
     if account.is_none() {
         log::error!("Account not found for service: {:?}", service_id);
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     let raw_storage_key = ram.read(key_start_address as RamAddress, key_size as RamAddress);
@@ -381,7 +381,7 @@ pub fn write(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: &
         s_account
     } else {
         log::error!("Panic: The RAM is not readable from address: {value_start_address}, num_bytes: {value_size}");
-        return ExitReason::panic;
+        return ExitReason::Panic;
     };
 
     let l: RegSize = if let Some(storage_data) = account.as_ref().unwrap().storage.get(&storage_key) {
@@ -434,7 +434,7 @@ pub fn info(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, service_id:
             Some(account)
         } else {
             log::error!("Account not found for service {:?}", reg[7]);
-            return ExitReason::panic;
+            return ExitReason::Panic;
         }
     };
 
@@ -470,7 +470,7 @@ pub fn info(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, service_id:
 
     if let Err(_) = ram.is_writable(start_address, l as RamAddress) {
         log::debug!("Panic: The RAM is not writable from address: {start_address} num_bytes: {:?}", l);
-        return ExitReason::panic;
+        return ExitReason::Panic;
     }
 
     if metadata.is_none() {

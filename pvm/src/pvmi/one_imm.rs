@@ -4,7 +4,7 @@
 
 use std::cmp::{min, max};
 use crate::pvm_types::{Gas, RamMemory, Registers, ExitReason, Program, RegSize, HostCallFn};
-use crate::isa::{skip, extend_sign};
+use crate::pvmi::{skip, extend_sign};
 
 
 fn get_imm(pc: &RegSize, program: &Program) -> RegSize {

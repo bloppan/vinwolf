@@ -1,6 +1,6 @@
 
 use jam_types::{
-    AvailabilityAssignment, AvailabilityAssignments, AvailabilityAssignmentsItem, WorkReport, Authorizer, Hash, RefineContext, TimeSlot,
+    AvailabilityAssignment, AvailabilityAssignments, AvailabilityAssignmentsItem, WorkReport, Hash, RefineContext, TimeSlot,
     ReportedWorkPackage, ServiceId, WorkItem, WorkPackage, OpaqueHash, Gas, ImportSpec, ExtrinsicSpec, WorkResult, WorkExecResult, WorkExecError, RefineLoad,
     Ed25519Public, WorkPackageHash, SegmentRootLookupItem, WorkPackageSpec, ReportedPackage, OutputDataReports, 
 };

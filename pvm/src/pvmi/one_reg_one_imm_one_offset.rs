@@ -4,7 +4,7 @@
 
 use std::cmp::{min, max};
 use crate::pvm_types::{RamMemory, Gas, ExitReason, Program, RegSigned, RegSize, Registers};
-use crate::isa::{skip, extend_sign, signed, _branch};
+use crate::pvmi::{skip, extend_sign, signed, _branch};
 use codec::BytesReader;
 use codec::generic_codec::decode_integer;
 

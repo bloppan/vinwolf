@@ -3,12 +3,11 @@ use std::collections::HashMap;
 use std::array::from_fn;
 
 use constants::node::{AVAIL_BITFIELD_BYTES, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT};
-use crate::Hash;
 use crate::{
     BandersnatchRingVrfSignature, Ticket, Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, Assurance, AuthPool, AuthPools, AuthQueues, 
     AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlsPublic, CodeAuthorizer, 
     CodeAuthorizers, CoreActivityRecord, CoresStatistics, DeferredTransfer, DisputesRecords, Ed25519Public, Ed25519Signature, Entropy, EntropyPool, EpochMark, 
-    ExtrinsicSpec, GlobalState, Guarantee, ImportSpec, Judgement, KeyValue, Metadata, OpaqueHash, Preimage, Privileges, AccumulationContext,
+    ExtrinsicSpec, GlobalState, Guarantee, ImportSpec, Judgement, KeyValue, Metadata, OpaqueHash, Preimage, Privileges,
     ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportedPackage, ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, 
     ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsMark, TicketsOrKeys, 
     TimeSlot, ValidatorData, ValidatorSignature, ValidatorStatistics, ValidatorsData, WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, Block,
@@ -379,19 +378,6 @@ impl Default for DeferredTransfer {
         }
     }
 }
-use std::sync::Arc;
-/*impl Default for AccumulationContext<'a> {
-    fn default() -> Self {
-        AccumulationContext {
-            service_id: 0,
-            partial_state: &'a mut AccumulationPartialState::default(),
-            index: 0,
-            deferred_transfers: Vec::new(),
-            y: None,
-            preimages: Vec::new(),
-        }
-    }
-}*/
 // ----------------------------------------------------------------------------------------------------------
 // Authorization
 // ----------------------------------------------------------------------------------------------------------

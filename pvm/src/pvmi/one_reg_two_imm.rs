@@ -3,9 +3,8 @@
 */
 
 use std::cmp::{min, max};
-use constants::pvm::RAM_SIZE;
 use crate::pvm_types::{RamMemory, Gas, Registers, ExitReason, Program, RamAddress, RegSize};
-use crate::isa::{skip, extend_sign, _store};
+use crate::pvmi::{skip, extend_sign, _store};
 
 fn get_reg(pc: &RegSize, program: &Program) -> RegSize {
     min(12, program.code[*pc as usize + 1] & 15) as u64
@@ -37,7 +36,7 @@ fn get_address(pc: &RegSize, reg: &Registers, program: &Program) -> RamAddress {
     let reg_a = get_reg(pc, program);
     let addr_reg_a = reg[reg_a as usize];
     let vx = get_x_imm(pc, program);
-    ((addr_reg_a.wrapping_add(vx)) % RAM_SIZE) as RamAddress
+    ((addr_reg_a.wrapping_add(vx)) & RamAddress::MAX as u64) as RamAddress
 }
 
 fn get_value<T>(pc: &RegSize, program: &Program) -> RegSize {
