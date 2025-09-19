@@ -1001,17 +1001,6 @@ pub enum HeaderErrorCode {
 // ----------------------------------------------------------------------------------------------------------
 // Polkadot Virtual Machine
 // ----------------------------------------------------------------------------------------------------------
-#[derive(Debug, Clone, PartialEq)]
-pub struct PageMap {
-    pub address: u32,
-    pub length: u32,
-    pub is_writable: bool,
-}
-#[derive(Debug, Clone, PartialEq)]
-pub struct MemoryChunk {
-    pub address: u32,
-    pub contents: Vec<u8>,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccumulationPartialState {

@@ -217,7 +217,7 @@ fn transfer(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut
     
     log::debug!("Dest: {:?} Amount: {:?} Limit: {:?}", dest, amount, limit);
 
-    if !ram.is_readable(start_address as RamAddress, TRANSFER_MEMO_SIZE as RamAddress) {
+    if let Err(_) = ram.is_readable(start_address as RamAddress, TRANSFER_MEMO_SIZE as RamAddress) {
         log::error!("Panic: RAM is not readable from address: {:?} num_bytes: {:?}", start_address, TRANSFER_MEMO_SIZE);
         return ExitReason::panic;
     }
@@ -277,7 +277,7 @@ fn eject(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Ac
 
     log::debug!("Service id: {:?}", service_id);
 
-    if !ram.is_readable(start_address, 32) {
+    if let Err(_) = ram.is_readable(start_address, 32) {
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: 32", start_address);
         return ExitReason::panic;
     }
@@ -347,7 +347,7 @@ fn query(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Ac
     let start_address = reg[7] as RamAddress;
     let length = reg[8] as u32;
 
-    if !ram.is_readable(start_address, 32) {
+    if let Err(_) = ram.is_readable(start_address, 32) {
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: 32", start_address);
         return ExitReason::panic;
     }
@@ -410,7 +410,7 @@ fn new(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Accu
 
     log::debug!("start_address: {:?}, length: {:?}, gas: {:?}, min_gas: {:?}, gratis_offset: {:?}", start_address, length, new_account_gas, new_account_min_gas, gratis_storage_offset);
 
-    if ram.is_readable(start_address, 32) && length < (1 << 32) {
+    if ram.is_readable(start_address, 32).is_ok() && length < (1 << 32) {
         let c = ram.read(start_address, 32);
         let mut new_account = Account::default();
         new_account.code_hash.copy_from_slice(&c);
@@ -474,7 +474,7 @@ fn upgrade(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
     let new_gas = reg[8] as Gas;
     let new_min_gas = reg[9] as Gas;
 
-    if !ram.is_readable(start_address, 32) {
+    if let Err(_) = ram.is_readable(start_address, 32) {
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: 32", start_address);
         return ExitReason::panic;
     }
@@ -504,7 +504,7 @@ fn solicit(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
     let start_address = reg[7] as RamAddress;
     let preimage_size = reg[8] as u32;
     
-    if !ram.is_readable(start_address, 32){
+    if let Err(_) = ram.is_readable(start_address, 32){
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: 32", start_address);
         return ExitReason::panic;
     }
@@ -566,12 +566,12 @@ fn bless(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Ac
     let start_address = reg[10] as RamAddress;
     let n_pairs = reg[11] as RamAddress;
 
-    if !ram.is_readable(assign_start_address, (std::mem::size_of::<ServiceId>() * CORES_COUNT) as RamAddress) {
+    if let Err(_) = ram.is_readable(assign_start_address, (std::mem::size_of::<ServiceId>() * CORES_COUNT) as RamAddress) {
         log::error!("Panic: The RAM is not readable from assign start address: {:?} num_bytes: {:?}", assign_start_address, std::mem::size_of::<ServiceId>() * CORES_COUNT);
         return ExitReason::panic;
     }
 
-    if !ram.is_readable(start_address, 12 * n_pairs) {
+    if let Err(_) = ram.is_readable(start_address, 12 * n_pairs) {
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: {:?}", start_address, 12 * n_pairs);
         return ExitReason::panic;    
     }
@@ -627,7 +627,7 @@ fn designate(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mu
 
     let start_address = reg[7] as RamAddress;
 
-    if !ram.is_readable(start_address, 336 * VALIDATORS_COUNT as RamAddress) {
+    if let Err(_) = ram.is_readable(start_address, 336 * VALIDATORS_COUNT as RamAddress) {
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: {:?}", start_address, 336 * VALIDATORS_COUNT);
         return ExitReason::panic;    
     }
@@ -669,7 +669,7 @@ fn assign(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut A
     let start_address = reg[8] as RamAddress;
     let assign_service = reg[9] as ServiceId;
 
-    if !ram.is_readable(start_address, 32 * MAX_ITEMS_AUTHORIZATION_QUEUE as RamAddress) {
+    if let Err(_) = ram.is_readable(start_address, 32 * MAX_ITEMS_AUTHORIZATION_QUEUE as RamAddress) {
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: {:?}", start_address, 32 * MAX_ITEMS_AUTHORIZATION_QUEUE);
         return ExitReason::panic;
     }
@@ -728,7 +728,7 @@ fn forget(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut A
     let start_address = reg[7] as RamAddress;
     let length = reg[8] as RamAddress;
 
-    if !ram.is_readable(start_address, 32) {
+    if let Err(_) = ram.is_readable(start_address, 32) {
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: {:?}", start_address, 32);
         return ExitReason::panic;
     }
@@ -792,7 +792,7 @@ fn yield_(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut A
 
     let start_address = reg[7] as RamAddress;
 
-    if !ram.is_readable(start_address, 32) {
+    if let Err(_) = ram.is_readable(start_address, 32) {
         log::error!("Panic: The RAM is not readable from address: {start_address} num_bytes: 32");
         return ExitReason::panic;
     }
@@ -826,7 +826,7 @@ fn provide(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
         reg[7] as ServiceId
     };
 
-    if !ram.is_readable(start_address, size) {
+    if let Err(_) = ram.is_readable(start_address, size) {
         log::error!("Panic: The RAM is not readable from address: {start_address} num_bytes: {size}");
         return ExitReason::panic;
     }

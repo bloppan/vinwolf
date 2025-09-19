@@ -1,15 +1,15 @@
 use constants::pvm::{NUM_PAGES, PAGE_SIZE, LOWEST_ACCESIBLE_PAGE};
-use crate::pvm_types::{RamMemory, RamAddress, PageFlags, RamAccess, Page};
+use crate::pvm_types::{ExitReason, Page, PageFlags, RamAccess, RamAddress, RamMemory};
 pub mod program_init;
 use utils::log;
 use crate::{mem_bounds, page_index, page_offset};
 
 impl RamMemory {
 
-    pub fn is_readable(&self, from_address: RamAddress, num_bytes: RamAddress) -> bool {
+    pub fn is_readable(&self, from_address: RamAddress, num_bytes: RamAddress) -> Result<(), ExitReason> {
 
         if num_bytes == 0 {
-            return true;
+            return Ok(());
         }
         
         let from_page = page_index!(from_address);
@@ -38,10 +38,10 @@ impl RamMemory {
         return bytes;
     }
 
-    pub fn is_writable(&self, from_address: RamAddress, num_bytes: RamAddress) -> bool {
+    pub fn is_writable(&self, from_address: RamAddress, num_bytes: RamAddress) -> Result<(), ExitReason> {
 
         if num_bytes == 0 {
-            return true;
+            return Ok(());
         }
         
         let from_page = page_index!(from_address);
@@ -69,38 +69,37 @@ impl RamMemory {
         }
     }
 
-    fn access_page(&self, from_page: RamAddress, to_page: RamAddress, access: RamAccess) -> bool {
+    fn access_page(&self, from_page: RamAddress, to_page: RamAddress, access: RamAccess) -> Result<(), ExitReason> {
 
-        for page in from_page..=to_page {
+        for page_idx in from_page..=to_page {
 
             // Check if the page is in the range of the highest inaccessible page (0xFFFF0000)
-            if (mem_bounds!(page)) < LOWEST_ACCESIBLE_PAGE {
-                log::error!("Page target {:?} out of bounds", page);
+            if (mem_bounds!(page_idx)) < LOWEST_ACCESIBLE_PAGE {
+                log::error!("Page target {:?} out of bounds", page_idx);
                 // TODO
-                return false;
+                return Err(ExitReason::PageFault(page_idx * PAGE_SIZE));
             }
 
-            if let Some(page) = self.pages[(mem_bounds!(page)) as usize].as_ref() {
+            if let Some(page) = self.pages[(mem_bounds!(page_idx)) as usize].as_ref() {
                 match access {
                     RamAccess::Read => {
                         if !page.flags.read_access {
-                            return false;
+                            return Err(ExitReason::PageFault(page_idx * PAGE_SIZE));
                         }
                     },
                     RamAccess::Write => {
                         if !page.flags.write_access {
-                            return false;
+                            return Err(ExitReason::PageFault(page_idx * PAGE_SIZE));
                         }
                     }
                 }
             } else {
-                // TODO page fault
-                log::error!("page_fault: page {:?}", page);
-                return false;
+                log::error!("page_fault: page {:?}", page_idx);
+                return Err(ExitReason::PageFault(page_idx * PAGE_SIZE));
             }
         }
 
-        return true;
+        Ok(())
     }
 
     pub fn allocate_pages(&mut self, from_page: RamAddress, count: RamAddress) -> bool {

@@ -131,7 +131,7 @@ pub fn fetch(gas: &mut Gas,
     let l = std::cmp::min(reg[9] as usize, value_len - f);
     log::debug!("value_len: {:?}, start_address: {start_address}, f: {f}, l: {l}", value_len);
 
-    if !ram.is_writable(start_address, l as RamAddress) {
+    if let Err(_) = ram.is_writable(start_address, l as RamAddress) {
         log::error!("Panic: The RAM is not readable from address: {start_address} num_bytes: {l}");
         return ExitReason::panic;
     }
@@ -174,7 +174,7 @@ pub fn lookup(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: 
     let read_start_address = reg[8] as RamAddress;
     let write_start_address = reg[9] as RamAddress;
 
-    if !ram.is_readable(read_start_address, 32) {
+    if let Err(_) = ram.is_readable(read_start_address, 32) {
         log::debug!("Panic: The RAM is not readable from address: {read_start_address} num_bytes: 32");
         return ExitReason::panic;
     }
@@ -203,7 +203,7 @@ pub fn lookup(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: 
     let f = std::cmp::min(reg[10],  preimage_len);
     let l = std::cmp::min(reg[11], preimage_len - f);
 
-    if !ram.is_writable(write_start_address, l as RamAddress) {
+    if let Err(_) = ram.is_writable(write_start_address, l as RamAddress) {
         log::error!("Panic: The RAM is not writable from address: {write_start_address} num_bytes: {l}");
         return ExitReason::panic;
     }
@@ -254,7 +254,7 @@ pub fn read(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: &O
     let bytes_to_read = reg[9] as RamAddress;
     let start_write_address = reg[10] as RamAddress;
 
-    if !ram.is_readable(start_read_address, bytes_to_read) {
+    if let Err(_) = ram.is_readable(start_read_address, bytes_to_read) {
         log::error!("Panic: The RAM is not readable from address: {start_read_address} num_bytes: {bytes_to_read}");
         return ExitReason::panic;
     }
@@ -282,7 +282,7 @@ pub fn read(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: &O
     let l = std::cmp::min(reg[12], (value_len as RegSize).saturating_sub(f));
     log::debug!("f: {f}, l: {l}");
     
-    if !ram.is_writable(start_write_address, l as RamAddress) {
+    if let Err(_) = ram.is_writable(start_write_address, l as RamAddress) {
         log::error!("Panic: The RAM is not writable from address: {start_write_address} num_bytes: {l}");
         return ExitReason::panic;
     }
@@ -316,7 +316,7 @@ pub fn write(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: &
     let value_start_address = reg[9];
     let value_size = reg[10];
 
-    if !ram.is_readable(key_start_address as RamAddress, key_size as RamAddress) {
+    if let Err(_) = ram.is_readable(key_start_address as RamAddress, key_size as RamAddress) {
         log::error!("Panic: The RAM is not readable from address: {key_start_address} num_bytes: {key_size}");
         return ExitReason::panic;
     }
@@ -351,7 +351,7 @@ pub fn write(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: &
         }
 
         s_account
-    } else if ram.is_readable(value_start_address as RamAddress, value_size as RamAddress) {
+    } else if ram.is_readable(value_start_address as RamAddress, value_size as RamAddress).is_ok() {
         let storage_data = ram.read(value_start_address as RamAddress, value_size as RamAddress);
         log::debug!("insert key: 0x{}, value = 0x{}", hex::encode(&storage_key), hex::encode(&storage_data));
 
@@ -468,7 +468,7 @@ pub fn info(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, service_id:
 
     let start_address = reg[8] as RamAddress;
 
-    if !ram.is_writable(start_address, l as RamAddress) {
+    if let Err(_) = ram.is_writable(start_address, l as RamAddress) {
         log::debug!("Panic: The RAM is not writable from address: {start_address} num_bytes: {:?}", l);
         return ExitReason::panic;
     }
@@ -504,11 +504,11 @@ pub fn log(reg: &Registers, ram: &RamMemory, service_id: &ServiceId) -> ExitReas
     let msg_start_address = reg[10] as RamAddress;
     let msg_size = reg[11] as RamAddress;
 
-    if !ram.is_readable(target_start_address, target_size) {
+    if let Err(_) = ram.is_readable(target_start_address, target_size) {
         log::error!("The RAM memory is not readable from address: {target_start_address} num_bytes: {target_size}");
     }
 
-    if !ram.is_readable(msg_start_address, msg_size) {
+    if let Err(_) = ram.is_readable(msg_start_address, msg_size) {
         log::error!("The RAM memory is not readable from address: {msg_start_address} num_bytes: {msg_size}");
     }
 

@@ -14,7 +14,7 @@ mod disputes;
 mod merkle;
 mod recent_history;
 mod preimages;
-//mod pvm;
+mod pvm;
 mod reports;
 mod safrole;
 mod shuffle;

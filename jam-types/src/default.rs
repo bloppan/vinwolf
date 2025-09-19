@@ -8,7 +8,7 @@ use crate::{
     BandersnatchRingVrfSignature, Ticket, Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, Assurance, AuthPool, AuthPools, AuthQueues, 
     AuthorizerHash, AvailabilityAssignments, BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, BlsPublic, CodeAuthorizer, 
     CodeAuthorizers, CoreActivityRecord, CoresStatistics, DeferredTransfer, DisputesRecords, Ed25519Public, Ed25519Signature, Entropy, EntropyPool, EpochMark, 
-    ExtrinsicSpec, GlobalState, Guarantee, ImportSpec, Judgement, KeyValue, MemoryChunk, Metadata, OpaqueHash, PageMap, Preimage, Privileges, AccumulationContext,
+    ExtrinsicSpec, GlobalState, Guarantee, ImportSpec, Judgement, KeyValue, Metadata, OpaqueHash, Preimage, Privileges, AccumulationContext,
     ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportedPackage, ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, 
     ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsMark, TicketsOrKeys, 
     TimeSlot, ValidatorData, ValidatorSignature, ValidatorStatistics, ValidatorsData, WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, Block,
@@ -708,37 +708,6 @@ impl Default for Assurance {
             bitfield: [0u8; AVAIL_BITFIELD_BYTES], 
             validator_index: 0, 
             signature: [0u8; std::mem::size_of::<Ed25519Signature>()] 
-        }
-    }
-}
-
-
-// ----------------------------------------------------------------------------------------------------------
-// Polkadot Virtual Machine
-// ----------------------------------------------------------------------------------------------------------
-/*impl Default for PageTable {
-    fn default() -> Self {
-        PageTable {
-            pages: HashMap::new(),
-        }
-    }
-}*/
-
-impl Default for PageMap {
-    fn default() -> Self {
-        PageMap {
-            address: 0,
-            length: 0,
-            is_writable: false,
-        }
-    }
-}
-
-impl Default for MemoryChunk {
-    fn default() -> Self {
-        MemoryChunk {
-            address: 0,
-            contents: vec![],
         }
     }
 }

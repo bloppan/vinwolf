@@ -161,8 +161,8 @@ pub fn _load<T>(
 
     let num_bytes = std::mem::size_of::<T>() as RamAddress;
 
-    if !ram.is_readable(address, num_bytes) {
-        return ExitReason::page_fault;
+    if let Err(exit_reason) = ram.is_readable(address, num_bytes) {
+        return exit_reason;
     }
 
     let n = std::mem::size_of::<T>();
@@ -190,8 +190,8 @@ pub fn _store<T>(
 
     let num_bytes = std::mem::size_of::<T>();
 
-    if !ram.is_writable(address, num_bytes as RamAddress) {
-        return ExitReason::page_fault;
+    if let Err(exit_reason) = ram.is_writable(address, num_bytes as RamAddress) {
+        return exit_reason;
     }
     
     ram.write(address, &value.encode_size(num_bytes));

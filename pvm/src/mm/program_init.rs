@@ -1,3 +1,4 @@
+use core::num;
 /*
     The software programs which will run in each of the four instances where the pvm is utilized in the main document have a 
     very typical setup pattern characteristic of an output of a compiler and linker. This means that ram has sections for 
@@ -210,9 +211,21 @@ impl Decode for Program {
         let code: Vec<u8> = program_code_slice.to_vec().into_iter().chain(std::iter::repeat(0).take(25)).collect();
 
         let num_bitmask_bytes = (program_code_size + 7) / 8;
+        utils::log::trace!("program bytes: {:?} bitmask bytes: {:?}", program_code_size, num_bitmask_bytes);
         let mut bitmask: Vec<u8> = blob.read_bytes(num_bitmask_bytes)?.to_vec();
-        bitmask.extend(vec![0, 0, 0, 0, 0]);
+        utils::log::trace!("bitmask: {:?}", bitmask);
 
+        let tail_offset = program_code_size & 7;
+
+        if tail_offset != 0 {
+            let tail_mask: u8 =  (0xFF << tail_offset) as u8;
+            if let Some(last) = bitmask.last_mut() {
+                *last |= tail_mask;
+            }
+        }
+        
+        bitmask.extend(vec![0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
+        utils::log::trace!("bitmask: {:?}", bitmask);
 
         /*let mut bitmask = decode_to_bits(blob, num_bitmask_bytes as usize)?;
         bitmask.truncate(program_code_size);

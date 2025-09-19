@@ -62,19 +62,6 @@ mod tests {
     }
 
     #[test]
-    fn run_state_merkle() {
-
-        let key_vec1: Vec<u8> = (0..31).collect();
-        let key_vec2: Vec<u8> = (1..32).collect();
-        
-        let mut key1 = [0u8; 31];
-        let mut key2 = [0u8; 31];
-
-        key1.copy_from_slice(&key_vec1);
-        key2.copy_from_slice(&key_vec2);
-    }
-
-    #[test]
     fn run_trie_test() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("jamtestvectors/trie/trie.json");

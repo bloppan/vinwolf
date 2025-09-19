@@ -84,6 +84,7 @@ pub fn invoke_pvm(program: &Program, pc: &mut RegSize, gas: &mut Gas, ram: &mut 
 
         match exit_reason {
             ExitReason::Continue => {
+                log::trace!("Exit: pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pc.clone(), opcode_copy, gas, reg);
                 continue;
             },
             ExitReason::OutOfGas => {
@@ -95,6 +96,7 @@ pub fn invoke_pvm(program: &Program, pc: &mut RegSize, gas: &mut Gas, ram: &mut 
             /*ExitReason::panic |*/ ExitReason::Halt => {
                 log::debug!("Exit: pc = {:?}, opcode = {:03?}, gas = {:?}, reg = {:?}", pc.clone(), opcode_copy, gas, reg);
                 log::debug!("PVM: Halt");
+
                 //pvm_ctx.pc = 0; // Esto pone en el GP que deberia ser 0 (con panic tambien) TODO
                 return ExitReason::halt;
             },

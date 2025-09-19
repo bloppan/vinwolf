@@ -6,7 +6,7 @@ use std::collections::HashMap;
 pub enum Value {
     Null,
     Bool(bool),
-    Number(f64),
+    Number(String),
     String(String),
     Array(Vec<Value>),
     Object(HashMap<String, Value>),
@@ -65,12 +65,12 @@ impl Deserialize for String {
 macro_rules! num_impls {
     ($t:ty) => {
         impl Serialize for $t {
-            fn to_value(&self) -> Value { Value::Number(*self as f64) }
+            fn to_value(&self) -> Value { Value::Number(self.to_string()) }
         }
         impl Deserialize for $t {
             fn from_value(v: &Value) -> Result<Self, String> {
                 match v {
-                    Value::Number(n) => Ok(*n as $t),
+                    Value::Number(s) => s.parse::<$t>().map_err(|e| e.to_string()),
                     _ => Err("expected number".into())
                 }
             }
@@ -85,10 +85,37 @@ num_impls!(u64);
 num_impls!(u32);
 num_impls!(u16);
 num_impls!(u8);
-num_impls!(f64);
-num_impls!(f32);
 num_impls!(isize);
 num_impls!(usize);
+
+impl Serialize for f64 {
+    fn to_value(&self) -> Value {
+        if self.is_finite() {
+            let s = format!("{}", self);
+            Value::Number(if s.contains('.') || s.contains('e') || s.contains('E') { s } else { format!("{}.0", s) })
+        } else {
+            Value::Number("null".into())
+        }
+    }
+}
+impl Deserialize for f64 {
+    fn from_value(v: &Value) -> Result<Self, String> {
+        match v {
+            Value::Number(s) => s.parse::<f64>().map_err(|e| e.to_string()),
+            _ => Err("expected number".into())
+        }
+    }
+}
+impl Serialize for f32 {
+    fn to_value(&self) -> Value {
+        (f64::from(*self)).to_value()
+    }
+}
+impl Deserialize for f32 {
+    fn from_value(v: &Value) -> Result<Self, String> {
+        Ok(f64::from_value(v)? as f32)
+    }
+}
 
 impl<T: Serialize> Serialize for Option<T> {
     fn to_value(&self) -> Value {
@@ -167,12 +194,7 @@ pub fn stringify(v: &Value) -> String {
     match v {
         Value::Null => "null".to_string(),
         Value::Bool(b) => if *b { "true".into() } else { "false".into() },
-        Value::Number(n) => {
-            if n.is_finite() {
-                let s = format!("{}", n);
-                if s.contains('.') || s.contains('e') || s.contains('E') { s } else { format!("{}.0", s) }
-            } else { "null".into() }
-        }
+        Value::Number(n) => { n.clone() }
         Value::String(s) => quote_str(s),
         Value::Array(a) => {
             let mut out = String::from("[");
@@ -287,9 +309,8 @@ impl<'a> Parser<'a> {
             if !matches!(self.peek(), Some(b'0'..=b'9')) { return Err("invalid number".into()); }
             while matches!(self.peek(), Some(b'0'..=b'9')) { self.i += 1; }
         }
-        let s = std::str::from_utf8(&self.s[start..self.i]).map_err(|_| "utf8".to_string())?;
-        let n: f64 = s.parse().map_err(|_| "invalid number".to_string())?;
-        Ok(Value::Number(n))
+        let s = std::str::from_utf8(&self.s[start..self.i]).map_err(|_| "utf8".to_string())?.to_string();
+        Ok(Value::Number(s))
     }
 
     fn parse_string(&mut self) -> Result<String, String> {

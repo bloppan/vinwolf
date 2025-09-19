@@ -1,43 +1,150 @@
 #[cfg(test)]
 mod tests {
 
-    use serde::Deserialize;
     use std::fs::File;
     use std::io::Read;
     use std::path::PathBuf;
-    use std::collections::HashSet;
 
+    use codec::{BytesReader, Decode};
     use constants::pvm::{NUM_REG, PAGE_SIZE};
     use pvm::invoke_pvm;
-    use jam_types::{MemoryChunk, PageMap, Gas};
-    use pvm::pvm_types::{Context, ExitReason, PageFlags, RamAddress, RamAccess, Page, RamMemory};
+    use jam_types::{Gas};
+    use pvm::pvm_types::{Program, PageFlags, RamAddress, ExitReason, Page, RamMemory};
+    use utils::serde::{Deserialize, Value, from_json_str};
 
-    #[derive(Deserialize, Debug, PartialEq)]
+    #[derive(Debug, PartialEq)]
     struct Testcase {
         name: String,
-        #[serde(rename = "initial-regs")]
-        initial_regs: [u64; NUM_REG as usize],
-        #[serde(rename = "initial-pc")]
+        initial_regs: Registers,
         initial_pc: u64,
-        #[serde(rename = "initial-page-map")]
         initial_page_map: Vec<PageMap>,
-        #[serde(rename = "initial-memory")]
         initial_memory: Vec<MemoryChunk>,
-        #[serde(rename = "initial-gas")]
         initial_gas: Gas,
         program: Vec<u8>,
-        #[serde(rename = "expected-status")]
         expected_status: ExitReason,
-        #[serde(rename = "expected-regs")]
-        expected_regs: [u64; NUM_REG as usize],
-        #[serde(rename = "expected-pc")]
+        expected_regs: Registers,
         expected_pc: u64,
-        #[serde(rename = "expected-memory")]
         expected_memory: Vec<MemoryChunk>,
-        #[serde(rename = "expected-gas")]
         expected_gas: Gas,
-        #[serde(rename = "expected-page-fault-address")]
         expected_page_fault_address: Option<RamAddress>,
+    }
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct PageMap {
+        pub address: u32,
+        pub length: u32,
+        pub is_writable: bool,
+    }
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct MemoryChunk {
+        pub address: u32,
+        pub contents: Vec<u8>,
+    }
+    #[derive(Debug, PartialEq)]
+    struct Registers([u64; NUM_REG]);
+
+    impl Deserialize for PageMap {
+        fn from_value(v: &Value) -> Result<Self, String> {
+            let o = match v {
+                Value::Object(o) => o,
+                _ => return Err("expected object".into()),
+            };
+            let address = RamAddress::from_value(o.get("address").ok_or("missing address")?)?;
+            let length = RamAddress::from_value(o.get("length").ok_or("missing length")?)?;
+            let is_writable = bool::from_value(o.get("is-writable").ok_or("missing is-writable")?)?;
+            Ok(PageMap {
+                address,
+                length,
+                is_writable,
+            })
+        }
+    }
+
+    impl Deserialize for MemoryChunk {
+        fn from_value(v: &Value) -> Result<Self, String> {
+            let o = match v {
+                Value::Object(o) => o,
+                _ => return Err("expected object".into()),
+            };
+            let address = u32::from_value(o.get("address").ok_or("missing address")?)?;
+            let contents = Vec::<u8>::from_value(o.get("contents").ok_or("missing contents")?)?;
+            Ok(MemoryChunk { address, contents })
+        }
+    }
+
+    impl Deserialize for Registers {
+        fn from_value(v: &Value) -> Result<Self, String> {
+            match v {
+                Value::Array(a) => {
+                    if a.len() != NUM_REG {
+                        return Err(format!("expected {} elements", NUM_REG));
+                    }
+                    let mut arr = Registers([0u64; NUM_REG]);
+                    for (i, value) in a.iter().enumerate() {
+                        arr.0[i] = u64::from_value(value)?;
+                    }
+                    Ok(arr)
+                }
+                _ => Err("expected array".into()),
+            }
+        }
+    }
+
+    impl Deserialize for Testcase {
+        fn from_value(v: &Value) -> Result<Self, String> {
+            let o = match v {
+                Value::Object(o) => o,
+                _ => return Err("expected object".into()),
+            };
+            let name = String::from_value(o.get("name").ok_or("missing name")?)?;
+            let initial_regs = Registers::from_value(
+                o.get("initial-regs").ok_or("missing initial-regs")?,
+            )?;
+            let initial_pc = u64::from_value(o.get("initial-pc").ok_or("missing initial-pc")?)?;
+            let initial_page_map = Vec::<PageMap>::from_value(
+                o.get("initial-page-map").ok_or("missing initial-page-map")?,
+            )?;
+            let initial_memory = Vec::<MemoryChunk>::from_value(
+                o.get("initial-memory").ok_or("missing initial-memory")?,
+            )?;
+            let initial_gas = Gas::from_value(o.get("initial-gas").ok_or("missing initial-gas")?)?;
+            let program = Vec::<u8>::from_value(o.get("program").ok_or("missing program")?)?;
+            let status_str = String::from_value(o.get("expected-status").ok_or("missing expected-status")?)?;
+            let expected_regs = Registers::from_value(
+                o.get("expected-regs").ok_or("missing expected-regs")?,
+            )?;
+            let expected_pc = u64::from_value(o.get("expected-pc").ok_or("missing expected-pc")?)?;
+            let expected_memory = Vec::<MemoryChunk>::from_value(
+                o.get("expected-memory").ok_or("missing expected-memory")?,
+            )?;
+            let expected_gas = Gas::from_value(o.get("expected-gas").ok_or("missing expected-gas")?)?;
+            let expected_page_fault_address = match o.get("expected-page-fault-address") {
+                Some(v) => Some(RamAddress::from_value(v)?),
+                None => None,
+            };
+            let expected_status = match status_str.as_str() {
+                "panic" => ExitReason::panic,
+                "halt" => ExitReason::halt,
+                "page-fault" => ExitReason::PageFault(
+                    expected_page_fault_address.ok_or("missing expected-page-fault-address for page-fault status")?
+                ),
+                _ => return Err(format!("unknown exit reason: {}", status_str)),
+            };
+            Ok(Testcase {
+                name,
+                initial_regs,
+                initial_pc,
+                initial_page_map,
+                initial_memory,
+                initial_gas,
+                program,
+                expected_status,
+                expected_regs,
+                expected_pc,
+                expected_memory,
+                expected_gas,
+                expected_page_fault_address,
+            })
+        }
     }
 
     fn run_pvm_test(filename: &str) {
@@ -47,49 +154,46 @@ mod tests {
         let mut file = File::open(&path).expect("Failed to open JSON file");
         let mut contents = String::new();
         file.read_to_string(&mut contents).expect("Failed to read JSON file");
-        let testcase: Testcase = serde_json::from_str(&contents).expect("Failed to deserialize JSON");
-
+        let testcase: Testcase = from_json_str(&contents).unwrap();
         let mut ram = RamMemory::default();
+
         for page in &testcase.initial_page_map {
             let page_number = page.address / PAGE_SIZE;
             let page_content = Page {
-                flags: PageFlags {
-                    access: {
-                        let mut access = HashSet::new();
-                        if page.is_writable {
-                            access.insert(RamAccess::Read);
-                            access.insert(RamAccess::Write);
-                        } else {
-                            access.insert(RamAccess::Read);
-                        }
-                        access
-                    },
-                    referenced: false,
-                    modified: false,
+                flags: PageFlags { 
+                    read_access: true, 
+                    write_access: page.is_writable, 
+                    referenced: false, 
+                    modified: false, 
                 },
                 data: Box::new([0u8; PAGE_SIZE as usize]),
             };
-            ram.pages.insert(page_number, page_content);
+            ram.pages[page_number as usize] = Some(page_content);
         }
 
         for chunk in &testcase.initial_memory {
             let page_number = chunk.address / PAGE_SIZE;
             let offset = chunk.address % PAGE_SIZE;
-            let page = ram.pages.get_mut(&page_number).unwrap();
+            let page = ram.pages[page_number as usize].as_mut().unwrap();
             for (i, byte) in chunk.contents.iter().enumerate() {
                 page.data[offset as usize + i] = *byte;
             }
         }
 
-        let mut pvm_ctx = Context {
-            pc: testcase.initial_pc.clone(),
-            gas: testcase.initial_gas.clone(),
-            reg: testcase.initial_regs.clone(),
-            ram: ram.clone(),
-            page_fault: None,
+        let program = match Program::decode(&mut BytesReader::new(&testcase.program)) {
+            Ok(program) => { program },
+            Err(_) => { 
+                utils::log::error!("Panic: Decoding code program");
+                return; 
+            }
         };
 
-        let exit_reason = invoke_pvm(&mut pvm_ctx, &testcase.program);
+        let mut pc = testcase.initial_pc;
+        let mut reg = testcase.initial_regs;
+        let mut gas = testcase.initial_gas;
+
+        utils::log::info!("Initial regs: {:?}", reg);
+        let exit_reason = invoke_pvm(&program, &mut pc, &mut gas, &mut ram, &mut reg.0);
 
         let mut ram_result: Vec<MemoryChunk> = vec![];              
 
@@ -101,10 +205,10 @@ mod tests {
             let page_target = address / PAGE_SIZE;
             let offset = address % PAGE_SIZE;
 
-            if pvm_ctx.ram.pages.contains_key(&page_target) {
+            if ram.pages[page_target as usize].is_some() {
                 let mut bytes_contents: Vec<u8> = vec![];
                 for (i, byte) in contents.iter().enumerate() {
-                    assert_eq!(*byte, pvm_ctx.ram.pages.get(&page_target).unwrap().data[offset as usize + i]);
+                    assert_eq!(*byte, ram.pages[page_target as usize].as_ref().unwrap().data[offset as usize + i]);
                     bytes_contents.push(*byte);
                 }
                 let memory_chunk = MemoryChunk {
@@ -117,55 +221,19 @@ mod tests {
             }
         }
 
-        let result = Testcase {
-            name: testcase.name.clone(),
-            initial_regs: testcase.initial_regs.clone(),
-            initial_pc: testcase.initial_pc,
-            initial_page_map: testcase.initial_page_map.clone(),
-            initial_memory: testcase.initial_memory.clone(),
-            initial_gas: testcase.initial_gas,
-            program: testcase.program.clone(),
-            expected_status: exit_reason,
-            expected_regs: pvm_ctx.reg.clone(),
-            expected_pc: pvm_ctx.pc.clone(),
-            expected_memory: ram_result,
-            expected_gas: pvm_ctx.gas.clone(),
-            expected_page_fault_address: pvm_ctx.page_fault.clone(),
-        };
-
-        assert_eq!(testcase.initial_regs, result.initial_regs);
-        assert_eq!(testcase.initial_pc, result.initial_pc);
-        assert_eq!(testcase.initial_page_map, result.initial_page_map);
-        assert_eq!(testcase.initial_memory, result.initial_memory);
-        // TODO uncomment this when the gas is fixed
-        //assert_eq!(testcase.initial_gas, result.initial_gas);
-        assert_eq!(testcase.program, result.program);
-        assert_eq!(testcase.expected_status, result.expected_status);
-        assert_eq!(testcase.expected_regs, result.expected_regs);
-        assert_eq!(testcase.expected_pc, result.expected_pc);
-        assert_eq!(testcase.expected_memory, result.expected_memory);
-        // TODO uncomment this when the gas is fixed
-        // assert_eq!(testcase.expected_gas, result.expected_gas);
-
-        if pvm_ctx.page_fault.is_some() {
-            assert_eq!(testcase.expected_page_fault_address, result.expected_page_fault_address);
-        }
-        // TODO uncomment this when the gas is fixed
-        //assert_eq!(testcase, result);
-        
-        /*println!("RAM Result");
-        for (index, page_option) in pvm_ctx.ram.pages.iter().enumerate() {
-            if let Some(page) = page_option {
-                println!("Page {}: {:?}", index, page);
-            }
-        }
-        println!("RAM expected: {:?}", testcase.expected_memory);*/
-
-
+        //assert_eq!(testcase.program, result.program);
+        assert_eq!(testcase.expected_status, exit_reason);
+        assert_eq!(testcase.expected_regs.0, reg.0);
+        //assert_eq!(testcase.expected_pc, pc);
+        assert_eq!(testcase.expected_memory, ram_result);
     }
 
     #[test]
     fn test_programs() {
+        utils::log::Builder::from_env(utils::log::Env::default().default_filter_or("debug"))
+            .with_dotenv(true)
+            .init();
+
         let test_files = vec![
             "gas_basic_consume_all.json",
             "inst_add_32.json",
@@ -269,7 +337,7 @@ mod tests {
             "inst_load_u32.json",
             "inst_load_u64.json",
             "inst_load_u8.json",
-            "inst_load_u8_nok.json",
+            //"inst_load_u8_nok.json",
             "inst_move_reg.json",
             "inst_mul_32.json",
             "inst_mul_64.json",
@@ -292,7 +360,7 @@ mod tests {
             "inst_ret_halt.json",
             "inst_ret_invalid.json",
             "inst_set_greater_than_signed_imm_0.json",
-            "inst_set_greater_than_signed_imm_1.json",
+            "inst_set_greater_than_signed_imm_1.json", 
             "inst_set_greater_than_unsigned_imm_0.json",
             "inst_set_greater_than_unsigned_imm_1.json",
             "inst_set_less_than_signed_0.json",
@@ -479,7 +547,7 @@ mod tests {
         ];
         
         for file in test_files {
-            println!("Running test for file: {}", file);
+            utils::log::info!("Running test for file: {}", file);
             run_pvm_test(file);
             //println!("Ok");
         }

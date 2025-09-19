@@ -138,7 +138,7 @@ fn R(gas_init: Gas, hostcall_result: (ExitReason, Gas), reg: &Registers, ram: &R
     let bytes_to_read = reg[8] as RamAddress;
 
     if exit_reason == ExitReason::Halt || exit_reason == ExitReason::halt { // TODO cambiar esto
-        if ram.is_readable(start_address, bytes_to_read) {
+        if ram.is_readable(start_address, bytes_to_read).is_ok() {
             let data = ram.read(start_address, reg[8] as u32);
             log::debug!("The ram is readable after halt");
             return (gas_consumed, WorkExecResult::Ok(data));

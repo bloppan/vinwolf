@@ -10,6 +10,7 @@ use crate::isa::{skip, extend_sign, _store, _load, signed, unsigned};
 fn get_imm(pc: &RegSize, program: &Program) -> RegSize {
    let start= (*pc + 2) as usize;
    let end = start + get_x_length(pc, program) as usize;
+   utils::log::trace!("lx: {:?}", get_x_length(pc, program));
    extend_sign(&program.code[start..end], get_x_length(pc, program) as usize) as RegSize
 }
 
@@ -245,7 +246,7 @@ pub fn set_gt_u_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &
 #[inline(always)]
 pub fn set_gt_s_imm(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, _reg_b, value_imm, value_reg_b) = get_data(pc, reg, program);
-
+    utils::log::trace!("reg_b: {value_reg_b}, value_imm: {value_imm}");
     if signed(value_reg_b, 8) > signed(value_imm, 8) {
         reg[reg_a as usize] = 1;
         *pc += skip(pc, &program.bitmask) + 1;
