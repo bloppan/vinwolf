@@ -1,15 +1,15 @@
 use std::collections::VecDeque;
 
 use jam_types::{Block, GlobalState, KeyValue, OpaqueHash};
+use safrole::verifier;
 use state_handler::{get_global_state, get_state_root};
 use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 use utils::common::parse_state_keyvals;
 use utils::{trie::merkle_state, log, hex};
 use state_handler::set_global_state;
-use safrole::{create_ring_set, get_verifiers, set_verifiers};
+use safrole::{create_ring_set, verifier::{get_all, set_all}};
 use utils::bandersnatch::Verifier;
 use vinwolf_target::read_all_bins;
-
 
 use std::io::{Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -221,17 +221,19 @@ fn handle_connection(socket: &mut UnixStream) {
                     },
                 }
 
-                let state_root = merkle_state(&utils::serialization::serialize(&global_state).map, 0);
+                let state_root = merkle_state(&utils::serialization::serialize(&global_state).map);
                 state_handler::set_state_root(state_root.clone());
                 set_global_state(global_state.clone());
 
-                set_verifiers(VecDeque::new());
+                verifier::set_all(VecDeque::new());
                 let mut verifiers = VecDeque::new();
                 let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
                 let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
+                let next_validators = state_handler::get_global_state().lock().unwrap().next_validators.clone();
                 verifiers.push_back(Verifier::new(create_ring_set(&curr_validators)));
                 verifiers.push_back(Verifier::new(create_ring_set(&pending_validators)));
-                set_verifiers(verifiers.clone());
+                verifiers.push_back(Verifier::new(create_ring_set(&next_validators)));
+                verifier::set_all(verifiers.clone());
                 block::header::set_parent_header(OpaqueHash::default());
 
                 //set_global_state(global_state.clone());
@@ -262,7 +264,7 @@ fn handle_connection(socket: &mut UnixStream) {
                 
                 let (pre_state_root, pre_state, verifiers) = simple_fork(&block.header.unsigned.parent_state_root);
 
-                set_verifiers(verifiers);
+                verifier::set_all(verifiers);
                 set_global_state(pre_state.clone());
                 state_handler::set_state_root(pre_state_root.clone());
 
@@ -271,7 +273,7 @@ fn handle_connection(socket: &mut UnixStream) {
                         //println!("Block {} processed successfully", utils::print_hash!(header_hash));
                         log::info!("Block proccessed successfully");
                         let post_state_root = get_state_root().lock().unwrap().clone();
-                        update_state_record(&block.header.unsigned.parent_state_root, &post_state_root, get_global_state().lock().unwrap().clone(), get_verifiers());
+                        update_state_record(&block.header.unsigned.parent_state_root, &post_state_root, get_global_state().lock().unwrap().clone(), verifier::get_all());
                         if send_to_peer(&fuzz_msg(Message::StateRoot, &post_state_root), socket).is_err() {
                             break;
                         }

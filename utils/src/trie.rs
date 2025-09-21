@@ -54,39 +54,41 @@ fn leaf(k: &[u8], v: &[u8]) -> [u8; 64] {
     leaf_hash
 }
 
+#[inline]
 fn bit(k: &[u8], i: usize) -> bool {
-    (k[i >> 3] & (1 << (7 - (i & 7)))) != 0
+    let b = i >> 3;
+    let m = 1u8 << (7 - (i & 7));
+    (k[b] & m) != 0
 }
 
-pub fn merkle_state(kvs: &HashMap<StateKey, Vec<u8>>, i: usize) -> Hash {
-    // Empty (sub-)tries are identified as the zero hash
+pub fn merkle_state(kvs: &HashMap<StateKey, Vec<u8>>) -> Hash {
+    let items: Vec<(&StateKey, &Vec<u8>)> = kvs.iter().collect();
+    merkle_state_inner(&items, 0)
+}
+
+fn merkle_state_inner(kvs: &[(&StateKey, &Vec<u8>)], i: usize) -> Hash {
     if kvs.is_empty() {
         return [0u8; 32];
     }
-    // Generate a leaf if there only is one element
     if kvs.len() == 1 {
-        let (k, v) = kvs.into_iter().next().unwrap();
+        let (k, v) = kvs[0];
         return blake2_256(&leaf(k, v));
     }
-    // Right and left vectors
-    let mut l = HashMap::new(); 
-    let mut r = HashMap::new(); 
-    
-    for (k, v) in kvs.iter() {
-        // Determine if kv has to be on right or left
-        if bit(k, i) {
-            r.insert(k.clone(), v.clone());
+
+    let mut l: Vec<(&StateKey, &Vec<u8>)> = Vec::with_capacity(kvs.len());
+    let mut r: Vec<(&StateKey, &Vec<u8>)> = Vec::with_capacity(kvs.len());
+
+    for (k, v) in kvs {
+        if bit(k.as_ref(), i) {
+            r.push((k, v));
         } else {
-            l.insert(k.clone(), v.clone());
+            l.push((k, v));
         }
     }
-    // Calculate letf and right 
-    let left_hash = merkle_state(&l, i + 1);
-    let right_hash = merkle_state(&r, i + 1);
 
-    let branch_value = branch(&left_hash, &right_hash);
-    // Blake 256 of branch value
-    blake2_256(&branch_value)
+    let left_hash = merkle_state_inner(&l, i + 1);
+    let right_hash = merkle_state_inner(&r, i + 1);
+    blake2_256(&branch(&left_hash, &right_hash))
 }
 
 pub fn merkle(kvs: &[(Vec<u8>, Vec<u8>)], i: usize) -> Hash {

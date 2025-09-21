@@ -116,11 +116,11 @@ impl VerifySignature for Ed25519Signature {
     }
 }
 
-pub fn set_offenders_null(validators_data: &mut ValidatorsData, offenders: &[Ed25519Public]) {
+pub fn set_offenders_null(validators_data: &mut ValidatorsData, offenders: &[Ed25519Public]) -> bool {
     
     // We return the same keyset if there aren't offenders
     if offenders.is_empty() {
-        return;
+        return false;
     }
 
     // For each offender set ValidatorData to zero
@@ -136,6 +136,8 @@ pub fn set_offenders_null(validators_data: &mut ValidatorsData, offenders: &[Ed2
             }
         }
     }
+
+    return true;
 }
 
 pub fn parse_preimage(service_accounts: &ServiceAccounts, service_id: &ServiceId) -> Result<Option<PreimageData>, ReadError> {
