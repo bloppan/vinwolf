@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use block::header;
 use jam_types::{Block, GlobalState, KeyValue, OpaqueHash};
 use safrole::verifier;
 use state_handler::{get_global_state, get_state_root};
@@ -38,32 +39,38 @@ pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
     }
 });
 
-static STATE_RECORD: LazyLock<Mutex<VecDeque<(OpaqueHash, GlobalState, VecDeque<Verifier>)>>> = LazyLock::new(|| { Mutex::new(VecDeque::new())});
+static STATE_RECORD: LazyLock<Mutex<VecDeque<(OpaqueHash, GlobalState, VecDeque<Verifier>, OpaqueHash)>>> = LazyLock::new(|| { Mutex::new(VecDeque::new())});
 
-fn update_state_record(pre_state_root: &OpaqueHash, post_state_root: &OpaqueHash, state: GlobalState, verifiers_record: VecDeque<Verifier>) {
+fn update_state_record(
+    pre_state_root: &OpaqueHash, 
+    post_state_root: &OpaqueHash, 
+    state: GlobalState, 
+    verifiers_record: VecDeque<Verifier>,
+    parent_header: &OpaqueHash
+) {
 
     let mut state_record = STATE_RECORD.lock().unwrap().clone();
 
     if state_record[0].0 == *pre_state_root {
         // We are in a fork process
-        state_record[1] = (*post_state_root, state.clone(), verifiers_record);
+        state_record[1] = (*post_state_root, state.clone(), verifiers_record, *parent_header);
         set_state_record(state_record);
         return;
     } 
 
-    state_record.push_back((*post_state_root, state.clone(), verifiers_record));
+    state_record.push_back((*post_state_root, state.clone(), verifiers_record, *parent_header));
     state_record.pop_front();
     
     set_state_record(state_record);
 }
 
-fn simple_fork(state_root: &OpaqueHash) -> (OpaqueHash, GlobalState, VecDeque<Verifier>) {
+fn simple_fork(state_root: &OpaqueHash) -> (OpaqueHash, GlobalState, VecDeque<Verifier>, OpaqueHash) {
 
     let state_record = get_state_record();
 
-    let state = if let Some((pre_state_root, pre_state, verifiers_records)) = state_record.iter().find(|(s_root, _, _)| *state_root == *s_root ) {
+    let state = if let Some((pre_state_root, pre_state, verifiers_records, parent_header)) = state_record.iter().find(|(s_root, _, _, _)| *state_root == *s_root ) {
         // Return the data associated with the block parent state root
-        (*pre_state_root, pre_state.clone(), verifiers_records.clone())
+        (*pre_state_root, pre_state.clone(), verifiers_records.clone(), *parent_header)
     } else {
         // If we don't find the block parent state root in our record, return the last one
         state_record.back().unwrap().clone()
@@ -72,11 +79,11 @@ fn simple_fork(state_root: &OpaqueHash) -> (OpaqueHash, GlobalState, VecDeque<Ve
     return state;
 }
 
-fn set_state_record(state_record: VecDeque<(OpaqueHash, GlobalState, VecDeque<Verifier>)>) {
+fn set_state_record(state_record: VecDeque<(OpaqueHash, GlobalState, VecDeque<Verifier>, OpaqueHash)>) {
     *STATE_RECORD.lock().unwrap() = state_record;
 }
 
-fn get_state_record() -> VecDeque<(OpaqueHash, GlobalState, VecDeque<Verifier>)> {
+fn get_state_record() -> VecDeque<(OpaqueHash, GlobalState, VecDeque<Verifier>, OpaqueHash)> {
     STATE_RECORD.lock().unwrap().clone()
 }
 
@@ -224,6 +231,7 @@ fn handle_connection(socket: &mut UnixStream) {
                 let state_root = merkle_state(&utils::serialization::serialize(&global_state).map);
                 state_handler::set_state_root(state_root.clone());
                 set_global_state(global_state.clone());
+                header::set_parent_header(initialize.header.unsigned.parent);
 
                 verifier::set_all(VecDeque::new());
                 let mut verifiers = VecDeque::new();
@@ -238,8 +246,8 @@ fn handle_connection(socket: &mut UnixStream) {
 
                 //set_global_state(global_state.clone());
                 let mut state_record = VecDeque::new();
-                state_record.push_back((OpaqueHash::default(), GlobalState::default(), VecDeque::new()));
-                state_record.push_back((state_root, global_state.clone(), verifiers));
+                state_record.push_back((OpaqueHash::default(), GlobalState::default(), VecDeque::new(), OpaqueHash::default()));
+                state_record.push_back((state_root, global_state.clone(), verifiers, initialize.header.unsigned.parent));
                 set_state_record(state_record);
 
                 log::info!("SetState - state root {}", hex::encode(state_root));
@@ -262,18 +270,26 @@ fn handle_connection(socket: &mut UnixStream) {
                     },
                 };
                 
-                let (pre_state_root, pre_state, verifiers) = simple_fork(&block.header.unsigned.parent_state_root);
+                let (pre_state_root, 
+                    pre_state, 
+                    verifiers,
+                    parent_header) = simple_fork(&block.header.unsigned.parent_state_root);
 
                 verifier::set_all(verifiers);
                 set_global_state(pre_state.clone());
                 state_handler::set_state_root(pre_state_root.clone());
+                header::set_parent_header(parent_header);
 
                 match state_controller::stf(&block) {
                     Ok(_) => {
                         //println!("Block {} processed successfully", utils::print_hash!(header_hash));
                         log::info!("Block proccessed successfully");
                         let post_state_root = get_state_root().lock().unwrap().clone();
-                        update_state_record(&block.header.unsigned.parent_state_root, &post_state_root, get_global_state().lock().unwrap().clone(), verifier::get_all());
+                        update_state_record(
+                            &block.header.unsigned.parent_state_root, 
+                            &post_state_root, get_global_state().lock().unwrap().clone(), 
+                            verifier::get_all(), 
+                            &header::get_parent_header());
                         if send_to_peer(&fuzz_msg(Message::StateRoot, &post_state_root), socket).is_err() {
                             break;
                         }
@@ -353,7 +369,7 @@ pub fn run_fuzzer(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let n = socket.read(&mut buffer)?;
 
 
-    let path = std::path::Path::new("/home/bernar/workspace/vinwolf/external/jam-conformance/fuzz-reports/0.7.0/traces/");
+    let path = std::path::Path::new("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/");
 
     //fuzz_dir(&mut socket, &path);
 

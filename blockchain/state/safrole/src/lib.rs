@@ -42,7 +42,8 @@ use std::sync::Mutex;
 use sp_core::blake2_256;
 
 use jam_types::{
-    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Block, Ed25519Public, Entropy, EntropyPool, EpochMark, OutputDataSafrole, ProcessError, Safrole, SafroleErrorCode, TicketBody, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorSet, ValidatorsData
+    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Block, Ed25519Public, Entropy, EntropyPool, EpochMark, OutputDataSafrole, 
+    ProcessError, Safrole, SafroleErrorCode, TicketBody, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorSet, ValidatorsData
 };
 use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 
@@ -64,7 +65,7 @@ pub mod verifier {
         
         if *epoch_diff > 1 {
             verifiers[0] = Verifier::new(create_ring_set(curr_validators));
-            verifiers[1] = new_verifier;
+            verifiers[1] = new_verifier; // TODO revisar esto luego, quiza sea mejor pedir el estado completo cuando estamos offline durante un tiempo
         }
         
         set_all(verifiers);
