@@ -27,7 +27,7 @@ pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
         app_version: Version {
             major: 0,
             minor: 2,
-            patch: 14,
+            patch: 15,
         },
         jam_version: Version {
             major: 0,
@@ -91,7 +91,7 @@ fn print_vinwolf_target_info(socket_path: &str) -> String {
     
     let vinwolf_info = &*VINWOLF_INFO;
 
-    format!("Running {} mode {:?} version: {}.{}.{} GP version: {}.{}.{} listening on {}", 
+    format!("Running {} mode {} version: {}.{}.{} GP version: {}.{}.{} listening on {}", 
                 BUILD_PROFILE,
                 match String::from_utf8(vinwolf_info.app_name.clone()) {
                 Ok(name) => name,  
@@ -368,10 +368,12 @@ pub fn run_fuzzer(path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let mut buffer = vec![0u8; 1024000];
     let n = socket.read(&mut buffer)?;
 
+    /*let path = std::path::Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/safrole/");
+    let start = std::time::Instant::now();
+    fuzz_dir(&mut socket, &path);
+    println!("Total time: {:?}", start.elapsed());*/
 
     let path = std::path::Path::new("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/");
-
-    //fuzz_dir(&mut socket, &path);
 
     for entry in std::fs::read_dir(path).unwrap() {
 

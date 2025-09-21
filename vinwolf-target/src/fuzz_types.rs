@@ -4,13 +4,14 @@ use jam_types::*;
 
 pub type Features = u32;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Version {
     pub major: u8,
     pub minor: u8,
     pub patch: u8,
 }
 
+#[derive(Debug, Clone)]
 pub struct PeerInfo {
     pub fuzz_version: u8,
     pub fuzz_features: Features,
