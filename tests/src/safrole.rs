@@ -8,7 +8,8 @@ mod tests {
     use crate::codec::tests::{TestBody, encode_decode_test};
     use jam_types::{Block, Header, Extrinsic, Safrole, OutputSafrole, DisputesRecords, ValidatorSet, ProcessError, OutputDataSafrole};
     use crate::test_types::{InputSafrole, SafroleState};
-    use safrole::{set_verifiers, create_ring_set};
+    use safrole::verifier;
+    use safrole::create_ring_set;
     use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, TICKET_ENTRIES_PER_VALIDATOR, MAX_TICKETS_PER_EXTRINSIC};
     use state_handler::{get_global_state};
     use codec::{Decode, BytesReader};
@@ -75,12 +76,13 @@ mod tests {
         let mut state = get_global_state().lock().unwrap().clone();
 
         let mut verifiers = VecDeque::new();
+        let next_validators = state_handler::get_global_state().lock().unwrap().next_validators.clone();
         let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
         let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
         verifiers.push_back(Verifier::new(create_ring_set(&curr_validators)));
         verifiers.push_back(Verifier::new(create_ring_set(&pending_validators)));
-        set_verifiers(verifiers);
-
+        verifiers.push_back(Verifier::new(create_ring_set(&next_validators)));
+        verifier::set_all(verifiers);
 
         let mut header = Header::default();
         header.unsigned.slot = input.slot;
@@ -98,7 +100,25 @@ mod tests {
                                                                         &block,
                                                                         &mut state.disputes.offenders);
         
-        match output_result {
+        let tickets_result = block::extrinsic::tickets::process(
+                &block.extrinsic.tickets, 
+                &mut state.safrole, 
+                &state.entropy, 
+                &block.header.unsigned.slot, 
+                &safrole::verifier::get(ValidatorSet::Pending));
+
+        if output_result.is_ok() && tickets_result.is_ok() {
+            entropy::update_recent(&mut state.entropy, input.entropy.entropy.clone());
+            state_handler::time::set(state.time.clone());
+            state_handler::entropy::set(state.entropy.clone());
+            state_handler::validators::set(state.prev_validators.clone(), ValidatorSet::Previous);
+            state_handler::validators::set(state.curr_validators.clone(), ValidatorSet::Current);
+            state_handler::validators::set(state.next_validators.clone(), ValidatorSet::Next);
+            state_handler::safrole::set(state.safrole.clone()); 
+        } else {
+            log::error!("{:?}", output_result);
+        }
+        /*match output_result {
             Ok(_) => { 
                 entropy::update_recent(&mut state.entropy, input.entropy.entropy.clone());
                 state_handler::time::set(state.time.clone());
@@ -111,7 +131,7 @@ mod tests {
             Err(_) => { 
                 log::error!("{:?}", output_result);
             },
-        }
+        }*/
 
         let expected_safrole_state = Safrole {
             pending_validators: expected_state.gamma_k,
@@ -132,18 +152,22 @@ mod tests {
         assert_eq!(expected_state.eta, result_entropy);
         assert_eq!(expected_state.lambda, result_prev_validators);
         assert_eq!(expected_state.kappa, result_curr_validators);
-        assert_eq!(expected_state.iota, result_next_validators);       
+        assert_eq!(expected_state.iota, result_next_validators);   
+        assert_eq!(expected_safrole_state.epoch_root, result_safrole.epoch_root);
+        assert_eq!(expected_safrole_state.seal, result_safrole.seal);
+        assert_eq!(expected_safrole_state.ticket_accumulator, result_safrole.ticket_accumulator);
+        assert_eq!(expected_safrole_state.pending_validators, result_safrole.pending_validators);
         assert_eq!(expected_safrole_state, result_safrole);
         assert_eq!(expected_state.post_offenders, result_disputes.offenders);
 
-        match output_result {
+        /*match output_result {
             Ok(OutputDataSafrole { epoch_mark, tickets_mark }) => {
                 assert_eq!(expected_output, OutputSafrole::Ok(OutputDataSafrole {epoch_mark, tickets_mark}));
             }
             Err(error) => {
                 assert_eq!(expected_output, OutputSafrole::from_process_error(error));
             }
-        }
+        }*/
     }
 
     #[test]

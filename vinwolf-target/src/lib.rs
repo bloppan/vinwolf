@@ -1,4 +1,4 @@
-use safrole::{get_verifiers, set_verifiers, create_ring_set};
+use safrole::{create_ring_set, verifier::{self, get_all, set_all}};
 use jam_types::{Block, GlobalState, OpaqueHash, RawState, ReadError};
 use codec::{Decode, BytesReader};
 use std::collections::VecDeque;
@@ -18,9 +18,9 @@ pub fn parse_trace_file(test_content: &[u8]) -> Result<(GlobalState, Block, Glob
     let mut expected_state = GlobalState::default();
 
     parse_state_keyvals(&pre_state.keyvals, &mut state).expect("Error decoding pre state keyvals");
-    assert_eq!(pre_state.state_root.clone(), merkle_state(&serialization::serialize(&state).map, 0));
+    assert_eq!(pre_state.state_root.clone(), merkle_state(&serialization::serialize(&state).map));
     parse_state_keyvals(&post_state.keyvals, &mut expected_state).expect("Error decoding post state keyvals");
-    assert_eq!(post_state.state_root.clone(), merkle_state(&serialization::serialize(&expected_state).map, 0));
+    assert_eq!(post_state.state_root.clone(), merkle_state(&serialization::serialize(&expected_state).map));
 
     return Ok((state, block, expected_state));
 }
@@ -32,7 +32,7 @@ pub fn parse_genesis_file(test_content: &[u8]) -> Result<(Block, GlobalState), R
     let first_state = RawState::decode(&mut reader).expect("Error decoding post state");
     let mut state = GlobalState::default();
     parse_state_keyvals(&first_state.keyvals, &mut state).expect("Error decoding post state keyvals");
-    assert_eq!(first_state.state_root.clone(), merkle_state(&serialization::serialize(&state).map, 0));
+    assert_eq!(first_state.state_root.clone(), merkle_state(&serialization::serialize(&state).map));
 
     return Ok((block, state));
 }
@@ -43,16 +43,18 @@ pub fn process_trace(path: &Path) {
     let (pre_state, block, post_state) = parse_trace_file(&test_content).unwrap();
 
     state_handler::set_global_state(pre_state.clone());
-    state_handler::set_state_root(utils::trie::merkle_state(&utils::serialization::serialize(&pre_state).map, 0));
+    state_handler::set_state_root(utils::trie::merkle_state(&utils::serialization::serialize(&pre_state).map));
     block::header::set_parent_header(OpaqueHash::default()); // Dont verify the parent header hash
 
-    if get_verifiers().len() == 0 {
+    if verifier::get_all().len() == 0 {
         let mut verifiers = VecDeque::new();
         let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
         let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
+        let next_validators = state_handler::get_global_state().lock().unwrap().next_validators.clone();
         verifiers.push_back(Verifier::new(create_ring_set(&curr_validators)));
         verifiers.push_back(Verifier::new(create_ring_set(&pending_validators)));
-        set_verifiers(verifiers);
+        verifiers.push_back(Verifier::new(create_ring_set(&next_validators)));
+        verifier::set_all(verifiers);
     }
     
     match state_controller::stf(&block) {
@@ -61,8 +63,8 @@ pub fn process_trace(path: &Path) {
     };
 
     let result_state = state_handler::get_global_state().lock().unwrap().clone();        
-    let state_root_result = utils::trie::merkle_state(&utils::serialization::serialize(&result_state).map, 0);
-    let state_root_expected = utils::trie::merkle_state(&utils::serialization::serialize(&post_state).map, 0);
+    let state_root_result = utils::trie::merkle_state(&utils::serialization::serialize(&result_state).map);
+    let state_root_expected = utils::trie::merkle_state(&utils::serialization::serialize(&post_state).map);
 
     assert_eq_state(&post_state, &result_state);
     assert_eq!(state_root_expected, state_root_result);
@@ -139,7 +141,7 @@ pub fn process_all_dirs(base_dir: &Path, skip_dirs: &HashSet<String>) -> std::io
         dirs.push(path);
 
         // Clean up the verifiers
-        set_verifiers(VecDeque::new());
+        verifier::set_all(VecDeque::new());
         // Clean up the stored parent header
         block::header::set_parent_header(OpaqueHash::default());
         // Clean up the ancestors

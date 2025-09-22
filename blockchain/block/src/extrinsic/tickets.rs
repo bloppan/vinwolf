@@ -19,7 +19,7 @@ use utils::{common::{has_duplicates, bad_order}, log};
 pub fn process(
     tickets_extrinsic: &[Ticket],
     safrole_state: &mut Safrole,
-    entropy_state: &mut EntropyPool,
+    entropy_state: &EntropyPool,
     post_tau: &TimeSlot,
     verifier: &Verifier,
 ) -> Result<(), ProcessError> {

@@ -42,42 +42,52 @@ use std::sync::Mutex;
 use sp_core::blake2_256;
 
 use jam_types::{
-    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Block, Ed25519Public, Entropy, EntropyPool, EpochMark, OutputDataSafrole, ProcessError, Safrole, SafroleErrorCode, TicketBody, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorSet, ValidatorsData
+    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Block, Ed25519Public, Entropy, EntropyPool, EpochMark, OutputDataSafrole, 
+    ProcessError, Safrole, SafroleErrorCode, TicketBody, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorSet, ValidatorsData
 };
-use block::{extrinsic, header};
 use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
-use codec::Encode;
 
 static VERIFIERS: LazyLock<Mutex<VecDeque<Verifier>>> = LazyLock::new(|| { Mutex::new(VecDeque::new()) });
 
-pub fn update_verifiers(new_verifier: Verifier, curr_validators: &ValidatorsData, epoch_diff: &TimeSlot) {
+pub mod verifier {
 
-    let mut verifiers = VERIFIERS.lock().unwrap().clone();
-    verifiers.push_back(new_verifier);
-    verifiers.pop_front();
-    
-    if *epoch_diff > 1 {
-        verifiers[0] = Verifier::new(create_ring_set(curr_validators));
+    use super::*;
+
+    pub fn update(
+        new_verifier: Verifier, 
+        curr_validators: &ValidatorsData, 
+        epoch_diff: &TimeSlot
+    ) {
+
+        let mut verifiers = VERIFIERS.lock().unwrap().clone();
+        verifiers.push_back(new_verifier.clone());
+        verifiers.pop_front();
+        
+        if *epoch_diff > 1 {
+            verifiers[0] = Verifier::new(create_ring_set(curr_validators));
+            verifiers[1] = new_verifier; // TODO revisar esto luego, quiza sea mejor pedir el estado completo cuando estamos offline durante un tiempo
+        }
+        
+        set_all(verifiers);
     }
-    
-    set_verifiers(verifiers);
-}
 
-pub fn set_verifiers(verifiers: VecDeque<Verifier>) {
-    *VERIFIERS.lock().unwrap() = verifiers;
-}
-
-pub fn get_verifiers() -> VecDeque<Verifier> {
-    VERIFIERS.lock().unwrap().clone()
-}
-
-pub fn get_verifier(validators: ValidatorSet) -> Verifier {
-    match validators {
-        ValidatorSet::Current => VERIFIERS.lock().unwrap().get(0).unwrap().clone(),
-        ValidatorSet::Next => VERIFIERS.lock().unwrap().get(1).unwrap().clone(),
-        _ => VERIFIERS.lock().unwrap().get(0).unwrap().clone(), // TODO arreglar esto
+    pub fn set_all(verifiers: VecDeque<Verifier>) {
+        *VERIFIERS.lock().unwrap() = verifiers;
     }
-} 
+
+    pub fn get_all() -> VecDeque<Verifier> {
+        VERIFIERS.lock().unwrap().clone()
+    }
+
+    pub fn get(validators: ValidatorSet) -> Verifier {
+        match validators {
+            ValidatorSet::Current => VERIFIERS.lock().unwrap().get(0).unwrap().clone(),
+            ValidatorSet::Pending => VERIFIERS.lock().unwrap().get(1).unwrap().clone(),
+            ValidatorSet::Next => VERIFIERS.lock().unwrap().get(2).unwrap().clone(),
+            _ => VERIFIERS.lock().unwrap().get(0).unwrap().clone(), // TODO arreglar esto
+        }
+    } 
+}
 
 // Process Safrole state
 pub fn process(
@@ -127,44 +137,7 @@ pub fn process(
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
         log::debug!("We are in a new epoch: {:?}", post_epoch);
-        // If the block is the first in a new epoch, then a tuple of the next and current epoch randomness, along with a sequence of a tuples 
-        // containing both Bandersnatch keys and Ed25519 keys for each validator defining the validator keys beginning in the next epoch
-        if block.header.unsigned.epoch_mark.is_none() {
-            log::error!("Empty epoch mark");
-            return Err(ProcessError::SafroleError(SafroleErrorCode::EmptyEpochMark));
-        }
-        header::epoch_mark_verify(&block.header, entropy_pool)?;
-        // On an epoch transition, we therefore rotate the accumulator value into the history eta1, eta2 eta3
-        entropy::rotate_pool(entropy_pool);
-        // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
-        validators::key_rotation(safrole_state, curr_validators, prev_validators, offenders);
-        // Create the epoch root from next pending validators and update the safrole state
-        let new_ring_set = create_ring_set(&safrole_state.pending_validators);
-        let new_verifier = Verifier::new(new_ring_set);
-        safrole_state.epoch_root = create_root_epoch(&new_verifier);
-        // Update the verifiers
-        update_verifiers(new_verifier, curr_validators, &(post_epoch - epoch));
-        // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
-        // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
-        log::debug!("New epoch mark");
-        epoch_mark = Some(EpochMark {
-            entropy: entropy_pool.buf[1].clone(),
-            tickets_entropy: entropy_pool.buf[2].clone(),
-            validators: {
-
-                let bandersnatch_keys = validators::extract_keys(&safrole_state.pending_validators, |v| v.bandersnatch);
-                let ed25519_keys = validators::extract_keys(&safrole_state.pending_validators, |v| v.ed25519);
-                
-                let validator_keys: [(BandersnatchPublic, Ed25519Public); VALIDATORS_COUNT] =
-                    std::array::from_fn(|i| {
-                        let bandersnatch_key = bandersnatch_keys[i];
-                        let ed25519_key = ed25519_keys[i];
-                        (bandersnatch_key, ed25519_key)
-                    });
-
-                Box::new(validator_keys)
-            }
-        });
+        let mut fallback_mode = false;
         // gamma_s is the current epoch's slot-sealer series, which is either a full complement of EPOCH_LENGTH tickets
         // or, in case of fallback, a series of EPOCH_LENGTH bandersnatch keys
         if post_epoch == (epoch + 1) && m >= TICKET_SUBMISSION_ENDS as u32 && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
@@ -178,10 +151,66 @@ pub fn process(
         } else {
             // Otherwise, it takes the value of the fallback key sequence
             log::warn!("Fallback mode!");
+            fallback_mode = true;
+        } 
+        // If the block is the first in a new epoch, then a tuple of the next and current epoch randomness, along with a sequence of a tuples 
+        // containing both Bandersnatch keys and Ed25519 keys for each validator defining the validator keys beginning in the next epoch
+        if block.header.unsigned.epoch_mark.is_none() {
+            log::error!("Empty epoch mark");
+            return Err(ProcessError::SafroleError(SafroleErrorCode::EmptyEpochMark));
+        }
+        block::header::epoch_mark_verify(&block.header, entropy_pool)?;
+        // On an epoch transition, we therefore rotate the accumulator value into the history eta1, eta2 eta3
+        entropy::rotate_pool(entropy_pool);
+        // With a new epoch, validator keys get rotated and the epoch's Bandersnatch key root is updated
+        validators::key_rotation(safrole_state, curr_validators, prev_validators);
+        // The posterior queued validator key set "pending_validators" is defined such that incoming keys belonging to the offenders 
+        // are replaced with a null key containing only zeroes.
+        let are_there_offenders = utils::common::set_offenders_null(&mut safrole_state.pending_validators, offenders); 
+        // Create the epoch root from next pending validators and update the safrole state
+        let new_verifier = if !fallback_mode {
+            let new_ring_set = create_ring_set(&safrole_state.pending_validators);
+            Verifier::new(new_ring_set)
+        } else {
+            if are_there_offenders {
+                let new_ring_set = create_ring_set(&safrole_state.pending_validators);
+                Verifier::new(new_ring_set)
+            } else {
+                verifier::get(ValidatorSet::Next)
+            }            
+        };
+        safrole_state.epoch_root = create_root_epoch(&new_verifier);
+        // Update the verifiers
+        verifier::update(new_verifier, curr_validators, &(post_epoch - epoch));
+        // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
+        // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
+        log::debug!("New epoch mark");
+        epoch_mark = Some(EpochMark {
+            entropy: entropy_pool.buf[1].clone(),
+            tickets_entropy: entropy_pool.buf[2].clone(),
+            validators: {
+
+                let bandersnatch_keys = validators::extract_keys(&safrole_state.pending_validators, |v| v.bandersnatch);
+                let ed25519_keys = validators::extract_keys(&safrole_state.pending_validators, |v| v.ed25519);
+
+                let validator_keys: [(BandersnatchPublic, Ed25519Public); VALIDATORS_COUNT] =
+                    std::array::from_fn(|i| {
+                        let bandersnatch_key = bandersnatch_keys[i];
+                        let ed25519_key = ed25519_keys[i];
+                        (bandersnatch_key, ed25519_key)
+                    });
+
+                Box::new(validator_keys)
+            }
+        });
+
+        if fallback_mode {
             let bandersnatch_keys = validators::extract_keys(curr_validators,|v| v.bandersnatch);
             safrole_state.seal = TicketsOrKeys::Keys(fallback(&entropy_pool.buf[2], bandersnatch_keys));
-        } 
+        }
+
         safrole_state.ticket_accumulator = vec![];
+
     } else if post_epoch == epoch && m < TICKET_SUBMISSION_ENDS as u32 && TICKET_SUBMISSION_ENDS as u32 <= post_m && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
         if block.header.unsigned.tickets_mark.is_none() {
             return Err(ProcessError::SafroleError(SafroleErrorCode::EmptyTicketsMark));
@@ -192,16 +221,9 @@ pub fn process(
             return Err(ProcessError::SafroleError(SafroleErrorCode::WrongTicketsMark));
         }
     }
-    let pending_val_verifier = get_verifier(ValidatorSet::Next);
-    // Process tickets extrinsic
-    extrinsic::tickets::process(&block.extrinsic.tickets, safrole_state, entropy_pool, &post_tau, &pending_val_verifier)?;
-    // update tau which defines the most recent block's index
+
     *tau = post_tau;
-    let curr_val_verifier = get_verifier(ValidatorSet::Current);
-    // Verify the header's seal
-    let entropy_source_vrf_output = header::seal_verify(&block.header, &safrole_state, &entropy_pool, &curr_validators, &curr_val_verifier)?;
-    // Update recent entropy eta0
-    entropy::update_recent(entropy_pool, entropy_source_vrf_output);
+
     log::debug!("Safrole state processed successfully");
     return Ok(OutputDataSafrole {epoch_mark, tickets_mark});
 }

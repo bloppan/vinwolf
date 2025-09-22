@@ -294,6 +294,9 @@ pub mod validators {
             ValidatorSet::Next => {
                 state.next_validators = new_validators;
             },
+            ValidatorSet::Pending => {
+                state.next_validators = new_validators;
+            }
         }    
     }
     pub fn get(validator_set: ValidatorSet) -> ValidatorsData {
@@ -308,6 +311,9 @@ pub mod validators {
             ValidatorSet::Next => {
                 return GLOBAL_STATE.lock().unwrap().next_validators.clone();
             },
+            ValidatorSet::Pending => {
+                return GLOBAL_STATE.lock().unwrap().next_validators.clone();
+            }
         }
     }
 }

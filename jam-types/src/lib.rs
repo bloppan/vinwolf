@@ -151,6 +151,7 @@ pub struct BandersnatchEpoch {
 pub enum ValidatorSet {
     Previous,
     Current,
+    Pending,
     Next,
 }
 // ----------------------------------------------------------------------------------------------------------
