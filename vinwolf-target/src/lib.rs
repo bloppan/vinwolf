@@ -44,7 +44,6 @@ pub fn process_trace(path: &Path) {
 
     state_handler::set_global_state(pre_state.clone());
     state_handler::set_state_root(utils::trie::merkle_state(&utils::serialization::serialize(&pre_state).map));
-    block::header::set_parent_header(OpaqueHash::default()); // Dont verify the parent header hash
 
     if verifier::get_all().len() == 0 {
         let mut verifiers = VecDeque::new();
@@ -55,6 +54,7 @@ pub fn process_trace(path: &Path) {
         verifiers.push_back(Verifier::new(create_ring_set(&pending_validators)));
         verifiers.push_back(Verifier::new(create_ring_set(&next_validators)));
         verifier::set_all(verifiers);
+        block::header::set_parent_header(block.header.unsigned.parent);
     }
     
     match state_controller::stf(&block) {

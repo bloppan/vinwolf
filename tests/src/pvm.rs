@@ -106,7 +106,7 @@ mod tests {
             let initial_memory = Vec::<MemoryChunk>::from_value(
                 o.get("initial-memory").ok_or("missing initial-memory")?,
             )?;
-            let initial_gas = Gas::from_value(o.get("initial-gas").ok_or("missing initial-gas")?)?;
+            let initial_gas = u64::from_value(o.get("initial-gas").ok_or("missing initial-gas")?)? as Gas;
             let program = Vec::<u8>::from_value(o.get("program").ok_or("missing program")?)?;
             let status_str = String::from_value(o.get("expected-status").ok_or("missing expected-status")?)?;
             let expected_regs = Registers::from_value(
@@ -116,7 +116,7 @@ mod tests {
             let expected_memory = Vec::<MemoryChunk>::from_value(
                 o.get("expected-memory").ok_or("missing expected-memory")?,
             )?;
-            let expected_gas = Gas::from_value(o.get("expected-gas").ok_or("missing expected-gas")?)?;
+            let expected_gas = u64::from_value(o.get("expected-gas").ok_or("missing expected-gas")?)? as Gas;
             let expected_page_fault_address = match o.get("expected-page-fault-address") {
                 Some(v) => Some(RamAddress::from_value(v)?),
                 None => None,

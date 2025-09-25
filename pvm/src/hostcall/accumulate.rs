@@ -72,7 +72,7 @@ pub fn invoke_accumulation(
     set_operands(service_id, operands);
     //log::debug!("encoded_len accumulate operands: {:x?}", operands.encode_len());
     let mut ctx = HostCallContext::Accumulate(I(&partial_state, service_id), I(&partial_state, service_id));
-    let hostcall_arg_result: (i64, WorkExecResult) = hostcall_argument(
+    let hostcall_arg_result: (Gas, WorkExecResult) = hostcall_argument(
                                 &preimage.code, 
                                 5, 
                                 gas, 
@@ -157,7 +157,7 @@ fn collapse(gas: Gas, output: WorkExecResult, ctx: &mut HostCallContext)
     let (ctx_x, ctx_y) = ctx.to_acc_ctx();
 
     if let WorkExecResult::Error(_) = output {
-        log::error!("WorkExecResult::Error: {:?}", output);
+        log::error!("WorkExecResult::Error: {:?} service: {:?}", output, ctx_y.service_id);
         return (ctx_y.partial_state.clone(), ctx_y.deferred_transfers.clone(), ctx_y.y, gas, ctx_y.preimages.clone());
     }
 
@@ -365,6 +365,7 @@ fn query(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Ac
 
     if !ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().storage.contains_key(&lookup_key) {
         reg[7] = NONE;
+        reg[8] = 0;
         log::debug!("Lookup key: {} not found. Exit: NONE", hex::encode(&lookup_key));
         return ExitReason::Continue;
     }

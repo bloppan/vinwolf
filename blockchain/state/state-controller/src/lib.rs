@@ -42,13 +42,13 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
     log::debug!("Importing new block: 0x{}", utils::print_hash!(header_hash));
     
     header::verify(&block)?;
-    println!("Header verify: {:?}", start.elapsed());
+    //println!("Header verify: {:?}", start.elapsed());
     
     let start = Instant::now();
     let mut new_state = state_handler::get_global_state().lock().unwrap().clone();
     
     state_handler::time::set_current(&block.header.unsigned.slot);
-    println!("get state: {:?}", start.elapsed());
+    //println!("get state: {:?}", start.elapsed());
 
     let start = Instant::now();
     let mut reported_work_packages = Vec::new();
@@ -56,7 +56,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         reported_work_packages.push((report.report.package_spec.hash, report.report.package_spec.exports_root));
     }
     reported_work_packages.sort_by_key(|(hash, _)| *hash);
-    println!("Sort WP: {:?}", start.elapsed());
+    //println!("Sort WP: {:?}", start.elapsed());
 
     let start = Instant::now();
     let curr_block_history = recent_history::process(
@@ -66,14 +66,14 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &reported_work_packages);
         
     state_handler::recent_history::set_current(curr_block_history);
-    println!("Recent history: {:?}", start.elapsed());
+    //println!("Recent history: {:?}", start.elapsed());
     let start = Instant::now();
     let _ = disputes::process(
         &mut new_state.disputes,
         &mut new_state.availability,
         &block.extrinsic.disputes,
     )?;
-    println!("Disputes: {:?}", start.elapsed());
+    //println!("Disputes: {:?}", start.elapsed());
     let start = std::time::Instant::now();
     safrole::process(
         &mut new_state.safrole,
@@ -83,7 +83,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &mut new_state.time,
         &block,
         &new_state.disputes.offenders)?;
-    println!("safrole: {:?}", start.elapsed());
+    //println!("safrole: {:?}", start.elapsed());
     let start = Instant::now();
     // Process tickets extrinsic
     block::extrinsic::tickets::process(
@@ -92,7 +92,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
                 &new_state.entropy, 
                 &block.header.unsigned.slot, 
                 &safrole::verifier::get(ValidatorSet::Pending))?;
-    println!("Tickets: {:?}", start.elapsed());
+    //println!("Tickets: {:?}", start.elapsed());
     let start = Instant::now();
     // Verify the header's seal
     let entropy_source_vrf_output = header::seal_verify(
@@ -104,7 +104,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
 
     // Update recent entropy eta0
     entropy::update_recent(&mut new_state.entropy, entropy_source_vrf_output);
-    println!("Header and entropy: {:?}", start.elapsed());
+    //println!("Header and entropy: {:?}", start.elapsed());
     let start = Instant::now();
     let new_available_workreports = reports::assurances::process(
         &mut new_state.availability,
@@ -112,7 +112,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &block.header.unsigned.slot,
         &block.header.unsigned.parent,
     )?;
-    println!("Assurances: {:?}", start.elapsed());
+    //println!("Assurances: {:?}", start.elapsed());
     let start = Instant::now();
     let OutputDataReports { reported: _reported, reporters } = reports::guarantees::process(
         &mut new_state.availability, 
@@ -122,7 +122,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &new_state.prev_validators,
         &new_state.curr_validators,
     )?; 
-    println!("Guarantees: {:?}", start.elapsed());
+    //println!("Guarantees: {:?}", start.elapsed());
     let start = Instant::now();
     let (acc_root,
          recent_acc_outputs, 
@@ -145,26 +145,26 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
     new_state.next_validators = next_validators;
     new_state.auth_queues = queue_auth;
     new_state.privileges = privileges;
-    println!("Accumulation: {:?}", start.elapsed());
+    //println!("Accumulation: {:?}", start.elapsed());
     let start = Instant::now();
     recent_history::finalize(
         &mut new_state.recent_history,
         &header_hash,
         &acc_root,
         &reported_work_packages);
-    println!("Finalize history: {:?}", start.elapsed());
+    //println!("Finalize history: {:?}", start.elapsed());
     let start = Instant::now();
     services::process(
         &mut new_state.service_accounts, 
         &block.header.unsigned.slot,  
         &block.extrinsic.preimages)?;
-    println!("Services: {:?}", start.elapsed());
+    //println!("Services: {:?}", start.elapsed());
     let start = Instant::now();
     authorization::process(
         &mut new_state.auth_pools, 
         &block.header.unsigned.slot, 
         &block.extrinsic.guarantees);
-    println!("Authorization: {:?}", start.elapsed());
+    //println!("Authorization: {:?}", start.elapsed());
     let start = Instant::now();
     statistics::process(
         &mut new_state.statistics, 
@@ -173,19 +173,19 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &reporters,
         &new_available_workreports.reported,
     );
-    println!("Statistics: {:?}", start.elapsed());
+    //println!("Statistics: {:?}", start.elapsed());
     let start = Instant::now();
     state_handler::set_state_root(merkle_state(&utils::serialization::serialize(&new_state).map));
-    println!("merkle state: {:?}", start.elapsed());
+    //println!("merkle state: {:?}", start.elapsed());
     let start = Instant::now();
     if storage::ancestors::is_ancestors_feature_enabled() {
         storage::ancestors::update(&block.header.unsigned.slot, &header_hash); 
     }
     header::set_parent_header(header_hash);
     state_handler::set_global_state(new_state);
-    println!("Set new state: {:?}", start.elapsed());
+    //println!("Set new state: {:?}", start.elapsed());
 
-    println!("Block: {:?}", start_block.elapsed());
+    //println!("Block: {:?}", start_block.elapsed());
     log::debug!("Block 0x{} processed succesfully", utils::print_hash!(header_hash));
 
     Ok(())

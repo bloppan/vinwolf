@@ -27,7 +27,7 @@ pub const MAX_TICKETS_PER_EXTRINSIC: usize = 3;
 pub const MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE: u32 = 32;
 // The total gas allocated across for all Accumulation.
 #[cfg(all(feature = "tiny", not(feature = "full")))]
-pub const TOTAL_GAS_ALLOCATED: i64 = 20_000_000;
+pub const TOTAL_GAS_ALLOCATED: i128 = 20_000_000;
 // The gas allocated to invoke a work-package's Refine logic.
 #[cfg(all(feature = "tiny", not(feature = "full")))]
 pub const WORK_PACKAGE_REFINE_GAS: i64 = 1_000_000_000;
@@ -98,9 +98,9 @@ pub const MAX_WORK_ITEMS: usize = 16;
 // The maximum total size of all output blobs in a work-report, in octets
 pub const MAX_OUTPUT_BLOB_SIZE: usize = 48 << 10;
 // The gas allocated to invoke a work-report's Accumulation logic
-pub const WORK_REPORT_GAS_LIMIT: i64 = 10_000_000;
+pub const WORK_REPORT_GAS_LIMIT: i128 = 10_000_000;
 // The gas allocated to invoke a work-package's Is-Authorized logic.
-pub const WORK_PACKAGE_GAS_LIMIT: i64 = 50_000_000;
+pub const WORK_PACKAGE_GAS_LIMIT: i128 = 50_000_000;
 // The maximum size of service code in octets
 pub const MAX_SERVICE_CODE_SIZE: usize = 4_000_000;
 // The slot period, in seconds.

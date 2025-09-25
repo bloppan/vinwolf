@@ -501,7 +501,7 @@ mod work_result {
         }
 
         // We also require that all work-reports total allotted accumulation gas is no greater than the WORK_REPORT_GAS_LIMIT
-        if total_accumulation_gas > WORK_REPORT_GAS_LIMIT {
+        if total_accumulation_gas > WORK_REPORT_GAS_LIMIT as Gas {
             log::error!("Work report gas too high: {:?}. The work report gas limit is {:?}", total_accumulation_gas, WORK_REPORT_GAS_LIMIT);
             return Err(ProcessError::ReportError(ReportErrorCode::WorkReportGasTooHigh));
         }

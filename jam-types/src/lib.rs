@@ -33,7 +33,7 @@ pub type WorkReportHash = OpaqueHash;
 pub type ExportsRoot = OpaqueHash;
 pub type ErasureRoot = OpaqueHash;
 
-pub type Gas = i64;
+pub type Gas = i128;
 pub type Balance = u64;
 
 // ----------------------------------------------------------------------------------------------------------

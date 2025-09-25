@@ -93,6 +93,15 @@ impl Encode for i64 {
     }
 }
 
+impl Encode for i128 {
+    fn encode(&self) -> Vec<u8> {
+        self.to_le_bytes().to_vec()
+    }
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
 impl Encode for usize {
     fn encode(&self) -> Vec<u8> {
         self.to_le_bytes().to_vec()
@@ -338,6 +347,12 @@ impl EncodeSize for i32 {
 }
 
 impl EncodeSize for i64 {
+    fn encode_size(&self, l: usize) -> Vec<u8> {
+        encode_integer(*self as usize, l)
+    }
+}
+
+impl EncodeSize for i128 {
     fn encode_size(&self, l: usize) -> Vec<u8> {
         encode_integer(*self as usize, l)
     }

@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 // Vamos Marcos!
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::collections::HashSet;
 use utils::log;
 
@@ -59,15 +59,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         "--target" => {
             let mut path: PathBuf = PathBuf::from("/tmp/jam_conformance.sock");
-            
+            let mut reports_path: PathBuf = PathBuf::from("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/");
+
             if args.len() > 2 {
                 let args: Vec<String> = std::env::args().collect();
                 path = PathBuf::from(&args[2]);
             }
             
+            if args.len() > 3 {
+                let args: Vec<String> = std::env::args().collect();
+                reports_path = PathBuf::from(&args[3]);
+            }
+
             let socket_path = path.to_str().unwrap();
 
-            let result = run_fuzzer(socket_path);
+            let result = run_fuzzer(socket_path, &reports_path);
 
             println!("End target: {:?}", result);
         }

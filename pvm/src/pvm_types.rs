@@ -6,7 +6,7 @@ pub type PageAddress = RamAddress;
 pub type PageNumber = u32;
 pub type RegSize = u64;
 pub type RegSigned = i64;
-pub type Gas = i64;
+pub type Gas = i128;
 pub type Registers = [RegSize; NUM_REG as usize];
 
 #[derive(Debug, Clone, PartialEq)]

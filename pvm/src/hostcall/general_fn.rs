@@ -112,13 +112,13 @@ pub fn fetch(gas: &mut Gas,
     } else if operands.is_some() && reg[10] == 15 && (reg[11] as usize) < operands.as_ref().unwrap().len() {
         Some(operands.as_ref().unwrap()[reg[11] as usize].encode())
     } else if transfers.is_some() && reg[10] == 16 {
-        Some(transfers.unwrap().encode_len())
+        Some(transfers.as_ref().unwrap().encode_len())
     } else if transfers.is_some() && reg[10] == 17 && (reg[11] as usize) < transfers.as_ref().unwrap().len() {
         Some(transfers.as_ref().unwrap()[reg[11] as usize].encode())
     } else {
         None
     };
-
+    log::info!("transfers: {:?}", transfers);
     let value_len = if value.is_some() {
         log::debug!("value: {}", hex::encode(&value.as_ref().unwrap()));
         value.as_ref().unwrap().len()
@@ -353,7 +353,7 @@ pub fn write(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: &
         s_account
     } else if ram.is_readable(value_start_address as RamAddress, value_size as RamAddress).is_ok() {
         let storage_data = ram.read(value_start_address as RamAddress, value_size as RamAddress);
-        log::debug!("insert key: 0x{}, value = 0x{}", hex::encode(&storage_key), hex::encode(&storage_data));
+        log::debug!("read address: {:?} and insert key: 0x{}, value = 0x{}", value_start_address, hex::encode(&storage_key), hex::encode(&storage_data));
 
         if old_storage_data_len.is_some() {
 
@@ -371,10 +371,10 @@ pub fn write(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: &
                 s_account.items += 1;
             }
         } else {
-            log::debug!("Sum 1 to items storage");
             s_account.items += 1;
-            log::debug!("Sum {:?} to octets storage", storage_data.len() as u64 + raw_storage_key.len() as u64 + 34);
+            log::debug!("Sum 1 to items storage. Total items: {:?}", s_account.items);
             s_account.octets += storage_data.len() as u64 + raw_storage_key.len() as u64 + 34;
+            log::debug!("Sum {:?} to octets storage. Total octets: {:?}", storage_data.len() as u64 + raw_storage_key.len() as u64 + 34, s_account.octets);
         }
         
         s_account.storage.insert(storage_key, storage_data);
@@ -421,20 +421,12 @@ pub fn info(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, service_id:
 
     let account: Option<Account> = if reg[7] == u64::MAX {
         s_account.clone()
-        /*if let Some(account) = accounts.get(&service_id).cloned() {
-            log::debug!("Selected account for service: {:?}", service_id);
-            Some(account)
-        } else {
-            log::error!("Account not found for service {:?}", service_id);
-            return ExitReason::panic;
-        }*/
     } else {
         if let Some(account) = accounts.get(&(reg[7] as ServiceId)).cloned() {
             log::debug!("Selected account for service: {:?}", reg[7]);
             Some(account)
         } else {
-            log::error!("Account not found for service {:?}", reg[7]);
-            return ExitReason::Panic;
+            None
         }
     };
 

@@ -18,6 +18,10 @@ static SERVICE_ID: LazyLock<Mutex<ServiceId>> = LazyLock::new(|| {
     Mutex::new(ServiceId::default())
 });
 
+static TRANSFERS: LazyLock<Mutex<Vec<DeferredTransfer>>> = LazyLock::new(|| {
+    Mutex::new(Vec::new())
+});
+
 fn set_service_accounts(service_accounts: ServiceAccounts) {
     *SERVICE_ACCOUNTS.lock().unwrap() = service_accounts;
 }
@@ -30,7 +34,12 @@ fn set_service(id: ServiceId) {
 fn get_service() -> &'static Mutex<ServiceId> {
     &SERVICE_ID
 }
-
+fn set_transfers(transfers: Vec<DeferredTransfer>) {
+    *TRANSFERS.lock().unwrap() = transfers;
+}
+fn get_transfers() -> &'static Mutex<Vec<DeferredTransfer>> {
+    &TRANSFERS
+}
 pub fn invoke_on_transfer(
     service_accounts: &ServiceAccounts, 
     slot: &TimeSlot, 
@@ -68,6 +77,7 @@ pub fn invoke_on_transfer(
         let arg = [encode_unsigned(*slot as usize), encode_unsigned(*service_id as usize), encode_unsigned(transfers.len())].concat();
         set_service_accounts(service_accounts.clone());
         set_service(service_id.clone());
+        set_transfers(transfers);
         let mut ctx = HostCallContext::OnTransfer(Some(s_account.clone()));
 
         let (gas_used, 
@@ -99,6 +109,10 @@ fn dispatch_xfer(n: HostCallFn, gas: &mut Gas, reg: &mut Registers, ram: &mut Ra
         HostCallFn::Gas => crate::hostcall::general_fn::gas(gas, reg),
         HostCallFn::Info => info(gas, reg, ram, service_id, &service_accounts, account),
         HostCallFn::Log => crate::hostcall::general_fn::log(&reg, &ram, &service_id),
+        HostCallFn::Fetch => {
+            let transfers: Vec<DeferredTransfer> = get_transfers().lock().unwrap().clone();
+            crate::hostcall::general_fn::fetch(gas, reg, ram, None, Some(state_handler::entropy::get_recent().entropy), None, None, None, None, Some(transfers), ctx)
+        }
         _ => {
             log::error!("Unknown on transfer hostcall function: {:?}", n);
             *gas -= 10;

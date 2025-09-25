@@ -616,8 +616,6 @@ fn get_gas_limit(always_acc: &HashMap<ServiceId, Gas>) -> Gas {
         gas_privilege_services += gas.1;
     }
 
-
-
     return std::cmp::max(TOTAL_GAS_ALLOCATED, (WORK_REPORT_GAS_LIMIT * CORES_COUNT as Gas) + gas_privilege_services);
 }
 

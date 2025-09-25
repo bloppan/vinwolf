@@ -32,6 +32,13 @@ where
         // fault reason.
         let exit_reason = invoke_pvm(program_code, pc, gas, ram, reg);
         
+        let mut vector = vec![];
+        
+        for i in 2304..2350 { 
+            vector.push(ram.pages[50].as_ref().unwrap().data[i]);
+        }
+        utils::log::info!("RAM: {}", utils::hex::encode(&vector));
+
         if exit_reason == ExitReason::Halt 
             || exit_reason == ExitReason::Panic 
             || exit_reason == ExitReason::OutOfGas  
