@@ -114,7 +114,13 @@ impl Decode for i64 {
     }
 }
 
-
+impl FromLeBytes for i128 {
+    fn from_le_bytes(bytes: &[u8]) -> Self {
+        let mut buffer = [0u8; 16];
+        buffer.copy_from_slice(&bytes[..8]);
+        i128::from_le_bytes(buffer)
+    }
+}
 
 /*impl<const N: usize, const M: usize> Decode for [[u8; N]; M] {
 
@@ -275,6 +281,13 @@ where
         }
 
         Ok(result)
+    }
+}
+
+impl DecodeSize for i128 {
+    fn decode_size(reader: &mut BytesReader, l: usize) -> Result<usize, ReadError> {
+        let bytes = reader.read_bytes(l)?;
+        Ok(decode_integer(&mut BytesReader::new(bytes), l)?)
     }
 }
 

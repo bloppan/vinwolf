@@ -44,17 +44,12 @@ pub fn process_trace(path: &Path) {
 
     state_handler::set_global_state(pre_state.clone());
     state_handler::set_state_root(utils::trie::merkle_state(&utils::serialization::serialize(&pre_state).map));
-    block::header::set_parent_header(OpaqueHash::default()); // Dont verify the parent header hash
 
     if verifier::get_all().len() == 0 {
-        let mut verifiers = VecDeque::new();
-        let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
-        let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
-        let next_validators = state_handler::get_global_state().lock().unwrap().next_validators.clone();
-        verifiers.push_back(Verifier::new(create_ring_set(&curr_validators)));
-        verifiers.push_back(Verifier::new(create_ring_set(&pending_validators)));
-        verifiers.push_back(Verifier::new(create_ring_set(&next_validators)));
-        verifier::set_all(verifiers);
+        // Initialize the verifiers 
+        verifier::init_all(&state_handler::get_global_state().lock().unwrap());
+        // Set the parent header
+        block::header::set_parent_header(block.header.unsigned.parent);
     }
     
     match state_controller::stf(&block) {

@@ -43,7 +43,7 @@ use sp_core::blake2_256;
 
 use jam_types::{
     BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Block, Ed25519Public, Entropy, EntropyPool, EpochMark, OutputDataSafrole, 
-    ProcessError, Safrole, SafroleErrorCode, TicketBody, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorSet, ValidatorsData
+    ProcessError, Safrole, SafroleErrorCode, TicketBody, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorSet, ValidatorsData, GlobalState
 };
 use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 
@@ -87,6 +87,14 @@ pub mod verifier {
             _ => VERIFIERS.lock().unwrap().get(0).unwrap().clone(), // TODO arreglar esto
         }
     } 
+
+    pub fn init_all(state: &GlobalState) {
+        let mut verifiers = VecDeque::new();
+        verifiers.push_back(Verifier::new(create_ring_set(&state.curr_validators)));
+        verifiers.push_back(Verifier::new(create_ring_set(&state.safrole.pending_validators)));
+        verifiers.push_back(Verifier::new(create_ring_set(&state.next_validators)));
+        set_all(verifiers);
+    }
 }
 
 // Process Safrole state

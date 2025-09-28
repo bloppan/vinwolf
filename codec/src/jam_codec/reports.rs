@@ -5,7 +5,7 @@ use jam_types::{
     Ed25519Public, WorkPackageHash, SegmentRootLookupItem, WorkPackageSpec, ReportedPackage, OutputDataReports, 
 };
 use constants::node::CORES_COUNT;
-use crate::{Encode, Decode, BytesReader, EncodeSize, EncodeLen, DecodeLen, ReadError};
+use crate::{Encode, Decode, BytesReader, EncodeSize, EncodeLen, DecodeSize, DecodeLen, ReadError};
 use crate::generic_codec::{encode_unsigned, decode_unsigned};
 
 impl Encode for WorkReport {
@@ -215,7 +215,7 @@ impl Decode for WorkResult {
             service: ServiceId::decode(blob)?,
             code_hash: OpaqueHash::decode(blob)?,
             payload_hash: OpaqueHash::decode(blob)?,
-            gas: Gas::decode(blob)?,
+            gas: Gas::decode_size(blob, 8)? as Gas,
             result: {
                 let mut result: Vec<u8> = vec![];
                 let exec_result = blob.read_byte()?;
@@ -306,8 +306,8 @@ impl Decode for WorkItem {
         Ok(WorkItem {
             service: ServiceId::decode(work_item_blob)?,
             code_hash: OpaqueHash::decode(work_item_blob)?,
-            refine_gas_limit: Gas::decode(work_item_blob)?,
-            acc_gas_limit: Gas::decode(work_item_blob)?,
+            refine_gas_limit: Gas::decode_size(work_item_blob, 8)? as Gas,
+            acc_gas_limit: Gas::decode_size(work_item_blob, 8)? as Gas,
             export_count: u16::decode(work_item_blob)?,
             payload: Vec::<u8>::decode_len(work_item_blob)?,
             import_segments: Vec::<ImportSpec>::decode_len(work_item_blob)?,

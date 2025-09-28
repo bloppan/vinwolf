@@ -1,5 +1,5 @@
 use jam_types::{ Gas, OpaqueHash, ServiceId, ServiceInfo, ServiceItem, Services, TimeSlot };
-use crate::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
+use crate::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, DecodeSize, BytesReader, ReadError};
 
 impl Encode for ServiceInfo {
 
@@ -33,8 +33,8 @@ impl Decode for ServiceInfo {
         Ok(ServiceInfo {
             code_hash: OpaqueHash::decode(blob)?,
             balance: u64::decode(blob)?,
-            acc_min_gas: Gas::decode(blob)?,
-            xfer_min_gas: Gas::decode(blob)?,
+            acc_min_gas: Gas::decode_size(blob, 8)? as Gas,
+            xfer_min_gas: Gas::decode_size(blob, 8)? as Gas,
             octets: u64::decode(blob)?,
             gratis_storage_offset: u64::decode(blob)?,
             items: u32::decode(blob)?,

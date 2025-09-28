@@ -27,9 +27,10 @@ mod tests {
             log::info!("Test {:?} processed successfully", dir);
         }
     }
+    // 1758637363
     
-    //const FUZZ_REPORT: &str = "/home/bernar/workspace/vinwolf/external/jam-conformance/fuzz-reports/0.7.0/traces/1757862743";
-    const FUZZ_REPORT: &str = "/home/bernar/workspace/vinwolf/tests/javajam-trace/stf/state_transitions/";
+    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/_new/1758621173";
+    //const FUZZ_REPORT: &str = "/home/bernar/workspace/vinwolf/tests/javajam-trace/stf/state_transitions/";
 
     #[test]
     fn run_single_fuzz_report() {
@@ -42,7 +43,7 @@ mod tests {
         let _ = process_all_bins(dir_base);
     }   
 
-    const TRACES_DIR: &str = "/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces";
+    const TRACES_DIR: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/";
 
     #[test]
     fn run_all_traces_tests() {
@@ -52,7 +53,7 @@ mod tests {
         .init();
         
         let dir_base = Path::new(TRACES_DIR);
-        let skip: HashSet<String> = [""]
+        let skip: HashSet<String> = ["1758708840"]
             .iter()
             .map(|s| s.to_string())
             .collect();

@@ -3,7 +3,7 @@ use jam_types::{
     AccumulateRoot, AccumulatedHistory, OutputAccumulation, ReadyQueue, ReadyRecord, WorkPackageHash, WorkReport, AccumulationOperand, 
     DeferredTransfer, ServiceId, Balance, Gas
 };
-use crate::{BytesReader, Decode, DecodeLen, Encode, EncodeLen, ReadError};
+use crate::{BytesReader, Decode, DecodeLen, Encode, EncodeSize, DecodeSize, EncodeLen, ReadError};
 use crate::generic_codec::{encode_unsigned, decode_unsigned};
 
 impl Encode for DeferredTransfer {
@@ -16,7 +16,7 @@ impl Encode for DeferredTransfer {
         self.to.encode_to(&mut blob);
         self.amount.encode_to(&mut blob);
         self.memo.encode_to(&mut blob);
-        self.gas_limit.encode_to(&mut blob);
+        self.gas_limit.encode_size(8).encode_to(&mut blob);
 
         return blob;
     }
@@ -35,7 +35,7 @@ impl Decode for DeferredTransfer {
             to: ServiceId::decode(blob)?,
             amount: Balance::decode(blob)?,
             memo: blob.read_bytes(TRANSFER_MEMO_SIZE)?.to_vec(),
-            gas_limit: Gas::decode(blob)?,
+            gas_limit: Gas::decode_size(blob, 8)? as Gas,
         })
     }
 }
