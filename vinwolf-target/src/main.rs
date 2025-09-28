@@ -63,12 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             if args.len() > 2 {
                 let args: Vec<String> = std::env::args().collect();
-                path = PathBuf::from(&args[2]);
-            }
-            
-            if args.len() > 3 {
-                let args: Vec<String> = std::env::args().collect();
-                reports_path = PathBuf::from(&args[3]);
+                reports_path = PathBuf::from(&args[2]);
             }
 
             let socket_path = path.to_str().unwrap();

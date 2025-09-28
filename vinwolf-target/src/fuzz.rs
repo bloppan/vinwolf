@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::fs::DirEntry;
 use std::path::PathBuf;
 
 use block::header;
@@ -229,23 +230,19 @@ fn handle_connection(socket: &mut UnixStream) {
                     },
                 }
 
-                let state_root = merkle_state(&utils::serialization::serialize(&global_state).map);
-                state_handler::set_state_root(state_root.clone());
-                set_global_state(global_state.clone());
+                // Calc header hash
                 let header_hash = sp_core::blake2_256(&initialize.header.encode());
                 header::set_parent_header(header_hash.clone());
+                // Calc state root
+                let state_root = merkle_state(&utils::serialization::serialize(&global_state).map);
+                state_handler::set_state_root(state_root.clone());
+                // Set global state
+                set_global_state(global_state.clone());
+                // Initialize the verifiers 
+                verifier::init_all(&global_state);
+                let verifiers = verifier::get_all();
 
-                verifier::set_all(VecDeque::new());
-                let mut verifiers = VecDeque::new();
-                let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
-                let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
-                let next_validators = state_handler::get_global_state().lock().unwrap().next_validators.clone();
-                verifiers.push_back(Verifier::new(create_ring_set(&curr_validators)));
-                verifiers.push_back(Verifier::new(create_ring_set(&pending_validators)));
-                verifiers.push_back(Verifier::new(create_ring_set(&next_validators)));
-                verifier::set_all(verifiers.clone());
-
-                //set_global_state(global_state.clone());
+                // Initialize the state record
                 let mut state_record = VecDeque::new();
                 state_record.push_back((OpaqueHash::default(), GlobalState::default(), VecDeque::new(), OpaqueHash::default()));
                 state_record.push_back((state_root, global_state.clone(), verifiers, header_hash));
@@ -374,8 +371,9 @@ pub fn run_fuzzer(socket_path: &str, reports_path: &PathBuf) -> Result<(), Box<d
     fuzz_dir(&mut socket, &path);
     println!("Total time: {:?}", start.elapsed());*/
 
-    //let path = std::path::Path::new("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/");
+    //let reports_path = std::path::Path::new("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/");
     //   let path = std::path::Path::new("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/_new2/");
+    let mut dirs: Vec<PathBuf> = vec![];
 
     for entry in std::fs::read_dir(reports_path).unwrap() {
 
@@ -389,6 +387,12 @@ pub fn run_fuzzer(socket_path: &str, reports_path: &PathBuf) -> Result<(), Box<d
         log::info!("Fuzzing dir: {:?}", dir_path);
         println!("Fuzzing dir: {:?}", dir_path);
         fuzz_dir(&mut socket, &dir_path);
+        dirs.push(dir_path);
+    }
+
+    println!("Total reports processed: {:?}", dirs.len());
+    for dir in dirs {
+        println!("Dir: {:?} processed successfully", dir);
     }
 
     Ok(())

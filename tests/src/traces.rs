@@ -43,7 +43,7 @@ mod tests {
         let _ = process_all_bins(dir_base);
     }   
 
-    const TRACES_DIR: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/_new/";
+    const TRACES_DIR: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/";
 
     #[test]
     fn run_all_traces_tests() {
