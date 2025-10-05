@@ -5,13 +5,14 @@ use std::sync::{LazyLock, Mutex};
 
 use jam_types::{
     Account, AccumulationContext, AccumulationOperand, AccumulationPartialState, CoreIndex, DeferredTransfer, Gas, OpaqueHash, ServiceAssigns, 
-    ServiceId, StateKeyType, TimeSlot, ValidatorsData, WorkExecResult
+    ServiceId, StateKeyType, TimeSlot, ValidatorsData, WorkExecResult, AccumulationInput, Balance
 };
 use crate::pvm_types::{RamAddress, RamMemory, RegSize, Registers, ExitReason, HostCallFn};
 use constants::pvm::*;
 
 use constants::node::{
-    CORES_COUNT, MAX_ITEMS_AUTHORIZATION_QUEUE, MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE, TRANSFER_MEMO_SIZE, VALIDATORS_COUNT, MAX_SERVICE_CODE_SIZE
+    CORES_COUNT, MAX_ITEMS_AUTHORIZATION_QUEUE, MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE, TRANSFER_MEMO_SIZE, VALIDATORS_COUNT, MAX_SERVICE_CODE_SIZE,
+    MIN_PUBLIC_SERVICE_INDEX
 };
 use utils::{{common::parse_preimage}, log};
 use crate::hostcall::{hostcall_argument, HostCallContext};
@@ -29,9 +30,8 @@ fn clear_operands(service_id: &ServiceId) {
     lock.remove(service_id);
 }
 
-fn set_operands(service_id: &ServiceId, operands: &[AccumulationOperand]) {
-    let mut lock = OPERANDS.lock().unwrap();
-    lock.insert(*service_id, operands.to_vec());
+fn set_operands(service_id: &ServiceId, operands: Vec<AccumulationOperand>) {
+    let mut lock = OPERANDS.lock().unwrap(); lock.insert(*service_id, operands);
 }
 
 fn get_operands(service_id: &ServiceId) -> Vec<AccumulationOperand> {
@@ -43,7 +43,7 @@ pub fn invoke_accumulation(
     slot: &TimeSlot,
     service_id: &ServiceId,
     gas: Gas,
-    operands: &[AccumulationOperand]
+    input_acc: AccumulationInput
 ) -> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(ServiceId, Vec<u8>)>) {
     
     log::debug!("Invoke accumulation for service {:?} gas {:?} slot {:?}", *service_id, gas, *slot);
@@ -66,12 +66,20 @@ pub fn invoke_accumulation(
         return (partial_state.clone(), vec![], None, 0, vec![]);
     }
 
-    let args = [encode_unsigned(*slot as usize), encode_unsigned(*service_id as usize), encode_unsigned(operands.len())].concat();
+    let input_acc_len = input_acc.operands.len() + input_acc.transfers.len();
+    let args = [encode_unsigned(*slot as usize), encode_unsigned(*service_id as usize), encode_unsigned(input_acc_len)].concat();
+    
     log::debug!("Hostcall args: {}", hex::encode(&args));
-    //log::debug!("Operands: {:x?}", operands);
-    set_operands(service_id, operands);
-    //log::debug!("encoded_len accumulate operands: {:x?}", operands.encode_len());
-    let mut ctx = HostCallContext::Accumulate(I(&partial_state, service_id), I(&partial_state, service_id));
+   
+    let total_xfers_amount = input_acc.transfers.iter().map(|transfer| transfer.amount).sum::<Balance>();
+    let mut s_partial_state = partial_state.clone();
+    s_partial_state.service_accounts.get_mut(service_id).unwrap().balance += total_xfers_amount;
+
+    let ctx_x = I(s_partial_state, service_id);
+    let ctx_y = ctx_x.clone();
+    let mut ctx = HostCallContext::Accumulate(ctx_x, ctx_y);
+  
+    set_operands(service_id, input_acc.operands);
     let hostcall_arg_result: (Gas, WorkExecResult) = hostcall_argument(
                                 &preimage.code, 
                                 5, 
@@ -105,7 +113,7 @@ pub fn dispatch_acc(n: HostCallFn, gas: &mut Gas, reg: &mut Registers, ram: &mut
         HostCallFn::Solicit     => solicit(gas, reg, ram, ctx_x, state_handler::time::get_current()),
         HostCallFn::Forget      => forget(gas, reg, ram, ctx_x, state_handler::time::get_current()),
         HostCallFn::Yield       => yield_(gas, reg, ram, ctx_x),
-        HostCallFn::Provide     => provide(gas, reg, ram, ctx_x, ctx_x.service_id),
+        HostCallFn::Provide     => provide(gas, reg, ram, ctx_x),
         HostCallFn::Fetch => {
             let operands: Vec<AccumulationOperand> = get_operands(&ctx_x.service_id);
             fetch(gas, reg, ram, None, Some(state_handler::entropy::get_recent().entropy), None, None, None, Some(operands), None, ctx)
@@ -173,16 +181,16 @@ fn collapse(gas: Gas, output: WorkExecResult, ctx: &mut HostCallContext)
 }
 
 #[allow(non_snake_case)]
-fn I(partial_state: &AccumulationPartialState, service_id: &ServiceId) -> AccumulationContext {
+fn I(partial_state: AccumulationPartialState, service_id: &ServiceId) -> AccumulationContext {
 
     //let encoded = [service_id.encode(), state_handler::entropy::get_recent().encode(), state_handler::time::get_current().encode()].concat();
     let encoded = [encode_unsigned(*service_id as usize), state_handler::entropy::get_recent().encode(), encode_unsigned(state_handler::time::get_current() as usize)].concat();
-    let payload = ((OpaqueHash::decode_size(&mut BytesReader::new(&blake2_256(&encoded)), 4).unwrap() % ((1 << 32) - (1 << 9))) + (1 << 8)) as ServiceId;
+    let payload = ((OpaqueHash::decode_size(&mut BytesReader::new(&blake2_256(&encoded)), 4).unwrap() as ServiceId % ((1 << 32) - MIN_PUBLIC_SERVICE_INDEX - (1 << 8))) + MIN_PUBLIC_SERVICE_INDEX) as ServiceId;
     let i = check(&partial_state, &payload);
 
     return AccumulationContext {
         service_id: *service_id,
-        partial_state: partial_state.clone(),
+        partial_state: partial_state,
         index: i,
         deferred_transfers: vec![],
         y: None,
@@ -196,7 +204,7 @@ fn check(partial_state: &AccumulationPartialState, i: &ServiceId) -> ServiceId {
         return *i;
     }
 
-    let index = ((((((*i - (1 << 8) + 1) as i64) % (1i64 << 32)) - (1 << 9))) + (1 << 8)) as ServiceId;
+    let index = ((((*i - MIN_PUBLIC_SERVICE_INDEX + 1) as i64) % ((1i64 << 32) - (1i64 << 8) - MIN_PUBLIC_SERVICE_INDEX as i64)) + MIN_PUBLIC_SERVICE_INDEX as i64) as ServiceId;
 
     return check(partial_state, &index);
 }
@@ -807,7 +815,7 @@ fn yield_(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut A
     return ExitReason::Continue;
 }
 
-fn provide(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut AccumulationContext, service_id: ServiceId)
+fn provide(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut AccumulationContext) 
 
 -> ExitReason
 {
@@ -821,8 +829,8 @@ fn provide(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
     let start_address = reg[8] as RamAddress;
     let size = reg[9] as RamAddress;
 
-    let star_service = if reg[7] == u64::MAX {
-        service_id
+    let service_id = if reg[7] == u64::MAX {
+        ctx_x.service_id
     } else {
         reg[7] as ServiceId
     };
@@ -832,15 +840,15 @@ fn provide(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
         return ExitReason::Panic;
     }
 
-    let account: Option<Account> = if ctx_x.partial_state.service_accounts.contains_key(&star_service) {
-        ctx_x.partial_state.service_accounts.get(&star_service).cloned()
+    let account: Option<&Account> = if ctx_x.partial_state.service_accounts.contains_key(&service_id) {
+        ctx_x.partial_state.service_accounts.get(&service_id)
     } else {
         None
     };
 
-    if account.as_ref().is_none() {
+    if account.is_none() {
         reg[7] = WHO;
-        log::debug!("Account not found for service: {:?}. Exit: WHO", star_service);
+        log::debug!("Account not found for service: {:?}. Exit: WHO", service_id);
         return ExitReason::Continue;
     }
 
@@ -866,14 +874,14 @@ fn provide(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
         return ExitReason::Continue;
     }
     
-    if ctx_x.preimages.contains(&(star_service, item.clone())) {
-        log::debug!("preimages already contains the pair service: {star_service} item: {}", hex::encode(&item));
+    if ctx_x.preimages.contains(&(service_id, item.clone())) {
+        log::debug!("preimages already contains the pair service: {service_id} item: {}", hex::encode(&item));
         log::debug!("Exit: HUH");
         reg[7] = HUH;
         return ExitReason::Continue;
     }
 
-    ctx_x.preimages.push((star_service, item));
+    ctx_x.preimages.push((service_id, item));
     reg[7] = OK;
 
     log::debug!("Exit: OK");

@@ -22,15 +22,10 @@ use std::collections::{HashMap, HashSet};
 use jam_types::{
     Block, CoresStatistics, Ed25519Public, Gas, ServiceId, ServicesStatistics, SeviceActivityRecord, Statistics, ValidatorStatistics, ValidatorsData, WorkReport
 };
-use utils::{{common::VerifySignature}, log};
-use codec::Encode;
+use utils::log;
 use constants::node::{CORES_COUNT, EPOCH_LENGTH, SEGMENT_SIZE, VALIDATORS_COUNT};
 
 static ACC_STATS: LazyLock<Mutex<HashMap<ServiceId, (Gas, u32)>>> = LazyLock::new(|| {
-    Mutex::new(HashMap::default())
-});
-
-static XFER_STATS: LazyLock<Mutex<HashMap<ServiceId, (u32, Gas)>>> = LazyLock::new(|| {
     Mutex::new(HashMap::default())
 });
 
@@ -40,14 +35,6 @@ pub fn set_acc_stats(acc_stats: HashMap<ServiceId, (Gas, u32)>) {
 
 pub fn get_acc_stats() -> HashMap<ServiceId, (Gas, u32)> {
     ACC_STATS.lock().unwrap().clone()
-}
-
-pub fn set_xfer_stats(xfer_stats: HashMap<ServiceId, (u32, Gas)>) {
-    *XFER_STATS.lock().unwrap() = xfer_stats;   
-}
-
-pub fn get_xfer_stats() -> HashMap<ServiceId, (u32, Gas)> {
-    XFER_STATS.lock().unwrap().clone()
 }
 
 pub fn process(
@@ -116,7 +103,6 @@ pub fn process(
     
     services.extend(block.extrinsic.preimages.iter().map(|preimage| preimage.requester));
     services.extend(get_acc_stats().iter().map(|(service, _)| *service));
-    services.extend(get_xfer_stats().iter().map(|(service, _)| *service));
     
     for service in services.iter() {
 
@@ -145,11 +131,6 @@ pub fn process(
         if let Some((acc_gas, acc_count)) = get_acc_stats().get(service) {
             statistics.services.records.get_mut(service).unwrap().accumulate_gas_used += *acc_gas as u64; // TODO fix this
             statistics.services.records.get_mut(service).unwrap().accumulate_count += *acc_count;
-        }
-
-        if let Some((xfer_count, xfer_gas)) = get_xfer_stats().get(service) {
-            statistics.services.records.get_mut(service).unwrap().on_transfers_count += *xfer_count;
-            statistics.services.records.get_mut(service).unwrap().on_transfers_gas_used += *xfer_gas as u64; // TODO fix this
         }
     }
 

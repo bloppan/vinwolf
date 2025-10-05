@@ -1,7 +1,7 @@
 use constants::node::{EPOCH_LENGTH, TRANSFER_MEMO_SIZE};
 use jam_types::{
     AccumulateRoot, AccumulatedHistory, OutputAccumulation, ReadyQueue, ReadyRecord, WorkPackageHash, WorkReport, AccumulationOperand, 
-    DeferredTransfer, ServiceId, Balance, Gas
+    DeferredTransfer, ServiceId, Balance, Gas, AccumulationInput
 };
 use crate::{BytesReader, Decode, DecodeLen, Encode, EncodeSize, DecodeSize, EncodeLen, ReadError};
 use crate::generic_codec::{encode_unsigned, decode_unsigned};
@@ -37,6 +37,35 @@ impl Decode for DeferredTransfer {
             memo: blob.read_bytes(TRANSFER_MEMO_SIZE)?.to_vec(),
             gas_limit: Gas::decode_size(blob, 8)? as Gas,
         })
+    }
+}
+
+impl Encode for AccumulationOperand {
+    
+    fn encode(&self) -> Vec<u8> {
+        
+        let mut blob = Vec::new();
+
+        self.code_hash.encode_to(&mut blob);
+        self.exports_root.encode_to(&mut blob);
+        self.authorizer_hash.encode_to(&mut blob);
+        self.payload_hash.encode_to(&mut blob);
+        
+        encode_unsigned(self.gas_limit as usize).encode_to(&mut blob);
+
+        self.result[0].encode_to(&mut blob);
+        if self.result[0] == 0 {
+            let result_len = encode_unsigned(self.result.len() - 1);
+            result_len.encode_to(&mut blob);
+            self.result[1..].encode_to(&mut blob);
+        } 
+
+        self.auth_trace.encode_len().encode_to(&mut blob);
+
+        return blob;
+    }
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
     }
 }
 
@@ -146,34 +175,6 @@ impl Decode for AccumulatedHistory {
     }
 }
 
-impl Encode for AccumulationOperand {
-    
-    fn encode(&self) -> Vec<u8> {
-        
-        let mut blob = Vec::new();
-
-        self.code_hash.encode_to(&mut blob);
-        self.exports_root.encode_to(&mut blob);
-        self.authorizer_hash.encode_to(&mut blob);
-        self.payload_hash.encode_to(&mut blob);
-        
-        encode_unsigned(self.gas_limit as usize).encode_to(&mut blob);
-
-        self.result[0].encode_to(&mut blob);
-        if self.result[0] == 0 {
-            let result_len = encode_unsigned(self.result.len() - 1);
-            result_len.encode_to(&mut blob);
-            self.result[1..].encode_to(&mut blob);
-        } 
-
-        self.auth_trace.encode_len().encode_to(&mut blob);
-
-        return blob;
-    }
-    fn encode_to(&self, into: &mut Vec<u8>) {
-        into.extend_from_slice(&self.encode());
-    }
-}
 
 impl Encode for OutputAccumulation {
     fn encode(&self) -> Vec<u8> {

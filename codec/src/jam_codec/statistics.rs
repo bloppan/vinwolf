@@ -157,8 +157,6 @@ impl Encode for SeviceActivityRecord {
         encode_unsigned(self.exports as usize).encode_to(&mut blob);
         encode_unsigned(self.accumulate_count as usize).encode_to(&mut blob);
         encode_unsigned(self.accumulate_gas_used as usize).encode_to(&mut blob);
-        encode_unsigned(self.on_transfers_count as usize).encode_to(&mut blob);
-        encode_unsigned(self.on_transfers_gas_used as usize).encode_to(&mut blob);
 
         return blob;
     }
@@ -183,8 +181,6 @@ impl Decode for SeviceActivityRecord {
                 exports: decode_unsigned(reader)? as u32,
                 accumulate_count: decode_unsigned(reader)? as u32,
                 accumulate_gas_used: decode_unsigned(reader)? as u64,
-                on_transfers_count: decode_unsigned(reader)? as u32,
-                on_transfers_gas_used: decode_unsigned(reader)? as u64,
             }
         )
     }

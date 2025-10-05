@@ -13,6 +13,7 @@ impl Encode for Privileges {
         self.manager.encode_to(&mut blob);
         self.assign.encode_to(&mut blob);
         self.designate.encode_to(&mut blob);
+        self.range.encode_to(&mut blob);
 
         encode_unsigned(self.always_acc.len()).encode_to(&mut blob);
 
@@ -35,6 +36,7 @@ impl Decode for Privileges {
             manager: ServiceId::decode(blob)?,
             assign: Box::<[ServiceId; CORES_COUNT]>::decode(blob)?,
             designate: ServiceId::decode(blob)?,
+            range: ServiceId::decode(blob)?,
             always_acc: {
                 let len = decode_unsigned(blob)?;
                 let mut always_acc_map: HashMap<ServiceId, Gas> = HashMap::new();

@@ -520,10 +520,6 @@ pub struct SeviceActivityRecord {
     pub accumulate_count: u32,      
     // Amount of gas used for accumulation by service.
     pub accumulate_gas_used: u64,   
-    // Number of transfers processed by service.
-    pub on_transfers_count: u32,    
-    // Amount of gas used for processing transfers by service.
-    pub on_transfers_gas_used: u64, 
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct ServicesStatisticsMapEntry {
@@ -900,6 +896,8 @@ pub struct Privileges {
     // only to assign its authorizer queue, but also to transfer the rights to another service, allowing for the possibility of a nullified 
     // manager privilege without fixing the authorizer service. This transferability is also introduced to the delegator service.
     pub assign: ServiceAssigns,
+    // This service alone is able to create new service accounts with indices in the protected range
+    pub range: ServiceId,
     // Index of service able to alter the next validators state component
     pub designate: ServiceId,
     // Indices of services which automaticaly accumulate in each block together with a basic amount of gas with which each accumulates
@@ -1009,6 +1007,7 @@ pub struct AccumulationPartialState {
     pub next_validators: ValidatorsData,
     pub queues_auth: AuthQueues,
     pub manager: ServiceId,
+    pub range: ServiceId,
     pub assign: Box<[ServiceId; CORES_COUNT]>,
     pub designate: ServiceId,
     pub always_acc: HashMap<ServiceId, Gas>,
@@ -1034,6 +1033,11 @@ pub struct AccumulationContext {
     pub deferred_transfers: Vec<DeferredTransfer>,
     pub y: Option<OpaqueHash>,
     pub preimages: Vec<(ServiceId, Vec<u8>)>,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct AccumulationInput {
+    pub operands: Vec<AccumulationOperand>,
+    pub transfers: Vec<DeferredTransfer>,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccumulationOperand {
