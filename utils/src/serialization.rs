@@ -40,6 +40,7 @@ pub fn serialize(global_state: &GlobalState) -> SerializedState {
     
         let key = StateKeyType::Service(255, *service_id).construct();
         let service_info = ServiceInfo {
+            version: 0,
             code_hash: account.code_hash,
             balance: account.balance,
             acc_min_gas: account.acc_min_gas,

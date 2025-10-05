@@ -768,6 +768,8 @@ pub type ServiceId = u32;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ServiceInfo {
+    // Version byte prefix for accounts
+    pub version: u8,
     // Code hash
     pub code_hash: OpaqueHash,
     // Account balance

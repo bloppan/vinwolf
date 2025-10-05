@@ -548,6 +548,7 @@ impl Default for Account {
 impl Default for ServiceInfo {
     fn default() -> Self {
         Self {
+            version: 0,
             code_hash: OpaqueHash::default(),
             balance: 0,
             acc_min_gas: 0,
