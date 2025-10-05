@@ -416,6 +416,7 @@ fn new(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Accu
     let new_account_gas = reg[9];   
     let new_account_min_gas = reg[10];
     let gratis_storage_offset = reg[11];
+    let index = reg[12] as ServiceId;
 
     log::debug!("start_address: {:?}, length: {:?}, gas: {:?}, min_gas: {:?}, gratis_offset: {:?}", start_address, length, new_account_gas, new_account_min_gas, gratis_storage_offset);
 
@@ -449,10 +450,22 @@ fn new(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Accu
             return ExitReason::Continue;
         }
 
-        let i = (1u64 << 8) + (ctx_x.index as u64 - (1u64 << 8) + 42) % ((1u64 << 32) - (1u64 << 9)); 
+        if ctx_x.service_id == ctx_x.partial_state.registrar && index < MIN_PUBLIC_SERVICE_INDEX && ctx_x.partial_state.service_accounts.contains_key(&index) {
+            reg[7] = FULL;
+            log::debug!("Exit: FULL");
+            return ExitReason::Continue;
+        }
+
+        if ctx_x.service_id == ctx_x.partial_state.registrar && index < MIN_PUBLIC_SERVICE_INDEX {
+            reg[7] = index as RegSize;
+            ctx_x.partial_state.service_accounts.insert(index, new_account);
+            ctx_x.partial_state.service_accounts.insert(ctx_x.service_id, service_account);
+            log::debug!("Exit: OK with index: {:?}", index);
+            return ExitReason::Continue;
+        } 
 
         reg[7] = ctx_x.index as RegSize;
-                
+
         let lookup_key = StateKeyType::Account(ctx_x.index, construct_lookup_key(&new_account.code_hash, length as u32)).construct();
         log::debug!("inserted lookup_key: {}", hex::encode(&lookup_key));
         new_account.storage.insert(lookup_key, Vec::<TimeSlot>::new().encode_len());
@@ -460,6 +473,7 @@ fn new(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Accu
         ctx_x.partial_state.service_accounts.insert(ctx_x.index, new_account);
         ctx_x.partial_state.service_accounts.insert(ctx_x.service_id, service_account);
 
+        let i = ((MIN_PUBLIC_SERVICE_INDEX as i64 + ((ctx_x.index as i64 - MIN_PUBLIC_SERVICE_INDEX as i64 + 42))) % ((1i64 << 32) - MIN_PUBLIC_SERVICE_INDEX as i64 - (1i64 << 8))) as ServiceId; 
         ctx_x.index = check(&ctx_x.partial_state, &(i as ServiceId));
         log::debug!("reg_7: {:?}, i*: {:?}", reg[7], ctx_x.index);
         log::debug!("Exit: OK");
@@ -571,9 +585,10 @@ fn bless(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Ac
 
     let manager = reg[7] as RegSize;
     let assign_start_address = reg[8] as RamAddress;
-    let v_designate = reg[9] as RegSize;
-    let start_address = reg[10] as RamAddress;
-    let n_pairs = reg[11] as RamAddress;
+    let delegator = reg[9] as RegSize;
+    let registrar = reg[10] as RegSize;
+    let start_address = reg[11] as RamAddress;
+    let n_pairs = reg[12] as RamAddress;
 
     if let Err(_) = ram.is_readable(assign_start_address, (std::mem::size_of::<ServiceId>() * CORES_COUNT) as RamAddress) {
         log::error!("Panic: The RAM is not readable from assign start address: {:?} num_bytes: {:?}", assign_start_address, std::mem::size_of::<ServiceId>() * CORES_COUNT);
@@ -591,20 +606,23 @@ fn bless(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Ac
         return ExitReason::Continue;
     }
 
-    if manager > ServiceId::MAX as RegSize || v_designate > ServiceId::MAX as RegSize {
+    if manager > ServiceId::MAX as RegSize 
+    || delegator > ServiceId::MAX as RegSize 
+    || registrar > ServiceId::MAX as RegSize
+    {
         reg[7] = WHO;
         log::debug!("Exit: WHO");
         return ExitReason::Continue;
     }
 
-    let mut assign: ServiceAssigns = Box::new(std::array::from_fn(|_| ServiceId::default()));
+    let mut assigners: ServiceAssigns = Box::new([ServiceId::default(); CORES_COUNT]);
 
     for core_index in 0..CORES_COUNT {
         let num_bytes = std::mem::size_of::<ServiceId>();
-        assign[core_index] = decode::<ServiceId>(&ram.read(assign_start_address + (num_bytes * core_index) as RamAddress, num_bytes as RamAddress), num_bytes);
+        assigners[core_index] = decode::<ServiceId>(&ram.read(assign_start_address + (num_bytes * core_index) as RamAddress, num_bytes as RamAddress), num_bytes);
     }
 
-    log::debug!("manager: {:?}, assign: {:?}, v_designate: {:?}, n_pairs: {:?}, start_address: {:?}", manager, assign, v_designate, n_pairs, start_address);
+    log::debug!("manager: {:?}, assigners: {:?}, delegator: {:?}, registrar: {:?}, n_pairs: {:?}, start_address: {:?}", manager, assigners, delegator, registrar, n_pairs, start_address);
 
     let mut service_gas_pairs: HashMap<ServiceId, Gas> = HashMap::new();
 
@@ -617,8 +635,8 @@ fn bless(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Ac
     }
 
     ctx_x.partial_state.manager = manager as ServiceId;
-    ctx_x.partial_state.assign = assign;
-    ctx_x.partial_state.designate = v_designate as ServiceId;
+    ctx_x.partial_state.assigners = assigners;
+    ctx_x.partial_state.delegator = delegator as ServiceId;
     ctx_x.partial_state.always_acc = service_gas_pairs;
 
     log::debug!("Exit: OK");
@@ -641,9 +659,9 @@ fn designate(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mu
         return ExitReason::Panic;    
     }
 
-    if ctx_x.service_id != ctx_x.partial_state.designate {
+    if ctx_x.service_id != ctx_x.partial_state.delegator {
         reg[7] = HUH;
-        log::debug!("ctx_x.service_id {:?} != ctx_x.partial_state.designate {:?}", ctx_x.service_id, ctx_x.partial_state.designate);
+        log::debug!("ctx_x.service_id {:?} != ctx_x.partial_state.delegator {:?}", ctx_x.service_id, ctx_x.partial_state.delegator);
         log::debug!("Exit: HUH");
         return ExitReason::Continue;
     }
@@ -690,8 +708,8 @@ fn assign(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut A
         return ExitReason::Continue;
     }
 
-    if ctx_x.service_id != ctx_x.partial_state.assign[core_index as usize] {
-        log::debug!("ctx service_id {:?} != assign service {:?} core_index: {:?}", ctx_x.service_id, ctx_x.partial_state.assign[core_index as usize], core_index);
+    if ctx_x.service_id != ctx_x.partial_state.assigners[core_index as usize] {
+        log::debug!("ctx service_id {:?} != assigner service {:?} core_index: {:?}", ctx_x.service_id, ctx_x.partial_state.assigners[core_index as usize], core_index);
         reg[7] = HUH;
         log::debug!("Exit: HUH");
         return ExitReason::Continue;
@@ -701,7 +719,7 @@ fn assign(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut A
         ctx_x.partial_state.queues_auth.0[core_index as usize][i] = ram.read(start_address + 32 * i as u32, 32).try_into().unwrap();
     }
 
-    ctx_x.partial_state.assign[core_index as usize] = assign_service;
+    ctx_x.partial_state.assigners[core_index as usize] = assign_service;
     reg[7] = OK;
 
     log::debug!("Exit: OK");

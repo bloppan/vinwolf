@@ -345,9 +345,9 @@ impl Default for AccumulationPartialState {
             next_validators: ValidatorsData::default(),
             queues_auth: AuthQueues::default(),
             manager: ServiceId::default(),
-            assign: Box::new([ServiceId::default(); CORES_COUNT]),
-            range: ServiceId::default(),
-            designate: ServiceId::default(),
+            assigners: Box::new([ServiceId::default(); CORES_COUNT]),
+            registrar: ServiceId::default(),
+            delegator: ServiceId::default(),
             always_acc: HashMap::new(),
         }
     }
@@ -455,9 +455,9 @@ impl Default for Privileges {
     fn default() -> Self {
         Privileges {
             manager: 0,
-            assign: Box::new(from_fn(|_| ServiceId::default())),
-            range: 0,
-            designate: 0,
+            assigners: Box::new([ServiceId::default(); CORES_COUNT]),
+            registrar: 0,
+            delegator: 0,
             always_acc: HashMap::new(),
         }
     }

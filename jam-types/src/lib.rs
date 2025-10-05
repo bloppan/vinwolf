@@ -897,11 +897,11 @@ pub struct Privileges {
     // Index of services able to alter the authorizer queue state component. A service privileged in this way for a some core is able not 
     // only to assign its authorizer queue, but also to transfer the rights to another service, allowing for the possibility of a nullified 
     // manager privilege without fixing the authorizer service. This transferability is also introduced to the delegator service.
-    pub assign: ServiceAssigns,
+    pub assigners: ServiceAssigns,
     // This service alone is able to create new service accounts with indices in the protected range
-    pub range: ServiceId,
+    pub registrar: ServiceId,
     // Index of service able to alter the next validators state component
-    pub designate: ServiceId,
+    pub delegator: ServiceId,
     // Indices of services which automaticaly accumulate in each block together with a basic amount of gas with which each accumulates
     pub always_acc: HashMap<ServiceId, Gas>,
 }
@@ -1009,9 +1009,9 @@ pub struct AccumulationPartialState {
     pub next_validators: ValidatorsData,
     pub queues_auth: AuthQueues,
     pub manager: ServiceId,
-    pub range: ServiceId,
-    pub assign: Box<[ServiceId; CORES_COUNT]>,
-    pub designate: ServiceId,
+    pub registrar: ServiceId,
+    pub assigners: ServiceAssigns, 
+    pub delegator: ServiceId,
     pub always_acc: HashMap<ServiceId, Gas>,
 }
 #[derive(Debug, Clone, PartialEq)]

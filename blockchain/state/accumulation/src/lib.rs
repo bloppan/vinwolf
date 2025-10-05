@@ -55,9 +55,9 @@ pub fn process(
         next_validators,
         queues_auth,
         manager: privileges.manager,
-        assign: privileges.assign,
-        range: privileges.range,
-        designate: privileges.designate,
+        assigners: privileges.assigners,
+        registrar: privileges.registrar,
+        delegator: privileges.delegator,
         always_acc: privileges.always_acc,
     };
 
@@ -92,9 +92,9 @@ pub fn process(
     save_statistics(&mut post_partial_state, &service_gas_pairs, &current_block_accumulatable, num_wi_accumulated);
     let post_privileges = Privileges {
         manager: post_partial_state.manager,
-        assign: post_partial_state.assign,
-        range: post_partial_state.range,
-        designate: post_partial_state.designate,
+        assigners: post_partial_state.assigners,
+        registrar: post_partial_state.registrar,
+        delegator: post_partial_state.delegator,
         always_acc: post_partial_state.always_acc,
     };
 
@@ -252,18 +252,18 @@ fn parallelized_accumulation(
     }
     // Assign (Cores) services
     let assign_to_add: Vec<ServiceId> = (0..CORES_COUNT)
-            .filter(|&core| !all_services_to_acc.contains(&partial_state.assign[core]))
-            .map(|core| partial_state.assign[core])
+            .filter(|&core| !all_services_to_acc.contains(&partial_state.assigners[core]))
+            .map(|core| partial_state.assigners[core])
             .collect();
 
     all_services_to_acc.extend_from_slice(&assign_to_add);
 
     // Desigate (Validators) service
-    if !all_services_to_acc.contains(&partial_state.designate) {
-        all_services_to_acc.push(partial_state.designate);
+    if !all_services_to_acc.contains(&partial_state.delegator) {
+        all_services_to_acc.push(partial_state.delegator);
     }
     
-    log::debug!("privileged services: manager: {:?}, assign: {:?}, designate: {:?}, always_acc: {:?}", partial_state.manager, partial_state.assign, partial_state.designate, partial_state.always_acc);
+    log::debug!("privileged services: manager: {:?}, assigners: {:?}, delegator: {:?}, always_acc: {:?}", partial_state.manager, partial_state.assigners, partial_state.delegator, partial_state.always_acc);
     log::debug!("S Services to accumulate: {:?}", s_services);
     log::debug!("Always acc: {:?}", always_acc);    
     log::debug!("All services to acc: {:?}", all_services_to_acc);
@@ -341,7 +341,7 @@ fn parallelized_accumulation(
     }
 
     log::debug!("After threads: {:?}", acc_result.gas_used);
-    log::debug!("Accumulation of privileged services: {:?}, {:?}, {:?}, {:?}", partial_state.manager, partial_state.assign, partial_state.designate, partial_state.always_acc);
+    log::debug!("Accumulation of privileged services: {:?}, {:?}, {:?}, {:?}", partial_state.manager, partial_state.assigners, partial_state.delegator, partial_state.always_acc);
     // Different services may not each contribute the same index for a new, altered or removed service. This cannot happen for the set of
     // removed and altered services since the code hash of removable services has no known preimage and thus cannot execute itself to make
     // an alteration. For new services this should also never happen since new indices are explicitly selected to avoid such conflicts.
@@ -353,11 +353,6 @@ fn parallelized_accumulation(
         }
     }
 
-    /*let e_star_partial_state = if let Some((_, acc)) = acc_result.acc_output_map.iter().find(|(service, _)| *service == partial_state.manager) {
-        &acc.0
-    } else {
-        &partial_state
-    };*/
     let e_star_partial_state = &acc_result.acc_output_map.iter().find(|(service, _)| *service == partial_state.manager).unwrap().1.0;
 
     let post_manager = e_star_partial_state.manager;
@@ -368,22 +363,22 @@ fn parallelized_accumulation(
     let mut post_assign: Box<[ServiceId; CORES_COUNT]> = Box::new([ServiceId::default(); CORES_COUNT]);
 
     for core_index in 0..CORES_COUNT {
-        let assign_service_result = acc_result.acc_output_map.iter().find(|(service, _)| *service == partial_state.assign[core_index]).unwrap().1.0.assign[core_index];
-        post_assign[core_index] = select_service(partial_state.assign[core_index], e_star_partial_state.assign[core_index], assign_service_result);
+        let assign_service_result = acc_result.acc_output_map.iter().find(|(service, _)| *service == partial_state.assigners[core_index]).unwrap().1.0.assigners[core_index];
+        post_assign[core_index] = select_service(partial_state.assigners[core_index], e_star_partial_state.assigners[core_index], assign_service_result);
     }
 
-    let designate_service_result = acc_result.acc_output_map.iter().find(|(service, _)| *service == partial_state.designate).unwrap().1.0.designate;
-    let post_v_designate = select_service(partial_state.designate, e_star_partial_state.designate, designate_service_result);
+    let delegator_service_result = acc_result.acc_output_map.iter().find(|(service, _)| *service == partial_state.delegator).unwrap().1.0.delegator;
+    let post_v_delegator = select_service(partial_state.delegator, e_star_partial_state.delegator, delegator_service_result);
 
-    let range_service_result = acc_result.acc_output_map.iter().find(|(service, _)| *service == partial_state.range).unwrap().1.0.range;
-    let post_range = select_service(partial_state.range, e_star_partial_state.range, range_service_result);
+    let registrar_service_result = acc_result.acc_output_map.iter().find(|(service, _)| *service == partial_state.registrar).unwrap().1.0.registrar;
+    let post_registrar = select_service(partial_state.registrar, e_star_partial_state.registrar, registrar_service_result);
 
-    let post_next_validators = &acc_result.acc_output_map.iter().find(|(service, _)| *service == partial_state.designate).unwrap().1.0.next_validators; 
+    let post_next_validators = &acc_result.acc_output_map.iter().find(|(service, _)| *service == partial_state.delegator).unwrap().1.0.next_validators; 
 
     let mut post_queues_auth: AuthQueues = AuthQueues::default();
 
     for core_index in 0..CORES_COUNT {
-        post_queues_auth.0[core_index] = acc_result.acc_output_map.iter().find(|(service, _)| *service == partial_state.assign[core_index]).unwrap().1.0.queues_auth.0[core_index].clone();
+        post_queues_auth.0[core_index] = acc_result.acc_output_map.iter().find(|(service, _)| *service == partial_state.assigners[core_index]).unwrap().1.0.queues_auth.0[core_index].clone();
     }
 
     let mut d_services = partial_state.service_accounts.clone();
@@ -402,9 +397,9 @@ fn parallelized_accumulation(
         next_validators: post_next_validators.clone(),
         queues_auth: post_queues_auth,
         manager: post_manager,
-        assign: post_assign.clone(),
-        range: post_range,
-        designate: post_v_designate,
+        assigners: post_assign.clone(),
+        registrar: post_registrar,
+        delegator: post_v_delegator,
         always_acc: post_always_acc.clone(),
     };
 
