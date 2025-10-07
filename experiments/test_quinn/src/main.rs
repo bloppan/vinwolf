@@ -1,15 +1,99 @@
 use quinn::{ClientConfig, Endpoint, TransportConfig};
-use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime, PrivatePkcs8KeyDer};
 use rustls::crypto::{verify_tls12_signature, verify_tls13_signature};
 use rustls::client::danger::{ServerCertVerifier, ServerCertVerified, HandshakeSignatureValid};
 use rustls::{Error as RustlsError, SignatureScheme};
 use rustls::crypto::ring::default_provider;
 use rustls::crypto::CryptoProvider;
-use rustls_pemfile::{certs, pkcs8_private_keys};
+use std::io::{Cursor, Read};
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
-use anyhow::{Result, bail};
+use std::error::Error;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
+
+fn base64_decode(input: &str) -> Result<Vec<u8>> {
+    let table = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut output = Vec::new();
+    let mut buffer = 0u32;
+    let mut bits = 0u32;
+    let mut padding = 0u8;
+
+    for &b in input.as_bytes() {
+        if b == b'=' {
+            padding += 1;
+            continue;
+        }
+        if let Some(idx) = table.iter().position(|&c| c == b) {
+            buffer = (buffer << 6) | idx as u32;
+            bits += 6;
+            if bits >= 8 {
+                bits -= 8;
+                output.push(((buffer >> bits) & 0xff) as u8);
+            }
+        } else {
+            return Err("Invalid base64 character".into());
+        }
+    }
+
+    if padding > 2 {
+        return Err("Invalid padding".into());
+    }
+
+    Ok(output)
+}
+
+fn parse_pem_certs(pem_data: &[u8]) -> Result<Vec<CertificateDer<'static>>> {
+    let pem_str = std::str::from_utf8(pem_data)?;
+    let lines = pem_str.lines().map(|l| l.trim()).collect::<Vec<_>>();
+    let mut certs = Vec::new();
+    let mut collecting = false;
+    let mut b64_lines = Vec::new();
+
+    for line in lines {
+        if line == "-----BEGIN CERTIFICATE-----" {
+            collecting = true;
+            b64_lines.clear();
+        } else if line == "-----END CERTIFICATE-----" {
+            if collecting {
+                let b64 = b64_lines.join("");
+                let der = base64_decode(&b64)?;
+                certs.push(CertificateDer::from(der));
+                collecting = false;
+            }
+        } else if collecting && !line.is_empty() {
+            b64_lines.push(line);
+        }
+    }
+
+    Ok(certs)
+}
+
+fn parse_pem_private_key(pem_data: &[u8]) -> Result<PrivateKeyDer<'static>> {
+    let pem_str = std::str::from_utf8(pem_data)?;
+    let lines = pem_str.lines().map(|l| l.trim()).collect::<Vec<_>>();
+    let mut collecting = false;
+    let mut b64_lines = Vec::new();
+
+    for line in lines {
+        if line == "-----BEGIN PRIVATE KEY-----" {
+            collecting = true;
+            b64_lines.clear();
+        } else if line == "-----END PRIVATE KEY-----" {
+            if collecting {
+                let b64 = b64_lines.join("");
+                let der = base64_decode(&b64)?;
+                let pkcs8 = PrivatePkcs8KeyDer::from(der);
+                return Ok(PrivateKeyDer::Pkcs8(pkcs8));
+            }
+        } else if collecting && !line.is_empty() {
+            b64_lines.push(line);
+        }
+    }
+
+    Err("No private key found".into())
+}
 
 #[derive(Debug)]
 struct SkipServerVerification(Arc<CryptoProvider>);
@@ -28,7 +112,7 @@ impl ServerCertVerifier for SkipServerVerification {
         _server_name: &ServerName<'_>,
         _ocsp: &[u8],
         _now: UnixTime,
-    ) -> Result<ServerCertVerified, RustlsError> {
+    ) -> std::result::Result<ServerCertVerified, rustls::Error> {
         Ok(ServerCertVerified::assertion())
     }
 
@@ -37,7 +121,7 @@ impl ServerCertVerifier for SkipServerVerification {
         message: &[u8],
         cert: &CertificateDer<'_>,
         dss: &rustls::DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, RustlsError> {
+    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
         verify_tls12_signature(
             message,
             cert,
@@ -51,7 +135,7 @@ impl ServerCertVerifier for SkipServerVerification {
         message: &[u8],
         cert: &CertificateDer<'_>,
         dss: &rustls::DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, RustlsError> {
+    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
         verify_tls13_signature(
             message,
             cert,
@@ -69,7 +153,7 @@ impl ServerCertVerifier for SkipServerVerification {
 async fn main() -> Result<()> {
     rustls::crypto::ring::default_provider()
         .install_default()
-        .map_err(|e| anyhow::anyhow!("Failed to install ring provider: "))?;
+        .map_err(|e| format!("Failed to install ring provider: {:?}", e))?;
 
     let node_alt_name = "elfaiiixcuzmzroa34lajwp52cdsucikaxdviaoeuvnygdi3imtba";
     let node_addr = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 40005);
@@ -77,26 +161,20 @@ async fn main() -> Result<()> {
     let genesis_hash = "2bf11dc5";
     let alpn_protocol = format!("jamnp-s/0/{}", genesis_hash).into_bytes();
 
-    let mut cert_file = std::io::Cursor::new(std::fs::read("cert.pem")?);
-    let mut key_file = std::io::Cursor::new(std::fs::read("key.pem")?);
+    let cert_pem = std::fs::read("cert.pem")?;
+    let key_pem = std::fs::read("key.pem")?;
 
-    let certs: Vec<CertificateDer> = certs(&mut cert_file)
-        .map(|result| result.map(CertificateDer::from))
-        .collect::<Result<Vec<_>, _>>()?;
+    let certs: Vec<CertificateDer> = parse_pem_certs(&cert_pem)?;
     if certs.is_empty() {
-        bail!("No valid certificates found in cert.pem");
+        return Err("No valid certificates found in cert.pem".into());
     }
 
-    let mut keys = pkcs8_private_keys(&mut key_file);
-    let key = PrivateKeyDer::from(
-        keys.next()
-            .ok_or_else(|| anyhow::anyhow!("No valid private keys found in key.pem"))??,
-    );
+    let key_der = parse_pem_private_key(&key_pem)?;
 
     let mut client_crypto = rustls::ClientConfig::builder()
         .dangerous()
         .with_custom_certificate_verifier(SkipServerVerification::new())
-        .with_client_auth_cert(certs, key)?;
+        .with_client_auth_cert(certs, key_der)?;
 
     client_crypto.alpn_protocols = vec![alpn_protocol];
 
@@ -168,6 +246,8 @@ async fn main() -> Result<()> {
 
 
 
+
+
 use base32::{Alphabet, encode};
 
 const PUBKEY: [u8; 32] = [
@@ -196,5 +276,5 @@ fn dns_alt_name_from_pubkey(pk: &[u8; 32]) -> String {
 fn alternative_name_test() {
     let result = dns_alt_name_from_pubkey(&PUBKEY);
     println!("result ascii: {}", result);
-    println!("result hex: {}", hex::encode(result));
+    println!("result hex: {}", utils::hex::encode(result));
 }
