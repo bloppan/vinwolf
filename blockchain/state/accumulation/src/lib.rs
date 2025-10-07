@@ -545,11 +545,19 @@ fn save_statistics(
 
     // The second intermiediate state of service accounts may then be defined with the last-accumulation record being updated for all
     // accumulated services
-    for account in acc_stats.iter() {
-        let mut post_account = post_partial_state.service_accounts.get(account.0).unwrap().clone();
-        post_account.last_acc = state_handler::time::get_current();
-        post_partial_state.service_accounts.insert(*account.0, post_account);        
+    
+    for account in post_partial_state.service_accounts.iter_mut() {
+        if acc_stats.contains_key(&account.0) {
+            account.1.last_acc = state_handler::time::get_current();
+        }
     }
+
+    /*for account in acc_stats.iter() {
+        if let Some(post_account) = post_partial_state.service_accounts.get_mut(account.0) {
+            post_account.last_acc = state_handler::time::get_current();
+            post_partial_state.service_accounts.insert(*account.0, post_account.clone());        
+        }
+    }*/
 
     statistics::set_acc_stats(acc_stats);
 }

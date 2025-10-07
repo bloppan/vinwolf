@@ -7,9 +7,7 @@ use jam_types::{
 };
 use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 use crate::test_types::{
-    InputAuthorizations, StateAuthorizations, InputAssurances, StateAssurances, DisputesState, OutputDisputes, InputHistory, InputPreimages, AccountsMapEntry,
-    PreimagesState, AccountTest, LookupMetaMapEntry, LookupMetaMapKeyTest, InputWorkReport, WorkReportState, OutputWorkReport, InputSafrole, SafroleState,
-    InputStatistics, StateStatistics, AccountAccTest, StorageMapEntry, StateAccumulate, InputAccumulate, AccountsAccMapEntry, PreimagesMapEntry, ReportsAccountsMapEntry
+    AccountAccTest, AccountTest, AccountsAccMapEntry, AccountsMapEntry, DisputesState, InputAccumulate, InputAssurances, InputAuthorizations, InputHistory, InputPreimages, InputSafrole, InputStatistics, InputWorkReport, LookupMetaMapEntry, LookupMetaMapKeyTest, OutputDisputes, OutputWorkReport, PreimagesMapEntry, PreimagesState, PreimagesStatusMapEntry, ReportsAccountsMapEntry, SafroleState, StateAccumulate, StateAssurances, StateAuthorizations, StateStatistics, StorageMapEntry, WorkReportState
 };
 
 // ----------------------------------------------------------------------------------------------------------
@@ -318,6 +316,32 @@ impl Decode for PreimagesMapEntry {
         Ok(PreimagesMapEntry { 
             hash: HeaderHash::decode(reader)?,
             blob: Vec::<u8>::decode_len(reader)?,
+        })
+    }
+}
+
+impl Encode for PreimagesStatusMapEntry {
+
+    fn encode(&self) -> Vec<u8> {
+        
+        let mut blob = vec![];
+
+        self.hash.encode_to(&mut blob);
+        self.timeslots.encode_len().encode_to(&mut blob);
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for PreimagesStatusMapEntry {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        Ok(PreimagesStatusMapEntry {
+            hash: OpaqueHash::decode(reader)?,
+            timeslots: Vec::<TimeSlot>::decode_len(reader)?,
         })
     }
 }
@@ -752,6 +776,7 @@ impl Encode for AccountAccTest {
         self.service.encode_to(&mut blob);
         self.storage.encode_len().encode_to(&mut blob);
         self.preimages.encode_len().encode_to(&mut blob);
+        self.preimages_status.encode_len().encode_to(&mut blob);
 
         return blob;
     }
@@ -767,6 +792,7 @@ impl Decode for AccountAccTest {
             service: ServiceInfo::decode(blob)?,
             storage: Vec::<StorageMapEntry>::decode_len(blob)?,
             preimages: Vec::<PreimagesMapEntry>::decode_len(blob)?,
+            preimages_status: Vec::<PreimagesStatusMapEntry>::decode_len(blob)?,
         })
     }
 }

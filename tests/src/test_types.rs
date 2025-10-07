@@ -96,6 +96,19 @@ impl Default for PreimagesMapEntry {
         }
     }
 }
+#[derive(Debug, Clone, PartialEq)]
+pub struct PreimagesStatusMapEntry {
+    pub hash: OpaqueHash,
+    pub timeslots: Vec<TimeSlot>,
+}
+impl Default for PreimagesStatusMapEntry {
+    fn default() -> Self {
+        Self {
+            hash: OpaqueHash::default(),
+            timeslots: Vec::new(),
+        }
+    }
+}
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReportsAccountsMapEntry {
@@ -249,12 +262,16 @@ pub struct AccountsAccMapEntry {
     pub id: ServiceId,
     pub data: AccountAccTest,
 }
-
 impl Default for AccountsAccMapEntry {
     fn default() -> Self {
         Self {
             id: ServiceId::default(),
-            data: AccountAccTest { service: ServiceInfo::default(), storage: Vec::new(), preimages: Vec::new() }
+            data: AccountAccTest { 
+                service: ServiceInfo::default(), 
+                storage: Vec::new(), 
+                preimages: Vec::new(), 
+                preimages_status: Vec::new(),
+            }
         }
     }   
 }
@@ -264,6 +281,7 @@ pub struct AccountAccTest {
     pub service: ServiceInfo,
     pub storage: Vec<StorageMapEntry>,
     pub preimages: Vec<PreimagesMapEntry>,
+    pub preimages_status: Vec<PreimagesStatusMapEntry>,
 }
 
 impl Default for StorageMapEntry {
@@ -278,6 +296,7 @@ impl Default for AccountAccTest {
             service: ServiceInfo::default(),
             storage: vec![],
             preimages: vec![],
+            preimages_status: vec![],
         }
     }
 }

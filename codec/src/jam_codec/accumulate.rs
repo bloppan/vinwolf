@@ -12,6 +12,7 @@ impl Encode for DeferredTransfer {
         
         let mut blob = Vec::new();
         
+        1u8.encode_to(&mut blob);
         self.from.encode_to(&mut blob);
         self.to.encode_to(&mut blob);
         self.amount.encode_to(&mut blob);
@@ -30,6 +31,8 @@ impl Decode for DeferredTransfer {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
         
+        let _is_xfer = blob.read_byte()?;
+
         Ok(DeferredTransfer {
             from: ServiceId::decode(blob)?,
             to: ServiceId::decode(blob)?,
@@ -46,6 +49,7 @@ impl Encode for AccumulationOperand {
         
         let mut blob = Vec::new();
 
+        0u8.encode_to(&mut blob);
         self.code_hash.encode_to(&mut blob);
         self.exports_root.encode_to(&mut blob);
         self.authorizer_hash.encode_to(&mut blob);

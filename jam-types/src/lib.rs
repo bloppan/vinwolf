@@ -1021,7 +1021,7 @@ pub struct DeferredTransfer {
     // Service index of the receiver
     pub to: ServiceId,
     // Amount to send
-    pub amount: u64,
+    pub amount: Balance,
     // Memo component 
     pub memo: Vec<u8>,
     // Gas limit for the transfer

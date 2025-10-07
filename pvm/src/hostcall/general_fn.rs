@@ -140,7 +140,7 @@ pub fn fetch(gas: &mut Gas,
 
     reg[7] = value_len as RegSize;
     ram.write(start_address, &value.unwrap()[f as usize..(f + l) as usize]);
-    
+        
     log::debug!("Exit: OK");
     return ExitReason::Continue;
 }

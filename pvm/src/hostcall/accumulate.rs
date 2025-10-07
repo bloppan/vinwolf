@@ -47,6 +47,9 @@ pub fn invoke_accumulation(
 ) -> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(ServiceId, Vec<u8>)>) {
     
     log::debug!("Invoke accumulation for service {:?} gas {:?} slot {:?}", *service_id, gas, *slot);
+    for id in partial_state.service_accounts.iter() {
+        log::info!("Service: {:?}", id.0);
+    }
 
     let preimage = match parse_preimage(&partial_state.service_accounts, service_id) {
         Ok(preimage) => {
@@ -67,6 +70,7 @@ pub fn invoke_accumulation(
     }
 
     let input_acc_len = input_acc.operands.len() + input_acc.transfers.len();
+    log::debug!("num operands: {:?}, num transfers: {:?}", input_acc.operands.len(), input_acc.transfers.len());
     let args = [encode_unsigned(*slot as usize), encode_unsigned(*service_id as usize), encode_unsigned(input_acc_len)].concat();
     
     log::debug!("Hostcall args: {}", hex::encode(&args));
@@ -78,7 +82,7 @@ pub fn invoke_accumulation(
     let ctx_x = I(s_partial_state, service_id);
     let ctx_y = ctx_x.clone();
     let mut ctx = HostCallContext::Accumulate(ctx_x, ctx_y);
-  
+
     set_operands(service_id, input_acc.operands);
     let hostcall_arg_result: (Gas, WorkExecResult) = hostcall_argument(
                                 &preimage.code, 
@@ -185,7 +189,7 @@ fn I(partial_state: AccumulationPartialState, service_id: &ServiceId) -> Accumul
 
     //let encoded = [service_id.encode(), state_handler::entropy::get_recent().encode(), state_handler::time::get_current().encode()].concat();
     let encoded = [encode_unsigned(*service_id as usize), state_handler::entropy::get_recent().encode(), encode_unsigned(state_handler::time::get_current() as usize)].concat();
-    let payload = ((OpaqueHash::decode_size(&mut BytesReader::new(&blake2_256(&encoded)), 4).unwrap() as ServiceId % ((1 << 32) - MIN_PUBLIC_SERVICE_INDEX - (1 << 8))) + MIN_PUBLIC_SERVICE_INDEX) as ServiceId;
+    let payload = (OpaqueHash::decode_size(&mut BytesReader::new(&blake2_256(&encoded)), 4).unwrap() as ServiceId % (((1i64 << 32) - MIN_PUBLIC_SERVICE_INDEX as i64 - (1i64 << 8)) as ServiceId) + MIN_PUBLIC_SERVICE_INDEX) as ServiceId;
     let i = check(&partial_state, &payload);
 
     return AccumulationContext {
@@ -218,10 +222,10 @@ fn transfer(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut
         return ExitReason::OutOfGas;
     }
 
-    let dest = reg[7];
-    let amount = reg[8];
-    let limit = reg[9];
-    let start_address = reg[10];
+    let dest = reg[7] as ServiceId;
+    let amount = reg[8] as Balance;
+    let limit = reg[9] as Balance;
+    let start_address = reg[10] as RamAddress;
     
     log::debug!("Dest: {:?} Amount: {:?} Limit: {:?}", dest, amount, limit);
 
@@ -233,25 +237,30 @@ fn transfer(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut
     let transfer = DeferredTransfer {
         from: ctx_x.service_id,
         to: dest as ServiceId,
-        amount: amount as u64,
+        amount: amount as Balance,
         memo: ram.read(start_address as RamAddress, TRANSFER_MEMO_SIZE as RamAddress),
         gas_limit: limit as Gas,
     };
 
     log::debug!("Transfer: {:?}", transfer);
 
-    let context_services = ctx_x.partial_state.service_accounts.clone();
+    let balance = if let Some(account) = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id) {
+        account.balance.saturating_sub(amount)
+    } else {
+        log::error!("Panic: Service {:?} not found", ctx_x.service_id);
+        return ExitReason::Panic;
+    };                                                                            
 
-    let balance = context_services.get(&ctx_x.service_id).unwrap().balance.saturating_sub(amount as u64);
+    if let Some(account) = ctx_x.partial_state.service_accounts.get(&(dest as ServiceId)) {
 
-    if let Some(account) = context_services.get(&(dest as ServiceId)) {
-        
         if limit < account.acc_min_gas as u64 {
             log::debug!("Exit: LOW");
             reg[7] = LOW;
             return ExitReason::Continue;
         }
+
         let threshold = utils::common::get_threshold(account);
+        
         if balance < threshold {
             log::debug!("Exit: CASH");
             reg[7] = CASH;
@@ -294,9 +303,20 @@ fn eject(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Ac
     
     if service_id != ctx_x.service_id && ctx_x.partial_state.service_accounts.contains_key(&service_id) {
 
-        let d_account = ctx_x.partial_state.service_accounts.get(&service_id).unwrap();
+        let d_account = if let Some(account) = ctx_x.partial_state.service_accounts.get(&service_id) {
+            account
+        } else {
+            return ExitReason::Panic;
+        };
+
         let length = (std::cmp::max(81, d_account.octets) - 81) as u32;
-        let mut s_account = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().clone();
+
+        let mut s_account = if let Some(account) = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id) {
+            account.clone()
+        } else {
+            return ExitReason::Panic;
+        };
+
         log::debug!("d account service: {:?} balance: {:?}, s account service {:?}, balance {:?}", service_id, d_account.balance, ctx_x.service_id, s_account.balance);
         s_account.balance += d_account.balance;
         log::debug!("Balace updated -> service {:?} balance {:?}, service {:?} balance {:?}", service_id, d_account.balance, ctx_x.service_id, s_account.balance);
@@ -310,7 +330,7 @@ fn eject(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Ac
         }
 
         let lookup_key = StateKeyType::Account(service_id, construct_lookup_key(&hash, length)).construct();
-        
+
         if d_account.items != 2 || !d_account.storage.contains_key(&lookup_key) {
             log::debug!("Exit: HUH");
             reg[7] = HUH;
@@ -322,17 +342,14 @@ fn eject(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Ac
         let timeslots = Vec::<TimeSlot>::decode_len(&mut reader).unwrap();
 
         if timeslots.len() == 2 && (timeslots[1] < slot.saturating_sub(MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE)) {
-
             ctx_x.partial_state.service_accounts.remove(&service_id);
             ctx_x.partial_state.service_accounts.insert(ctx_x.service_id, s_account);
             reg[7] = OK;
-            
             log::debug!("Exit: OK");
             return ExitReason::Continue;
         }
 
         reg[7] = HUH;
-
         log::debug!("Otherwise. Exit: HUH");
         return ExitReason::Continue;
     }
@@ -379,7 +396,13 @@ fn query(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Ac
     }
 
     let timeslots_blob = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().storage.get(&lookup_key).unwrap();
-    let timeslots = Vec::<TimeSlot>::decode_len(&mut BytesReader::new(timeslots_blob)).unwrap();
+    let timeslots: Vec<TimeSlot> = match Vec::<TimeSlot>::decode_len(&mut BytesReader::new(timeslots_blob)) {
+        Ok(slots) => slots,
+        Err(error) => {
+            log::error!("Panic: Decoding timeslots blob: {:?}", error);
+            return ExitReason::Panic;
+        }
+    };
     let timeslots_len = timeslots.len();
     log::debug!("timeslots: {:?}", timeslots);
 
@@ -434,7 +457,14 @@ fn new(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Accu
         let new_account_threshold = utils::common::get_threshold(&new_account);
         new_account.balance = new_account_threshold;
         log::debug!("new_account: {:x?}", new_account);
-        let mut service_account = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().clone(); // TODO handle error
+
+        let mut service_account = if let Some(account) = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id) {
+            account.clone()
+        } else {
+            log::error!("Panic: Service {:?} not found", ctx_x.service_id);
+            return ExitReason::Panic;
+        };
+        
         service_account.balance = service_account.balance.saturating_sub(new_account_threshold);
         log::debug!("service: {:?} balance: {:?}", ctx_x.service_id, service_account.balance);
 
@@ -536,7 +566,12 @@ fn solicit(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
     let lookup_key = StateKeyType::Account(ctx_x.service_id, construct_lookup_key(&hash, preimage_size)).construct();
     log::debug!("preimage_size: {:?}, hash: 0x{}, lookup_key: 0x{}", preimage_size, hex::encode(hash), hex::encode(lookup_key));
 
-    let mut account = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap().clone();
+    let mut account = if let Some(account) = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id) {
+        account.clone()
+    } else {
+        log::error!("Panic: Service {:?} not found", ctx_x.service_id);
+        return ExitReason::Panic;
+    };
 
     if !account.storage.contains_key(&lookup_key) {
         log::debug!("Insert key 0x{} value: ( )", hex::encode(lookup_key));
@@ -546,7 +581,13 @@ fn solicit(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
     } else {
         let timeslots_blob = account.storage.get(&lookup_key).unwrap();
         let mut reader = BytesReader::new(timeslots_blob);
-        let mut timeslots = Vec::<TimeSlot>::decode_len(&mut reader).unwrap();
+        let mut timeslots: Vec<TimeSlot> = match Vec::<TimeSlot>::decode_len(&mut reader) {
+            Ok(slots) => slots,
+            Err(error) => {
+                log::error!("Panic: Decoding timeslots blob: {:?}", error);
+                return ExitReason::Panic;
+            },
+        };
         log::debug!("Current timeslots: {:?}", timeslots);
         if timeslots.len() ==  2 {
             timeslots.push(slot);
@@ -775,7 +816,14 @@ fn forget(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut A
     if let Some(timeslots_blob) = account.storage.get(&lookup_key) {
 
         let mut reader = BytesReader::new(timeslots_blob);
-        let timeslots = Vec::<TimeSlot>::decode_len(&mut reader).unwrap();
+        let timeslots: Vec<TimeSlot> = match Vec::<TimeSlot>::decode_len(&mut reader) {
+            Ok(slots) => slots,
+            Err(error) => {
+                log::error!("Panic: Decoding timeslots blob: {:?}", error);
+                return ExitReason::Panic;
+            },
+        };
+
         log::debug!("slot: {slot}, timeslots in account: {:?}", timeslots);
 
         if timeslots.len() == 0 || (timeslots.len() == 2 && (timeslots[1] < slot.saturating_sub(MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE))) {
@@ -874,10 +922,15 @@ fn provide(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
     let lookup_key = StateKeyType::Account(ctx_x.service_id, construct_lookup_key(&sp_core::blake2_256(&item), size)).construct();
     log::debug!("lookup key: 0x{}", hex::encode(lookup_key));
 
-
     if let Some(timeslots_blob) = account.unwrap().storage.get(&lookup_key) {
         
-        let timeslots = Vec::<TimeSlot>::decode_len(&mut BytesReader::new(timeslots_blob)).unwrap();
+        let timeslots: Vec<TimeSlot> = match Vec::<TimeSlot>::decode_len(&mut BytesReader::new(timeslots_blob)) {
+            Ok(slots) => slots,
+            Err(error) => {
+                log::error!("Panic: Decoding timeslots blob: {:?}", error);
+                return ExitReason::Panic;
+            },
+        };
 
         if timeslots.len() != 0 {
             reg[7] = HUH;

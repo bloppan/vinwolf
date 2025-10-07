@@ -43,7 +43,8 @@ mod tests {
         let _ = process_all_bins(dir_base);
     }   
 
-    const TRACES_DIR: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/";
+    //const TRACES_DIR: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/";
+    const TRACES_DIR: &str = "/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/";
 
     #[test]
     fn run_all_traces_tests() {
@@ -136,9 +137,9 @@ mod tests {
     }
 
     fn run_traces(path: &Path) {
-        /*log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
         .with_dotenv(true)
-        .init();*/
+        .init();
 
         let start = std::time::Instant::now();
         let _ = process_all_bins(path);
