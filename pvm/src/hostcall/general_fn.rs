@@ -111,14 +111,10 @@ pub fn fetch(gas: &mut Gas,
         Some(operands.unwrap().encode_len())
     } else if operands.is_some() && reg[10] == 15 && (reg[11] as usize) < operands.as_ref().unwrap().len() {
         Some(operands.as_ref().unwrap()[reg[11] as usize].encode())
-    } else if transfers.is_some() && reg[10] == 16 {
-        Some(transfers.as_ref().unwrap().encode_len())
-    } else if transfers.is_some() && reg[10] == 17 && (reg[11] as usize) < transfers.as_ref().unwrap().len() {
-        Some(transfers.as_ref().unwrap()[reg[11] as usize].encode())
     } else {
         None
     };
-    log::info!("transfers: {:?}", transfers);
+
     let value_len = if value.is_some() {
         log::debug!("value: {}", hex::encode(&value.as_ref().unwrap()));
         value.as_ref().unwrap().len()
@@ -144,7 +140,7 @@ pub fn fetch(gas: &mut Gas,
 
     reg[7] = value_len as RegSize;
     ram.write(start_address, &value.unwrap()[f as usize..(f + l) as usize]);
-    
+        
     log::debug!("Exit: OK");
     return ExitReason::Continue;
 }

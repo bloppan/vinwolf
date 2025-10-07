@@ -224,7 +224,7 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
         for keyval in keyvals.iter() {
             
             let key = keyval.key;
-
+            //log::info!("key: {}", hex::encode(&key));
             if is_simple_key(keyval) {
                 
                 let state_key = key[0] & 0xFF;

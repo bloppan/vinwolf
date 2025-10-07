@@ -53,7 +53,7 @@ impl RamMemory {
     pub fn write(&mut self, start_address: RamAddress, data: &[u8]) {
         let mut current_address = start_address;
         let mut data_idx = 0;
-
+        
         while data_idx < data.len() {
             let page_target = page_index!(current_address);
             let offset = page_offset!(current_address);

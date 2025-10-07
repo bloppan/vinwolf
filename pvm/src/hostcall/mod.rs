@@ -99,7 +99,7 @@ where
     F: for<'m, 'c, 'r, 'g> Fn(HostCallFn, &'g mut Gas, &'r mut Registers, &'m mut RamMemory, &'c mut HostCallContext) -> ExitReason
 {
     log::debug!("Execute hostcall argument function");
-    let mut std_program_decoded = match init_std_program(&program_code, &arg) {
+    let mut std_program_decoded = match init_std_program(&program_code, arg) {
         Ok(program) => {
             if program.is_none() {
                 log::error!("Panic: Program decoded is none");

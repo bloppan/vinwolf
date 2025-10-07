@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::collections::HashMap;
 use std::array::from_fn;
 
+use constants::node::CORES_COUNT;
 use constants::node::{AVAIL_BITFIELD_BYTES, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, RECENT_HISTORY_SIZE, VALIDATORS_COUNT};
 use crate::{
     BandersnatchRingVrfSignature, Ticket, Account, AccumulatedHistory, AccumulationPartialState, ActivityRecord, Assurance, AuthPool, AuthPools, AuthQueues, 
@@ -344,8 +345,9 @@ impl Default for AccumulationPartialState {
             next_validators: ValidatorsData::default(),
             queues_auth: AuthQueues::default(),
             manager: ServiceId::default(),
-            assign: Box::new(from_fn(|_| ServiceId::default())),
-            designate: ServiceId::default(),
+            assigners: Box::new([ServiceId::default(); CORES_COUNT]),
+            registrar: ServiceId::default(),
+            delegator: ServiceId::default(),
             always_acc: HashMap::new(),
         }
     }
@@ -453,8 +455,9 @@ impl Default for Privileges {
     fn default() -> Self {
         Privileges {
             manager: 0,
-            assign: Box::new(from_fn(|_| ServiceId::default())),
-            designate: 0,
+            assigners: Box::new([ServiceId::default(); CORES_COUNT]),
+            registrar: 0,
+            delegator: 0,
             always_acc: HashMap::new(),
         }
     }
@@ -545,6 +548,7 @@ impl Default for Account {
 impl Default for ServiceInfo {
     fn default() -> Self {
         Self {
+            version: 0,
             code_hash: OpaqueHash::default(),
             balance: 0,
             acc_min_gas: 0,
@@ -632,8 +636,6 @@ impl Default for SeviceActivityRecord {
             exports: 0,
             accumulate_count: 0,
             accumulate_gas_used: 0,
-            on_transfers_count: 0,
-            on_transfers_gas_used: 0,
         }
     }
 }
