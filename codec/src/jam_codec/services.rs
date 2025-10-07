@@ -7,6 +7,7 @@ impl Encode for ServiceInfo {
 
         let mut blob = Vec::with_capacity(std::mem::size_of::<Self>());
         
+        0u8.encode_to(&mut blob);
         self.code_hash.encode_to(&mut blob);
         self.balance.encode_size(8).encode_to(&mut blob);
         self.acc_min_gas.encode_size(8).encode_to(&mut blob);
@@ -31,6 +32,7 @@ impl Decode for ServiceInfo {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
 
         Ok(ServiceInfo {
+            version: u8::decode(blob)?,
             code_hash: OpaqueHash::decode(blob)?,
             balance: u64::decode(blob)?,
             acc_min_gas: Gas::decode_size(blob, 8)? as Gas,

@@ -520,10 +520,6 @@ pub struct SeviceActivityRecord {
     pub accumulate_count: u32,      
     // Amount of gas used for accumulation by service.
     pub accumulate_gas_used: u64,   
-    // Number of transfers processed by service.
-    pub on_transfers_count: u32,    
-    // Amount of gas used for processing transfers by service.
-    pub on_transfers_gas_used: u64, 
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct ServicesStatisticsMapEntry {
@@ -772,6 +768,8 @@ pub type ServiceId = u32;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ServiceInfo {
+    // Version byte prefix for accounts
+    pub version: u8,
     // Code hash
     pub code_hash: OpaqueHash,
     // Account balance
@@ -899,9 +897,11 @@ pub struct Privileges {
     // Index of services able to alter the authorizer queue state component. A service privileged in this way for a some core is able not 
     // only to assign its authorizer queue, but also to transfer the rights to another service, allowing for the possibility of a nullified 
     // manager privilege without fixing the authorizer service. This transferability is also introduced to the delegator service.
-    pub assign: ServiceAssigns,
+    pub assigners: ServiceAssigns,
+    // This service alone is able to create new service accounts with indices in the protected range
+    pub registrar: ServiceId,
     // Index of service able to alter the next validators state component
-    pub designate: ServiceId,
+    pub delegator: ServiceId,
     // Indices of services which automaticaly accumulate in each block together with a basic amount of gas with which each accumulates
     pub always_acc: HashMap<ServiceId, Gas>,
 }
@@ -1009,8 +1009,9 @@ pub struct AccumulationPartialState {
     pub next_validators: ValidatorsData,
     pub queues_auth: AuthQueues,
     pub manager: ServiceId,
-    pub assign: Box<[ServiceId; CORES_COUNT]>,
-    pub designate: ServiceId,
+    pub registrar: ServiceId,
+    pub assigners: ServiceAssigns, 
+    pub delegator: ServiceId,
     pub always_acc: HashMap<ServiceId, Gas>,
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -1020,7 +1021,7 @@ pub struct DeferredTransfer {
     // Service index of the receiver
     pub to: ServiceId,
     // Amount to send
-    pub amount: u64,
+    pub amount: Balance,
     // Memo component 
     pub memo: Vec<u8>,
     // Gas limit for the transfer
@@ -1034,6 +1035,11 @@ pub struct AccumulationContext {
     pub deferred_transfers: Vec<DeferredTransfer>,
     pub y: Option<OpaqueHash>,
     pub preimages: Vec<(ServiceId, Vec<u8>)>,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct AccumulationInput {
+    pub operands: Vec<AccumulationOperand>,
+    pub transfers: Vec<DeferredTransfer>,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccumulationOperand {

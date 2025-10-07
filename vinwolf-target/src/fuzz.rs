@@ -28,13 +28,13 @@ pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
         app_name: "vinwolf-target".as_bytes().to_vec(),
         app_version: Version {
             major: 0,
-            minor: 2,
-            patch: 17,
+            minor: 3,
+            patch: 0,
         },
         jam_version: Version {
             major: 0,
             minor: 7,
-            patch: 0,
+            patch: 1,
         },
         fuzz_features: 2,
         fuzz_version: 1,
@@ -362,18 +362,19 @@ pub fn run_fuzzer(socket_path: &str, reports_path: &PathBuf) -> Result<(), Box<d
     let msg = [(peer_info_msg.len() as u32).encode(), peer_info_msg.encode()].concat();
     socket.write_all(&msg)?;
 
-    std::thread::sleep(std::time::Duration::from_millis(500));
+    std::thread::sleep(std::time::Duration::from_millis(50));
     let mut buffer = vec![0u8; 1024000];
     let n = socket.read(&mut buffer)?;
 
-    /*let path = std::path::Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/safrole/");
+    /*let path = std::path::Path::new("/home/bernar/workspace/storage-test/");
     let start = std::time::Instant::now();
     fuzz_dir(&mut socket, &path);
-    println!("Total time: {:?}", start.elapsed());*/
-
+    println!("Total time: {:?}", start.elapsed());
+    return Ok(());*/
     //let reports_path = std::path::Path::new("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/");
     //   let path = std::path::Path::new("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/_new2/");
     let mut dirs: Vec<PathBuf> = vec![];
+    log::info!("path: {:?}", reports_path);
 
     for entry in std::fs::read_dir(reports_path).unwrap() {
 

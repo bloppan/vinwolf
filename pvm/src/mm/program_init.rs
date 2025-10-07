@@ -7,7 +7,7 @@
     left unallocated between sections in order to reduce accidental overrun. Sections are padded with zeroes to the nearest pvm 
     memory page boundary.
 */
-use crate::pvm_types::{RamAddress, RamMemory, Registers, StandardProgram, ProgramFormat, Page};
+use crate::{page_index, page_offset, pvm_types::{Page, ProgramFormat, RamAddress, RamMemory, Registers, StandardProgram}};
 use jam_types::ReadError;
 use constants::pvm::{Zi, Zz, NUM_PAGES, NUM_REG, PAGE_SIZE, PVM_INIT_ZONE_SIZE};
 use codec::{Decode, DecodeSize, BytesReader};
@@ -46,6 +46,7 @@ pub fn init_std_program(program: &[u8], arg: &[u8]) -> Result<Option<StandardPro
     let mut ram = RamMemory::default();
     ram.init(&params, arg);
 
+    utils::log::trace!("page: {}", utils::hex::encode(&ram.pages[1044447 as usize].as_ref().unwrap().data[..]));
     return Ok(Some(StandardProgram {
         ram,
         reg: init_registers(&params, arg),
@@ -66,12 +67,13 @@ pub fn init_registers(_params: &ProgramFormat, arg: &[u8]) -> Registers {
         } else if i == 7 {
             reg[i] = (1 << 32) - Zz - Zi;
         } else if i == 8 {
+            utils::log::trace!("reg 8 value: {:?}", arg.len());
             reg[i] = arg.len() as u64;
         } else {
             reg[i] = 0;
         }
     }
-    //println!("Registers: {:?}", reg);
+    utils::log::debug!("Registers: {:?}", reg);
     return reg;
 }
 
@@ -116,6 +118,7 @@ impl RamMemory {
         end: RamAddress, 
         section: RamSection) 
     {
+
         let start_page = crate::page_index!(start);
         let end_page = (end - 1) / PAGE_SIZE;
 
@@ -128,11 +131,19 @@ impl RamMemory {
         //println!("Initializing RAM section: {:?} | Start: {} | End: {}", section, start, end);
         match section {
             RamSection::Zone1 => {
-                for i in start..end {
-                    let page = i / PAGE_SIZE;
-                    let offset = i % PAGE_SIZE;
-                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
-                    self.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.ro_data[i as usize - Zz as usize];
+
+                let data_start_idx = start.saturating_sub(Zz as u32) as usize;
+                let data_len = end.saturating_sub(start) as usize;
+                let data_end_idx = data_start_idx.saturating_add(data_len);
+                let data_slice = if data_start_idx < params.ro_data.len() {
+                    &params.ro_data[data_start_idx..data_end_idx.min(params.ro_data.len())]
+                } else {
+                    &[]  // Empty if out of range
+                };
+                self.write(start, data_slice);
+
+                for i in start_page..=end_page {
+                    self.pages[i as usize].as_mut().unwrap().flags.read_access = true;
                 }
             },
             RamSection::Zone2 => {
@@ -141,23 +152,29 @@ impl RamMemory {
                 }
             },
             RamSection::Zone3 => {
-                for i in start..end {
-                    let page = i / PAGE_SIZE;
-                    let offset = i % PAGE_SIZE;
-                    self.pages[page as usize].as_mut().unwrap().flags.write_access = true;
-                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
-                    self.pages[page as usize].as_mut().unwrap().data[offset as usize] = params.rw_data[i as usize - (2 * Zz + zone(params.ro_data.len()) as u64) as usize];
-                }
-               //println!("END: {:?}", end);
-                self.curr_heap_pointer = page(end as usize) as RamAddress;
-                //println!("init heap pointer: {:?}", self.curr_heap_pointer);
+
+                let data_start_idx = start.saturating_sub((2 * Zz as u64 + zone(params.ro_data.len())) as u32);
+                let data_len = end.saturating_sub(start);
+                let data_end_idx = data_start_idx.saturating_add(data_len);
+                let data_slice = if data_start_idx < params.rw_data.len() as u32  {
+                    &params.rw_data[data_start_idx as usize..data_end_idx.min(params.rw_data.len() as u32) as usize]
+                } else {
+                    &[]  // Empty if out of range
+                };
+                self.write(start, data_slice);
+
+                for i in start_page..=end_page {
+                    self.pages[i as usize].as_mut().unwrap().flags.write_access = true;
+                    self.pages[i as usize].as_mut().unwrap().flags.read_access = true;
+                } 
+                self.curr_heap_pointer = page(end as usize) as RamAddress + 2 * PAGE_SIZE;
+                utils::log::trace!("init heap pointer: {:?}", self.curr_heap_pointer);
             },
             RamSection::Zone4 => {
                 for page in start_page..=end_page {
                     self.pages[page as usize].as_mut().unwrap().flags.write_access = true;
                     self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
                 }
-                //println!("ram zone 4 page 50: {:x?}", self.pages[50].as_ref().unwrap().data);
             },
             RamSection::Zone5 => {
                 for page in start_page..=end_page {
@@ -166,11 +183,19 @@ impl RamMemory {
                 }
             },
             RamSection::Zone6 => {
-                for i in start..end {
-                    let page = i / PAGE_SIZE;
-                    let offset = i % PAGE_SIZE;
-                    self.pages[page as usize].as_mut().unwrap().flags.read_access = true;
-                    self.pages[page as usize].as_mut().unwrap().data[offset as usize] = arg[i as usize - ((1 << 32) - Zz - Zi) as usize]; 
+
+                let data_start_idx = start.saturating_sub(((1 << 32) - Zz - Zi) as u32);
+                let data_len = end.saturating_sub(start);
+                let data_end_idx = data_start_idx.saturating_add(data_len);
+                let data_slice = if data_start_idx < params.rw_data.len() as u32  {
+                    &arg[data_start_idx as usize..data_end_idx.min(arg.len() as u32) as usize]
+                } else {
+                    &[]  // Empty if out of range
+                };
+                self.write(start, data_slice);
+
+                for i in start_page..=end_page {
+                    self.pages[i as usize].as_mut().unwrap().flags.read_access = true;
                 }
             },
             RamSection::Zone7 => {
@@ -206,12 +231,12 @@ impl Decode for Program {
         }
         
         let program_code_slice = blob.read_bytes(program_code_size as usize)?;
-        let code: Vec<u8> = program_code_slice.to_vec().into_iter().chain(std::iter::repeat(0).take(25)).collect();
+        let code: Vec<u8> = program_code_slice.to_vec().into_iter().chain(std::iter::repeat(0).take(40)).collect();
 
         let num_bitmask_bytes = (program_code_size + 7) / 8;
-        utils::log::trace!("program bytes: {:?} bitmask bytes: {:?}", program_code_size, num_bitmask_bytes);
+        //utils::log::trace!("program bytes: {:?} bitmask bytes: {:?}", program_code_size, num_bitmask_bytes);
         let mut bitmask: Vec<u8> = blob.read_bytes(num_bitmask_bytes)?.to_vec();
-        utils::log::trace!("bitmask: {:?}", bitmask);
+        //utils::log::trace!("bitmask: {:?}", bitmask);
 
         let tail_offset = program_code_size & 7;
 
@@ -223,14 +248,11 @@ impl Decode for Program {
         }
         
         bitmask.extend(vec![0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
-        utils::log::trace!("bitmask: {:?}", bitmask);
+        //utils::log::trace!("bitmask: {:?}", bitmask);
 
         /*let mut bitmask = decode_to_bits(blob, num_bitmask_bytes as usize)?;
         bitmask.truncate(program_code_size);
         bitmask.extend(std::iter::repeat(true).take(code.len() - bitmask.len()));*/
-
-
-
 
         /*println!("\nProgram code len  = {} | Bitmask len = {}", program_code.len(), bitmask.len());
         println!("Jump table = {:?} \n", jump_table);

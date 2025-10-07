@@ -125,6 +125,8 @@ pub const MAX_WORK_REPORT_TOTAL_SIZE: u64 = 48 * (1 << 10);
 pub const MAX_WORK_PACKAGE_EXPORTS: usize = 3_072;
 // The size of a transfer memo in octets
 pub const TRANSFER_MEMO_SIZE: usize = 128;
+// The minimum public service index. Services of indices below these may only be created by the Registrar.
+pub const MIN_PUBLIC_SERVICE_INDEX: u32 = 1 << 16;
 // JAM global state constants
 pub const AUTH_POOLS: u8 = 1;
 pub const AUTH_QUEUE: u8 = 2;
