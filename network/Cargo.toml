@@ -1,0 +1,21 @@
+[package]
+name = "network"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+constants = { workspace = true }
+codec = { workspace = true }
+utils = { workspace = true }
+quinn = { version = "0.11", features = ["rustls"] }
+rustls = { version = "0.23.31", features = ["ring"] }
+rustls-pemfile = "2.2"
+tokio = { version = "1.40", features = ["full"] }
+
+[features]
+default = ["tiny"]
+tiny = ["constants/tiny"]
+full = ["constants/full"]
