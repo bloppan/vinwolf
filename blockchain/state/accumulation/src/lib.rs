@@ -145,7 +145,8 @@ fn outer_accumulation(
          star_gas_used) = parallelized_accumulation(partial_state, transfers, &reports[..i as usize], &always_acc)?;
 
     log::debug!("Gas used after parallelized acc: {:?}", star_gas_used);
-
+    log::debug!("Xfers after parallelized acc: {:?}", star_deferred_transfers);
+    
     let total_gas_used: Gas = star_gas_used.iter().map(|(_, gas)| *gas).sum();
     let star_gas: Gas = *gas_limit + transfers.iter().map(|transfer| transfer.gas_limit).sum::<Gas>();
 

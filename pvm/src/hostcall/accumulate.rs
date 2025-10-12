@@ -51,22 +51,30 @@ pub fn invoke_accumulation(
         log::info!("Service: {:?}", id.0);
     }
 
+    let total_xfers_amount = input_acc.transfers.iter().map(|transfer| transfer.amount).sum::<Balance>();
+    let mut s_partial_state = partial_state.clone();
+
+    if total_xfers_amount > 0 {
+        log::info!("Add {:?} to service {:?} current balance: {:?}", total_xfers_amount, service_id, s_partial_state.service_accounts.get_mut(service_id).unwrap().balance);
+    }
+    s_partial_state.service_accounts.get_mut(service_id).unwrap().balance += total_xfers_amount;
+
     let preimage = match parse_preimage(&partial_state.service_accounts, service_id) {
         Ok(preimage) => {
             if preimage.is_none() {
-                return (partial_state.clone(), vec![], None, 0, vec![]);
+                return (s_partial_state, vec![], None, 0, vec![]);
             }
             preimage.unwrap()
         },
         Err(e) => { 
             log::error!("Failed to decode preimage: {:?}", e);
-            return (partial_state.clone(), vec![], None, 0, vec![]); 
+            return (s_partial_state, vec![], None, 0, vec![]); 
         },
     };
 
     if preimage.code.len() > MAX_SERVICE_CODE_SIZE {
         log::error!("The preimage code len is greater than the max service code size allowed");
-        return (partial_state.clone(), vec![], None, 0, vec![]);
+        return (s_partial_state, vec![], None, 0, vec![]);
     }
 
     let input_acc_len = input_acc.operands.len() + input_acc.transfers.len();
@@ -75,9 +83,7 @@ pub fn invoke_accumulation(
     
     log::debug!("Hostcall args: {}", hex::encode(&args));
    
-    let total_xfers_amount = input_acc.transfers.iter().map(|transfer| transfer.amount).sum::<Balance>();
-    let mut s_partial_state = partial_state.clone();
-    s_partial_state.service_accounts.get_mut(service_id).unwrap().balance += total_xfers_amount;
+
 
     let ctx_x = I(s_partial_state, service_id);
     let ctx_y = ctx_x.clone();
@@ -639,12 +645,6 @@ fn bless(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Ac
     if let Err(_) = ram.is_readable(start_address, 12 * n_pairs) {
         log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: {:?}", start_address, 12 * n_pairs);
         return ExitReason::Panic;    
-    }
-
-    if ctx_x.service_id != ctx_x.partial_state.manager {
-        reg[7] = HUH;
-        log::debug!("Exit: HUH");
-        return ExitReason::Continue;
     }
 
     if manager > ServiceId::MAX as RegSize 

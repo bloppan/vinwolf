@@ -66,6 +66,16 @@ mod tests {
     }   
 
     #[test]
+    fn run_fuzzy_traces_tests() {
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+    
+        let dir_base = Path::new(TRACES_DIR).join("fuzzy");
+        run_traces(&dir_base);
+    }
+
+    #[test]
     fn run_preimages_light_traces_tests() {
         log::Builder::from_env(log::Env::default().default_filter_or("debug"))
         .with_dotenv(true)
