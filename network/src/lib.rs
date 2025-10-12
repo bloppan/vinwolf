@@ -1,6 +1,6 @@
-mod client;
-mod server;
-
+pub mod client;
+pub mod server;
+pub mod net_utils;
 
 
 #[cfg(test)]
