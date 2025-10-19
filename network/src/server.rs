@@ -27,8 +27,8 @@ pub async fn run_server() -> Result<()> {
     let genesis_hash = "2bf11dc5";
     let alpn_protocol = format!("jamnp-s/0/{}", genesis_hash).into_bytes();
 
-    let cert_pem = std::fs::read("/home/bernar/workspace/vinwolf/network/src/node0/cert.pem")?;
-    let key_pem = std::fs::read("/home/bernar/workspace/vinwolf/network/src/node0/key.pem")?;
+    let cert_pem = std::fs::read("/home/bernar/workspace/vinwolf/network/src/certs/node0/cert.pem")?;
+    let key_pem = std::fs::read("/home/bernar/workspace/vinwolf/network/src/certs/node0/key.pem")?;
 
     let certs: Vec<CertificateDer> = parse_pem_certs(&cert_pem)?;
     if certs.is_empty() {
@@ -60,8 +60,9 @@ pub async fn run_server() -> Result<()> {
             match conn.await {
                 Ok(connection) => {
                     println!("New connection established from {}", connection.remote_address());
-
+                    let value = connection.clone();
                     while let Ok((mut send_stream, mut recv_stream)) = connection.accept_bi().await {
+                        let value = value.clone();
                         tokio::spawn(async move {
                             let mut kind_buf = [0u8; 1];
                             if recv_stream.read_exact(&mut kind_buf).await.is_ok() {
@@ -84,7 +85,7 @@ pub async fn run_server() -> Result<()> {
                                             let mut buffer = vec![0u8; len];
                                             match recv_stream.read_exact(&mut buffer).await {
                                                 Ok(()) => {
-                                                    println!("Received message ({} bytes): {:?}", len, buffer);
+                                                    println!("Received message from {:?} ({} bytes): {:?}", value.remote_address(), len, buffer);
                                                 }
                                                 Err(e) => {
                                                     println!("Error reading message content: {}", e);

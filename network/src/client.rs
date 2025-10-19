@@ -13,6 +13,9 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
+use codec::{Encode, Decode, BytesReader};
+use jam_types::{*};
+use crate::jamnp_types::{Handshake, Announcement};
 use crate::net_utils::{parse_pem_private_key, parse_pem_certs};
 
 
@@ -22,15 +25,15 @@ pub async fn run_client() -> Result<()> {
         .install_default()
         .map_err(|e| format!("Failed to install ring provider: {:?}", e))?;
 
-    let node_alt_name = "elfaiiixcuzmzroa34lajwp52cdsucikaxdviaoeuvnygdi3imtba";
-    let node_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 40005);
+    let node_alt_name = "ekwmt37xecoq6a7otkm4ux5gfmm4uwbat4bg5m223shckhaaxdpqa";
+    let node_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 40003);
 
     let genesis_hash = "2bf11dc5";
     let alpn_protocol = format!("jamnp-s/0/{}", genesis_hash).into_bytes();
 
     
-    let cert_pem = std::fs::read("/home/bernar/workspace/vinwolf/network/src/node0/cert.pem")?;
-    let key_pem = std::fs::read("/home/bernar/workspace/vinwolf/network/src/node0/key.pem")?;
+    let cert_pem = std::fs::read("/home/bernar/workspace/vinwolf/network/src/certs/node0/cert.pem")?;
+    let key_pem = std::fs::read("/home/bernar/workspace/vinwolf/network/src/certs/node0/key.pem")?;
 
     let certs: Vec<CertificateDer> = parse_pem_certs(&cert_pem)?;
     if certs.is_empty() {
@@ -75,6 +78,16 @@ pub async fn run_client() -> Result<()> {
     send_stream.write_all(&handshake).await?;
     println!("Sent handshake response");
 
+    let mut len_buf = [0u8; 4];
+    recv_stream.read_exact(&mut len_buf).await?;
+    let len = u32::from_le_bytes(len_buf) as usize;
+    let mut buffer = vec![0u8; len];
+    recv_stream.read_exact(&mut buffer).await?;
+
+    let mut reader = BytesReader::new(&buffer);
+    let handshake = Handshake::decode(&mut reader).unwrap();
+    println!("handshake: {:?}", handshake);
+
     loop {
         let mut len_buf = [0u8; 4];
         match recv_stream.read_exact(&mut len_buf).await {
@@ -87,7 +100,11 @@ pub async fn run_client() -> Result<()> {
                 let mut buffer = vec![0u8; len];
                 match recv_stream.read_exact(&mut buffer).await {
                     Ok(()) => {
-                        println!("Received message ({} bytes): {:?}", len, buffer);
+                        let mut reader = BytesReader::new(&buffer);
+                        let announcement = Announcement::decode(&mut reader).unwrap();
+                        println!("Received message ({} bytes): {:?}", len, announcement);
+                        let curr_header_hash = sp_core::blake2_256(&announcement.header.encode());
+                        println!("Curr header hash: {}", utils::hex::encode(&curr_header_hash));
                     }
                     Err(e) => {
                         println!("Error reading message content: {}", e);
