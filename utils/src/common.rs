@@ -224,7 +224,8 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
         for keyval in keyvals.iter() {
             
             let key = keyval.key;
-            //log::info!("key: {}", hex::encode(&key));
+            log::info!("key: {}", hex::encode(&key));
+            println!("key: {}", hex::encode(&key));
             if is_simple_key(keyval) {
                 
                 let state_key = key[0] & 0xFF;
@@ -291,7 +292,8 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
                 let service_id_vec = vec![keyval.key[1], keyval.key[3], keyval.key[5], keyval.key[7]];
                 let service_id = decode::<ServiceId>(&service_id_vec, std::mem::size_of::<ServiceId>());
 
-                //log::info!("Service: {:?} info key: {}", service_id, hex::encode(&keyval.key));
+                log::info!("Service: {:?} info key: {}", service_id, hex::encode(&keyval.key));
+                println!("Service: {:?} info key: {}", service_id, hex::encode(&keyval.key));
 
                 let mut account_reader = BytesReader::new(&keyval.value);
                 let service_info = ServiceInfo::decode(&mut account_reader).expect("Error decoding service info");
@@ -316,7 +318,8 @@ pub fn parse_state_keyvals(keyvals: &[KeyValue], state: &mut GlobalState) -> Res
                 let service_id_vec = vec![keyval.key[0], keyval.key[2], keyval.key[4], keyval.key[6]];
                 let service_id = decode::<ServiceId>(&service_id_vec, std::mem::size_of::<ServiceId>());
                 
-                //log::info!("Service: {:?} Account key: {}", service_id, hex::encode(&keyval.key));
+                log::info!("Service: {:?} Account key: {}", service_id, hex::encode(&keyval.key));
+                println!("Service: {:?} Account key: {}", service_id, hex::encode(&keyval.key));
                 if state.service_accounts.get(&service_id).is_none() {
                     state.service_accounts.insert(service_id, Account::default());
                 }
