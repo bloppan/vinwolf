@@ -13,7 +13,15 @@ impl RamMemory {
         }
         
         let from_page = page_index!(from_address);
-        let to_page = page_index!((from_address + num_bytes).saturating_sub(1));
+        let end = from_address
+            .checked_add(num_bytes.saturating_sub(1))
+            .ok_or(ExitReason::PageFault(RamAddress::MAX))?;
+
+        let to_page = page_index!(end);
+
+        if to_page < from_page {
+            return Err(ExitReason::PageFault(from_address));
+        }
 
         self.access_page(from_page, to_page, RamAccess::Read)
     }
@@ -45,7 +53,15 @@ impl RamMemory {
         }
         
         let from_page = page_index!(from_address);
-        let to_page = page_index!((from_address + num_bytes).saturating_sub(1));
+        let end = from_address
+            .checked_add(num_bytes.saturating_sub(1))
+            .ok_or(ExitReason::PageFault(RamAddress::MAX))?;
+
+        let to_page = page_index!(end);
+
+        if to_page < from_page {
+            return Err(ExitReason::PageFault(from_address));
+        }
         
         self.access_page(from_page, to_page, RamAccess::Write)
     }

@@ -110,8 +110,9 @@ fn dispatch_xfer(n: HostCallFn, gas: &mut Gas, reg: &mut Registers, ram: &mut Ra
         HostCallFn::Info => info(gas, reg, ram, service_id, &service_accounts, account),
         HostCallFn::Log => crate::hostcall::general_fn::log(&reg, &ram, &service_id),
         HostCallFn::Fetch => {
-            let transfers: Vec<DeferredTransfer> = get_transfers().lock().unwrap().clone();
-            crate::hostcall::general_fn::fetch(gas, reg, ram, None, Some(state_handler::entropy::get_recent().entropy), None, None, None, None, Some(transfers), ctx)
+            //let transfers: Vec<DeferredTransfer> = get_transfers().lock().unwrap().clone();
+            //crate::hostcall::general_fn::fetch(gas, reg, ram, None, Some(state_handler::entropy::get_recent().entropy), None, None, None, None, Some(transfers), ctx)
+            return ExitReason::Continue;
         }
         _ => {
             log::error!("Unknown on transfer hostcall function: {:?}", n);

@@ -4,7 +4,7 @@ use sp_core::blake2_256;
 use std::sync::{LazyLock, Mutex};
 
 use jam_types::{
-    Account, AccumulationContext, AccumulationOperand, AccumulationPartialState, CoreIndex, DeferredTransfer, Gas, OpaqueHash, ServiceAssigns, 
+    Account, AccumulationContext, AccumulationOperand, AccumulationPartialState, AccInput, CoreIndex, DeferredTransfer, Gas, OpaqueHash, ServiceAssigns, 
     ServiceId, StateKeyType, TimeSlot, ValidatorsData, WorkExecResult, AccumulationInput, Balance
 };
 use crate::pvm_types::{RamAddress, RamMemory, RegSize, Registers, ExitReason, HostCallFn};
@@ -21,21 +21,21 @@ use codec::generic_codec::{encode_unsigned, decode};
 use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 use crate::hostcall::general_fn::{fetch, write, info, read, lookup, log};
 
-static OPERANDS: LazyLock<Mutex<HashMap<ServiceId, Vec<AccumulationOperand>>>> = LazyLock::new(|| {
+static ACC_INPUT: LazyLock<Mutex<HashMap<ServiceId, Vec<AccumulationInput>>>> = LazyLock::new(|| {
     Mutex::new(HashMap::new())
 });
 
-fn clear_operands(service_id: &ServiceId) {
-    let mut lock = OPERANDS.lock().unwrap();
+fn clear_acc_input(service_id: &ServiceId) {
+    let mut lock = ACC_INPUT.lock().unwrap();
     lock.remove(service_id);
 }
 
-fn set_operands(service_id: &ServiceId, operands: Vec<AccumulationOperand>) {
-    let mut lock = OPERANDS.lock().unwrap(); lock.insert(*service_id, operands);
+fn set_acc_input(service_id: &ServiceId, input: Vec<AccumulationInput>) {
+    let mut lock = ACC_INPUT.lock().unwrap(); lock.insert(*service_id, input);
 }
 
-fn get_operands(service_id: &ServiceId) -> Vec<AccumulationOperand> {
-    OPERANDS.lock().unwrap().get(service_id).unwrap().clone()
+fn get_acc_input(service_id: &ServiceId) -> Vec<AccumulationInput> {
+    ACC_INPUT.lock().unwrap().get(service_id).unwrap().clone()
 }
 
 pub fn invoke_accumulation(
@@ -43,7 +43,7 @@ pub fn invoke_accumulation(
     slot: &TimeSlot,
     service_id: &ServiceId,
     gas: Gas,
-    input_acc: AccumulationInput
+    input_acc: Vec<AccumulationInput>
 ) -> (AccumulationPartialState, Vec<DeferredTransfer>, Option<OpaqueHash>, Gas, Vec<(ServiceId, Vec<u8>)>) {
     
     log::debug!("Invoke accumulation for service {:?} gas {:?} slot {:?}", *service_id, gas, *slot);
@@ -51,13 +51,28 @@ pub fn invoke_accumulation(
         log::info!("Service: {:?}", id.0);
     }
 
-    let total_xfers_amount = input_acc.transfers.iter().map(|transfer| transfer.amount).sum::<Balance>();
+    let mut total_xfers_amount = 0;
+
+    for input in &input_acc {
+        
+        match &input.acc_input {
+            AccInput::Operand(_) => {},
+            AccInput::Xfer(xfer) => { total_xfers_amount += xfer.amount; },
+        }
+    }
+
     let mut s_partial_state = partial_state.clone();
 
     if total_xfers_amount > 0 {
-        log::info!("Add {:?} to service {:?} current balance: {:?}", total_xfers_amount, service_id, s_partial_state.service_accounts.get_mut(service_id).unwrap().balance);
+        
+        if let Some(account) = s_partial_state.service_accounts.get_mut(service_id) {
+            log::info!("Add {:?} to service {:?} current balance: {:?}", total_xfers_amount, service_id, account.balance);
+            account.balance += total_xfers_amount;
+        } else {
+            log::error!("Account not found for service: {:?}", service_id);
+            return (s_partial_state, vec![], None, 0, vec![]);
+        }
     }
-    s_partial_state.service_accounts.get_mut(service_id).unwrap().balance += total_xfers_amount;
 
     let preimage = match parse_preimage(&partial_state.service_accounts, service_id) {
         Ok(preimage) => {
@@ -77,19 +92,16 @@ pub fn invoke_accumulation(
         return (s_partial_state, vec![], None, 0, vec![]);
     }
 
-    let input_acc_len = input_acc.operands.len() + input_acc.transfers.len();
-    log::debug!("num operands: {:?}, num transfers: {:?}", input_acc.operands.len(), input_acc.transfers.len());
-    let args = [encode_unsigned(*slot as usize), encode_unsigned(*service_id as usize), encode_unsigned(input_acc_len)].concat();
+    log::debug!("num input acc: {:?}", input_acc.len());
+    let args = [encode_unsigned(*slot as usize), encode_unsigned(*service_id as usize), encode_unsigned(input_acc.len())].concat();
     
     log::debug!("Hostcall args: {}", hex::encode(&args));
-   
-
 
     let ctx_x = I(s_partial_state, service_id);
     let ctx_y = ctx_x.clone();
     let mut ctx = HostCallContext::Accumulate(ctx_x, ctx_y);
 
-    set_operands(service_id, input_acc.operands);
+    set_acc_input(service_id, input_acc);
     let hostcall_arg_result: (Gas, WorkExecResult) = hostcall_argument(
                                 &preimage.code, 
                                 5, 
@@ -98,7 +110,7 @@ pub fn invoke_accumulation(
                                 dispatch_acc, 
                                 &mut ctx);
     
-    clear_operands(service_id);
+    clear_acc_input(service_id);
     let (gas, exec_result) = hostcall_arg_result;
 
     collapse(gas, exec_result, &mut ctx)
@@ -125,8 +137,8 @@ pub fn dispatch_acc(n: HostCallFn, gas: &mut Gas, reg: &mut Registers, ram: &mut
         HostCallFn::Yield       => yield_(gas, reg, ram, ctx_x),
         HostCallFn::Provide     => provide(gas, reg, ram, ctx_x),
         HostCallFn::Fetch => {
-            let operands: Vec<AccumulationOperand> = get_operands(&ctx_x.service_id);
-            fetch(gas, reg, ram, None, Some(state_handler::entropy::get_recent().entropy), None, None, None, Some(operands), None, ctx)
+            let acc_input: Vec<AccumulationInput> = get_acc_input(&ctx_x.service_id);
+            fetch(gas, reg, ram, None, Some(state_handler::entropy::get_recent().entropy), None, None, None, Some(acc_input), ctx)
         }
         HostCallFn::Write => {
             let mut account = get_accumulating_service_account(&mut ctx_x.partial_state, &ctx_x.service_id);

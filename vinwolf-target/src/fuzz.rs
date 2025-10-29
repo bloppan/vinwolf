@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::fs::DirEntry;
 use std::path::PathBuf;
+use std::io;
 
 use block::header;
 use jam_types::{Block, GlobalState, KeyValue, OpaqueHash};
@@ -29,7 +30,7 @@ pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
         app_version: Version {
             major: 0,
             minor: 3,
-            patch: 1,
+            patch: 2,
         },
         jam_version: Version {
             major: 0,
@@ -121,6 +122,10 @@ pub fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error::Erro
     Ok(())
 }
 
+static SESSIONS: LazyLock<Mutex<u64>> = LazyLock::new(|| Mutex::new(0));
+static BLOCKS: LazyLock<Mutex<u64>> = LazyLock::new(|| Mutex::new(0));
+static TOTAL_BLOCKS: LazyLock<Mutex<u64>> = LazyLock::new(|| Mutex::new(0));
+  
 fn listen_socket(listener: &UnixListener) -> Result<(), Box<dyn std::error::Error>> {
 
     loop {
@@ -128,7 +133,7 @@ fn listen_socket(listener: &UnixListener) -> Result<(), Box<dyn std::error::Erro
         match listener.accept() {
 
             Ok((mut socket, _)) => {
-               handle_connection(&mut socket);
+                handle_connection(&mut socket);
             }
             Err(error) => {
                 println!("Error accepting connection");
@@ -252,6 +257,14 @@ fn handle_connection(socket: &mut UnixStream) {
                 if send_to_peer(&fuzz_msg(Message::StateRoot, &state_root), socket).is_err() {
                     break;
                 }
+
+                *BLOCKS.lock().unwrap() = 0;
+                {
+                    let sessions = *SESSIONS.lock().unwrap();
+                    *SESSIONS.lock().unwrap() = sessions.wrapping_add(1);
+                }
+
+                println!("");
             },
             Message::ImportBlock => {
 
@@ -299,7 +312,23 @@ fn handle_connection(socket: &mut UnixStream) {
                             break;
                         }
                     },
-                }                        
+                }
+                
+                {
+                    let blocks = *BLOCKS.lock().unwrap();
+                    *BLOCKS.lock().unwrap() = blocks.wrapping_add(1);
+                }
+                {
+                    let total_blocks = *TOTAL_BLOCKS.lock().unwrap();
+                    *TOTAL_BLOCKS.lock().unwrap() = total_blocks.wrapping_add(1);
+                }
+
+                let sessions = *SESSIONS.lock().unwrap();
+                let blocks = *BLOCKS.lock().unwrap();
+                let total = *TOTAL_BLOCKS.lock().unwrap();
+
+                print!("\r[Session: {:05?}] [Blocks: {:08?}] [Total blocks: {:012?}]", sessions, blocks, total);
+                io::stdout().flush().unwrap();                
             },
             Message::GetState => {
 
@@ -366,11 +395,14 @@ pub fn run_fuzzer(socket_path: &str, reports_path: &PathBuf) -> Result<(), Box<d
     let mut buffer = vec![0u8; 1024000];
     let n = socket.read(&mut buffer)?;
 
-    /*let path = std::path::Path::new("/home/bernar/workspace/storage-test/");
+    //let path = std::path::Path::new("/home/bernar/workspace/storage-test/");
+    /*let path = std::path::Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/storage/");
     let start = std::time::Instant::now();
     fuzz_dir(&mut socket, &path);
     println!("Total time: {:?}", start.elapsed());
     return Ok(());*/
+
+
     //let reports_path = std::path::Path::new("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/");
     //   let path = std::path::Path::new("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/_new2/");
     let mut dirs: Vec<PathBuf> = vec![];

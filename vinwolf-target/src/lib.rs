@@ -228,9 +228,10 @@ fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
     assert_eq!(expected_state.statistics.cores, result_state.statistics.cores);
     for expected_id_record in expected_state.statistics.services.records.iter() {
         if let Some(result_record) = result_state.statistics.services.records.get(&expected_id_record.0) {
+            log::debug!("Checking stats for service: {:?}", expected_id_record.0);
             assert_eq!(expected_id_record.1, result_record);
         } else {
-            panic!("Service {:?} not found in statistics", expected_id_record.0);
+            panic!("Service {:?} not found in statistics: {:?}", expected_id_record.0, expected_id_record.1);
         }
     }
 }

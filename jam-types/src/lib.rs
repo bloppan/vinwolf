@@ -1036,11 +1036,18 @@ pub struct AccumulationContext {
     pub y: Option<OpaqueHash>,
     pub preimages: Vec<(ServiceId, Vec<u8>)>,
 }
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccumulationInput {
-    pub operands: Vec<AccumulationOperand>,
-    pub transfers: Vec<DeferredTransfer>,
+    pub acc_input: AccInput,
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum AccInput {
+    Operand(AccumulationOperand),
+    Xfer(DeferredTransfer),
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccumulationOperand {
     pub code_hash: OpaqueHash,
