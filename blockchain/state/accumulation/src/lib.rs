@@ -557,7 +557,7 @@ fn save_statistics(
 ) {
     // We compose our accumulation statistics, which is a mapping from the service indices which were accumulated to the amount of 
     // gas used throughout accumulation and the number of work-items accumulated.
-    let mut acc_stats: HashMap<ServiceId, (Gas, u32)> = statistics::get_acc_stats();
+    let mut acc_stats: HashMap<ServiceId, (Gas, u32)> = HashMap::new();
     let mut xfer_stats = get_only_xfer_stats();
 
     for (service_id, gas) in service_gas_pairs.iter() {

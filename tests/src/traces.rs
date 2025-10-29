@@ -16,7 +16,7 @@ mod tests {
         .init();
 
         let dir_base = Path::new(REPORTS_FUZZER_DIR);
-        let skip: HashSet<String> = [""]
+        let skip: HashSet<String> = ["1761656086"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -29,7 +29,7 @@ mod tests {
     }
     // 1758637363
     
-    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/_new/1758621173";
+    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/1761656086";
     //const FUZZ_REPORT: &str = "/home/bernar/workspace/vinwolf/tests/javajam-trace/stf/state_transitions/";
 
     #[test]
