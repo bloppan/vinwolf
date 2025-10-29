@@ -1,6 +1,6 @@
 use jam_types::{
-    Account, AccumulationOperand, DataSegments, DeferredTransfer, Gas, OpaqueHash, 
-    ServiceAccounts, ServiceId, StateKeyType, WorkPackage, WorkExecResult, WorkItem};
+    Account, AccumulationOperand, DataSegments, DeferredTransfer, Gas, OpaqueHash, ServiceAccounts, ServiceId, StateKeyType, WorkPackage, 
+    WorkExecResult, WorkItem, AccumulationInput};
 use crate::pvm_types::{ExitReason, RamAddress, RamMemory, RegSize, Registers};
 use constants::pvm::*;
 use utils::{hex, log};
@@ -39,8 +39,7 @@ pub fn fetch(gas: &mut Gas,
              _result: Option<WorkExecResult>,
              _segments: Option<Vec<DataSegments>>,
              _work_items: Option<Vec<WorkItem>>,
-             operands: Option<Vec<AccumulationOperand>>,
-             transfers: Option<Vec<DeferredTransfer>>,
+             acc_input: Option<Vec<AccumulationInput>>,
              _ctx: &mut HostCallContext) 
 
 -> ExitReason 
@@ -107,10 +106,10 @@ pub fn fetch(gas: &mut Gas,
         ].concat())
     } else if n.is_some() && reg[10] == 1 {
         Some(n.unwrap().encode())
-    } else if operands.is_some() && reg[10] == 14 {
-        Some(operands.unwrap().encode_len())
-    } else if operands.is_some() && reg[10] == 15 && (reg[11] as usize) < operands.as_ref().unwrap().len() {
-        Some(operands.as_ref().unwrap()[reg[11] as usize].encode())
+    } else if acc_input.is_some() && reg[10] == 14 {
+        Some(acc_input.unwrap().encode_len())
+    } else if acc_input.is_some() && reg[10] == 15 && (reg[11] as usize) < acc_input.as_ref().unwrap().len() {
+        Some(acc_input.as_ref().unwrap()[reg[11] as usize].encode())
     } else {
         None
     };

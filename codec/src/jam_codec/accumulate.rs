@@ -1,7 +1,7 @@
 use constants::node::{EPOCH_LENGTH, TRANSFER_MEMO_SIZE};
 use jam_types::{
     AccumulateRoot, AccumulatedHistory, OutputAccumulation, ReadyQueue, ReadyRecord, WorkPackageHash, WorkReport, AccumulationOperand, 
-    DeferredTransfer, ServiceId, Balance, Gas, AccumulationInput
+    DeferredTransfer, ServiceId, Balance, Gas, AccumulationInput, AccInput
 };
 use crate::{BytesReader, Decode, DecodeLen, Encode, EncodeSize, DecodeSize, EncodeLen, ReadError};
 use crate::generic_codec::{encode_unsigned, decode_unsigned};
@@ -12,7 +12,6 @@ impl Encode for DeferredTransfer {
         
         let mut blob = Vec::new();
         
-        1u8.encode_to(&mut blob);
         self.from.encode_to(&mut blob);
         self.to.encode_to(&mut blob);
         self.amount.encode_to(&mut blob);
@@ -30,9 +29,6 @@ impl Encode for DeferredTransfer {
 impl Decode for DeferredTransfer {
 
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
-        
-        let _is_xfer = blob.read_byte()?;
-
         Ok(DeferredTransfer {
             from: ServiceId::decode(blob)?,
             to: ServiceId::decode(blob)?,
@@ -43,13 +39,37 @@ impl Decode for DeferredTransfer {
     }
 }
 
+impl Encode for AccumulationInput {
+
+    fn encode(&self) -> Vec<u8> {
+        
+        let mut blob = vec![];
+
+        match &self.acc_input {
+            AccInput::Operand(operand) => {
+                blob.push(0); // Operand
+                operand.encode_to(&mut blob);
+            }
+            AccInput::Xfer(xfer) => {
+                blob.push(1); // Transfer
+                xfer.encode_to(&mut blob);
+            }
+        }
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
 impl Encode for AccumulationOperand {
     
     fn encode(&self) -> Vec<u8> {
         
         let mut blob = Vec::new();
 
-        0u8.encode_to(&mut blob);
         self.code_hash.encode_to(&mut blob);
         self.exports_root.encode_to(&mut blob);
         self.authorizer_hash.encode_to(&mut blob);
