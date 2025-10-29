@@ -92,7 +92,7 @@ fn example_4() {
     println!("results: {:?}", results);
 }
 
-fn main() {
+fn example_5() {
 
     let data = vec![1, 2, 3, 4, 5];
     let mut vector: Vec<(u32, u32)> = Vec::new();
@@ -107,7 +107,6 @@ fn main() {
             let ref_results = Arc::clone(&results);
             s.spawn(move || {
                 let cuadrado = num * num;
-
                 let mut ref_results = ref_results.lock().unwrap();
                 ref_results.push(cuadrado);
             });
@@ -117,6 +116,21 @@ fn main() {
     println!("vector: {:?}", vector);
     let results = results.lock().unwrap();
     println!("results: {:?}", results);
+}
+
+fn main() {
+
+    let pairs: Vec<(u32, i64)> = vec![(1, 2), (3, 4), (5, 6), (5, 2)];
+    let mut stats: Vec<(u32, i64)> = vec![(9, 2), (3, 4), (1,62)];
+
+    for pair in pairs.iter() {
+
+        if let Some(pos) = stats.iter().position(|x| *x == *pair) {
+            stats.remove(pos);
+        }
+    }
+
+    println!("stats: {:?}", stats);
 }
 
 

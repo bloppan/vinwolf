@@ -12,19 +12,37 @@
 */
 
 use std::collections::{HashSet, HashMap};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 use std::thread;
 
 use constants::node::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT, CORES_COUNT};
 use jam_types::{
-    Account, AccumulateErrorCode, AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, Gas, 
+    AccumulateErrorCode, AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, Gas, 
     OpaqueHash, Privileges, ProcessError, ReadyQueue, ReadyRecord, RecentAccOutputs, ServiceAccounts, ServiceId, StateKeyType, TimeSlot, 
-    ValidatorsData, WorkPackageHash, WorkReport, AccumulationInput
+    ValidatorsData, WorkPackageHash, WorkReport, AccumulationInput, AccInput
 };
 use codec::{Encode, EncodeLen};
 use utils::{serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key}, hex, log};
 use pvm::hostcall::accumulate::invoke_accumulation;
-use pvm::hostcall::on_transfer::invoke_on_transfer;
+
+// Services that were accumulated uniquely from a transfer received and not from a work report.
+static ONLY_XFER_STATS: LazyLock<Mutex<Vec<(ServiceId, Gas)>>> = LazyLock::new(|| { Mutex::new(Vec::new()) });
+
+fn clear_only_xfer_stats() {
+    set_only_xfer_stats(Vec::new());
+}
+
+fn add_only_xfer_stats(only_xfer_stats: (ServiceId, Gas)) {
+    ONLY_XFER_STATS.lock().unwrap().push(only_xfer_stats);
+}
+
+fn set_only_xfer_stats(only_xfer_stats: Vec<(ServiceId, Gas)>) {
+    *ONLY_XFER_STATS.lock().unwrap() = only_xfer_stats;
+}
+
+fn get_only_xfer_stats() -> Vec<(ServiceId, Gas)> {
+    ONLY_XFER_STATS.lock().unwrap().clone() 
+}
 
 // Accumulation of a work-package/work-report is deferred in the case that it has a not-yet-fulfilled dependency and is 
 // cancelled entirely in the case of an invalid dependency. Dependencies are specified  as work-package hashes and in order 
@@ -76,12 +94,14 @@ pub fn process(
                                                                     partial_state.clone(),
                                                                     &partial_state.always_acc,
     )?;
+    
+    log::debug!("service_gas_pairs: {:?}", service_gas_pairs);
+    log::debug!("service_hash_pairs: {:?}", service_hash_pairs);
+    
+    save_statistics(&mut post_partial_state, &service_gas_pairs, &current_block_accumulatable, num_wi_accumulated);
 
     let acc_root = get_acc_root(&mut service_hash_pairs);
     log::debug!("Accumulation root: 0x{}", utils::print_hash!(acc_root));
-    
-    //state_handler::acc_outputs::set(service_hash_pairs.clone());
-    log::debug!("service-hash pairs: {:?}", service_hash_pairs);
 
     accumulate_history::update(accumulated_history, map_workreports(&current_block_accumulatable));
     // The newly available work-reports, are partitioned into two sequences based on the condition of having zero prerequisite work-reports.
@@ -89,7 +109,6 @@ pub fn process(
     let reports_for_queue = get_reports_for_queue(new_available_reports, &accumulated_history);
     ready_queue::update(ready_queue, accumulated_history, post_tau, reports_for_queue);
 
-    save_statistics(&mut post_partial_state, &service_gas_pairs, &current_block_accumulatable, num_wi_accumulated);
     let post_privileges = Privileges {
         manager: post_partial_state.manager,
         assigners: post_partial_state.assigners,
@@ -145,7 +164,8 @@ fn outer_accumulation(
          star_gas_used) = parallelized_accumulation(partial_state, transfers, &reports[..i as usize], &always_acc)?;
 
     log::debug!("Gas used after parallelized acc: {:?}", star_gas_used);
-
+    log::debug!("transfers: {:?} star_deferred_transfers: {:?} after parallelized acc: ", transfers, star_deferred_transfers);
+    
     let total_gas_used: Gas = star_gas_used.iter().map(|(_, gas)| *gas).sum();
     let star_gas: Gas = *gas_limit + transfers.iter().map(|transfer| transfer.gas_limit).sum::<Gas>();
 
@@ -183,7 +203,6 @@ struct AccResult {
     gas_used: GasUsed,
     recent_acc_outputs: RecentAccOutputs,
     deferred_xfer: Vec<DeferredTransfer>,
-    services_accounts: ServiceAccounts,
     removed_services: RemovedServices,
     new_services: ServiceAccounts,
     preimages: Preimages,
@@ -196,7 +215,6 @@ impl Default for AccResult {
             gas_used: GasUsed::default(), 
             recent_acc_outputs: RecentAccOutputs::default(), 
             deferred_xfer: Vec::new(), 
-            services_accounts: ServiceAccounts::default(), 
             removed_services: RemovedServices::default(), 
             new_services: ServiceAccounts::default(),
             preimages: Preimages::default(), 
@@ -449,24 +467,40 @@ fn single_service_accumulation(
         total_gas += *gas;
     } 
 
-    let acc_input = AccumulationInput {
-        operands: input_operands,
-        transfers: input_transfers,
-    };
+    let mut acc_input: Vec<AccumulationInput> = vec![];
 
-    invoke_accumulation(
+    for xfer in input_transfers {
+        acc_input.push(AccumulationInput { acc_input: AccInput::Xfer(xfer) });
+    }
+
+    let mut num_operands = 0;
+    for operand in input_operands {
+        num_operands += 1;
+        acc_input.push(AccumulationInput { acc_input: AccInput::Operand(operand) })
+    }
+
+    let acc_output = invoke_accumulation(
         partial_state,
         &state_handler::time::get_current(),
         service_id,
         total_gas,
         acc_input,
-    )
+    );
+
+    let gas_used = acc_output.3;
+
+    if num_operands == 0 && gas_used > 0 {
+        // Save the gas used for a service that was accumulated uniquely from a transfer received and not from a work report.
+        add_only_xfer_stats((*service_id, gas_used));
+    }
+
+    return acc_output;
 }
 
 fn get_acc_root(service_hash: &mut RecentAccOutputs) -> OpaqueHash {
 
-    // Sort by service ID 
-    service_hash.pairs.sort_by_key(|(service_id, _)| *service_id);
+    // Sort the service pairs hashes
+    service_hash.pairs.sort();
     
     let mut pairs_blob: Vec<Vec<u8>> = Vec::new();
 
@@ -521,10 +555,11 @@ fn save_statistics(
     current_block_accumulatable: &Vec<WorkReport>,
     num_wi_accumulated: u32
 ) {
-
     // We compose our accumulation statistics, which is a mapping from the service indices which were accumulated to the amount of 
     // gas used throughout accumulation and the number of work-items accumulated.
-    let mut acc_stats: HashMap<ServiceId, (Gas, u32)> = HashMap::new();
+    let mut acc_stats: HashMap<ServiceId, (Gas, u32)> = statistics::get_acc_stats();
+    let mut xfer_stats = get_only_xfer_stats();
+
     for (service_id, gas) in service_gas_pairs.iter() {
         let mut acc_curr_block_reports: Vec<WorkReport> = vec![];
         for report in current_block_accumulatable[..num_wi_accumulated as usize].iter() {
@@ -539,26 +574,34 @@ fn save_statistics(
                 acc_stats.insert(*service_id, (0, acc_curr_block_reports.len() as u32));
             }
             let (gas_stored, num_repors_stored) = acc_stats.get(service_id).unwrap();
+            log::debug!("Insert service: {:?} with gas used: {:?} and total gas: {:?} to acc stats", service_id, *gas, *gas + gas_stored);
             acc_stats.insert(*service_id, (*gas + gas_stored, *num_repors_stored));
+
+            if let Some(pos) = xfer_stats.iter().position(|service_gas| *service_gas == (*service_id, *gas)) {
+                xfer_stats.remove(pos);
+            }
         }
     }
 
     // The second intermiediate state of service accounts may then be defined with the last-accumulation record being updated for all
     // accumulated services
-    
     for account in post_partial_state.service_accounts.iter_mut() {
         if acc_stats.contains_key(&account.0) {
             account.1.last_acc = state_handler::time::get_current();
         }
     }
 
-    /*for account in acc_stats.iter() {
-        if let Some(post_account) = post_partial_state.service_accounts.get_mut(account.0) {
-            post_account.last_acc = state_handler::time::get_current();
-            post_partial_state.service_accounts.insert(*account.0, post_account.clone());        
+    // Save only xfer stats
+    for (service_id, gas) in xfer_stats.iter() {
+        if !acc_stats.contains_key(service_id) {
+            acc_stats.insert(*service_id, (0, 0));
         }
-    }*/
+        let (gas_stored, num_repors_stored) = acc_stats.get(service_id).unwrap();
+        log::debug!("Insert only xfer stat for service: {:?} with gas used: {:?} and total gas: {:?} to acc stats", service_id, *gas, *gas + gas_stored);
+        acc_stats.insert(*service_id, (*gas + gas_stored, *num_repors_stored));
+    }
 
+    clear_only_xfer_stats();
     statistics::set_acc_stats(acc_stats);
 }
 
@@ -570,7 +613,7 @@ fn get_gas_limit(always_acc: &HashMap<ServiceId, Gas>) -> Gas {
         gas_privilege_services += gas.1;
     }
 
-    return std::cmp::max(TOTAL_GAS_ALLOCATED, (WORK_REPORT_GAS_LIMIT * CORES_COUNT as Gas) + gas_privilege_services);
+    return std::cmp::max(TOTAL_GAS_ALLOCATED as Gas, (WORK_REPORT_GAS_LIMIT * CORES_COUNT as Gas) + gas_privilege_services);
 }
 
 // The newly available work-reports, are partitioned into two sequences based on the condition of having zero prerequisite work-reports.

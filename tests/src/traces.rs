@@ -6,7 +6,7 @@ mod tests {
     use utils::log;
     use vinwolf_target::{process_all_bins, process_all_dirs, process_trace};
     
-    const REPORTS_FUZZER_DIR: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces";
+    const REPORTS_FUZZER_DIR: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces";
 
     #[test]
     fn run_reports_fuzzer_tests() {
@@ -16,7 +16,7 @@ mod tests {
         .init();
 
         let dir_base = Path::new(REPORTS_FUZZER_DIR);
-        let skip: HashSet<String> = ["RETIRED"]
+        let skip: HashSet<String> = [""]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -43,8 +43,8 @@ mod tests {
         let _ = process_all_bins(dir_base);
     }   
 
-    //const TRACES_DIR: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/";
-    const TRACES_DIR: &str = "/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/";
+    const TRACES_DIR: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/";
+    //const TRACES_DIR: &str = "/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/";
 
     #[test]
     fn run_all_traces_tests() {
@@ -54,7 +54,7 @@ mod tests {
         .init();
         
         let dir_base = Path::new(TRACES_DIR);
-        let skip: HashSet<String> = ["1758708840"]
+        let skip: HashSet<String> = [""]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -64,6 +64,26 @@ mod tests {
             log::info!("Test {:?} processed successfully", dir);
         }
     }   
+
+    #[test]
+    fn run_fuzzy_light_traces_tests() {
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+    
+        let dir_base = Path::new(TRACES_DIR).join("fuzzy_light");
+        run_traces(&dir_base);
+    }
+
+    #[test]
+    fn run_fuzzy_traces_tests() {
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+    
+        let dir_base = Path::new(TRACES_DIR).join("fuzzy");
+        run_traces(&dir_base);
+    }
 
     #[test]
     fn run_preimages_light_traces_tests() {
