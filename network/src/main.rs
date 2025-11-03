@@ -14,6 +14,10 @@ type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 #[tokio::main]
 async fn main() -> Result<()> {
     
+    utils::log::Builder::from_env(utils::log::Env::default().default_filter_or("debug"))
+        .with_dotenv(true)
+        .init();
+
     //let client_handler = tokio::spawn(run_client());
     let server_handler = tokio::spawn(run_server());
 

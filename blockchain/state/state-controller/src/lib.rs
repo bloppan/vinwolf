@@ -175,12 +175,16 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
     );
     //println!("Statistics: {:?}", start.elapsed());
     let start = Instant::now();
-    state_handler::set_state_root(merkle_state(&utils::serialization::serialize(&new_state).map));
+    let state_root = merkle_state(&utils::serialization::serialize(&new_state).map);
+    log::debug!("New state root: {}", utils::hex::encode(&state_root));
+    state_handler::set_state_root(state_root);
+    
     //println!("merkle state: {:?}", start.elapsed());
     let start = Instant::now();
     if storage::ancestors::is_ancestors_feature_enabled() {
         storage::ancestors::update(&block.header.unsigned.slot, &header_hash); 
     }
+    log::debug!("New parent header: {}", utils::hex::encode(&header_hash));
     header::set_parent_header(header_hash);
     state_handler::set_global_state(new_state);
     //println!("Set new state: {:?}", start.elapsed());

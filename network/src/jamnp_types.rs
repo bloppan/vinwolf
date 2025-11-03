@@ -1,32 +1,47 @@
 use jam_types::{*};
 
-#[derive(Debug)]
-pub struct LastBlock {
+#[derive(Debug, Clone, PartialEq)]
+pub struct LastFinalizedBlock {
     pub header_hash: OpaqueHash,
     pub slot: TimeSlot,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Leaf {
     pub header_hash: OpaqueHash,
     pub slot: TimeSlot,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Handshake {
-    pub last_block: LastBlock,
+    pub last_finalized_block: LastFinalizedBlock,
     pub leafs: Vec<Leaf>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Announcement {
     pub header: Header,
-    pub last_block: LastBlock,
+    pub last_finalized_block: LastFinalizedBlock,
 }
 
-impl Default for LastBlock {
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImportedBlocks {
+    pub last_finalized_block: LastFinalizedBlock,
+    pub leafs: Vec<Leaf>,
+}
+
+impl Default for ImportedBlocks {
     fn default() -> Self {
-        LastBlock { 
+        ImportedBlocks { 
+            last_finalized_block: LastFinalizedBlock::default(), 
+            leafs: Vec::new(), 
+        }
+    }
+}
+
+impl Default for LastFinalizedBlock {
+    fn default() -> Self {
+        LastFinalizedBlock { 
             header_hash: OpaqueHash::default(), 
             slot: TimeSlot::default() 
         }
@@ -45,7 +60,7 @@ impl Default for Leaf {
 impl Default for Handshake {
     fn default() -> Self {
         Handshake { 
-            last_block: LastBlock::default(), 
+            last_finalized_block: LastFinalizedBlock::default(), 
             leafs: Vec::new() 
         }
     }
@@ -55,7 +70,7 @@ impl Default for Announcement {
     fn default() -> Self {
         Announcement { 
             header: Header::default(), 
-            last_block: LastBlock::default() 
+            last_finalized_block: LastFinalizedBlock::default() 
         }
     }
 }

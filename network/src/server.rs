@@ -6,18 +6,18 @@ use rustls::server::danger::{ClientCertVerifier, ClientCertVerified};
 use rustls::{Error as RustlsError, SignatureScheme, DistinguishedName};
 use rustls::crypto::ring::default_provider;
 use rustls::crypto::CryptoProvider;
-use utils::common;
-use core::num;
+
 use std::io::{Cursor, Read};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use std::error::Error;
 use std::u32;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+use utils::{common, hex, log};
 use jam_types::{*};
 use codec::{BytesReader, Decode, Encode};
-use crate::jamnp_types::Announcement;
+use crate::jamnp_types::{Announcement, Handshake, ImportedBlocks};
 use crate::net_utils::{parse_pem_private_key, parse_pem_certs};
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
@@ -41,7 +41,6 @@ struct ConnectionInfo {
 }
 
 struct BlockRequestInfo {
-    author: ValidatorIndex,
     header_hash: OpaqueHash,
     direction: u8,
     num_blocks: u32,
@@ -119,19 +118,18 @@ pub async fn run_server() -> Result<()> {
 
     let endpoint = Endpoint::server(server_config, bind_addr)?;
 
-    println!("Listening on {}", bind_addr);
+    log::debug!("Listening on {}", bind_addr);
 
     while let Some(conn) = endpoint.accept().await {
-        
-        println!("Incoming connection attempt from {}", conn.remote_address());
+        log::debug!("Incoming connection attempt from {}", conn.remote_address());
         tokio::spawn(async move {
             match conn.await {
                 Ok(connection) => {
-                    println!("New connection established from {}", connection.remote_address());
+                    log::debug!("New connection established from {}", connection.remote_address());
                     handle_connection(connection).await;
                 }
                 Err(e) => {
-                    println!("Connection error: {}", e);
+                    log::error!("Connection error: {}", e);
                 }
             }
         });
@@ -145,7 +143,7 @@ pub async fn run_server() -> Result<()> {
 
 async fn handle_connection(connection: Connection) {
 
-    println!("New connection established from {}", connection.remote_address());
+    log::debug!("New connection established from {}", connection.remote_address());
     let conn_clone = connection.clone();
     // Wait for a new stream
     while let Ok((send_stream, mut recv_stream)) = connection.accept_bi().await {
@@ -153,7 +151,7 @@ async fn handle_connection(connection: Connection) {
         tokio::spawn(async move {
             let mut stream_kind_buf = [0u8; 1];
             if recv_stream.read_exact(&mut stream_kind_buf).await.is_ok() {
-                println!("Received stream kind {:?}", stream_kind_buf);
+                log::debug!("Received stream kind {:?}", stream_kind_buf);
                 let conn_info = ConnectionInfo {
                     connection: conn_clone,
                     send_stream,
@@ -180,11 +178,11 @@ async fn handle_stream(connection_info: ConnectionInfo) {
 
         },
         TICKET_GENERATION => {
-            println!("TICKET GENERATION");
+            //println!("TICKET GENERATION");
             recv_ticket_distribution(connection_info).await;
         },
         TICKET_PROXY => {
-            println!("TICKET PROXY");
+            //println!("TICKET PROXY");
             recv_ticket_distribution(connection_info).await;
         }, 
         _ => {
@@ -206,7 +204,7 @@ async fn recv_ticket_distribution(connection_info: ConnectionInfo) {
 
     recv_stream.read_exact(&mut buffer).await.unwrap();
 
-    println!("ticket distribution msg recv: {}", utils::hex::encode(&buffer));
+    log::debug!("ticket distribution msg recv: {}", utils::hex::encode(&buffer));
 }
 
 async fn state_request(header_hash: OpaqueHash, connection: Connection) -> GlobalState {
@@ -223,25 +221,27 @@ async fn state_request(header_hash: OpaqueHash, connection: Connection) -> Globa
     send_stream.write_all(&message).await.ok();
     send_stream.finish().unwrap();
 
-
-    println!("State request sent for header: {}", utils::hex::encode(&header_hash));
+    log::debug!("State request sent to address: {:?} for header: {}", connection.remote_address(), utils::hex::encode(&header_hash));
     let mut state_response_len = [0u8; 4];
     
     recv_stream.read_exact(&mut state_response_len).await.unwrap();
-    println!("response len: {:?}", state_response_len);
+    log::debug!("response len: {:?}", state_response_len);
     let mut buffer = vec![0u8; u32::from_le_bytes(state_response_len) as usize];
 
     recv_stream.read_exact(&mut buffer).await.unwrap();
-    println!("Boundaries received: {:?} bytes", buffer.len());
+    //log::debug!("Boundaries received: {:x?} bytes", buffer);
+    log::debug!("Total {:?} nodes", buffer.len() / 64);
     //println!("payload: {:x?}", buffer);
 
     let mut state_response_len = [0u8; 4];
     recv_stream.read_exact(&mut state_response_len).await.unwrap();
-    println!("response len: {:?}", state_response_len);
+    log::debug!("response len: {:?}", state_response_len);
     let mut buffer = vec![0u8; u32::from_le_bytes(state_response_len) as usize];
     recv_stream.read_exact(&mut buffer).await.unwrap();
-    println!("Bytes state received: {:?}", buffer.len());
-    //println!("State received: {:x?} bytes", buffer);
+    log::debug!("Bytes state received: {:?}", buffer.len());
+
+    //log::debug!("State received: {:x?} bytes", buffer);
+    
     drop(recv_stream);
 
     let mut reader = BytesReader::new(&buffer);
@@ -258,45 +258,144 @@ async fn state_request(header_hash: OpaqueHash, connection: Connection) -> Globa
 
     common::parse_state_keyvals(&keyvals, &mut global_state).unwrap();
 
-    println!("Total keyvalues decoded: {c}");
+    log::debug!("Total keyvalues decoded: {c}");
 
     /*let mut reader = BytesReader::new(&buffer);
     let state_root = OpaqueHash::decode(&mut reader).unwrap();*/
 
-
-
     /*let mut reader = BytesReader::new(&buffer);
     let block = Block::decode(&mut reader).unwrap();*/
 
-    return GlobalState::default();
+    return global_state;
 } 
 
-async fn block_request(request_info: BlockRequestInfo, connection: Connection) -> Block {
+async fn block_request(request_info: BlockRequestInfo, connection: Connection) -> Vec<Block> {
 
     let payload = [request_info.header_hash.encode(), vec![request_info.direction], request_info.num_blocks.to_le_bytes().to_vec()].concat();
     let message = NetworkMessage::new(BLOCK_REQUEST, payload);
     
     let (mut send_stream, mut recv_stream) = connection.open_bi().await.unwrap();
 
-    send_stream.write_all(&message).await.ok();
-
-    /*send_stream.write_all(&[BLOCK_REQUEST]).await.ok();
-    let payload_len = payload.len() as u32;
-    send_stream.write_all(&(payload_len.encode())).await.ok();
-    send_stream.write_all(&payload).await.ok();*/
-    
+    send_stream.write_all(&message).await.ok();    
     send_stream.finish().unwrap();
 
-    println!("Block request sent");
+    log::debug!("Block request sent from block {} num_blocks: {:?}", utils::hex::encode(&request_info.header_hash), request_info.num_blocks);
+
     let mut block_response_len = [0u8; 4];
     recv_stream.read_exact(&mut block_response_len).await.unwrap();
     let mut buffer = vec![0u8; u32::from_le_bytes(block_response_len) as usize];
     recv_stream.read_exact(&mut buffer).await.unwrap();
-    println!("Block received: {:?} bytes", buffer.len());
+
+    log::debug!("Block received: {:?} bytes", buffer.len());
+    
+    let mut blocks = vec![];
     let mut reader = BytesReader::new(&buffer);
-    let block = Block::decode(&mut reader).unwrap();
-    println!("Block: {:?}", block);
-    return block;
+    
+    for _ in 0..request_info.num_blocks {
+        let block = Block::decode(&mut reader).unwrap();
+        log::debug!("Slot: {:?} Block: {:x?}", block.header.unsigned.slot, block);
+        blocks.push(block);
+    }    
+
+    return blocks;
+}
+
+
+
+async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connection) {
+
+    if is_synced(&imported_blocks_recv) {
+        log::debug!("The sync from address: {:?} is already done", connection.remote_address());
+        return;
+    }
+
+    log::debug!("Syncing blocks from address: {:?}", connection.remote_address());
+
+    let imported_blocks_stored = 
+    {
+        IMPORTED_BLOCKS.lock().unwrap().clone()
+    };
+
+    /*let last_global_finalized_state = state_request(imported_blocks_stored.leafs[0].header_hash, connection.clone()).await;
+    block::header::set_parent_header(imported_blocks_stored.leafs[0].header_hash);
+    log::debug!("LEAF Synced parent header: {}", utils::hex::encode(&imported_blocks_stored.leafs[0].header_hash));
+    // Calc state root
+    let state_root = utils::trie::merkle_state(&utils::serialization::serialize(&last_global_finalized_state).map);
+    state_handler::set_state_root(state_root);
+    log::debug!("LEAF Synced state root: {}", hex::encode(&state_root));
+    // Initialize the verifiers 
+    safrole::verifier::init_all(&last_global_finalized_state);
+    // Set global state
+    state_handler::set_global_state(last_global_finalized_state);
+    let time = state_handler::time::get();
+    log::debug!("LEAF Time set: {time}");*/
+
+    let last_global_finalized_state = state_request(imported_blocks_stored.last_finalized_block.header_hash, connection.clone()).await;
+    block::header::set_parent_header(imported_blocks_stored.last_finalized_block.header_hash);
+    log::debug!("Synced parent header: {}", utils::hex::encode(&imported_blocks_stored.last_finalized_block.header_hash));
+    // Calc state root
+    let state_root = utils::trie::merkle_state(&utils::serialization::serialize(&last_global_finalized_state).map);
+    state_handler::set_state_root(state_root);
+    log::debug!("Synced state root: {}", hex::encode(&state_root));
+    // Initialize the verifiers 
+    safrole::verifier::init_all(&last_global_finalized_state);
+    // Set global state
+    state_handler::set_global_state(last_global_finalized_state);
+    let time = state_handler::time::get();
+    log::debug!("Time set: {time}");
+
+    let request_info = BlockRequestInfo {
+                            header_hash: imported_blocks_stored.leafs[0].header_hash,
+                            direction: 1,
+                            num_blocks: imported_blocks_stored.leafs[0].slot - imported_blocks_stored.last_finalized_block.slot
+                        };
+
+    log::debug!("Request blocks from slot {:?} in order to sync", imported_blocks_recv.leafs[0].slot);
+    let mut blocks = block_request(request_info, connection.clone()).await;
+    blocks.sort_by_key(|block| block.header.unsigned.slot);
+
+    for block in blocks.iter() {
+        log::debug!("SYNC process block {}", utils::hex::encode(&sp_core::blake2_256(&block.header.encode())));
+        match state_controller::stf(block) {
+            Ok(_) => { log::debug!("processed successfully"); },
+            Err(e) => { log::error!("error processing block: {:?}", e); },
+        }
+    }
+}
+
+static IMPORTED_BLOCKS: LazyLock<Mutex<ImportedBlocks>> = LazyLock::new(|| { Mutex::new(ImportedBlocks::default()) });
+
+fn is_synced(imported_blocks: &ImportedBlocks) -> bool {
+
+    let mut imported_blocks_stored = IMPORTED_BLOCKS.lock().unwrap();
+
+    if imported_blocks_stored.clone() == *imported_blocks {
+        return true;
+    }
+
+    *imported_blocks_stored = imported_blocks.clone();
+
+    return false;
+}
+
+static LAST_ANNOUNCEMENT: LazyLock<Mutex<Announcement>> = LazyLock::new(|| { Mutex::new(Announcement::default()) });
+
+fn is_new(announcement: &Announcement) -> bool {
+
+    let mut last_announcement_stored = LAST_ANNOUNCEMENT.lock().unwrap();
+    
+    if last_announcement_stored.header.unsigned.slot > announcement.header.unsigned.slot {
+        return false;
+    } 
+    
+    if last_announcement_stored.header.unsigned.slot == announcement.header.unsigned.slot 
+    && sp_core::blake2_256(&last_announcement_stored.encode()) == sp_core::blake2_256(&announcement.encode()) {
+        return false;
+    }
+    
+    *last_announcement_stored = announcement.clone();
+
+    return true;
 }
 
 async fn block_announcement(connection_info: ConnectionInfo) {
@@ -309,47 +408,70 @@ async fn block_announcement(connection_info: ConnectionInfo) {
     /*send_stream.write_all(&len_bytes).await.ok();
     send_stream.write_all(&handshake).await.ok();*/
     send_stream.write_all(&([len_bytes.to_vec(), handshake].concat())).await.ok();
-    println!("Sent handshake response");
-
+    log::debug!("Sent handshake response");
+ 
     let mut len_handshake = [0u8; 4];
     recv_stream.read_exact(&mut len_handshake).await.unwrap();
     let mut buffer = vec![0u8; u32::from_le_bytes(len_handshake) as usize];
     recv_stream.read_exact(&mut buffer).await.unwrap();
-    println!("Handshake received: {:?} bytes", buffer.len());
+    log::debug!("Handshake received: {:?} bytes", buffer.len());
 
+    let mut reader = BytesReader::new(&buffer);
+    let handshake = Handshake::decode(&mut reader).unwrap();
+    log::debug!("Last finalized block: {} slot: {:?}", utils::hex::encode(&handshake.last_finalized_block.header_hash), handshake.last_finalized_block.slot);
+    log::debug!("Leafs: {} Slots: {:?}"
+    , handshake.leafs.iter().map(|leaf| utils::hex::encode(&leaf.header_hash)).collect::<Vec<_>>().join(", "),  handshake.leafs.iter().map(|leaf| leaf.slot).collect::<Vec<TimeSlot>>());
+
+    let imported_blocks = ImportedBlocks {
+        last_finalized_block: handshake.last_finalized_block,
+        leafs: handshake.leafs
+    };
+
+    sync_blocks(imported_blocks, connection_info.connection.clone()).await;
+    
     loop {
         let mut len_buf = [0u8; 4];
         match recv_stream.read_exact(&mut len_buf).await {
             Ok(()) => {
-                let len = u32::from_le_bytes(len_buf) as usize;
-                if len > 1024 * 1024 {
-                    println!("Received unreasonably large message length: {}", len);
-                    break;
-                }
-                let mut buffer = vec![0u8; len];
+
+                let mut buffer = vec![0u8; u32::from_le_bytes(len_buf) as usize];
+
                 match recv_stream.read_exact(&mut buffer).await {
                     Ok(()) => {
                         let mut reader = BytesReader::new(&buffer);
                         let announcement = Announcement::decode(&mut reader).unwrap();
+
+                        if !is_new(&announcement) {
+                            continue;
+                        }
+
                         let header_hash = sp_core::blake2_256(&announcement.header.encode());
-                        println!("Import block {}", utils::print_hash!(header_hash));
+                        log::debug!("Import block {} parent {}", utils::hex::encode(&header_hash), utils::hex::encode(&announcement.header.unsigned.parent));
                         let request_info = BlockRequestInfo {
-                            author: announcement.header.unsigned.author_index,
-                            header_hash: header_hash,
+                            header_hash,
                             direction: 1,
                             num_blocks: 1
                         };
-                        //tokio::spawn(state_request(announcement.last_block.header_hash, connection_info.connection.clone()));
+
+                        let block = block_request(request_info, connection_info.connection.clone()).await;
+                        log::debug!("process block in loop {}", utils::hex::encode(&sp_core::blake2_256(&block[0].header.encode())));
+                        
+                        match state_controller::stf(&block[0]) {
+                            Ok(_) => { log::debug!("block successfully processed"); }
+                            Err(e) => { log::error!("error processing block: {:?}", e); }
+                        }
+                        
+                        //tokio::spawn(state_request(announcement.last_finalized_block.header_hash, connection_info.connection.clone()));
                         //tokio::spawn(block_request(request_info, connection_info.connection.clone()));
                     }
                     Err(e) => {
-                        println!("Error reading message content: {}", e);
+                        log::error!("Error reading message content: {}", e);
                         break;
                     }
                 }
             }
             Err(e) => {
-                println!("Error reading message length: {}", e);
+                log::error!("Error reading message length: {}", e);
                 break;
             }
         }

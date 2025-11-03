@@ -111,7 +111,7 @@ pub fn process(
     // tau defines de most recent block
     // post_tau defines the block being processed
     let post_tau = block.header.unsigned.slot;
-    log::debug!("Process Safrole state for slot {post_tau}");
+    log::debug!("Process Safrole state for slot {post_tau}. Previous slot: {:?}", *tau);
     // Timeslot must be strictly monotonic
     if post_tau <= *tau {
         log::error!("Bad block slot: {:?}. The previous slot is: {:?}. Timeslot must be strictly monotonic", post_tau, tau);
@@ -144,7 +144,7 @@ pub fn process(
     }
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
-        log::debug!("We are in a new epoch: {:?}", post_epoch);
+        log::debug!("We are in a new epoch: {:?} > {:?}", post_epoch, epoch);
         let mut fallback_mode = false;
         // gamma_s is the current epoch's slot-sealer series, which is either a full complement of EPOCH_LENGTH tickets
         // or, in case of fallback, a series of EPOCH_LENGTH bandersnatch keys

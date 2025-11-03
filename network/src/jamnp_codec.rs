@@ -1,9 +1,9 @@
 
 use codec::{*};
 use jam_types::{*};
-use crate::jamnp_types::{LastBlock, Leaf, Handshake, Announcement};
+use crate::jamnp_types::{LastFinalizedBlock, Leaf, Handshake, Announcement};
 
-impl Encode for LastBlock {
+impl Encode for LastFinalizedBlock {
 
     fn encode(&self) -> Vec<u8> {
         
@@ -20,10 +20,10 @@ impl Encode for LastBlock {
     }
 }
 
-impl Decode for LastBlock {
+impl Decode for LastFinalizedBlock {
 
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
-        Ok(LastBlock{
+        Ok(LastFinalizedBlock{
             header_hash: OpaqueHash::decode(reader)?,
             slot: TimeSlot::decode(reader)?,
         })
@@ -63,7 +63,7 @@ impl Encode for Handshake {
         
         let mut blob = Vec::with_capacity(std::mem::size_of::<Handshake>());
 
-        self.last_block.encode_to(&mut blob);
+        self.last_finalized_block.encode_to(&mut blob);
         self.leafs.encode_len().encode_to(&mut blob);
 
         return blob;
@@ -78,7 +78,7 @@ impl Decode for Handshake {
 
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
         Ok(Handshake{
-            last_block: LastBlock::decode(reader)?,
+            last_finalized_block: LastFinalizedBlock::decode(reader)?,
             leafs: Vec::<Leaf>::decode_len(reader)?,
         })
     }
@@ -91,7 +91,7 @@ impl Encode for Announcement {
         let mut blob = Vec::with_capacity(std::mem::size_of::<Announcement>());
 
         self.header.encode_to(&mut blob);
-        self.last_block.encode_to(&mut blob);
+        self.last_finalized_block.encode_to(&mut blob);
 
         return blob;
     }
@@ -106,7 +106,7 @@ impl Decode for Announcement {
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
         Ok(Announcement{
             header: Header::decode(reader)?,
-            last_block: LastBlock::decode(reader)?,
+            last_finalized_block: LastFinalizedBlock::decode(reader)?,
         })
     }
 }
