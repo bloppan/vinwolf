@@ -9,6 +9,7 @@ use rustls::crypto::CryptoProvider;
 
 use std::io::{Cursor, Read};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::process::id;
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 use std::error::Error;
 use std::u32;
@@ -17,6 +18,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use utils::{common, hex, log};
 use jam_types::{*};
 use codec::{BytesReader, Decode, Encode};
+use crate::dev_accounts;
 use crate::jamnp_types::{Announcement, Handshake, ImportedBlocks};
 use crate::net_utils::{parse_pem_private_key, parse_pem_certs};
 
@@ -125,7 +127,10 @@ pub async fn run_server() -> Result<()> {
         tokio::spawn(async move {
             match conn.await {
                 Ok(connection) => {
-                    log::debug!("New connection established from {}", connection.remote_address());
+                    let id_account = connection.remote_address().port() & 0xF;
+                    let dev_accounts = dev_accounts::parse_dev_accounts();
+                    log::debug!("New connection established from {} bandersnatch public: {}", connection.remote_address(), hex::encode(&dev_accounts[id_account as usize].bandersnatch_public));
+                    dev_accounts::add_dev_account(dev_accounts[id_account as usize].bandersnatch_public, connection.clone());
                     handle_connection(connection).await;
                 }
                 Err(e) => {
@@ -205,6 +210,9 @@ async fn recv_ticket_distribution(connection_info: ConnectionInfo) {
     recv_stream.read_exact(&mut buffer).await.unwrap();
 
     log::debug!("ticket distribution msg recv: {}", utils::hex::encode(&buffer));
+
+    let state = state_handler::get_global_state().lock().unwrap();
+    log::debug!("Current validators: {:x?}", state.curr_validators.list);
 }
 
 async fn state_request(header_hash: OpaqueHash, connection: Connection) -> GlobalState {

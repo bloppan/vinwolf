@@ -101,6 +101,18 @@ pub fn bad_order<T: PartialOrd>(items: &[T]) -> bool {
     return false; // Order correct
 }
 
+pub fn hex_to_32(bytes: &str) -> [u8; 32] {
+    let s = bytes.strip_prefix("0x").unwrap_or(bytes);
+    assert_eq!(s.len(), 64);
+    let mut out = [0u8; 32];
+    for i in 0..32 {
+        let hi = u8::from_str_radix(&s[i * 2..i * 2 + 1], 16).unwrap();
+        let lo = u8::from_str_radix(&s[i * 2 + 1..i * 2 + 2], 16).unwrap();
+        out[i] = (hi << 4) | lo;
+    }
+    out
+}
+
 pub trait VerifySignature {
     fn verify_signature(&self, message: &[u8], public_key: &Ed25519Public) -> bool;
 }

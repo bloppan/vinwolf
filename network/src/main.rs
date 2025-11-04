@@ -1,4 +1,5 @@
 pub mod client;
+pub mod dev_accounts;
 pub mod server;
 pub mod net_utils;
 pub mod jamnp_codec;
@@ -18,6 +19,7 @@ async fn main() -> Result<()> {
         .with_dotenv(true)
         .init();
 
+    
     //let client_handler = tokio::spawn(run_client());
     let server_handler = tokio::spawn(run_server());
 
