@@ -395,12 +395,12 @@ pub fn run_fuzzer(socket_path: &str, reports_path: &PathBuf) -> Result<(), Box<d
     let mut buffer = vec![0u8; 1024000];
     let n = socket.read(&mut buffer)?;
 
-    //let path = std::path::Path::new("/home/bernar/workspace/storage-test/");
-    /*let path = std::path::Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/storage/");
+    let path = std::path::Path::new("/home/bernar/workspace/storage-test/");
+    //let path = std::path::Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/storage/");
     let start = std::time::Instant::now();
     fuzz_dir(&mut socket, &path);
     println!("Total time: {:?}", start.elapsed());
-    return Ok(());*/
+    return Ok(());
 
 
     //let reports_path = std::path::Path::new("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/");

@@ -43,8 +43,8 @@ mod tests {
         let _ = process_all_bins(dir_base);
     }   
 
-    const TRACES_DIR: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/";
-    //const TRACES_DIR: &str = "/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/";
+    //const TRACES_DIR: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/";
+    const TRACES_DIR: &str = "/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/";
 
     #[test]
     fn run_all_traces_tests() {
@@ -151,7 +151,8 @@ mod tests {
         .init();
 
         let start = std::time::Instant::now();
-        process_trace(Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/safrole/00000089.bin"));
+        process_trace(Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/fuzzy/00000063.bin"));
+        //process_trace(Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/fuzzy_light/00000004.bin"));
         let duration = start.elapsed();
         log::info!("* TOTAL time taken: {:?}", duration);
     }
