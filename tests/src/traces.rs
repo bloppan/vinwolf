@@ -29,7 +29,7 @@ mod tests {
     }
     // 1758637363
     
-    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/1761656086";
+    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/1761654584";
     //const FUZZ_REPORT: &str = "/home/bernar/workspace/vinwolf/tests/javajam-trace/stf/state_transitions/";
 
     #[test]
@@ -151,7 +151,7 @@ mod tests {
         .init();
 
         let start = std::time::Instant::now();
-        process_trace(Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/fuzzy/00000063.bin"));
+        process_trace(Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/fuzzy/00000014.bin"));
         //process_trace(Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/fuzzy_light/00000004.bin"));
         let duration = start.elapsed();
         log::info!("* TOTAL time taken: {:?}", duration);

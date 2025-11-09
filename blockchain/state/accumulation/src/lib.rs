@@ -11,9 +11,8 @@
     will see, leads to the need for a second entry-point, on-transfer.
 */
 
-use core::num;
 use std::collections::{HashSet, HashMap};
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use constants::node::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT, CORES_COUNT};
@@ -25,25 +24,6 @@ use jam_types::{
 use codec::{Encode, EncodeLen};
 use utils::{serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key}, hex, log};
 use pvm::hostcall::accumulate::invoke_accumulation;
-
-// Services that were accumulated uniquely from a transfer received and not from a work report.
-static ONLY_XFER_STATS: LazyLock<Mutex<Vec<(ServiceId, Gas)>>> = LazyLock::new(|| { Mutex::new(Vec::new()) });
-
-fn clear_only_xfer_stats() {
-    set_only_xfer_stats(Vec::new());
-}
-
-fn add_only_xfer_stats(only_xfer_stats: (ServiceId, Gas)) {
-    ONLY_XFER_STATS.lock().unwrap().push(only_xfer_stats);
-}
-
-fn set_only_xfer_stats(only_xfer_stats: Vec<(ServiceId, Gas)>) {
-    *ONLY_XFER_STATS.lock().unwrap() = only_xfer_stats;
-}
-
-fn get_only_xfer_stats() -> Vec<(ServiceId, Gas)> {
-    ONLY_XFER_STATS.lock().unwrap().clone() 
-}
 
 // Accumulation of a work-package/work-report is deferred in the case that it has a not-yet-fulfilled dependency and is 
 // cancelled entirely in the case of an invalid dependency. Dependencies are specified  as work-package hashes and in order 
@@ -65,6 +45,7 @@ pub fn process(
 ) -> Result<(OpaqueHash, RecentAccOutputs, ServiceAccounts, ValidatorsData, AuthQueues, Privileges), ProcessError> {
   
     log::debug!("Process accumulation");
+    
     // We define the final state of the ready queue and the accumulated map by integrating those work-reports which were accumulated in this 
     // block and shifting any from the prior state with the oldest such items being dropped entirely:
     let current_block_accumulatable = get_current_block_accumulatable(new_available_reports, ready_queue, accumulated_history, post_tau);
@@ -310,7 +291,7 @@ fn parallelized_accumulation(
                 ref_results.lock().unwrap().acc_output_map.push((*service, acc_output));
             });
 
-            thread::sleep(std::time::Duration::from_millis(100));
+            //thread::sleep(std::time::Duration::from_millis(100));
         }
     });
 
@@ -480,9 +461,7 @@ fn single_service_accumulation(
         acc_input.push(AccumulationInput { acc_input: AccInput::Xfer(xfer) });
     }
 
-    let mut num_operands = 0;
     for operand in input_operands {
-        num_operands += 1;
         acc_input.push(AccumulationInput { acc_input: AccInput::Operand(operand) })
     }
 
@@ -493,13 +472,6 @@ fn single_service_accumulation(
         total_gas,
         acc_input,
     );
-
-    let gas_used = acc_output.3;
-
-    if num_operands == 0 && gas_used == 0 {
-        // Save the gas used for a service that was accumulated uniquely from a transfer received and not from a work report.
-        add_only_xfer_stats((*service_id, gas_used));
-    }
 
     return acc_output;
 }
@@ -563,15 +535,18 @@ fn save_statistics(
     current_block_accumulatable: &Vec<WorkReport>,
     num_wi_accumulated: u32
 ) {
+    statistics::clean_acc_stats();
+
     // We compose our accumulation statistics, which is a mapping from the service indices which were accumulated to the amount of 
     // gas used throughout accumulation and the number of work-items accumulated.
     let mut acc_stats: HashMap<ServiceId, (Gas, u32)> = HashMap::new();
-    let mut xfer_stats = get_only_xfer_stats();
     let mut last_acc_services = HashSet::new();
     log::debug!("service_gas pairs: {:?}", service_gas_pairs);
-    log::debug!("only xfer stats: {:?}", xfer_stats);
+
     for (service_id, gas) in service_gas_pairs.iter() {
-        let mut acc_curr_block_reports: Vec<WorkReport> = vec![];
+
+        let mut acc_curr_block_reports: Vec<&WorkReport> = vec![];
+
         if *gas > 0 {
             last_acc_services.insert(*service_id);
         }
@@ -579,28 +554,22 @@ fn save_statistics(
         for report in current_block_accumulatable[..num_wi_accumulated as usize].iter() {
             for result in report.results.iter() {
                 if *service_id == result.service {
-                    acc_curr_block_reports.push(report.clone());
+                    acc_curr_block_reports.push(report);
                 }
             }
         }
+
         if acc_curr_block_reports.len() > 0 {
             last_acc_services.insert(*service_id);
             if !acc_stats.contains_key(service_id) {
                 acc_stats.insert(*service_id, (0, acc_curr_block_reports.len() as u32));
             }
             let (gas_stored, num_repors_stored) = acc_stats.get(service_id).unwrap();
-            log::debug!("Insert service: {:?} with {:?} gas used and {:?} total gas to acc stats", service_id, *gas, *gas + gas_stored);
+            log::debug!("Insert service: {:?} with {:?} gas used and {:?} reports accumulated", service_id, *gas, acc_curr_block_reports.len());
             acc_stats.insert(*service_id, (*gas + gas_stored, *num_repors_stored));
-
-            if let Some(pos) = xfer_stats.iter().position(|service_gas| *service_gas == (*service_id, *gas)) {
-                xfer_stats.remove(pos);
-            }
-        } else {
-            if *gas > 0 {
-                log::debug!("acc_curr_block_reports = 0 for service {:?}", *service_id);
-                statistics::add_acc_stats(*service_id, (*gas, 0));
-            }
-            
+        } else if * gas > 0 {
+            log::debug!("acc_curr_block_reports = 0 for service {:?}. Add {:?} gas to acc stats", *service_id, *gas);
+            statistics::add_acc_stats(*service_id, (*gas, 0));
         }
     }
 
@@ -613,18 +582,6 @@ fn save_statistics(
         }
     }
 
-    /*log::debug!("only xfer stats: {:?}", xfer_stats);
-    // Save only xfer stats
-    for (service_id, gas) in xfer_stats.iter() {
-        if !acc_stats.contains_key(service_id) {
-            acc_stats.insert(*service_id, (0, 0));
-        }
-        let (gas_stored, num_repors_stored) = acc_stats.get(service_id).unwrap();
-        log::debug!("Insert only xfer stat for service: {:?} with {:?} gas used, {:?} reports stored and {:?} of total gas to acc stats", service_id, *gas, *num_repors_stored, *gas + gas_stored);
-        acc_stats.insert(*service_id, (*gas + gas_stored, *num_repors_stored));
-    }*/
-
-    clear_only_xfer_stats();
     for stat in acc_stats.iter() {
         statistics::add_acc_stats(*stat.0, *stat.1);
     }

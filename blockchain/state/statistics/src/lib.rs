@@ -29,7 +29,7 @@ static ACC_STATS: LazyLock<Mutex<HashMap<ServiceId, (Gas, u32)>>> = LazyLock::ne
     Mutex::new(HashMap::default())
 });
 
-fn clean_acc_stats() {
+pub fn clean_acc_stats() {
     set_acc_stats(HashMap::new());
 }
 
@@ -42,7 +42,7 @@ pub fn get_acc_stats() -> HashMap<ServiceId, (Gas, u32)> {
 }
 
 pub fn add_acc_stats(service: ServiceId, gas_reports: (Gas, u32)) {
-    let mut acc_stats = ACC_STATS.lock().unwrap().clone();
+    let mut acc_stats = get_acc_stats();
     if !acc_stats.contains_key(&service) {
         acc_stats.insert(service, (0, 0));
     }
@@ -162,6 +162,4 @@ pub fn process(
     for new_wr in new_available_wr.iter() {
         statistics.cores.records[new_wr.core_index as usize].da_load += new_wr.package_spec.length + SEGMENT_SIZE as u32 * (new_wr.package_spec.exports_count * (65/64)) as u32;
     }
-
-    clean_acc_stats();
 }

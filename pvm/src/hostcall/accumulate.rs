@@ -276,8 +276,9 @@ fn transfer(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut
 
         let source_account = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap();
         let threshold = utils::common::get_threshold(source_account);
+        
         log::debug!("Threshold: {threshold} for service {:?}", ctx_x.service_id);
-        log::debug!("acc min gas: {:?} xfer min gas: {:?}", source_account.acc_min_gas, source_account.xfer_min_gas);
+        log::debug!("balance: {:?} acc min gas: {:?} xfer min gas: {:?}", source_account.balance, source_account.acc_min_gas, source_account.xfer_min_gas);
 
         if balance < threshold {
             log::debug!("Exit: CASH");
@@ -518,6 +519,9 @@ fn new(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Accu
         let lookup_key = StateKeyType::Account(ctx_x.index, construct_lookup_key(&new_account.code_hash, length as u32)).construct();
         log::debug!("inserted lookup_key: {}, slot: {:x?}", hex::encode(&lookup_key), slot);
         new_account.storage.insert(lookup_key, Vec::<TimeSlot>::new().encode_len());
+        /*let preimage_key = StateKeyType::Account(ctx_x.index, construct_preimage_key(&new_account.code_hash)).construct();
+        log::debug!("inserted preimage_key: {}", hex::encode(&preimage_key));
+        new_account.storage.insert(preimage_key, Vec::new());*/
 
         ctx_x.partial_state.service_accounts.insert(ctx_x.index, new_account);
         ctx_x.partial_state.service_accounts.insert(ctx_x.service_id, service_account);
@@ -932,9 +936,9 @@ fn provide(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
     }
 
     let item = ram.read(start_address, size);
-    let lookup_key = StateKeyType::Account(ctx_x.service_id, construct_lookup_key(&sp_core::blake2_256(&item), size)).construct();
+    let lookup_key = StateKeyType::Account(service_id, construct_lookup_key(&sp_core::blake2_256(&item), size)).construct();
     log::debug!("lookup key: 0x{}", hex::encode(lookup_key));
-    log::debug!("item: {}", hex::encode(&item));
+    log::debug!("item: {}, {:?} bytes", utils::print_hash!(&item), item.len());
 
     if let Some(timeslots_blob) = account.unwrap().storage.get(&lookup_key) {
         
@@ -948,7 +952,7 @@ fn provide(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
 
         if timeslots.len() != 0 {
             reg[7] = HUH;
-            log::debug!("The preimage for lookup_key: {} is was already provided in timeslots: {:?}", utils::print_hash!(&lookup_key), timeslots);
+            log::debug!("The preimage for lookup_key: {} was already provided in slot: {:?}", utils::print_hash!(&lookup_key), timeslots);
             log::debug!("Exit: HUH");
             return ExitReason::Continue;
         }
