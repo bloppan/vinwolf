@@ -183,18 +183,63 @@ async fn handle_stream(connection_info: ConnectionInfo) {
 
         },
         TICKET_GENERATION => {
-            //println!("TICKET GENERATION");
-            recv_ticket_distribution(connection_info).await;
+            log::debug!("Generated ticket received -> Send to all current validators");
+            proxy_ticket_received(connection_info).await;
         },
         TICKET_PROXY => {
-            //println!("TICKET PROXY");
-            recv_ticket_distribution(connection_info).await;
+            log::debug!("TICKET PROXY");
+            //recv_ticket_distribution(connection_info).await;
         }, 
         _ => {
             println!("Unknown stream kind: {:?}", connection_info.kind);
         },
     }
 }
+
+async fn proxy_ticket_received(connection_info: ConnectionInfo) {
+
+    let mut recv_stream = connection_info.recv_stream;
+    let mut len_msg = [0u8; 4];
+    recv_stream.read_exact(&mut len_msg).await.unwrap();
+
+    let len_msg = u32::from_le_bytes(len_msg) as usize;
+    let mut buffer = vec![0u8; len_msg];
+    recv_stream.read_exact(&mut buffer).await.unwrap();
+
+    let mut reader = BytesReader::new(&buffer);
+    let _epoch_index = TimeSlot::decode(&mut reader).unwrap();
+    let ticket = Ticket::decode(&mut reader).unwrap();
+    log::debug!("Ticket: {:?}", ticket);
+    log::debug!("Curr pos: {:?} end: {:?}", reader.get_position(), buffer.len());
+    let message = NetworkMessage::new(TICKET_PROXY, buffer);
+
+    tokio::spawn(async move { proxy_ticket_to_validators(message).await; });
+}
+
+async fn proxy_ticket_to_validators(message: Vec<u8>) {
+    let validators = {
+        let state = state_handler::get_global_state().lock().unwrap();
+        state.curr_validators.list.clone()
+    };
+
+    for (i, validator) in validators.iter().enumerate() {
+        if i == 0 {
+            continue;
+        }
+        let connection = match dev_accounts::get_dev_account_connection(&validator.bandersnatch) {
+            Some(conn) => conn,
+            None => {
+                log::debug!("Error getting dev account connection for validator: {i}");
+                continue;
+            }
+        };
+        log::debug!("Proxy ticket to {:?}", connection.remote_address());
+        let (mut send_stream, mut _recv_stream) = connection.open_bi().await.unwrap();
+        send_stream.write_all(&message).await.ok();
+        send_stream.finish().unwrap();
+    }
+}
+
 
 async fn recv_ticket_distribution(connection_info: ConnectionInfo) {
 
@@ -210,9 +255,11 @@ async fn recv_ticket_distribution(connection_info: ConnectionInfo) {
     recv_stream.read_exact(&mut buffer).await.unwrap();
 
     log::debug!("ticket distribution msg recv: {}", utils::hex::encode(&buffer));
+    
 
     let state = state_handler::get_global_state().lock().unwrap();
     log::debug!("Current validators: {:x?}", state.curr_validators.list);
+    log::debug!("Next validators: {:x?}", state.next_validators.list);
 }
 
 async fn state_request(header_hash: OpaqueHash, connection: Connection) -> GlobalState {
