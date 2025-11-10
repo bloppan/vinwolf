@@ -30,7 +30,7 @@ pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
         app_version: Version {
             major: 0,
             minor: 3,
-            patch: 3,
+            patch: 4,
         },
         jam_version: Version {
             major: 0,
@@ -395,8 +395,8 @@ pub fn run_fuzzer(socket_path: &str, reports_path: &PathBuf) -> Result<(), Box<d
     let mut buffer = vec![0u8; 1024000];
     let n = socket.read(&mut buffer)?;
 
-    //let path = std::path::Path::new("/home/bernar/workspace/storage-test/");
-    /*let path = std::path::Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/storage/");
+    /*let path = std::path::Path::new("/home/bernar/workspace/storage-test/");
+    //let path = std::path::Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/storage/");
     let start = std::time::Instant::now();
     fuzz_dir(&mut socket, &path);
     println!("Total time: {:?}", start.elapsed());

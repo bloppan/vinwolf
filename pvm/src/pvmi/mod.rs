@@ -409,6 +409,7 @@ pub fn _load<T>(
 
     let n = std::mem::size_of::<T>();
     let value = ram.read(address, num_bytes as RamAddress);
+    //log::info!("address: {address}, pc: {pc}");
 
     if signed {
         reg[reg_target as usize] = extend_sign(&value, n);
@@ -437,6 +438,13 @@ pub fn _store<T>(
     
     ram.write(address, &value.encode_size(num_bytes));
     *pc += skip(pc, &program.bitmask) + 1;
+
+    /*let mut vector = vec![];
+    for i in 2032..2052 { 
+        vector.push(ram.pages[1044447].as_ref().unwrap().data[i]);
+    }
+    utils::log::info!("pc: {:?} RAM: {}", *pc, utils::hex::encode(&vector));*/
+
     ExitReason::Continue
 }
 
