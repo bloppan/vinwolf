@@ -1,15 +1,16 @@
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
-use jam_types::ProcessError;
 
+use jam_types::ProcessError;
+mod codec;
 mod test_codec;
 mod test_types;
-mod codec;
 
 mod accumulate;
 mod authorization;
 mod assurances;
+mod crypto;
 mod disputes;
 mod merkle;
 mod recent_history;
