@@ -2,7 +2,7 @@ use jam_types::{
     AccumulatedHistory, Assurance, AuthPools, AuthQueues, AvailabilityAssignments, BandersnatchRingCommitment, RecentBlocks, CodeAuthorizers, CoresStatistics, 
     DisputesErrorCode, DisputesRecords, Ed25519Public, Entropy, EntropyPool, Guarantee, HeaderHash, OpaqueHash, OutputDataDisputes, OutputDataReports, 
     Privileges, ReadError, ReadyQueue, ReportErrorCode, ReportedWorkPackage, ServiceId, ServiceInfo, Services, ServicesStatistics, 
-    ServicesStatisticsMapEntry, TicketBody, TicketsOrKeys, TimeSlot, ValidatorIndex, ValidatorStatistics, ValidatorsData, WorkPackageHash, WorkReport,
+    ServicesStatisticsMapEntry, TicketBody, Seal, TimeSlot, ValidatorIndex, ValidatorStatistics, ValidatorsData, WorkPackageHash, WorkReport,
     Preimage, Ticket, Extrinsic
 };
 use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
@@ -699,7 +699,7 @@ impl Decode for SafroleState {
             gamma_k: ValidatorsData::decode(state_blob)?,
             iota: ValidatorsData::decode(state_blob)?,
             gamma_a: Vec::<TicketBody>::decode_len(state_blob)?,
-            gamma_s: TicketsOrKeys::decode(state_blob)?,
+            gamma_s: Seal::decode(state_blob)?,
             gamma_z: BandersnatchRingCommitment::decode(state_blob)?,  
             post_offenders: Vec::<Ed25519Public>::decode_len(state_blob)?,
         })

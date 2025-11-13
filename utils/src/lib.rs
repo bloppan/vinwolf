@@ -1,11 +1,13 @@
+pub mod bandersnatch;
 pub mod common;
+pub mod grandpa;
+pub mod hex;
+pub mod log;
+pub mod serde;
+pub mod serialization;
 pub mod shuffle;
 pub mod trie;
-pub mod bandersnatch;
-pub mod serialization;
-pub mod hex;
-pub mod serde;
-pub mod log;
+
 
 #[macro_export] macro_rules! print_hash {
     ($hash:expr) => {{

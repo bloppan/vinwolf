@@ -1,4 +1,4 @@
-use jam_types::{BandersnatchPublic, BandersnatchRingVrfSignature, TicketAttempt, TicketBody, Ticket, TicketsMark, TicketsOrKeys, BandersnatchEpoch};
+use jam_types::{BandersnatchPublic, BandersnatchRingVrfSignature, TicketAttempt, TicketBody, Ticket, TicketsMark, Seal, BandersnatchEpoch};
 use crate::{Encode, Decode, BytesReader, ReadError};
 
 impl Encode for Ticket {
@@ -29,7 +29,7 @@ impl Decode for Ticket {
     }
 }
 
-impl Decode for TicketsOrKeys {
+impl Decode for Seal {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
         
         let marker = blob.read_byte()?;  
@@ -42,7 +42,7 @@ impl Decode for TicketsOrKeys {
                         *key = BandersnatchPublic::decode(blob)?;
                     }
 
-                    Ok(TicketsOrKeys::Keys(keys))
+                    Ok(Seal::Keys(keys))
             }
             0 => {        
                     let mut tickets = TicketsMark::default();
@@ -51,7 +51,7 @@ impl Decode for TicketsOrKeys {
                         *ticket = TicketBody::decode(blob)?;
                     }
                     
-                    Ok(TicketsOrKeys::Tickets(tickets)) 
+                    Ok(Seal::Tickets(tickets)) 
             }
             _ => {
                     Err(ReadError::InvalidData)
@@ -60,20 +60,20 @@ impl Decode for TicketsOrKeys {
     }
 }
 
-impl Encode for TicketsOrKeys {
+impl Encode for Seal {
 
     fn encode(&self) -> Vec<u8> {
 
         let mut encoded = Vec::new();
 
         match self {
-            TicketsOrKeys::Keys(keys) => {
+            Seal::Keys(keys) => {
                 encoded.push(1); // Keys marker
                 for key in keys.epoch.iter() {
                     key.encode_to(&mut encoded);
                 }
             }
-            TicketsOrKeys::Tickets(tickets) => {
+            Seal::Tickets(tickets) => {
                 encoded.push(0); // Tickets marker
                 for ticket in tickets.tickets_mark.iter() {
                     ticket.encode_to(&mut encoded);
