@@ -10,7 +10,7 @@ use crate::{
     CodeAuthorizers, CoreActivityRecord, CoresStatistics, DeferredTransfer, DisputesRecords, Ed25519Public, Ed25519Signature, Entropy, EntropyPool, EpochMark, 
     ExtrinsicSpec, GlobalState, Guarantee, ImportSpec, Judgement, KeyValue, Metadata, OpaqueHash, Preimage, Privileges,
     ReadyQueue, ReadyRecord, RefineContext, RefineLoad, ReportedPackage, ReportedWorkPackage, Safrole, SegmentRootLookupItem, SerializedState, ServiceAccounts, 
-    ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsMark, TicketsOrKeys, 
+    ServiceId, ServiceInfo, ServiceItem, ServicesStatistics, ServicesStatisticsMapEntry, SeviceActivityRecord, Statistics, TicketBody, TicketsMark, Seal, 
     TimeSlot, ValidatorData, ValidatorSignature, ValidatorStatistics, ValidatorsData, WorkItem, WorkPackageHash, WorkPackageSpec, WorkReport, WorkResult, Block,
     Header, Extrinsic, UnsignedHeader, DisputesExtrinsic, Verdict, Culprit, Fault, RecentBlocks, Mmr, RecentAccOutputs,
 };
@@ -497,7 +497,7 @@ impl Default for Safrole {
         Safrole {
             pending_validators: ValidatorsData::default(),
             ticket_accumulator: vec![TicketBody::default()],
-            seal: TicketsOrKeys::None,
+            seal: Seal::None,
             epoch_root: [0u8; std::mem::size_of::<BandersnatchRingCommitment>()],
         }
     }

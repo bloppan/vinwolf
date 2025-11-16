@@ -19,7 +19,7 @@ use utils::{{bandersnatch::Verifier}, log};
 
 use constants::node::{EPOCH_LENGTH, VALIDATORS_COUNT, TICKET_ENTRIES_PER_VALIDATOR};
 use jam_types::{
-    EntropyPool, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, TicketsOrKeys, TimeSlot, ValidatorsData, Header, Block, Ed25519Public,
+    EntropyPool, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, Seal, TimeSlot, ValidatorsData, Header, Block, Ed25519Public,
     ValidatorSet
 };
 use codec::{Encode, EncodeLen, EncodeSize};
@@ -56,7 +56,7 @@ pub fn seal_verify(
     let i = header.unsigned.slot % EPOCH_LENGTH as TimeSlot;
 
     let seal_vrf_output = match &safrole.seal {
-        TicketsOrKeys::Tickets(tickets) => {
+        Seal::Tickets(tickets) => {
             log::debug!("Verify tickets seal");
             // The context is "jam_fallback_seal" + entropy[3] + ticket_attempt
             let context = [&b"jam_ticket_seal"[..], &entropy.buf[3].encode(), &tickets.tickets_mark[i as usize].attempt.encode()].concat();
@@ -83,7 +83,7 @@ pub fn seal_verify(
             log::debug!("Seal tickets verified successfully");
             seal_vrf_output
         },
-        TicketsOrKeys::Keys(keys) => {
+        Seal::Keys(keys) => {
             log::debug!("Verify keys seal");
             // The context is "jam_fallback_seal" + entropy[3]
             let context = [&b"jam_fallback_seal"[..], &entropy.buf[3].encode()].concat();
@@ -111,9 +111,9 @@ pub fn seal_verify(
             log::debug!("Seal keys verified successfully");
             seal_vrf_output
         },
-        TicketsOrKeys::None => {
+        Seal::None => {
             log::error!("None tickets or keys");
-            return Err(ProcessError::SafroleError(SafroleErrorCode::TicketsOrKeysNone));
+            return Err(ProcessError::SafroleError(SafroleErrorCode::SealNone));
         },
     };
     

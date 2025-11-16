@@ -1,5 +1,5 @@
 use jam_types::{
-    TicketsOrKeys ,EpochMark, OutputDataSafrole, OutputSafrole, Safrole, SafroleErrorCode, TicketsMark, ValidatorsData, BandersnatchRingCommitment,
+    Seal ,EpochMark, OutputDataSafrole, OutputSafrole, Safrole, SafroleErrorCode, TicketsMark, ValidatorsData, BandersnatchRingCommitment,
     TicketBody
 };
 use crate::{Encode, EncodeLen, Decode, DecodeLen, BytesReader, ReadError};
@@ -29,7 +29,7 @@ impl Decode for Safrole {
         Ok(Safrole {
             pending_validators: ValidatorsData::decode(blob)?,
             epoch_root: BandersnatchRingCommitment::decode(blob)?,
-            seal: TicketsOrKeys::decode(blob)?,
+            seal: Seal::decode(blob)?,
             ticket_accumulator: Vec::<TicketBody>::decode_len(blob)?,
         })
     }

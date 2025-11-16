@@ -43,7 +43,7 @@ use sp_core::blake2_256;
 
 use jam_types::{
     BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Block, Ed25519Public, Entropy, EntropyPool, EpochMark, OutputDataSafrole, 
-    ProcessError, Safrole, SafroleErrorCode, TicketBody, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorSet, ValidatorsData, GlobalState
+    ProcessError, Safrole, SafroleErrorCode, TicketBody, TicketsMark, Seal, TimeSlot, ValidatorSet, ValidatorsData, GlobalState
 };
 use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 
@@ -152,7 +152,7 @@ pub fn process(
             // If the block signals the next epoch (by epoch index) and the previous block’s slot was within the closing period of
             // the previous epoch, then it takes the value of the prior ticket accumulator
             log::debug!("First block after the end of submission period for tickets and the ticket accumulator is saturated");
-            safrole_state.seal = TicketsOrKeys::Tickets(outside_in_sequencer(&safrole_state.ticket_accumulator));
+            safrole_state.seal = Seal::Tickets(outside_in_sequencer(&safrole_state.ticket_accumulator));
         } else if post_epoch == epoch {
             // If the block is not the first in an epoch, then it remains unchanged from the prior seal
             // gamma_s' = gamma_s
@@ -214,7 +214,7 @@ pub fn process(
 
         if fallback_mode {
             let bandersnatch_keys = validators::extract_keys(curr_validators,|v| v.bandersnatch);
-            safrole_state.seal = TicketsOrKeys::Keys(fallback(&entropy_pool.buf[2], bandersnatch_keys));
+            safrole_state.seal = Seal::Keys(fallback(&entropy_pool.buf[2], bandersnatch_keys));
         }
 
         safrole_state.ticket_accumulator = vec![];
