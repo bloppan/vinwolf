@@ -68,6 +68,11 @@ impl FromLeBytes for i64 {
     }
 }
 
+impl FromLeBytes for i128 {
+    fn from_le_bytes(bytes: &[u8]) -> Self {
+        i128::from_le_bytes(bytes.try_into().unwrap())
+    }
+}
 
 #[cfg(test)]
 mod tests {

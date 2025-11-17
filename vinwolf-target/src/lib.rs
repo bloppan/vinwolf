@@ -192,6 +192,22 @@ fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
         }
     }*/
 
+    /*for result_account in result_state.service_accounts.iter() {
+        if let Some(expected_account) = expected_state.service_accounts.get(&result_account.0) {
+            log::debug!("checking service: {:?}", result_account.0);
+            for item in result_account.1.storage.iter() {
+                if let Some(value) = expected_account.storage.get(item.0) {
+                    if item.1 != value {
+                        log::debug!("key: {}", hex::encode(&item.0));
+                        log::debug!("expected value: {} != result value: {}", hex::encode(item.1), hex::encode(value));
+                        assert_eq!(item.1, value);
+                    }
+                } else {
+                    log::error!("Service: {:?}. Expected key storage not found : {:x?}", *result_account.0, utils::hex::encode(item.0));
+                }
+            }
+        } 
+    }*/
     for service_account in expected_state.service_accounts.iter() {
         if let Some(account) = result_state.service_accounts.get(&service_account.0) {
             log::debug!("checking service: {:?}", service_account.0);
@@ -219,6 +235,7 @@ fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
                     log::error!("Service: {:?}. Key storage not found : {:x?}", *service_account.0, *item.0);
                 }
             }
+            assert_eq!(service_account.1.storage.len(), account.storage.len());
             //assert_eq!(service_account.1.storage, account.storage);
         } else {
             log::error!("Service account not found in state: {:?}", service_account.0);

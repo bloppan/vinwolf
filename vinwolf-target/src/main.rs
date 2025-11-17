@@ -59,8 +59,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         "--target" => {
             let mut path: PathBuf = PathBuf::from("/tmp/jam_target.sock");
-            let mut reports_path: PathBuf = PathBuf::from("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/");
-            //let mut reports_path: PathBuf = PathBuf::from("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/storage/");
+            //let mut reports_path: PathBuf = PathBuf::from("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/");
+            let mut reports_path: PathBuf = PathBuf::from("/home/bernar/workspace/storage-test/");
 
             if args.len() > 2 {
                 let args: Vec<String> = std::env::args().collect();

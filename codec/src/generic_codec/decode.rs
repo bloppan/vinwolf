@@ -114,14 +114,6 @@ impl Decode for i64 {
     }
 }
 
-impl FromLeBytes for i128 {
-    fn from_le_bytes(bytes: &[u8]) -> Self {
-        let mut buffer = [0u8; 16];
-        buffer.copy_from_slice(&bytes[..8]);
-        i128::from_le_bytes(buffer)
-    }
-}
-
 /*impl<const N: usize, const M: usize> Decode for [[u8; N]; M] {
 
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {

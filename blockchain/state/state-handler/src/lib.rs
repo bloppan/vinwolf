@@ -1,8 +1,9 @@
 use {std::sync::LazyLock, std::sync::Mutex};
+use std::collections::HashSet;
 use jam_types::{
     AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignment, AvailabilityAssignments, CoreIndex, DisputesErrorCode, DisputesRecords, Entropy, EntropyPool, 
     GlobalState, Offenders, OpaqueHash, Privileges, ProcessError, ReadyQueue, RecentBlocks, Safrole, ServiceAccounts, Statistics, TimeSlot, ValidatorSet, 
-    ValidatorsData, WorkReportHash,
+    ValidatorsData, WorkReportHash, StorageKey
 };
 use codec::Encode;
 
@@ -237,6 +238,21 @@ pub mod service_accounts {
     }
     pub fn get() -> ServiceAccounts {
         GLOBAL_STATE.lock().unwrap().service_accounts.clone()
+    }
+
+    static LOOKUPS_FORGOTTEN: LazyLock<Mutex<HashSet<StorageKey>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
+
+    pub fn disregard_lookup(lookup_key: StorageKey) {
+        let mut lookups = LOOKUPS_FORGOTTEN.lock().unwrap();
+        lookups.insert(lookup_key);
+    }
+
+    pub fn clean_disregard_lookup() {
+        *LOOKUPS_FORGOTTEN.lock().unwrap() = HashSet::new();
+    }
+
+    pub fn get_disregarded_lookups() -> HashSet<StorageKey> {
+        LOOKUPS_FORGOTTEN.lock().unwrap().clone()
     }
 }
 
