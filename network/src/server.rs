@@ -510,12 +510,21 @@ async fn block_announcement(connection_info: ConnectionInfo) {
 
                         let block = block_request(request_info, connection_info.connection.clone()).await;
                         log::debug!("process block in loop {}", utils::hex::encode(&sp_core::blake2_256(&block[0].header.encode())));
-                        
+
                         match state_controller::stf(&block[0]) {
                             Ok(_) => { log::debug!("block successfully processed"); }
                             Err(e) => { log::error!("error processing block: {:?}", e); }
                         }
-                        
+
+                        let state = state_handler::get_global_state().lock().unwrap().clone();
+                        let seal = block::header::create_seal(
+                            &state.safrole,
+                            &state.entropy, 
+                            &state.curr_validators, 
+                            &block[0].header.unsigned);
+                        log::info!("Tickets or keys: {:?}", state.safrole.seal);
+                        log::info!("Block header seal: {}", hex::encode(&block[0].header.seal));
+                        log::info!("Calculated seal: {}", hex::encode(&seal));
                         //tokio::spawn(state_request(announcement.last_finalized_block.header_hash, connection_info.connection.clone()));
                         //tokio::spawn(block_request(request_info, connection_info.connection.clone()));
                     }

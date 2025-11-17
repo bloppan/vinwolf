@@ -12,15 +12,20 @@
 // (a very much unexpected eventuality).The epoch marker is either empty or, if the block is the first in a new epoch, then a tuple of
 // the epoch randomness and a sequence of Bandersnatch keys defining the Bandersnatch validator keys (kb) beginning in the next epoch.
 
+use ark_vrf::reexports::ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_vrf::suites::bandersnatch::RingProofParams;
+use ark_vrf::suites::bandersnatch::{Public, Secret};
+use codec::jam_codec::safrole;
 use {std::sync::LazyLock, std::sync::Mutex};
 use std::collections::HashSet;
 use state_handler::get_state_root;
-use utils::{{bandersnatch::Verifier}, log};
+use utils::bandersnatch::{Verifier, Prover};
+use utils::{hex, log};
 
 use constants::node::{EPOCH_LENGTH, VALIDATORS_COUNT, TICKET_ENTRIES_PER_VALIDATOR};
 use jam_types::{
-    EntropyPool, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, Seal, TimeSlot, ValidatorsData, Header, Block, Ed25519Public,
-    ValidatorSet
+    BandersnatchPublic, Block, Ed25519Public, EntropyPool, Header, HeaderErrorCode, OpaqueHash, ProcessError, Safrole, SafroleErrorCode, Seal, 
+    TimeSlot, UnsignedHeader, ValidatorIndex, ValidatorSet, ValidatorsData, Ticket, TicketsMark
 };
 use codec::{Encode, EncodeLen, EncodeSize};
 use codec::generic_codec::encode_unsigned;
@@ -36,6 +41,58 @@ pub fn get_parent_header() -> OpaqueHash {
 pub fn set_parent_header(parent_header: OpaqueHash) {
     *PARENT_HEADER.lock().unwrap() = parent_header;
 }
+
+fn create_ring_set(validators: &ValidatorsData) -> Vec<Public> {
+    log::debug!("Create ring set");
+    validators
+        .list
+        .iter()
+        .map(|v| {
+            Public::deserialize_compressed_unchecked(&v.bandersnatch[..])
+                // In the case a key has no corresponding Bandersnatch point when constructing the ring, then 
+                // the Bandersnatch padding point as stated by Hosseini and Galassi 2024 should be substituted
+                .unwrap_or_else(|_| Public::from(RingProofParams::padding_point()))
+        })
+        .collect()
+}
+
+pub fn create_seal(
+    safrole: &Safrole,
+    entropy: &EntropyPool,
+    current_validators: &ValidatorsData,
+    unsigned_header: &UnsignedHeader,
+) -> Vec<u8>
+{
+    let i = unsigned_header.slot % EPOCH_LENGTH as TimeSlot;
+    let ring = create_ring_set(current_validators);
+    let prover = Prover::new(ring, unsigned_header.author_index as usize);
+
+    match &safrole.seal {
+
+        Seal::Tickets(tickets) => {
+            log::info!("Create seal for tickets");
+            let context = [&b"jam_ticket_seal"[..], &entropy.buf[3].encode(), &tickets.tickets_mark[i as usize].attempt.encode()].concat();
+            log::info!("bernar context: {}, block_author: {:?}, i: {i}", hex::encode(&context), unsigned_header.author_index);
+            log::info!("unsigned_header: {}", hex::encode(&unsigned_header.encode()));
+            return prover.ietf_vrf_sign(&context, &unsigned_header.encode());
+        }
+        Seal::Keys(keys) => {
+            log::info!("Create seal for keys");
+            let context = [&b"jam_fallback_seal"[..], &entropy.buf[3].encode()].concat();
+            log::info!("bernar context: {}, block_author: {:?}, i: {i}", hex::encode(&context), unsigned_header.author_index);
+            log::info!("unsigned_header: {}", hex::encode(&unsigned_header.encode()));
+            return prover.ietf_vrf_sign(&context, &unsigned_header.encode());
+        }
+        Seal::None => {
+            log::error!("None tickets or keys");
+            return vec![];
+        },
+    }
+    /*let bandersnatch_keys: Vec<BandersnatchPublic> = current_validators.list.iter().map(|key| key.bandersnatch).collect();
+    */
+    //prover.ietf_vrf_sign(&context, &unsigned_header.encode())
+}
+
 
 // Sealing using the ticket is of greater security, and we utilize this knowledge when determining a candidate block
 // on which to extend the chain.
@@ -60,6 +117,8 @@ pub fn seal_verify(
             log::debug!("Verify tickets seal");
             // The context is "jam_fallback_seal" + entropy[3] + ticket_attempt
             let context = [&b"jam_ticket_seal"[..], &entropy.buf[3].encode(), &tickets.tickets_mark[i as usize].attempt.encode()].concat();
+            log::info!("good context: {}, block_author: {block_author}, i: {i}", hex::encode(&context));
+            log::info!("unsigned_header: {}", hex::encode(&unsigned_header.encode()));
             // Verify the seal
             let seal_vrf_output_result = verifier.ietf_vrf_verify(
                                                     &context,
@@ -67,6 +126,28 @@ pub fn seal_verify(
                                                     &header.seal,
                                                     block_author,
             );
+
+            log::info!("verifier: {:x?}", verifier.ring);
+            //let ring = create_ring_set(current_validators);
+            let ring: Vec<_> = (0..6)
+                .map(|i: u32| Secret::from_seed(&i.to_le_bytes()).public())
+                .collect();
+
+            let prover = Prover::new(ring.clone(), 1 as usize);
+            let bernar_seal = prover.ietf_vrf_sign(&context, &unsigned_header);
+            log::info!("bernar seal: {}", hex::encode(&bernar_seal));
+            let ber_verifier = Verifier::new(ring);
+            log::info!("ber verifier: {:x?}", ber_verifier.ring);
+            let bernar_seal_vrf_output_result = ber_verifier.ietf_vrf_verify(
+                                                    &context,
+                                                    &unsigned_header,
+                                                    &bernar_seal,
+                                                    1,
+            );
+            match bernar_seal_vrf_output_result {
+                Ok(_) => log::info!("bernar seal ok"),
+                Err(_) => log::info!("Error bernar ticket seal"),
+            };
 
             let seal_vrf_output = match seal_vrf_output_result {
                 Ok(vrf_output) => vrf_output,
@@ -87,7 +168,8 @@ pub fn seal_verify(
             log::debug!("Verify keys seal");
             // The context is "jam_fallback_seal" + entropy[3]
             let context = [&b"jam_fallback_seal"[..], &entropy.buf[3].encode()].concat();
-            
+            log::info!("good context: {}, block_author: {block_author}, i: {i}", hex::encode(&context));
+            log::info!("unsigned_header: {}", hex::encode(&unsigned_header.encode()));
             // Verify the seal
             let seal_vrf_output_result = verifier.ietf_vrf_verify(
                                                         &context,
@@ -95,6 +177,28 @@ pub fn seal_verify(
                                                         &header.seal,
                                                         block_author,
             );
+
+            log::info!("verifier: {:x?}", verifier.ring);
+            //let ring = create_ring_set(current_validators);
+            let ring: Vec<_> = (0..6)
+                .map(|i: u32| Secret::from_seed(&i.to_le_bytes()).public())
+                .collect();
+            let prover = Prover::new(ring.clone(), 1 as usize);
+            let bernar_seal = prover.ietf_vrf_sign(&context, &unsigned_header);
+            log::info!("bernar seal: {}", hex::encode(&bernar_seal));
+            let ber_verifier = Verifier::new(ring);
+            log::info!("ber verifier: {:x?}", ber_verifier.ring);
+            let bernar_seal_vrf_output_result = ber_verifier.ietf_vrf_verify(
+                                                    &context,
+                                                    &unsigned_header,
+                                                    &bernar_seal,
+                                                    1,
+            );
+            match bernar_seal_vrf_output_result {
+                Ok(_) => log::info!("bernar seal ok"),
+                Err(_) => log::info!("Error bernar keys seal"),
+            };
+
             let seal_vrf_output = match seal_vrf_output_result {
                 Ok(vrf_output) => vrf_output,
                 Err(_) => {
