@@ -34,6 +34,7 @@ pub fn get_parent_header() -> OpaqueHash {
 }
 
 pub fn set_parent_header(parent_header: OpaqueHash) {
+    utils::log::debug!("Set parent header: {}", utils::hex::encode(&parent_header));
     *PARENT_HEADER.lock().unwrap() = parent_header;
 }
 
@@ -241,7 +242,7 @@ pub fn state_root_verify(header: &Header) -> Result<(), ProcessError> {
         return Err(ProcessError::HeaderError(HeaderErrorCode::BadParentStateRoot));
     }
 
-    log::debug!("The block's state root {} matches with the previous one", utils::print_hash!(header.unsigned.parent_state_root));
+    log::debug!("The block's parent state root {} matches", utils::print_hash!(header.unsigned.parent_state_root));
     return Ok(());
 }
 

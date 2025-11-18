@@ -24,6 +24,7 @@ pub fn set_global_state(new_state: GlobalState) {
 }
 // State root
 pub fn set_state_root(new_root: OpaqueHash) {
+    utils::log::debug!("Set state root: {}", utils::hex::encode(&new_root));
     *STATE_ROOT.lock().unwrap() = new_root;
 }
 pub fn get_state_root() -> &'static Mutex<OpaqueHash> {
