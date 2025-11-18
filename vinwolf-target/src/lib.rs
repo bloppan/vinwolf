@@ -236,12 +236,12 @@ fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
                 }
             }
             assert_eq!(service_account.1.storage.len(), account.storage.len());
-            //assert_eq!(service_account.1.storage, account.storage);
+            assert_eq!(service_account.1.storage, account.storage);
         } else {
             log::error!("Service account not found in state: {:?}", service_account.0);
         }
     }
-    //assert_eq!(expected_state.service_accounts, result_state.service_accounts);
+    assert_eq!(expected_state.service_accounts, result_state.service_accounts);
     assert_eq!(expected_state.auth_pools, result_state.auth_pools);
     assert_eq!(expected_state.statistics.curr, result_state.statistics.curr);
     assert_eq!(expected_state.statistics.prev, result_state.statistics.prev);

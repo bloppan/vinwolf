@@ -160,6 +160,6 @@ pub fn process(
     }
 
     for new_wr in new_available_wr.iter() {
-        statistics.cores.records[new_wr.core_index as usize].da_load += new_wr.package_spec.length + SEGMENT_SIZE as u32 * (new_wr.package_spec.exports_count * (65/64)) as u32;
+        statistics.cores.records[new_wr.core_index as usize].da_load += new_wr.package_spec.length + SEGMENT_SIZE as u32 * (new_wr.package_spec.exports_count * (65/64)) as u32; // TODO revisar esta formula (la division)
     }
 }
