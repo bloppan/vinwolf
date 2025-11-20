@@ -1,5 +1,5 @@
 use safrole::{create_ring_set, verifier::{self, get_all, set_all}};
-use jam_types::{Block, GlobalState, OpaqueHash, RawState, ReadError};
+use jam_types::{Block, GlobalState, Header, OpaqueHash, RawState, ReadError};
 use codec::{Decode, BytesReader};
 use std::collections::VecDeque;
 use std::path::{PathBuf, Path};
@@ -28,6 +28,7 @@ pub fn parse_genesis_file(test_content: &[u8]) -> Result<(Block, GlobalState), R
 
     let mut reader = BytesReader::new(&test_content);
     let block = Block::decode(&mut reader).expect("Error decoding the block");
+    // ? let header = Header::decode(&mut reader).expect("Error decoding Header");
     let first_state = RawState::decode(&mut reader).expect("Error decoding post state");
     let mut state = GlobalState::default();
     parse_state_keyvals(&first_state.keyvals, &mut state).expect("Error decoding post state keyvals");
@@ -67,28 +68,29 @@ pub fn process_trace(path: &Path) {
 }
 
 pub fn read_all_bins(dir_path: &Path) -> Vec<(u32, PathBuf)> {
-
-    let dir= match std::fs::read_dir(dir_path) {
+    let dir = match std::fs::read_dir(dir_path) {
         Ok(bin_files) => bin_files,
         Err(error) => panic!("Dir {:?} could not be open: {:?}", dir_path, error),
     };
 
-    let mut bin_files: Vec<(u32, PathBuf)> = dir.filter_map(|f| {
-        let f = f.ok()?.path();
-        if f.extension()? == "bin" {
-            if let Some(stem) = f.file_stem()?.to_str() {
+    let mut bin_files: Vec<(u32, PathBuf)> = dir
+        .filter_map(|f| {
+            let f = f.ok()?.path();
+            if f.extension()? == "bin" {
+                let stem = f.file_stem()?.to_str()?;
+                if stem == "genesis" {
+                    return Some((0, f));
+                }
                 if let Ok(num) = stem.parse::<u32>() {
                     return Some((num, f));
                 }
             }
-        }
-        None
-    })
-    .collect();
+            None
+        })
+        .collect();
 
     bin_files.sort_by_key(|(num, _)| *num);
-
-    return bin_files;
+    bin_files
 }
 
 pub fn process_all_bins(dir_path: &Path) -> std::io::Result<()> {

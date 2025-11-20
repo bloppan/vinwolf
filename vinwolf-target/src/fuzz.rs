@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::io;
 
 use block::header;
-use jam_types::{Block, GlobalState, KeyValue, OpaqueHash};
+use jam_types::{Block, Header, GlobalState, KeyValue, OpaqueHash};
 use safrole::verifier;
 use state_handler::{get_global_state, get_state_root};
 use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
@@ -13,7 +13,7 @@ use utils::{trie::merkle_state, log, hex};
 use state_handler::set_global_state;
 use safrole::{create_ring_set, verifier::{get_all, set_all}};
 use utils::bandersnatch::Verifier;
-use vinwolf_target::read_all_bins;
+use vinwolf_target::{parse_genesis_file, read_all_bins};
 
 use std::io::{Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -438,6 +438,33 @@ fn fuzz_dir(socket: &mut UnixStream, dir_path: &std::path::Path) {
     for trace in bin_files.iter().enumerate() {
         
         println!("Fuzzing file: {:?}", trace.1.1);
+
+        if trace.1.0 == 0 {
+            let test_content = std::fs::read(&trace.1.1).unwrap();
+            //let genesis = parse_genesis_file(&test_content).unwrap();
+            let mut reader = BytesReader::new(&test_content);
+            //let block = Block::decode(&mut reader).unwrap();
+            let header = Header::decode(&mut reader).expect("Error decoding Header");
+            let post_state_root = OpaqueHash::decode(&mut reader).unwrap();
+            let post_keyvals = Vec::<KeyValue>::decode_len(&mut reader).unwrap();
+            let set_state = Initialize {
+                header: header.clone(),
+                keyvals: post_keyvals,
+                ancestry: VecDeque::new(),
+            };
+            println!("Set genesis state");
+            let set_state_msg = [vec![Message::Initialize as u8], set_state.encode()].concat();
+            let msg = [(set_state_msg.len() as u32).encode(), set_state_msg].concat();
+            socket.write_all(&msg).unwrap();
+            let buffer = match read_socket(socket) {
+                Ok(buf) => buf,
+                Err(_) => { break; }
+            };
+            let state_root_received: OpaqueHash = buffer[1..buffer.len()].try_into().unwrap();
+            println!("state_root received: {}", hex::encode(&state_root_received));
+            assert_eq!(post_state_root, state_root_received);
+            continue;
+        }
 
         let test_content = std::fs::read(&trace.1.1).unwrap();
         let mut reader = BytesReader::new(&test_content);

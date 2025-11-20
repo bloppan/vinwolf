@@ -30,7 +30,7 @@ mod tests {
     // 1758637363
     
     //const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/1763371379";
-    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/1763488081";
+    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/1763371531";
     //const FUZZ_REPORT: &str = "/home/bernar/workspace/vinwolf/tests/javajam-trace/stf/state_transitions/";
 
     #[test]
