@@ -5,7 +5,7 @@ mod encode;
 mod decode;
 
 pub use encode::{encode_unsigned, encode_integer, encode_from_bits};
-pub use decode::{decode_unsigned, decode_to_bits, decode_integer, decode};
+pub use decode::{decode_unsigned, decode_to_bits, decode_integer, decode, decode_from_bytes};
 
 pub fn seq_to_number(v: &Vec<u8>) -> u32 {
 
@@ -67,6 +67,7 @@ impl FromLeBytes for i64 {
         i64::from_le_bytes(bytes.try_into().unwrap())
     }
 }
+
 
 
 #[cfg(test)]

@@ -30,6 +30,36 @@ pub struct ImportedBlocks {
     pub leafs: Vec<Leaf>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct TicketDistributed {
+    pub epoch: TimeSlot,
+    pub ticket: Ticket,
+} 
+
+#[derive(Debug, PartialEq)]
+pub enum NetworkError {
+    ReadError(ReadError),
+    StreamError(StreamError),
+    MessageError(MessageError),
+    ConnectionError(ConnectionError),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum MessageError {
+
+}
+
+#[derive(Debug, PartialEq)]
+pub enum StreamError {
+    ReadStream,
+    WriteStream,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ConnectionError {
+    OpenBidirectionalStream,
+}
+
 impl Default for ImportedBlocks {
     fn default() -> Self {
         ImportedBlocks { 

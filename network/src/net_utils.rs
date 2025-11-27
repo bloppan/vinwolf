@@ -1,17 +1,14 @@
-use quinn::{ClientConfig, Endpoint, TransportConfig, ServerConfig};
+use jam_types::ValidatorIndex;
+use quinn::{TransportConfig, ServerConfig};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime, PrivatePkcs8KeyDer};
 use rustls::crypto::{verify_tls12_signature, verify_tls13_signature};
 use rustls::client::danger::{ServerCertVerifier, ServerCertVerified, HandshakeSignatureValid};
 use rustls::server::danger::{ClientCertVerifier, ClientCertVerified};
-use rustls::{Error as RustlsError, SignatureScheme, DistinguishedName};
+use rustls::{SignatureScheme, DistinguishedName};
 use rustls::crypto::ring::default_provider;
 use rustls::crypto::CryptoProvider;
-use std::io::{Cursor, Read};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::error::Error;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
@@ -97,3 +94,144 @@ pub fn parse_pem_private_key(pem_data: &[u8]) -> Result<PrivateKeyDer<'static>> 
     Err("No private key found".into())
 }
 
+pub fn load_server_config(validator_index: ValidatorIndex) -> Result<ServerConfig, > {
+
+    let genesis_hash = "2bf11dc5";
+    let alpn_protocol = format!("jamnp-s/0/{}", genesis_hash).into_bytes();
+
+    let cert_pem = std::fs::read(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("src/certs/node{}/cert.pem", validator_index)))?;
+    let key_pem = std::fs::read(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("src/certs/node{}/key.pem", validator_index)))?;
+
+    let certs: Vec<CertificateDer> = parse_pem_certs(&cert_pem).expect("Error parsing certificate");
+    if certs.is_empty() {
+        return Err("No valid certificates found in cert.pem".into());
+    }
+
+    let key_der = parse_pem_private_key(&key_pem)?;
+
+    let mut server_crypto = rustls::ServerConfig::builder()
+        .with_client_cert_verifier(SkipClientVerification::new())
+        .with_single_cert(certs, key_der)?;
+
+    server_crypto.alpn_protocols = vec![alpn_protocol];
+
+    let mut server_config = ServerConfig::with_crypto(Arc::new(
+        quinn::crypto::rustls::QuicServerConfig::try_from(server_crypto)?
+    ));
+    let mut transport_config = TransportConfig::default();
+    transport_config.max_concurrent_bidi_streams(100u32.into());
+    server_config.transport = Arc::new(transport_config);
+
+    return Ok(server_config);
+}
+
+#[derive(Debug)]
+pub struct SkipClientVerification(Arc<CryptoProvider>);
+
+impl SkipClientVerification {
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self(Arc::new(default_provider())))
+    }
+}
+
+impl ClientCertVerifier for SkipClientVerification {
+    fn root_hint_subjects(&self) -> &[DistinguishedName] {
+        &[]
+    }
+
+    fn verify_client_cert(
+        &self,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _now: UnixTime,
+    ) -> std::result::Result<ClientCertVerified, rustls::Error> {
+        Ok(ClientCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &rustls::DigitallySignedStruct,
+    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
+        verify_tls12_signature(
+            message,
+            cert,
+            dss,
+            &self.0.signature_verification_algorithms,
+        )
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &rustls::DigitallySignedStruct,
+    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
+        verify_tls13_signature(
+            message,
+            cert,
+            dss,
+            &self.0.signature_verification_algorithms,
+        )
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        self.0.signature_verification_algorithms.supported_schemes()
+    }
+}
+
+
+#[derive(Debug)]
+pub struct SkipServerVerification(Arc<CryptoProvider>);
+
+impl SkipServerVerification {
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self(Arc::new(default_provider())))
+    }
+}
+
+impl ServerCertVerifier for SkipServerVerification {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp: &[u8],
+        _now: UnixTime,
+    ) -> std::result::Result<ServerCertVerified, rustls::Error> {
+        Ok(ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &rustls::DigitallySignedStruct,
+    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
+        verify_tls12_signature(
+            message,
+            cert,
+            dss,
+            &self.0.signature_verification_algorithms,
+        )
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &rustls::DigitallySignedStruct,
+    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
+        verify_tls13_signature(
+            message,
+            cert,
+            dss,
+            &self.0.signature_verification_algorithms,
+        )
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        self.0.signature_verification_algorithms.supported_schemes()
+    }
+}

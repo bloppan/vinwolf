@@ -1,25 +1,15 @@
 use quinn::{ClientConfig, Endpoint, TransportConfig};
-use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime, PrivatePkcs8KeyDer};
-use rustls::crypto::{verify_tls12_signature, verify_tls13_signature};
-use rustls::client::danger::{ServerCertVerifier, ServerCertVerified, HandshakeSignatureValid};
-use rustls::{Error as RustlsError, SignatureScheme};
-use rustls::crypto::ring::default_provider;
-use rustls::crypto::CryptoProvider;
-use std::io::{Cursor, Read};
+use rustls::pki_types::{CertificateDer};
 use std::net::{IpAddr, Ipv6Addr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::error::Error;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-
-type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
 use codec::{Encode, Decode, BytesReader};
 use jam_types::{*};
 use crate::jamnp_types::{Handshake, Announcement};
-use crate::net_utils::{parse_pem_private_key, parse_pem_certs};
+use crate::net_utils::{parse_pem_private_key, parse_pem_certs, SkipServerVerification};
 
-
-pub async fn run_client() -> Result<()> {
+pub async fn run_client() -> std::result::Result<(), Box<dyn Error + Send + Sync>> {
 
     rustls::crypto::ring::default_provider()
         .install_default()
@@ -125,56 +115,3 @@ pub async fn run_client() -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug)]
-pub struct SkipServerVerification(Arc<CryptoProvider>);
-
-impl SkipServerVerification {
-    pub fn new() -> Arc<Self> {
-        Arc::new(Self(Arc::new(default_provider())))
-    }
-}
-
-impl ServerCertVerifier for SkipServerVerification {
-    fn verify_server_cert(
-        &self,
-        _end_entity: &CertificateDer<'_>,
-        _intermediates: &[CertificateDer<'_>],
-        _server_name: &ServerName<'_>,
-        _ocsp: &[u8],
-        _now: UnixTime,
-    ) -> std::result::Result<ServerCertVerified, rustls::Error> {
-        Ok(ServerCertVerified::assertion())
-    }
-
-    fn verify_tls12_signature(
-        &self,
-        message: &[u8],
-        cert: &CertificateDer<'_>,
-        dss: &rustls::DigitallySignedStruct,
-    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
-        verify_tls12_signature(
-            message,
-            cert,
-            dss,
-            &self.0.signature_verification_algorithms,
-        )
-    }
-
-    fn verify_tls13_signature(
-        &self,
-        message: &[u8],
-        cert: &CertificateDer<'_>,
-        dss: &rustls::DigitallySignedStruct,
-    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
-        verify_tls13_signature(
-            message,
-            cert,
-            dss,
-            &self.0.signature_verification_algorithms,
-        )
-    }
-
-    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        self.0.signature_verification_algorithms.supported_schemes()
-    }
-}

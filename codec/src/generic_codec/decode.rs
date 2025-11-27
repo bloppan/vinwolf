@@ -1,6 +1,11 @@
 use crate::{FromLeBytes, Decode, DecodeLen, DecodeSize, ReadError, BytesReader};
 use std::collections::HashMap;
 
+pub fn decode_from_bytes<T: Decode>(buf: &[u8]) -> Result<T, ReadError> {
+    let mut reader = BytesReader::new(buf);
+    T::decode(&mut reader)
+}
+
 pub fn decode_unsigned(data: &mut BytesReader) -> Result<usize, ReadError> {
 
     let first_byte = data.read_byte()?;
