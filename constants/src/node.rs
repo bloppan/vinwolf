@@ -71,6 +71,9 @@ pub const PIECE_SIZE: usize = 684;
 #[cfg(feature = "full")]
 pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 14_400;
 
+
+// Time in terms of seconds passed since the beginning of the Jam Common Era, 12:00 UTC on January 1, 2025
+pub const JAM_COMMON_ERA: std::time::Duration = std::time::Duration::from_secs(1_735_732_800);
 // The size of the on-chain entropy pool
 pub const ENTROPY_POOL_SIZE: usize = 4;
 // Validator super majority
@@ -104,7 +107,7 @@ pub const WORK_PACKAGE_GAS_LIMIT: i128 = 50_000_000;
 // The maximum size of service code in octets
 pub const MAX_SERVICE_CODE_SIZE: usize = 4_000_000;
 // The slot period, in seconds.
-pub const SLOT_PERIOD: usize = 6;
+pub const SLOT_PERIOD: u32 = 6;
 // The maximum number of entries in the accumulation queue.
 pub const MAX_ENTRIES_IN_ACC_QUEUE: usize = 1024;
 // The maximum number of extrinsics in a work-package.
@@ -127,6 +130,7 @@ pub const MAX_WORK_PACKAGE_EXPORTS: usize = 3_072;
 pub const TRANSFER_MEMO_SIZE: usize = 128;
 // The minimum public service index. Services of indices below these may only be created by the Registrar.
 pub const MIN_PUBLIC_SERVICE_INDEX: u32 = 1 << 16;
+
 // JAM global state constants
 pub const AUTH_POOLS: u8 = 1;
 pub const AUTH_QUEUE: u8 = 2;

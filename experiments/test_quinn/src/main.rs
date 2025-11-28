@@ -2,6 +2,7 @@ mod client;
 mod server;
 
 use std::error::Error;
+use std::time::{Duration, SystemTime};
 use client::run_client;
 use server::run_server;
 
@@ -10,8 +11,34 @@ type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 #[tokio::main]
 async fn main() -> Result<()> {
 
-    run_client().await?;
+    //run_client().await?;
     //run_server().await?;
+    
+    let jam_common_era = std::time::UNIX_EPOCH + Duration::from_secs(1_735_732_800);
+    let mut last_slot = 0;
+
+    loop {
+        let now = SystemTime::now();
+        let since_jam = match now.duration_since(jam_common_era) {
+            Ok(dur) => dur,
+            Err(err) => {
+                let dur = err.duration();
+                println!("A jam_common_era le faltan {} segundos", dur.as_secs());
+                std::thread::sleep(Duration::from_secs(1));
+                continue;
+            }
+        };
+
+        if since_jam.as_secs() / 6 != last_slot && since_jam.as_secs() % 6 == 0 {
+            last_slot = since_jam.as_secs() / 6;
+            println!("Slot {:?}", last_slot);
+        }
+
+        //println!("Han pasado {} segundos desde jam_common_era", since_jam.as_secs());
+
+        std::thread::sleep(Duration::from_millis(50));
+    }
+
     Ok(())
 }
 

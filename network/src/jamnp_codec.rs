@@ -1,7 +1,6 @@
-
 use codec::{*};
+use crate::jamnp_types::{Announcement, Handshake, LastFinalizedBlock, Leaf, TicketDistributed};
 use jam_types::{*};
-use crate::jamnp_types::{LastFinalizedBlock, Leaf, Handshake, Announcement};
 
 impl Encode for LastFinalizedBlock {
 
@@ -111,4 +110,29 @@ impl Decode for Announcement {
     }
 }
 
+impl Encode for TicketDistributed {
 
+    fn encode(&self) -> Vec<u8> {
+        
+        let mut blob = vec![];
+
+        self.epoch.encode_to(&mut blob);
+        self.ticket.encode_to(&mut blob);
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for TicketDistributed {
+
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        Ok(TicketDistributed { 
+            epoch: TimeSlot::decode(reader)?, 
+            ticket: Ticket::decode(reader)?,
+        })
+    }
+}
