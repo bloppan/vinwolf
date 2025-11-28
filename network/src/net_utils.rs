@@ -1,5 +1,5 @@
 use jam_types::ValidatorIndex;
-use quinn::{TransportConfig, ServerConfig};
+use quinn::{ClientConfig, ServerConfig, TransportConfig};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime, PrivatePkcs8KeyDer};
 use rustls::crypto::{verify_tls12_signature, verify_tls13_signature};
 use rustls::client::danger::{ServerCertVerifier, ServerCertVerified, HandshakeSignatureValid};
@@ -123,6 +123,38 @@ pub fn load_server_config(validator_index: ValidatorIndex) -> Result<ServerConfi
     server_config.transport = Arc::new(transport_config);
 
     return Ok(server_config);
+}
+
+pub fn load_client_config(this_node_index: ValidatorIndex) -> Result<ClientConfig, > {
+
+    let genesis_hash = "2bf11dc5";
+    let alpn_protocol = format!("jamnp-s/0/{}", genesis_hash).into_bytes();
+
+    let cert_pem = std::fs::read(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("src/certs/node{}/cert.pem", this_node_index)))?;
+    let key_pem = std::fs::read(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("src/certs/node{}/key.pem", this_node_index)))?;
+
+    let certs: Vec<CertificateDer> = parse_pem_certs(&cert_pem).expect("Error parsing certificate");
+    if certs.is_empty() {
+        return Err("No valid certificates found in cert.pem".into());
+    }
+
+    let key_der = parse_pem_private_key(&key_pem)?;
+
+    let mut client_crypto = rustls::ClientConfig::builder()
+        .dangerous()
+        .with_custom_certificate_verifier(SkipServerVerification::new())
+        .with_client_auth_cert(certs, key_der)?;
+
+    client_crypto.alpn_protocols = vec![alpn_protocol];
+
+    let mut client_config = ClientConfig::new(Arc::new(
+        quinn::crypto::rustls::QuicClientConfig::try_from(client_crypto)?,
+    ));
+    let mut transport_config = TransportConfig::default();
+    transport_config.max_concurrent_bidi_streams(100u32.into());
+    client_config.transport_config(Arc::new(transport_config));
+
+    return Ok(client_config);
 }
 
 #[derive(Debug)]

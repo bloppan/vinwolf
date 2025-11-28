@@ -8,20 +8,20 @@ use codec::{Encode, Decode, BytesReader};
 use jam_types::{*};
 use crate::jamnp_types::{Handshake, Announcement};
 use crate::net_utils::{parse_pem_private_key, parse_pem_certs, SkipServerVerification};
+use utils::log;
 
-pub async fn run_client() -> std::result::Result<(), Box<dyn Error + Send + Sync>> {
+pub async fn run_client(endpoint: Endpoint) -> std::result::Result<(), Box<dyn Error + Send + Sync>> {
 
-    rustls::crypto::ring::default_provider()
+    /*rustls::crypto::ring::default_provider()
         .install_default()
-        .map_err(|e| format!("Failed to install ring provider: {:?}", e))?;
+        .map_err(|e| format!("Failed to install ring provider: {:?}", e))?;*/
 
     let node_alt_name = "ekwmt37xecoq6a7otkm4ux5gfmm4uwbat4bg5m223shckhaaxdpqa";
     let node_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 40003);
 
-    let genesis_hash = "2bf11dc5";
+    /*let genesis_hash = "2bf11dc5";
     let alpn_protocol = format!("jamnp-s/0/{}", genesis_hash).into_bytes();
 
-    
     let cert_pem = std::fs::read("/home/bernar/workspace/vinwolf/network/src/certs/node0/cert.pem")?;
     let key_pem = std::fs::read("/home/bernar/workspace/vinwolf/network/src/certs/node0/key.pem")?;
 
@@ -48,25 +48,25 @@ pub async fn run_client() -> std::result::Result<(), Box<dyn Error + Send + Sync
 
     let bind_addr = SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 40000);
     let mut endpoint = Endpoint::client(bind_addr)?;
-    endpoint.set_default_client_config(client_config);
+    endpoint.set_default_client_config(client_config);*/
 
-    println!("Connecting to {} at {}", node_alt_name, node_addr);
+    log::info!("Connecting to {} at {}", node_alt_name, node_addr);
 
     let connection = endpoint
         .connect(node_addr, node_alt_name)?
         .await?;
 
-    println!("Connected to {}", node_alt_name);
+    log::info!("Connected to {}", node_alt_name);
 
     let (mut send_stream, mut recv_stream) = connection.open_bi().await?;
     send_stream.write_all(&[0]).await?;
-    println!("Sent stream kind 0");
+    log::info!("Sent stream kind 0");
 
     let handshake = vec![15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0, 1, 15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0];
     let len_bytes = (handshake.len() as u32).to_le_bytes();
     send_stream.write_all(&len_bytes).await?;
     send_stream.write_all(&handshake).await?;
-    println!("Sent handshake response");
+    log::info!("Sent handshake response");
 
     let mut len_buf = [0u8; 4];
     recv_stream.read_exact(&mut len_buf).await?;
@@ -76,7 +76,7 @@ pub async fn run_client() -> std::result::Result<(), Box<dyn Error + Send + Sync
 
     let mut reader = BytesReader::new(&buffer);
     let handshake = Handshake::decode(&mut reader).unwrap();
-    println!("handshake: {:?}", handshake);
+    log::info!("handshake: {:?}", handshake);
 
     loop {
         let mut len_buf = [0u8; 4];
@@ -84,7 +84,7 @@ pub async fn run_client() -> std::result::Result<(), Box<dyn Error + Send + Sync
             Ok(()) => {
                 let len = u32::from_le_bytes(len_buf) as usize;
                 if len > 1024 * 1024 {
-                    println!("Received unreasonably large message length: {}", len);
+                    log::info!("Received unreasonably large message length: {}", len);
                     break;
                 }
                 let mut buffer = vec![0u8; len];
@@ -92,25 +92,25 @@ pub async fn run_client() -> std::result::Result<(), Box<dyn Error + Send + Sync
                     Ok(()) => {
                         let mut reader = BytesReader::new(&buffer);
                         let announcement = Announcement::decode(&mut reader).unwrap();
-                        println!("Received message ({} bytes): {:?}", len, announcement);
+                        log::info!("Received message ({} bytes): {:?}", len, announcement);
                         let curr_header_hash = sp_core::blake2_256(&announcement.header.encode());
-                        println!("Curr header hash: {}", utils::hex::encode(&curr_header_hash));
+                        log::info!("Curr header hash: {}", utils::hex::encode(&curr_header_hash));
                     }
                     Err(e) => {
-                        println!("Error reading message content: {}", e);
+                        log::error!("Error reading message content: {}", e);
                         break;
                     }
                 }
             }
             Err(e) => {
-                println!("Error reading message length: {}", e);
+                log::error!("Error reading message length: {}", e);
                 break;
             }
         }
     }
 
     connection.closed().await;
-    println!("Connection closed");
+    log::info!("Connection closed");
 
     Ok(())
 }

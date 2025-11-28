@@ -1,23 +1,30 @@
 use crate::{dev_accounts, net_utils};
 use crate::message;
 use jam_types::{*};
-use quinn::Connection;
+use quinn::{Connection, Endpoint};
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use utils::{hex, log};
 
-pub async fn run_server(validator_index: ValidatorIndex) -> std::result::Result<(), Box<dyn Error + Send + Sync>> {
+pub async fn run_server(validator_index: ValidatorIndex, endpoint: Endpoint) -> std::result::Result<(), Box<dyn Error + Send + Sync>> {
 
-    rustls::crypto::ring::default_provider()
+    /*rustls::crypto::ring::default_provider()
         .install_default()
-        .map_err(|e| format!("Failed to install ring provider: {:?}", e))?;
-
-    let port = 40000 + validator_index;
+        .map_err(|e| format!("Failed to install ring provider: {:?}", e))?;*/
+    
+    /*let port = 40000 + validator_index;
     let bind_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
     let server_config = net_utils::load_server_config(validator_index)?;
-    let endpoint = quinn::Endpoint::server(server_config, bind_addr)?;
+    
+    let endpoint = match quinn::Endpoint::server(server_config, bind_addr) {
+        Ok(endpoint) => endpoint,
+        Err(e) => {
+            log::error!("Failed to create the endpoint: {:?}", e);
+            return Err(Box::new(e));
+        }
+    };*/
 
-    log::debug!("Listening on {}", bind_addr);
+    
 
     while let Some(conn) = endpoint.accept().await {
         log::debug!("Incoming connection attempt from {}", conn.remote_address());
