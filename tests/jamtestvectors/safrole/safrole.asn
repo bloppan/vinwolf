@@ -4,7 +4,7 @@ SafroleModule DEFINITIONS ::= BEGIN
 
 IMPORTS
     TimeSlot, ValidatorsData, Entropy, EntropyBuffer,
-    TicketBody, TicketsAccumulator, TicketsOrKeys, TicketsExtrinsic,
+    TicketBody, TicketsAccumulator, Seal, TicketsExtrinsic,
     EpochMark, TicketsMark, Ed25519Public, BandersnatchRingCommitment
         FROM JamTypes;
 
@@ -25,7 +25,7 @@ State ::= SEQUENCE {
     -- [γ_a] Prior sealing-key contest ticket accumulator. Mutated to γ'_a.
     gamma-a TicketsAccumulator,
     -- [γ_s] Prior sealing-key series of the current epoch. Mutated to γ'_s.
-    gamma-s TicketsOrKeys,
+    gamma-s Seal,
     -- [γ_z] Prior Bandersnatch ring commitment. Mutated to γ'_z.
     gamma-z BandersnatchRingCommitment,
     -- [ψ'_o] Posterior offenders sequence.

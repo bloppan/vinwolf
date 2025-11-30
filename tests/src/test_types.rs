@@ -2,7 +2,7 @@ use jam_types::{
     AccumulatedHistory, AuthPools, AuthQueues, Assurance, AvailabilityAssignments, BandersnatchRingCommitment, RecentBlocks, CodeAuthorizers, 
     CoresStatistics, DisputesErrorCode, DisputesRecords, Ed25519Public, Entropy, EntropyPool, HeaderHash, Offenders, OpaqueHash, OutputDataDisputes, 
     OutputDataReports, Privileges, ReadyQueue, ReportErrorCode, ReportedWorkPackage, ServiceId, ServiceInfo, Services, ServicesStatistics, 
-    ServicesStatisticsMapEntry, TicketBody, TicketsOrKeys, TimeSlot, ValidatorIndex, ValidatorStatistics, ValidatorsData, WorkPackageHash, WorkReport,
+    ServicesStatisticsMapEntry, TicketBody, Seal, TimeSlot, ValidatorIndex, ValidatorStatistics, ValidatorsData, WorkPackageHash, WorkReport,
     Guarantee, Preimage, Ticket, Extrinsic,
 };
 
@@ -219,7 +219,7 @@ pub struct SafroleState {
     pub gamma_k: ValidatorsData,
     pub iota: ValidatorsData,
     pub gamma_a: Vec<TicketBody>,
-    pub gamma_s: TicketsOrKeys,
+    pub gamma_s: Seal,
     pub gamma_z: BandersnatchRingCommitment,
     pub post_offenders: Vec<Ed25519Public>,
 }

@@ -45,7 +45,7 @@ fn vrf_input_point(vrf_input_data: &[u8]) -> Input {
 
 #[allow(dead_code)]
 // Prover actor.
-struct Prover {
+pub struct Prover {
     pub prover_idx: usize,
     pub secret: Secret,
     pub ring: Vec<Public>,

@@ -117,6 +117,26 @@ impl Deserialize for f32 {
     }
 }
 
+impl Deserialize for [u8; 32] {
+    fn from_value(v: &Value) -> Result<Self, String> {
+        let s = match v {
+            Value::String(s) => s,
+            _ => return Err("expected string for [u8;32]".into()),
+        };
+        let s = s.strip_prefix("0x").unwrap_or(s);
+        if s.len() != 64 {
+            return Err("expected 64 hex chars for [u8;32]".into());
+        }
+        let bytes = crate::hex::decode(s).map_err(|_| "invalid hex for [u8;32]".to_string())?;
+        if bytes.len() != 32 {
+            return Err("decoded len != 32".into());
+        }
+        let mut out = [0u8; 32];
+        out.copy_from_slice(&bytes);
+        Ok(out)
+    }
+}
+
 impl<T: Serialize> Serialize for Option<T> {
     fn to_value(&self) -> Value {
         match self {
@@ -153,6 +173,12 @@ impl<T: Deserialize> Deserialize for Vec<T> {
             }
             _ => Err("expected array".into()),
         }
+    }
+}
+
+impl Serialize for [u8; 32] {
+    fn to_value(&self) -> Value {
+        Value::String(crate::hex::encode(self))
     }
 }
 

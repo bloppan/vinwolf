@@ -57,15 +57,15 @@ Each JSON file generated has the following fields:
 ```
 
 
-### Verifying the TicketsOrKeys and Testing Block TicketsOrKeysing
+### Verifying the Seal and Testing Block Sealing
 
 * Read the JSON file (e.g., seals/1-0.json).
 * Parse the hex-encoded fields into byte slices.
 
-Verify TicketsOrKeys:
+Verify Seal:
 * Use the public key (bandersnatch_pub) along with the stored VRF proofs (H_s, H_v) and block header to test your block seal verifier.  Note that TWO IETF Verify checks are required, one for H_s and one for H_v.
 
-Check your Block TicketsOrKeyser:
+Check your Block Sealer:
 * use the supplied `bandersnatch_priv`, `ticket_id` field (if `T`=1) and `header_bytes` to compute `H_s` and `H_v`
 
 

@@ -81,8 +81,8 @@ impl Encode for CoreActivityRecord {
         encode_unsigned(self.popularity as usize).encode_to(&mut blob);
         encode_unsigned(self.imports as usize).encode_to(&mut blob);
         encode_unsigned(self.extrinsic_count as usize).encode_to(&mut blob);
-        encode_unsigned(self.exports as usize).encode_to(&mut blob);
         encode_unsigned(self.extrinsic_size as usize).encode_to(&mut blob);
+        encode_unsigned(self.exports as usize).encode_to(&mut blob);
         encode_unsigned(self.bundle_size as usize).encode_to(&mut blob);
         encode_unsigned(self.gas_used as usize).encode_to(&mut blob);
 
@@ -103,8 +103,8 @@ impl Decode for CoreActivityRecord {
             popularity: decode_unsigned(blob)? as u16,
             imports: decode_unsigned(blob)? as u16,
             extrinsic_count: decode_unsigned(blob)? as u16,
-            exports: decode_unsigned(blob)? as u16,
             extrinsic_size: decode_unsigned(blob)? as u32,
+            exports: decode_unsigned(blob)? as u16,
             bundle_size: decode_unsigned(blob)? as u32,
             gas_used: decode_unsigned(blob)? as u64,
         })

@@ -45,6 +45,7 @@ pub fn process(
 ) -> Result<(OpaqueHash, RecentAccOutputs, ServiceAccounts, ValidatorsData, AuthQueues, Privileges), ProcessError> {
   
     log::debug!("Process accumulation");
+    state_handler::service_accounts::clean_disregard_lookup();
     
     // We define the final state of the ready queue and the accumulated map by integrating those work-reports which were accumulated in this 
     // block and shifting any from the prior state with the oldest such items being dropped entirely:

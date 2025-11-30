@@ -18,6 +18,7 @@ pub type BandersnatchRingCommitment = [u8; 144];
 // Application Specific Core
 // ----------------------------------------------------------------------------------------------------------
 pub type OpaqueHash = [u8; 32];
+pub type BlockHash = OpaqueHash;
 pub type Metadata = [u8; 128];
 
 pub type TimeSlot = u32;
@@ -567,7 +568,7 @@ pub struct TicketBody {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TicketsOrKeys {
+pub enum Seal {
     Keys(BandersnatchEpoch),
     Tickets(TicketsMark),
     None,
@@ -588,7 +589,7 @@ pub struct Safrole {
     pub ticket_accumulator: Vec<TicketBody>,
     // Current epoch's slot-sealer. Can be either a full complement of EPOCH_LENGTH tickets or, in the case of fallback mode,
     // a series of EPOCH_LENGTH Bandersnatch keys 
-    pub seal: TicketsOrKeys,
+    pub seal: Seal,
     // Bandersnatch ring root composed with the one Bandersnatch key of each of the next epoch's validators
     pub epoch_root: BandersnatchRingCommitment,
 }
@@ -628,7 +629,7 @@ pub enum SafroleErrorCode {
     // Invalid entropy source
     InvalidEntropySource = 10, 
     // Tickets or keys is none
-    TicketsOrKeysNone = 11, 
+    SealNone = 11, 
     // Seal does not match
     TicketNotMatch = 12,      
     // Seal key does not match

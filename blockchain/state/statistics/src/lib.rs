@@ -75,15 +75,23 @@ pub fn process(
         statistics.curr = ValidatorStatistics::default();
     }
     // The number of blocks produced by the validator
-    statistics.curr.records[*author_index as usize].blocks += 1;
-    // The number of tickets introduced by the validator
-    statistics.curr.records[*author_index as usize].tickets += block.extrinsic.tickets.len() as u32;
-    
+    if let Some(record) = statistics.curr.records.get_mut(*author_index as usize) {
+        record.blocks = record.blocks.saturating_add(1);
+    }
+    // The number of tickets introduced by the validator    
+    if let Some(record) = statistics.curr.records.get_mut(*author_index as usize) {
+        record.tickets = record.tickets.saturating_add(block.extrinsic.tickets.len() as u32);
+    }
+
     for preimage in block.extrinsic.preimages.iter() {
         // The number of preimages introduced by the validator
-        statistics.curr.records[*author_index as usize].preimages += 1;
+        if let Some(record) = statistics.curr.records.get_mut(*author_index as usize) {
+            record.preimages = record.preimages.saturating_add(1);
+        }
         // The total number of octets across all preimages introduced by the validator
-        statistics.curr.records[*author_index as usize].preimages_size = statistics.curr.records[*author_index as usize].preimages_size.saturating_add(preimage.blob.len() as u32);
+        if let Some(record) = statistics.curr.records.get_mut(*author_index as usize) {
+            record.preimages_size = record.preimages_size.saturating_add(preimage.blob.len() as u32)
+        }
     }
 
     let mut services: HashSet<ServiceId> = HashSet::new();
@@ -94,25 +102,33 @@ pub fn process(
 
     for validator_index in 0..VALIDATORS_COUNT {
         if reporters.contains(&curr_validators.list[validator_index].ed25519) {
-            statistics.curr.records[validator_index as usize].guarantees += 1;
+            if let Some(record) = statistics.curr.records.get_mut(validator_index as usize) {
+                record.guarantees = record.guarantees.saturating_add(1);
+            }
         }
     }
 
     for guarantee in &block.extrinsic.guarantees {
+        
+        if let Some(record) = statistics.cores.records.get_mut(guarantee.report.core_index as usize) {
+            record.imports = record.imports.saturating_add(guarantee.report.results.iter().map(|result| result.refine_load.imports).sum::<u16>());
+        }
+        if let Some(record) = statistics.cores.records.get_mut(guarantee.report.core_index as usize) {
+            record.extrinsic_count = record.extrinsic_count.saturating_add(guarantee.report.results.iter().map(|result| result.refine_load.extrinsic_count).sum::<u16>());
+        }
+        if let Some(record) = statistics.cores.records.get_mut(guarantee.report.core_index as usize) {
+            record.extrinsic_size = record.extrinsic_size.saturating_add(guarantee.report.results.iter().map(|result| result.refine_load.extrinsic_size).sum::<u32>());
+        }
+        if let Some(record) = statistics.cores.records.get_mut(guarantee.report.core_index as usize) {
+            record.exports = record.exports.saturating_add(guarantee.report.results.iter().map(|result| result.refine_load.exports).sum::<u16>());
+        }
+        if let Some(record) = statistics.cores.records.get_mut(guarantee.report.core_index as usize) {
+            record.gas_used = record.gas_used.saturating_add(guarantee.report.results.iter().map(|result| result.refine_load.gas_used).sum::<u64>());
+        }
+        if let Some(record) = statistics.cores.records.get_mut(guarantee.report.core_index as usize) {
+            record.bundle_size = record.bundle_size.saturating_add(guarantee.report.package_spec.length);
+        }
 
-        statistics.cores.records[guarantee.report.core_index as usize].imports += guarantee.report.results.iter().map(|result| result.refine_load.imports).sum::<u16>();
-        statistics.cores.records[guarantee.report.core_index as usize].extrinsic_count += guarantee.report.results.iter().map(|result| result.refine_load.extrinsic_count).sum::<u16>();
-        statistics.cores.records[guarantee.report.core_index as usize].extrinsic_size += guarantee.report.results.iter().map(|result| result.refine_load.extrinsic_size).sum::<u32>();
-        statistics.cores.records[guarantee.report.core_index as usize].exports += guarantee.report.results.iter().map(|result| result.refine_load.exports).sum::<u16>();
-        statistics.cores.records[guarantee.report.core_index as usize].gas_used += guarantee.report.results.iter().map(|result| result.refine_load.gas_used).sum::<u64>();
-        statistics.cores.records[guarantee.report.core_index as usize].bundle_size += guarantee.report.package_spec.length;
-
-        /*for result in guarantee.report.results.iter() {
-            if statistics.services.records.get(&result.service).is_none() {
-                statistics.services.records.insert(result.service, SeviceActivityRecord::default());
-            }
-            statistics.services.records.get_mut(&result.service).unwrap().refinement_count += 1;
-        }*/
         services.extend(guarantee.report.results.iter().map(|result| result.service));
     }
     
@@ -126,40 +142,66 @@ pub fn process(
         for guarantee in &block.extrinsic.guarantees {
             for result in guarantee.report.results.iter() {
                 if result.service == *service {
-                    statistics.services.records.get_mut(service).unwrap().imports += result.refine_load.imports as u32;
-                    statistics.services.records.get_mut(service).unwrap().extrinsic_count += result.refine_load.extrinsic_count as u32;
-                    statistics.services.records.get_mut(service).unwrap().extrinsic_size += result.refine_load.extrinsic_size as u32;
-                    statistics.services.records.get_mut(service).unwrap().exports += result.refine_load.exports as u32;
-                    statistics.services.records.get_mut(service).unwrap().refinement_count += 1;
-                    statistics.services.records.get_mut(service).unwrap().refinement_gas_used += result.refine_load.gas_used;
+                    if let Some(record) = statistics.services.records.get_mut(service) {
+                        record.imports = record.imports.saturating_add(result.refine_load.imports as u32);
+                    }
+                    if let Some(record) = statistics.services.records.get_mut(service) {
+                        record.extrinsic_count = record.extrinsic_count.saturating_add(result.refine_load.extrinsic_count as u32);
+                    }
+                    if let Some(record) = statistics.services.records.get_mut(service) {
+                        record.extrinsic_size = record.extrinsic_size.saturating_add(result.refine_load.extrinsic_size as u32);
+                    }
+                    if let Some(record) = statistics.services.records.get_mut(service) {
+                        record.exports = record.exports.saturating_add(result.refine_load.exports as u32);
+                    }
+                    if let Some(record) = statistics.services.records.get_mut(service) {
+                        record.refinement_count = record.refinement_count.saturating_add(1);
+                    }
+                    if let Some(record) = statistics.services.records.get_mut(service) {
+                        record.refinement_gas_used = record.refinement_gas_used.saturating_add(result.refine_load.gas_used);
+                    }
                 }
             }
         }
 
         for preimage in &block.extrinsic.preimages {
             if preimage.requester == *service {
-                statistics.services.records.get_mut(service).unwrap().provided_count += 1;
-                statistics.services.records.get_mut(service).unwrap().provided_size += preimage.blob.len() as u32;
+                if let Some(record) = statistics.services.records.get_mut(service) {
+                    record.provided_count = record.provided_count.saturating_add(1);
+                }
+                if let Some(record) = statistics.services.records.get_mut(service) {
+                    record.provided_size = record.provided_size.saturating_add(preimage.blob.len() as u32);
+                }
             }
         }
 
         if let Some((acc_gas, acc_count)) = get_acc_stats().get(service) {
-            statistics.services.records.get_mut(service).unwrap().accumulate_gas_used += *acc_gas as u64; // TODO fix this
-            statistics.services.records.get_mut(service).unwrap().accumulate_count += *acc_count;
+            if let Some(record) = statistics.services.records.get_mut(service) {
+                record.accumulate_gas_used = record.accumulate_gas_used.saturating_add(*acc_gas as u64) // TODO fix this
+            }
+            if let Some(record) = statistics.services.records.get_mut(service) {
+                record.accumulate_count = record.accumulate_count.saturating_add(*acc_count);
+            }
         }
     }
 
     // The number of availability assurances made by the validator
     for assurance in block.extrinsic.assurances.iter() {
-        statistics.curr.records[assurance.validator_index as usize].assurances += 1;
+        if let Some(record) = statistics.curr.records.get_mut(assurance.validator_index as usize) {
+            record.assurances = record.assurances.saturating_add(1);
+        }
         for core_index in 0..CORES_COUNT {
             if assurance.bitfield[core_index / 8] & (1 << core_index % 8) != 0 {
-                statistics.cores.records[core_index as usize].popularity += 1;
+                if let Some(record) = statistics.cores.records.get_mut(core_index as usize) {
+                    record.popularity = record.popularity.saturating_add(1);
+                }
             }
         }
     }
 
     for new_wr in new_available_wr.iter() {
-        statistics.cores.records[new_wr.core_index as usize].da_load += new_wr.package_spec.length + SEGMENT_SIZE as u32 * (new_wr.package_spec.exports_count * (65/64)) as u32;
+        if let Some(record) = statistics.cores.records.get_mut(new_wr.core_index as usize) {
+            record.da_load = record.da_load.saturating_add(new_wr.package_spec.length + SEGMENT_SIZE as u32 * (new_wr.package_spec.exports_count * (65/64)) as u32) // TODO revisar esta formula (la division)
+        }
     }
 }

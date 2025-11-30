@@ -1,6 +1,11 @@
 use crate::{FromLeBytes, Decode, DecodeLen, DecodeSize, ReadError, BytesReader};
 use std::collections::HashMap;
 
+pub fn decode_from_bytes<T: Decode>(buf: &[u8]) -> Result<T, ReadError> {
+    let mut reader = BytesReader::new(buf);
+    T::decode(&mut reader)
+}
+
 pub fn decode_unsigned(data: &mut BytesReader) -> Result<usize, ReadError> {
 
     let first_byte = data.read_byte()?;
@@ -111,14 +116,6 @@ impl Decode for i64 {
         let mut array = [0u8; 8];
         array.copy_from_slice(bytes);
         Ok(i64::from_le_bytes(array))
-    }
-}
-
-impl FromLeBytes for i128 {
-    fn from_le_bytes(bytes: &[u8]) -> Self {
-        let mut buffer = [0u8; 16];
-        buffer.copy_from_slice(&bytes[..8]);
-        i128::from_le_bytes(buffer)
     }
 }
 

@@ -43,7 +43,7 @@ use sp_core::blake2_256;
 
 use jam_types::{
     BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Block, Ed25519Public, Entropy, EntropyPool, EpochMark, OutputDataSafrole, 
-    ProcessError, Safrole, SafroleErrorCode, TicketBody, TicketsMark, TicketsOrKeys, TimeSlot, ValidatorSet, ValidatorsData, GlobalState
+    ProcessError, Safrole, SafroleErrorCode, TicketBody, TicketsMark, Seal, TimeSlot, ValidatorSet, ValidatorsData, GlobalState
 };
 use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 
@@ -111,7 +111,7 @@ pub fn process(
     // tau defines de most recent block
     // post_tau defines the block being processed
     let post_tau = block.header.unsigned.slot;
-    log::debug!("Process Safrole state for slot {post_tau}");
+    log::debug!("Process Safrole state for slot {post_tau}. Previous slot: {:?}", *tau);
     // Timeslot must be strictly monotonic
     if post_tau <= *tau {
         log::error!("Bad block slot: {:?}. The previous slot is: {:?}. Timeslot must be strictly monotonic", post_tau, tau);
@@ -144,7 +144,7 @@ pub fn process(
     }
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
-        log::debug!("We are in a new epoch: {:?}", post_epoch);
+        log::debug!("We are in a new epoch: {:?} > {:?}", post_epoch, epoch);
         let mut fallback_mode = false;
         // gamma_s is the current epoch's slot-sealer series, which is either a full complement of EPOCH_LENGTH tickets
         // or, in case of fallback, a series of EPOCH_LENGTH bandersnatch keys
@@ -152,7 +152,7 @@ pub fn process(
             // If the block signals the next epoch (by epoch index) and the previous block’s slot was within the closing period of
             // the previous epoch, then it takes the value of the prior ticket accumulator
             log::debug!("First block after the end of submission period for tickets and the ticket accumulator is saturated");
-            safrole_state.seal = TicketsOrKeys::Tickets(outside_in_sequencer(&safrole_state.ticket_accumulator));
+            safrole_state.seal = Seal::Tickets(outside_in_sequencer(&safrole_state.ticket_accumulator));
         } else if post_epoch == epoch {
             // If the block is not the first in an epoch, then it remains unchanged from the prior seal
             // gamma_s' = gamma_s
@@ -174,13 +174,13 @@ pub fn process(
         validators::key_rotation(safrole_state, curr_validators, prev_validators);
         // The posterior queued validator key set "pending_validators" is defined such that incoming keys belonging to the offenders 
         // are replaced with a null key containing only zeroes.
-        let are_there_offenders = utils::common::set_offenders_null(&mut safrole_state.pending_validators, offenders); 
+        let there_are_offenders = utils::common::set_offenders_null(&mut safrole_state.pending_validators, offenders); 
         // Create the epoch root from next pending validators and update the safrole state
         let new_verifier = if !fallback_mode {
             let new_ring_set = create_ring_set(&safrole_state.pending_validators);
             Verifier::new(new_ring_set)
         } else {
-            if are_there_offenders {
+            if there_are_offenders {
                 let new_ring_set = create_ring_set(&safrole_state.pending_validators);
                 Verifier::new(new_ring_set)
             } else {
@@ -214,7 +214,7 @@ pub fn process(
 
         if fallback_mode {
             let bandersnatch_keys = validators::extract_keys(curr_validators,|v| v.bandersnatch);
-            safrole_state.seal = TicketsOrKeys::Keys(fallback(&entropy_pool.buf[2], bandersnatch_keys));
+            safrole_state.seal = Seal::Keys(fallback(&entropy_pool.buf[2], bandersnatch_keys));
         }
 
         safrole_state.ticket_accumulator = vec![];

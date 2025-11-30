@@ -5,7 +5,8 @@ members = [
     "codec",
     "constants",
     "experiments/*", 
-    "jam-types",
+    "jam-types", 
+    "network",
     "pvm", 
     "storage",
     "tests",
@@ -32,6 +33,7 @@ constants = { path = "constants" }
 disputes = { path = "blockchain/state/disputes" }
 entropy = { path = "blockchain/state/entropy" }
 jam-types = { path = "jam-types" }
+
 pvm = { path = "pvm" }
 recent-history = { path = "blockchain/state/recent-history" }
 reports = { path = "blockchain/state/reports" }
