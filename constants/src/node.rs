@@ -116,8 +116,8 @@ pub const MAX_EXTRINSICS_IN_WP: usize = 128;
 pub const REPORTED_WORK_REPLACEMENT_PERIOD: usize = 5;
 // The maximum size of is-authorized code in octets.
 pub const MAX_IS_AUTHORIZED_SIZE: usize = 64_000;
-// The maximum size of an encoded work-package together with its extrinsic data and import implications, in octets.
-pub const MAX_ENCODED_WORK_PACKAGE_SIZE: u64 = 13_794_305;
+// The maximum size of the concatenated variable-size blobs, extrinsics and imported segments of a work-package, in octets.
+pub const MAX_ENCODED_WORK_PACKAGE_SIZE: u64 = 13_791_360;
 // The size of a segment in octets.
 pub const SEGMENT_SIZE: usize = PIECE_SIZE * SEGMENT_PIECES;
 // The maximum number of imports in a work-package.

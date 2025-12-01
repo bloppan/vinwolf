@@ -84,11 +84,11 @@ pub struct PreimagesState {
 }
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
-pub struct PreimagesMapEntry {
+pub struct PreimagesBlobMapEntry {
     pub hash: HeaderHash,
     pub blob: Vec<u8>,
 }
-impl Default for PreimagesMapEntry {
+impl Default for PreimagesBlobMapEntry {
     fn default() -> Self {
         Self {
             hash: OpaqueHash::default(),
@@ -97,18 +97,35 @@ impl Default for PreimagesMapEntry {
     }
 }
 #[derive(Debug, Clone, PartialEq)]
-pub struct PreimagesStatusMapEntry {
+pub struct PreimagesRequestsMapKey {
     pub hash: OpaqueHash,
-    pub timeslots: Vec<TimeSlot>,
+    pub length: u32,
 }
-impl Default for PreimagesStatusMapEntry {
+
+impl Default for PreimagesRequestsMapKey {
     fn default() -> Self {
         Self {
             hash: OpaqueHash::default(),
-            timeslots: Vec::new(),
+            length: 0,
         }
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PreimagesRequestsMapEntry {
+    pub key: PreimagesRequestsMapKey,
+    pub value: Vec<TimeSlot>,
+}
+
+impl Default for PreimagesRequestsMapEntry {
+    fn default() -> Self {
+        Self {
+            key: PreimagesRequestsMapKey::default(),
+            value: Vec::new(),
+        }
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReportsAccountsMapEntry {
@@ -141,7 +158,7 @@ impl Default for AccountsMapEntry {
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct AccountTest {
-    pub preimages: Vec<PreimagesMapEntry>,
+    pub preimages: Vec<PreimagesBlobMapEntry>,
     pub lookup_meta: Vec<LookupMetaMapEntry>,
 }
 
@@ -280,8 +297,8 @@ impl Default for AccountsAccMapEntry {
 pub struct AccountAccTest {
     pub service: ServiceInfo,
     pub storage: Vec<StorageMapEntry>,
-    pub preimages: Vec<PreimagesMapEntry>,
-    pub preimages_status: Vec<PreimagesStatusMapEntry>,
+    pub preimages: Vec<PreimagesBlobMapEntry>,
+    pub preimages_status: Vec<PreimagesRequestsMapEntry>,
 }
 
 impl Default for StorageMapEntry {

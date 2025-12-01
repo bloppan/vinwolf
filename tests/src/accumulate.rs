@@ -72,11 +72,11 @@ mod tests {
                 let storage_key = StateKeyType::Account(account.id, construct_storage_key(&storage.key)).construct();
                 new_account.storage.insert(storage_key, storage.value.clone());
             }
-            for lookup in account.data.preimages_status.iter() {
-                let preimage_key = StateKeyType::Account(account.id, construct_preimage_key(&lookup.hash)).construct();
+            for entry in account.data.preimages_status.iter() {
+                let preimage_key = StateKeyType::Account(account.id, construct_preimage_key(&entry.key.hash)).construct();
                 let length = new_account.storage.get(&preimage_key).unwrap().len();
-                let lookup_key = StateKeyType::Account(account.id, construct_lookup_key(&lookup.hash, length as u32)).construct();
-                new_account.storage.insert(lookup_key, lookup.timeslots.encode_len());
+                let lookup_key = StateKeyType::Account(account.id, construct_lookup_key(&entry.key.hash, length as u32)).construct();
+                new_account.storage.insert(lookup_key, entry.value.encode_len());
             }
             service_accounts.insert(account.id.clone(), new_account);
         }
@@ -150,18 +150,18 @@ mod tests {
                 let storage_key = StateKeyType::Account(account.id, construct_storage_key(&storage.key)).construct();
                 assert_eq!(&storage.value, result_account.storage.get(&storage_key).unwrap());
             }
-            for lookup in account.data.preimages_status.iter() {
-                let preimage_key = StateKeyType::Account(account.id, construct_preimage_key(&lookup.hash)).construct();
+            for entry in account.data.preimages_status.iter() {
+                let preimage_key = StateKeyType::Account(account.id, construct_preimage_key(&entry.key.hash)).construct();
                 let length = result_account.storage.get(&preimage_key).unwrap().len();
-                let lookup_key = StateKeyType::Account(account.id, construct_lookup_key(&lookup.hash, length as u32)).construct();
-                assert_eq!(&lookup.timeslots.encode_len(), result_account.storage.get(&lookup_key).unwrap());
+                let lookup_key = StateKeyType::Account(account.id, construct_lookup_key(&entry.key.hash, length as u32)).construct();
+                assert_eq!(&entry.value.encode_len(), result_account.storage.get(&lookup_key).unwrap());
             }
         }
 
         //assert_eq!(expected_state.statistics, result_state.statistics.services);
 
-        log::info!("Expected: {:?}", expected_state.statistics.records);
-        log::info!("Result: {:?}", result_state.statistics.services.records);
+        //log::info!("Expected: {:?}", expected_state.statistics.records);
+        //log::info!("Result: {:?}", result_state.statistics.services.records);
 
         for service in expected_state.accounts.iter() {
 

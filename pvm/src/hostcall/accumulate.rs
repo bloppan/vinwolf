@@ -153,11 +153,17 @@ pub fn dispatch_acc(n: HostCallFn, gas: &mut Gas, reg: &mut Registers, ram: &mut
             let mut account = get_accumulating_service_account(&mut ctx_x.partial_state, &ctx_x.service_id);
             general_fn(lookup(gas, reg, ram, &mut account, ctx_x.service_id, &ctx_x.partial_state.service_accounts), account, ctx_x)
         }
-        HostCallFn::Log      => log(&reg, &ram, &ctx_x.service_id),
+        HostCallFn::Log      => log(gas, reg, &ram, &ctx_x.service_id),
         _ => {
             log::error!("Unknown hostcall function: {:?}", n);
-            *gas -= 10;
             reg[7] = WHAT;
+            *gas -= 10;
+
+            if *gas < 0 {
+                log::error!("Out of gas!");
+                return ExitReason::OutOfGas;
+            }
+
             return ExitReason::Continue;
         }
     }
@@ -230,7 +236,7 @@ fn check(partial_state: &AccumulationPartialState, i: &ServiceId) -> ServiceId {
 
 fn transfer(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut AccumulationContext) -> ExitReason 
 {
-    *gas -= (10 + reg[9]) as Gas;
+    *gas -= 10;
 
     if *gas < 0 {
         log::error!("Out of gas!");
@@ -239,7 +245,7 @@ fn transfer(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut
 
     let dest = reg[7] as ServiceId;
     let amount = reg[8] as Balance;
-    let limit = reg[9] as Balance;
+    let limit = reg[9] as Gas;
     let start_address = reg[10] as RamAddress;
     
     log::debug!("Dest: {:?} Amount: {:?} Limit: {:?}", dest, amount, limit);
@@ -268,7 +274,7 @@ fn transfer(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut
 
     if let Some(account) = ctx_x.partial_state.service_accounts.get(&(dest as ServiceId)) {
 
-        if limit < account.xfer_min_gas as u64 {
+        if limit < account.xfer_min_gas {
             log::debug!("Exit: LOW");
             reg[7] = LOW;
             return ExitReason::Continue;
@@ -286,6 +292,13 @@ fn transfer(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut
             return ExitReason::Continue;
         }
         
+        *gas -= limit;
+
+        if *gas < 0 {
+            log::error!("Out of gas! Atfer substract reg 9 gas limit");
+            return ExitReason::OutOfGas;
+        }
+
         reg[7] = OK;
         ctx_x.deferred_transfers.push(transfer);
         ctx_x.partial_state.service_accounts.get_mut(&ctx_x.service_id).unwrap().balance = balance;

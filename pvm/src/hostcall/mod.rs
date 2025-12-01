@@ -6,7 +6,7 @@ use crate::pvm_types::{Program, ExitReason, HostCallFn, RamAddress, RamMemory, R
 use codec::{BytesReader, Decode};
 use crate::{pvmi::invoke_pvm, mm::program_init::init_std_program};
 
-pub mod accumulate; pub mod refine; pub mod on_transfer; pub mod is_authorized; pub mod general_fn;
+pub mod accumulate; pub mod refine; pub mod is_authorized; pub mod general_fn;
 
 /// An extended version of the pvm invocation which is able to progress an inner host-call
 /// state-machine in the case of a host-call halt condition is defined as:
