@@ -13,7 +13,7 @@ from jam_types import (
     TicketId,
     TicketsAccumulator,
     TicketsMark,
-    Seal,
+    TicketsOrKeys,
     TicketsXt,
     TimeSlot,
     ValidatorsData,
@@ -39,7 +39,7 @@ class SafroleState(Struct):
         # The sealing lottery ticket accumulator (𝛾_a).
         ('gamma_a', n(TicketsAccumulator)),
         # The sealing-key sequence of the current epoch (𝛾_s).
-        ('gamma_s', n(Seal)),
+        ('gamma_s', n(TicketsOrKeys)),
         # The Bandersnatch ring commitment for the current epoch's ticket submissions (𝛾_z).
         ('gamma_z', n(BandersnatchRingCommitment)),
         # Posterior offenders sequence (ψ_o').
