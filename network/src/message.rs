@@ -276,8 +276,6 @@ async fn block_request(request_info: BlockRequestInfo, connection: Connection) -
     return Ok(blocks);
 }
 
-
-
 async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connection) -> Result<(), NetworkError> {
 
     if is_synced(&imported_blocks_recv) {

@@ -13,6 +13,7 @@ use std::error::Error;
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
 fn base64_decode(input: &str) -> Result<Vec<u8>> {
+
     let table = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut output = Vec::new();
     let mut buffer = 0u32;
@@ -20,10 +21,12 @@ fn base64_decode(input: &str) -> Result<Vec<u8>> {
     let mut padding = 0u8;
 
     for &b in input.as_bytes() {
+
         if b == b'=' {
             padding += 1;
             continue;
         }
+
         if let Some(idx) = table.iter().position(|&c| c == b) {
             buffer = (buffer << 6) | idx as u32;
             bits += 6;
@@ -44,6 +47,7 @@ fn base64_decode(input: &str) -> Result<Vec<u8>> {
 }
 
 pub fn parse_pem_certs(pem_data: &[u8]) -> Result<Vec<CertificateDer<'static>>> {
+    
     let pem_str = std::str::from_utf8(pem_data)?;
     let lines = pem_str.lines().map(|l| l.trim()).collect::<Vec<_>>();
     let mut certs = Vec::new();
@@ -70,6 +74,7 @@ pub fn parse_pem_certs(pem_data: &[u8]) -> Result<Vec<CertificateDer<'static>>> 
 }
 
 pub fn parse_pem_private_key(pem_data: &[u8]) -> Result<PrivateKeyDer<'static>> {
+
     let pem_str = std::str::from_utf8(pem_data)?;
     let lines = pem_str.lines().map(|l| l.trim()).collect::<Vec<_>>();
     let mut collecting = false;
@@ -94,10 +99,9 @@ pub fn parse_pem_private_key(pem_data: &[u8]) -> Result<PrivateKeyDer<'static>> 
     Err("No private key found".into())
 }
 
-pub fn load_server_config(validator_index: ValidatorIndex) -> Result<ServerConfig, > {
+const ALPN_PROTOCOL: &[u8] = "jamnp-s/0/2bf11dc5".as_bytes();
 
-    let genesis_hash = "2bf11dc5";
-    let alpn_protocol = format!("jamnp-s/0/{}", genesis_hash).into_bytes();
+pub fn load_credentials(validator_index: ValidatorIndex) -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>), > { 
 
     let cert_pem = std::fs::read(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("src/certs/node{}/cert.pem", validator_index)))?;
     let key_pem = std::fs::read(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("src/certs/node{}/key.pem", validator_index)))?;
@@ -109,11 +113,16 @@ pub fn load_server_config(validator_index: ValidatorIndex) -> Result<ServerConfi
 
     let key_der = parse_pem_private_key(&key_pem)?;
 
+    return Ok((certs, key_der));
+}
+
+pub fn load_server_config(certs: Vec<CertificateDer<'static>>, key_der: PrivateKeyDer<'static>) -> Result<ServerConfig, > {
+
     let mut server_crypto = rustls::ServerConfig::builder()
         .with_client_cert_verifier(SkipClientVerification::new())
         .with_single_cert(certs, key_der)?;
 
-    server_crypto.alpn_protocols = vec![alpn_protocol];
+    server_crypto.alpn_protocols = vec![ALPN_PROTOCOL.to_vec()];
 
     let mut server_config = ServerConfig::with_crypto(Arc::new(
         quinn::crypto::rustls::QuicServerConfig::try_from(server_crypto)?
@@ -125,27 +134,14 @@ pub fn load_server_config(validator_index: ValidatorIndex) -> Result<ServerConfi
     return Ok(server_config);
 }
 
-pub fn load_client_config(this_node_index: ValidatorIndex) -> Result<ClientConfig, > {
-
-    let genesis_hash = "2bf11dc5";
-    let alpn_protocol = format!("jamnp-s/0/{}", genesis_hash).into_bytes();
-
-    let cert_pem = std::fs::read(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("src/certs/node{}/cert.pem", this_node_index)))?;
-    let key_pem = std::fs::read(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("src/certs/node{}/key.pem", this_node_index)))?;
-
-    let certs: Vec<CertificateDer> = parse_pem_certs(&cert_pem).expect("Error parsing certificate");
-    if certs.is_empty() {
-        return Err("No valid certificates found in cert.pem".into());
-    }
-
-    let key_der = parse_pem_private_key(&key_pem)?;
+pub fn load_client_config(certs: Vec<CertificateDer<'static>>, key_der: PrivateKeyDer<'static>) -> Result<ClientConfig, > {
 
     let mut client_crypto = rustls::ClientConfig::builder()
         .dangerous()
         .with_custom_certificate_verifier(SkipServerVerification::new())
         .with_client_auth_cert(certs, key_der)?;
 
-    client_crypto.alpn_protocols = vec![alpn_protocol];
+    client_crypto.alpn_protocols = vec![ALPN_PROTOCOL.to_vec()];
 
     let mut client_config = ClientConfig::new(Arc::new(
         quinn::crypto::rustls::QuicClientConfig::try_from(client_crypto)?,

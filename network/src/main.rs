@@ -56,14 +56,14 @@ async fn main() -> Result<()> {
         .install_default()
         .map_err(|e| format!("Failed to install ring provider: {:?}", e))?;
 
-    let port = 40000 + validator_index;
-    let bind_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
-    let server_config = net_utils::load_server_config(validator_index)?;
-    
-    let mut endpoint = quinn::Endpoint::server(server_config.clone(), bind_addr)?;
-    utils::log::debug!("Listening on {}", bind_addr);
+    let (certs, key_der) = net_utils::load_credentials(validator_index)?;
 
-    let client_config = net_utils::load_client_config(validator_index)?;
+    let server_config = net_utils::load_server_config(certs.clone(), key_der.clone_key())?;    
+    let client_config = net_utils::load_client_config(certs, key_der)?;
+
+    let bind_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 40000 + validator_index);
+    utils::log::debug!("Listening on {}", bind_addr);
+    let mut endpoint = quinn::Endpoint::server(server_config, bind_addr)?;
     endpoint.set_default_client_config(client_config);
 
     node_config::set_account_id(validator_index);
@@ -80,6 +80,7 @@ async fn main() -> Result<()> {
     let mut clients_handler = vec![];
 
     for (index, ed25519_key) in ed25519_public.iter().enumerate() {
+
         if index == validator_index as usize {
             continue;
         }
