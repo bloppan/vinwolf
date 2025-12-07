@@ -70,7 +70,7 @@ async fn main() -> Result<()> {
 
     let server_endpoint = endpoint.clone();
     let server_handler = tokio::spawn(async move {
-        if let Err(e) = run_server(validator_index, server_endpoint).await {
+        if let Err(e) = run_server(server_endpoint).await {
             log::error!("Server task failed: {:?}", e);
         }
     });
@@ -89,7 +89,7 @@ async fn main() -> Result<()> {
             utils::log::info!("Initialize connection to node {:?}", index);
             let client_endpoint = endpoint.clone();
             clients_handler.push(tokio::spawn(async move {
-                if let Err(e) = run_client(client_endpoint).await {
+                if let Err(e) = run_client(client_endpoint, index as ValidatorIndex).await {
                     utils::log::error!("Client task for node {} failed: {:?}", index, e);
                 }
             }));

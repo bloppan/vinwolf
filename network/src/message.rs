@@ -48,7 +48,7 @@ pub struct NetworkMessage {
 }
 
 impl NetworkMessage {
-    fn new(kind: u8, payload: Vec<u8>) -> Vec<u8> {
+    pub fn new(kind: u8, payload: Vec<u8>) -> Vec<u8> {
         let len = payload.len() as u32;
         let len_bytes = len.to_le_bytes();
         let mut msg = Vec::with_capacity(5 + payload.len());
@@ -68,7 +68,7 @@ impl NetworkMessage {
         self.msg[1..5].copy_from_slice(&len_bytes);
     }
 
-    async fn recv(recv_stream: &mut RecvStream) -> Result<Vec<u8>, NetworkError> {
+    pub async fn recv(recv_stream: &mut RecvStream) -> Result<Vec<u8>, NetworkError> {
 
         let mut len_msg = [0u8; 4];
     
@@ -88,7 +88,7 @@ impl NetworkMessage {
         return Ok(buffer);
     }
 
-    async fn send(msg_kind: u8, payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
+    pub async fn send(msg_kind: u8, payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
         
         let message = NetworkMessage::new(msg_kind, payload);        
         
@@ -99,6 +99,18 @@ impl NetworkMessage {
         
         if let Err(e) = send_stream.finish() {
             log::error!("Failed to finish stream: {:?}", e);
+            return Err(NetworkError::StreamError(StreamError::WriteStream));
+        }
+
+        return Ok(());
+    }
+
+    pub async fn send_up(msg_kind: u8, payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
+        
+        let message = NetworkMessage::new(msg_kind, payload);        
+        
+        if let Err(e) = send_stream.write_all(&message).await {
+            log::error!("Failed to send stream: {:?}", e);
             return Err(NetworkError::StreamError(StreamError::WriteStream));
         }
 
