@@ -1,16 +1,15 @@
-use std::sync::LazyLock;
-
-use jam_types::ValidatorIndex;
-use rustls::lock::Mutex;
-
 pub mod client;
 pub mod dev_accounts;
 pub mod jamnp_codec;
 pub mod jamnp_types;
 pub mod message;
+pub mod net_controller;
 pub mod net_utils;
 pub mod scheduler;
-pub mod server;
+
+use jam_types::ValidatorIndex;
+use rustls::lock::Mutex;
+use std::sync::LazyLock;
 
 static ACCOUNT_ID: LazyLock<Mutex<ValidatorIndex>> = LazyLock::new(| | Mutex::new(ValidatorIndex::default()));
 

@@ -25,3 +25,4 @@ utils = { workspace = true }
 default = ["tiny"]
 full = ["constants/full"]
 tiny = ["constants/tiny"]
+DB = []

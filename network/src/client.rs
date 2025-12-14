@@ -12,10 +12,40 @@ use crate::message::{self, NetworkMessage, BLOCK_ANNOUNCEMENT};
 use crate::net_utils::{parse_pem_private_key, parse_pem_certs, SkipServerVerification};
 use jam_types::{*};
 use utils::log;
+use crate::net_controller::{NetworkController, PeerCommand};
 
-pub async fn run_client(endpoint: Endpoint, client_index: ValidatorIndex) -> std::result::Result<(), Box<dyn Error + Send + Sync>> {
+pub async fn run_client(
+    net: Arc<NetworkController>,
+    peer_index: ValidatorIndex,
+    my_index: ValidatorIndex,
+    ed25519_public: &[Ed25519Public],
+) -> std::result::Result<(), Box<dyn Error + Send + Sync>> {
 
-    let dev_accounts = dev_accounts::parse_dev_accounts();
+    let maybe_handle = net.ensure_connected(
+        peer_index,
+        &ed25519_public[peer_index as usize],
+        &ed25519_public[my_index as usize]
+    ).await.unwrap();
+
+    let handle = if let Some(h) = maybe_handle {
+        h
+    } else {
+        // No soy el preferred initiator → me quedo aquí escuchando
+        return Ok(());
+    };
+
+    let handshake: Vec<u8> = vec![15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0, 1, 15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0];
+
+    handle.open_stream(BLOCK_ANNOUNCEMENT).await.unwrap();
+    
+    /*handle.sender.send(PeerCommand::OpenStream {
+        protocol: BLOCK_ANNOUNCEMENT,
+        payload: handshake
+    }).await.unwrap();*/
+
+    //handle.open_stream(131, handshake).await.unwrap();
+
+    /*let dev_accounts = dev_accounts::parse_dev_accounts();
     let node_alt_name = dev_accounts[client_index as usize].dns_alt_name.clone();
     let node_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 40000 + client_index);
 
@@ -82,7 +112,7 @@ pub async fn run_client(endpoint: Endpoint, client_index: ValidatorIndex) -> std
     }
 
     connection.closed().await;
-    log::info!("Connection closed");
+    log::info!("Connection closed");*/
 
     Ok(())
 }

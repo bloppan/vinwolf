@@ -1,5 +1,5 @@
 use crate::{dev_accounts, node_config};
-use crate::jamnp_types::{Announcement, ConnectionError, Handshake, ImportedBlocks, NetworkError, StreamError, TicketDistributed};
+use crate::jamnp_types::{StreamKind, Announcement, ConnectionError, Handshake, ImportedBlocks, NetworkError, StreamError, TicketDistributed};
 use codec::{BytesReader, Decode, Encode};
 use codec::generic_codec::decode_from_bytes;
 use jam_types::{*};
@@ -8,11 +8,11 @@ use std::sync::{LazyLock, Mutex};
 use std::u32;
 use utils::{common, hex, log};
 
-pub const BLOCK_ANNOUNCEMENT: u8 = 0;
-pub const BLOCK_REQUEST: u8 = 128;
-pub const STATE_REQUEST: u8 = 129;
-pub const TICKET_GENERATION: u8 = 131;
-pub const TICKET_PROXY: u8 = 132;
+pub const BLOCK_ANNOUNCEMENT: StreamKind = 0;
+pub const BLOCK_REQUEST: StreamKind = 128;
+pub const STATE_REQUEST: StreamKind = 129;
+pub const TICKET_GENERATION: StreamKind = 131;
+pub const TICKET_PROXY: StreamKind = 132;
 
 pub struct TicketDistribution {
     pub epoch_index: TimeSlot,
@@ -118,12 +118,18 @@ impl NetworkMessage {
     }
 }
 
-pub async fn handle_stream(connection_info: ConnectionInfo) {
+pub async fn handle_stream(mut connection_info: ConnectionInfo) {
 
     match connection_info.kind {
 
         BLOCK_ANNOUNCEMENT => {
-            block_announcement(connection_info).await;
+            tokio::spawn(async move {
+                let handshake: Vec<u8> = vec![15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0, 1, 15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0];
+                let len_bytes = (handshake.len() as u32).to_le_bytes();
+                connection_info.send_stream.write_all(&([len_bytes.to_vec(), handshake].concat())).await.ok();
+                log::debug!("Sent handshake response");
+                let _ = block_announcement(connection_info).await;
+            });
         },
         BLOCK_REQUEST => {
 
@@ -184,7 +190,7 @@ pub async fn broadcast_ticket_to_validators(distributed_ticket_blob: Vec<u8>) {
         let connection = match dev_accounts::get_dev_account_connection(&validator.bandersnatch) {
             Some(conn) => conn,
             None => {
-                log::debug!("Error getting dev account connection for validator: {i}");
+                log::error!("Getting dev account connection for validator: {i}");
                 continue;
             }
         };
@@ -380,21 +386,31 @@ pub async fn block_announcement(connection_info: ConnectionInfo) -> Result<(), N
     let mut send_stream = connection_info.send_stream;
     let mut recv_stream = connection_info.recv_stream;
 
-    let handshake = vec![15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0, 1, 15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0];
-    let len_bytes = (handshake.len() as u32).to_le_bytes();
-    /*send_stream.write_all(&len_bytes).await.ok();
-    send_stream.write_all(&handshake).await.ok();*/
+    //let handshake = vec![15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0, 1, 15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0];
+    
+    //NetworkMessage::send_up(BLOCK_ANNOUNCEMENT, handshake, &mut send_stream).await.unwrap();
+    
+    /*let len_bytes = (handshake.len() as u32).to_le_bytes();
     send_stream.write_all(&([len_bytes.to_vec(), handshake].concat())).await.ok();
-    log::debug!("Sent handshake response");
- 
+    log::debug!("Sent handshake response");*/
+
+    let buffer = NetworkMessage::recv(&mut recv_stream).await.unwrap();
+    let handshake = decode_from_bytes::<Handshake>(&buffer).unwrap();
+
+    /*let len_bytes = (handshake.len() as u32).to_le_bytes();
+    send_stream.write_all(&([len_bytes.to_vec(), handshake].concat())).await.ok();*/
+
+    /*log::debug!("Sent handshake response");
     let mut len_handshake = [0u8; 4];
     recv_stream.read_exact(&mut len_handshake).await.unwrap();
     let mut buffer = vec![0u8; u32::from_le_bytes(len_handshake) as usize];
-    recv_stream.read_exact(&mut buffer).await.unwrap();
+    recv_stream.read_exact(&mut buffer).await.unwrap();*/
+    
     log::debug!("Handshake received: {:?} bytes", buffer.len());
 
-    let mut reader = BytesReader::new(&buffer);
-    let handshake = Handshake::decode(&mut reader).unwrap();
+    /*let mut reader = BytesReader::new(&buffer);
+    let handshake = Handshake::decode(&mut reader).unwrap();*/
+
     log::debug!("Last finalized block: {} slot: {:?}", utils::hex::encode(&handshake.last_finalized_block.header_hash), handshake.last_finalized_block.slot);
     log::debug!("Leafs: {} Slots: {:?}"
     , handshake.leafs.iter().map(|leaf| utils::hex::encode(&leaf.header_hash)).collect::<Vec<_>>().join(", "),  handshake.leafs.iter().map(|leaf| leaf.slot).collect::<Vec<TimeSlot>>());
@@ -410,8 +426,9 @@ pub async fn block_announcement(connection_info: ConnectionInfo) -> Result<(), N
     }
     
     loop {
-
+        log::info!("antes de recv announcement");
         let announcement_blob = NetworkMessage::recv(&mut recv_stream).await?;
+        log::info!("despues de recv announcement");
 
         let announcement = match decode_from_bytes::<Announcement>(&announcement_blob) {
             Ok(a) => a,
