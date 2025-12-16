@@ -1,18 +1,17 @@
+use codec::{Encode, Decode, BytesReader};
 use codec::generic_codec::decode_from_bytes;
+use crate::{dev_accounts, net_utils};
+use crate::jamnp_types::{Handshake, Announcement};
+use crate::message::{self, NetworkMessage, BLOCK_ANNOUNCEMENT};
+use crate::net_controller::{NetworkController, PeerCommand};
+use crate::net_utils::{parse_pem_private_key, parse_pem_certs, SkipServerVerification};
+use jam_types::{*};
 use quinn::{ClientConfig, Endpoint, TransportConfig};
 use rustls::pki_types::{CertificateDer};
 use std::net::{IpAddr, Ipv6Addr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::error::Error;
-
-use codec::{Encode, Decode, BytesReader};
-use crate::{dev_accounts, net_utils};
-use crate::jamnp_types::{Handshake, Announcement};
-use crate::message::{self, NetworkMessage, BLOCK_ANNOUNCEMENT};
-use crate::net_utils::{parse_pem_private_key, parse_pem_certs, SkipServerVerification};
-use jam_types::{*};
 use utils::log;
-use crate::net_controller::{NetworkController, PeerCommand};
 
 pub async fn run_client(
     net: Arc<NetworkController>,
@@ -21,22 +20,21 @@ pub async fn run_client(
     ed25519_public: &[Ed25519Public],
 ) -> std::result::Result<(), Box<dyn Error + Send + Sync>> {
 
-    let maybe_handle = net.ensure_connected(
+    return Ok(());
+    
+    let maybe_handle = net.connect_to_peer(
         peer_index,
-        &ed25519_public[peer_index as usize],
-        &ed25519_public[my_index as usize]
     ).await.unwrap();
 
-    let handle = if let Some(h) = maybe_handle {
+    /*let handle = if let Some(h) = maybe_handle {
         h
     } else {
-        // No soy el preferred initiator → me quedo aquí escuchando
         return Ok(());
-    };
+    };*/
 
-    let handshake: Vec<u8> = vec![15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0, 1, 15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0];
+    //let handshake: Vec<u8> = vec![15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0, 1, 15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0];
 
-    handle.open_stream(BLOCK_ANNOUNCEMENT).await.unwrap();
+    //handle.open_stream(BLOCK_ANNOUNCEMENT).await.unwrap();
     
     /*handle.sender.send(PeerCommand::OpenStream {
         protocol: BLOCK_ANNOUNCEMENT,

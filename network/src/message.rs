@@ -58,16 +58,6 @@ impl NetworkMessage {
         msg
     }
 
-    fn prepend_kind_and_len(&mut self, kind: u8) {
-        let len = self.msg.len() as u32;
-        let len_bytes = len.to_le_bytes();
-        let old_len = self.msg.len();
-        self.msg.resize(old_len + 5, 0);
-        self.msg.copy_within(0..old_len, 5);
-        self.msg[0] = kind;
-        self.msg[1..5].copy_from_slice(&len_bytes);
-    }
-
     pub async fn recv(recv_stream: &mut RecvStream) -> Result<Vec<u8>, NetworkError> {
 
         let mut len_msg = [0u8; 4];
@@ -128,7 +118,7 @@ pub async fn handle_stream(mut connection_info: ConnectionInfo) {
                 let len_bytes = (handshake.len() as u32).to_le_bytes();
                 connection_info.send_stream.write_all(&([len_bytes.to_vec(), handshake].concat())).await.ok();
                 log::debug!("Sent handshake response");
-                let _ = block_announcement(connection_info).await;
+                //let _ = block_announcement(connection_info).await;
             });
         },
         BLOCK_REQUEST => {
@@ -381,35 +371,12 @@ fn is_new(announcement: &Announcement) -> bool {
     return true;
 }
 
-pub async fn block_announcement(connection_info: ConnectionInfo) -> Result<(), NetworkError> {
-
-    let mut send_stream = connection_info.send_stream;
-    let mut recv_stream = connection_info.recv_stream;
-
-    //let handshake = vec![15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0, 1, 15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0];
-    
-    //NetworkMessage::send_up(BLOCK_ANNOUNCEMENT, handshake, &mut send_stream).await.unwrap();
-    
-    /*let len_bytes = (handshake.len() as u32).to_le_bytes();
-    send_stream.write_all(&([len_bytes.to_vec(), handshake].concat())).await.ok();
-    log::debug!("Sent handshake response");*/
-
-    let buffer = NetworkMessage::recv(&mut recv_stream).await.unwrap();
-    let handshake = decode_from_bytes::<Handshake>(&buffer).unwrap();
-
-    /*let len_bytes = (handshake.len() as u32).to_le_bytes();
-    send_stream.write_all(&([len_bytes.to_vec(), handshake].concat())).await.ok();*/
-
-    /*log::debug!("Sent handshake response");
-    let mut len_handshake = [0u8; 4];
-    recv_stream.read_exact(&mut len_handshake).await.unwrap();
-    let mut buffer = vec![0u8; u32::from_le_bytes(len_handshake) as usize];
-    recv_stream.read_exact(&mut buffer).await.unwrap();*/
-    
-    log::debug!("Handshake received: {:?} bytes", buffer.len());
-
-    /*let mut reader = BytesReader::new(&buffer);
-    let handshake = Handshake::decode(&mut reader).unwrap();*/
+pub async fn block_announcement(
+    connection: Connection,
+    _send_stream: &mut SendStream,
+    recv_stream: &mut RecvStream,
+    handshake: Handshake,
+) -> Result<(), NetworkError> {
 
     log::debug!("Last finalized block: {} slot: {:?}", utils::hex::encode(&handshake.last_finalized_block.header_hash), handshake.last_finalized_block.slot);
     log::debug!("Leafs: {} Slots: {:?}"
@@ -420,15 +387,14 @@ pub async fn block_announcement(connection_info: ConnectionInfo) -> Result<(), N
         leafs: handshake.leafs
     };
 
-    if let Err(e) = sync_blocks(imported_blocks, connection_info.connection.clone()).await {
+    if let Err(e) = sync_blocks(imported_blocks, connection.clone()).await {
         log::error!("Failed to sync blocks: {:?}", e);
         return Err(e);
     }
     
     loop {
-        log::info!("antes de recv announcement");
-        let announcement_blob = NetworkMessage::recv(&mut recv_stream).await?;
-        log::info!("despues de recv announcement");
+
+        let announcement_blob = NetworkMessage::recv(recv_stream).await?;
 
         let announcement = match decode_from_bytes::<Announcement>(&announcement_blob) {
             Ok(a) => a,
@@ -450,7 +416,7 @@ pub async fn block_announcement(connection_info: ConnectionInfo) -> Result<(), N
             num_blocks: 1
         };
 
-        let block = block_request(request_info, connection_info.connection.clone()).await.unwrap();
+        let block = block_request(request_info, connection.clone()).await.unwrap();
         log::debug!("process block in loop {}", utils::hex::encode(&sp_core::blake2_256(&block[0].header.encode())));
 
         match state_controller::stf(&block[0]) {

@@ -67,7 +67,7 @@ async fn main() -> Result<()> {
     node_config::set_account_id(validator_index);
     
     let server_handler = tokio::spawn(async move {
-        if let Err(e) = net_for_server.run_server().await {
+        if let Err(e) = net_for_server.listen_network().await {
             log::error!("Server task failed: {:?}", e);
         }
     });
@@ -90,7 +90,7 @@ async fn main() -> Result<()> {
             utils::log::info!("Initialize connection to node {:?}", index);
             let net_for_client = net.clone();
             clients_handler.push(tokio::spawn(async move {
-                if let Err(e) = run_client(net2, index as ValidatorIndex, my_idx, &all_pubs).await {
+                if let Err(e) = net_for_client.connect_to_peer(index as ValidatorIndex).await {
                     log::error!("Client {} failed: {:?}", index, e);
                 }
             }));

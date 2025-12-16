@@ -1,6 +1,7 @@
+use codec::generic_codec::decode_from_bytes;
 use crate::message::BLOCK_ANNOUNCEMENT;
 use crate::{message, message::NetworkMessage, message::ConnectionInfo, dev_accounts};
-use crate::jamnp_types::{ConnectionError, NetworkError, StreamError, StreamKind};
+use crate::jamnp_types::{ConnectionError, NetworkError, Handshake, StreamKind};
 use jam_types::{ValidatorIndex, Ed25519Public};
 use quinn::{Connection, RecvStream, SendStream, Endpoint};
 use utils::log;
@@ -9,7 +10,6 @@ use std::net::{IpAddr, Ipv6Addr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use tokio::select;
-use tokio::io::AsyncWriteExt;
 
 pub fn am_i_the_preferred_initiator(my_key: &Ed25519Public, peer_key: &Ed25519Public) -> bool {
     let cond = ((my_key[31] > 127) ^ (peer_key[31] > 127)) ^ (my_key < peer_key);
@@ -29,10 +29,16 @@ impl NetworkController {
         }
     }
 
-    pub async fn run_server(self: Arc<Self>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn listen_network(self: Arc<Self>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         
         while let Some(conn) = self.endpoint.accept().await {
+            
             log::info!("Incoming connection attempt from {}", conn.remote_address());
+
+            /*if conn.remote_address().port() != 40004 {
+                continue;
+            }*/
+
             let this = self.clone();
 
             tokio::spawn(async move {
@@ -61,10 +67,10 @@ impl NetworkController {
 
                         {
                             let mut peers = this.peers.write().await;
-                            peers.insert(id_account as ValidatorIndex, handle);
+                            peers.insert(id_account as ValidatorIndex, handle.clone());
                         }
 
-                        peer_task(connection, rx).await;
+                        handle.peer_task(rx).await;
 
                         {
                             let mut peers = this.peers.write().await;
@@ -84,31 +90,32 @@ impl NetworkController {
         Ok(())
     }
 
-    pub async fn ensure_connected(
+    pub async fn connect_to_peer(
         self: &Arc<Self>,
         peer_index: ValidatorIndex,
-        peer_pubkey: &Ed25519Public,
-        my_pubkey: &Ed25519Public,
-    ) -> Result<Option<PeerHandle>, NetworkError> {
+    ) -> Result<(), NetworkError> {
 
         {
             let peers = self.peers.read().await;
             if let Some(handle) = peers.get(&peer_index) {
-                return Ok(Some(handle.clone()));
+                return Ok(());
             }
         }
 
-        if !am_i_the_preferred_initiator(my_pubkey, peer_pubkey) {
-            return Ok(None);
-        }
+        let dev_accounts = dev_accounts::parse_dev_accounts();
+        let node_alt_name = dev_accounts[peer_index as usize].dns_alt_name.clone();
+        let node_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 40000 + peer_index);
 
-        let addr = SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::LOCALHOST), 
-            40000 + peer_index
+        log::info!(
+            "Attempt connection to {} bandersnatch public: {}",
+            node_addr,
+            utils::hex::encode(&dev_accounts[peer_index as usize].bandersnatch_public)
         );
 
-        let connecting = self.endpoint.connect(addr, "localhost").unwrap();
+        let connecting = self.endpoint.connect(node_addr, &node_alt_name).unwrap();
         let connection = connecting.await.unwrap();
+
+        log::info!("Connected to {}", node_addr);
 
         let (tx, rx) = mpsc::channel(32);
         let handle = PeerHandle {
@@ -121,15 +128,29 @@ impl NetworkController {
             peers.insert(peer_index, handle.clone());
         }
 
-        tokio::spawn(peer_task(connection, rx));
+        let peer_handle = handle.clone();
 
-        Ok(Some(handle))
+        tokio::spawn( async move {
+            handle.open_stream(BLOCK_ANNOUNCEMENT).await.unwrap();
+        });
+
+        peer_handle.peer_task(rx).await;
+        
+        {
+            let mut peers = self.peers.write().await;
+            peers.remove(&(peer_index as ValidatorIndex));
+        }
+
+        log::info!("Peer connection task finished for {}", node_addr);
+
+        Ok(())
     }
 
 }
 
 #[derive(Clone, Debug)]
 pub enum PeerCommand {
+    BlockAnnouncement,
     CloseConnection,
 }
 
@@ -140,92 +161,98 @@ pub struct PeerHandle {
 }
 
 impl PeerHandle {
+
     pub async fn open_stream(&self, kind: StreamKind) -> Result<(), NetworkError> {
 
-        let (send_stream, recv_stream) = self.connection.open_bi().await.map_err(|e| {
+        let (mut send_stream, mut recv_stream) = self.connection.open_bi().await.map_err(|e| {
             log::error!("Failed to open bidirectional stream: {:?}", e);
             NetworkError::ConnectionError(ConnectionError::OpenBidirectionalStream)
         })?;
 
-        let connection_info = ConnectionInfo {
-            connection: self.connection.clone(),
-            recv_stream,
-            send_stream,
-            kind
-        };
-
         match kind {
             BLOCK_ANNOUNCEMENT => {
                 log::info!("Open stream {BLOCK_ANNOUNCEMENT} for address: {:?}", self.connection.remote_address());
-                
                 let handshake: Vec<u8> = vec![15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0, 1, 15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0];
-                let (mut send_stream, _recv_stream) = self.connection.open_bi().await.map_err(|e| {
-                    log::error!("Failed to open bidirectional stream: {:?}", e);
-                    NetworkError::ConnectionError(ConnectionError::OpenBidirectionalStream)
-                })?;
                 NetworkMessage::send_up(BLOCK_ANNOUNCEMENT, handshake, &mut send_stream).await.unwrap();
-                
-                message::block_announcement(connection_info).await.unwrap();
+                let handshake = decode_from_bytes::<Handshake>(&NetworkMessage::recv(&mut recv_stream).await?).unwrap();
+                let connection = self.connection.clone();
+                tokio::spawn(async move {
+                    message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake).await.unwrap();
+                });
             },
             _ => {
                 log::error!("Unknown stream kind: {:?}", kind);
             }
         }
+
         Ok(())
     }
-}
 
+    async fn handle_stream(&self, mut send_stream: SendStream, mut recv_stream: RecvStream) -> Result<(), NetworkError> {
 
-pub async fn peer_task(connection: Connection, mut cmd_rx: mpsc::Receiver<PeerCommand>) {
-    log::info!("New connection established from {}", connection.remote_address());
+        let mut stream_kind_buf = [0u8; 1];
+        recv_stream.read_exact(&mut stream_kind_buf).await.unwrap();
 
-    loop {
-        select! {
-            incoming = connection.accept_bi() => {
-                match incoming {
-                    Ok((send_stream, mut recv_stream)) => {
-                        let conn_clone = connection.clone();
-                        tokio::spawn(async move {
-                            let mut stream_kind_buf = [0u8; 1];
-                            if recv_stream.read_exact(&mut stream_kind_buf).await.is_ok() {
-                                log::info!(
-                                    "Received stream kind {:?} from peer: {:?}",
-                                    stream_kind_buf,
-                                    conn_clone.remote_address()
-                                );
-                                let conn_info = message::ConnectionInfo {
-                                    connection: conn_clone,
-                                    send_stream,
-                                    recv_stream,
-                                    kind: stream_kind_buf[0],
-                                };
-                                message::handle_stream(conn_info).await;
-                            }
-                        });
-                        log::info!("Waiting for another stream");
-                    }
-                    Err(e) => {
-                        log::info!("Connection closed from {}: {:?}", connection.remote_address(), e);
-                        break;
+        let kind = u8::from_le_bytes(stream_kind_buf);
+        
+        match kind {
+
+            BLOCK_ANNOUNCEMENT => {
+                let connection = self.connection.clone();
+                let handshake: Vec<u8> = vec![15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0, 1, 15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0];
+                let len_bytes = (handshake.len() as u32).to_le_bytes();
+                send_stream.write_all(&([len_bytes.to_vec(), handshake].concat())).await.ok();
+                let handshake = decode_from_bytes::<Handshake>(&NetworkMessage::recv(&mut recv_stream).await?).unwrap();
+                tokio::spawn(async move {
+                    message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake).await.unwrap();
+                });
+            },
+            _ => {
+                log::error!("Unknown stream kind: {:?}", kind);
+            },
+        }
+
+        Ok(())
+    }
+
+    pub async fn peer_task(&self, mut cmd_rx: mpsc::Receiver<PeerCommand>) {
+
+        log::info!("New connection established from {}", self.connection.remote_address());
+
+        loop {
+            select! {
+                incoming = self.connection.accept_bi() => {
+                    match incoming {
+                        Ok((send_stream, recv_stream)) => {
+                            self.handle_stream(send_stream, recv_stream).await.unwrap();
+                        }
+                        Err(e) => {
+                            log::info!("Connection closed from {}: {:?}", self.connection.remote_address(), e);
+                            break;
+                        }
                     }
                 }
-            }
 
-            cmd = cmd_rx.recv() => {
-                match cmd {
-                    Some(PeerCommand::CloseConnection) => {
-                        log::info!("Closing connection to {}", connection.remote_address());
-                        let _ = connection.close(0u32.into(), b"close");
-                        break;
-                    }
-                    None => {
-                        log::info!("Command channel closed for {}", connection.remote_address());
-                        break;
+                cmd = cmd_rx.recv() => {
+                    match cmd {
+                        Some(PeerCommand::BlockAnnouncement) => {
+                            log::info!("Sending block announcement to {}", self.connection.remote_address());
+                            
+                        }
+                        Some(PeerCommand::CloseConnection) => {
+                            log::info!("Closing connection to {}", self.connection.remote_address());
+                            let _ = self.connection.close(0u32.into(), b"close");
+                            break;
+                        }
+                        None => {
+                            log::info!("Command channel closed for {}", self.connection.remote_address());
+                            break;
+                        }
                     }
                 }
             }
         }
-    }
 
-    log::info!("peer_task: connection loop finished for {}", connection.remote_address());
+        log::info!("peer_task: connection loop finished for {}", self.connection.remote_address());
+    }
 }
