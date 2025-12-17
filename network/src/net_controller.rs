@@ -1,6 +1,6 @@
 use codec::generic_codec::decode_from_bytes;
-use crate::message::BLOCK_ANNOUNCEMENT;
-use crate::{message, message::NetworkMessage, message::ConnectionInfo, dev_accounts};
+use crate::message::{BLOCK_ANNOUNCEMENT, TICKET_GENERATION, TICKET_PROXY};
+use crate::{message, message::NetworkMessage, dev_accounts};
 use crate::jamnp_types::{ConnectionError, NetworkError, Handshake, StreamKind};
 use jam_types::{ValidatorIndex, Ed25519Public};
 use quinn::{Connection, RecvStream, SendStream, Endpoint};
@@ -91,13 +91,13 @@ impl NetworkController {
     }
 
     pub async fn connect_to_peer(
-        self: &Arc<Self>,
+        self: Arc<Self>,
         peer_index: ValidatorIndex,
     ) -> Result<(), NetworkError> {
 
         {
             let peers = self.peers.read().await;
-            if let Some(handle) = peers.get(&peer_index) {
+            if let Some(_handle) = peers.get(&peer_index) {
                 return Ok(());
             }
         }
@@ -207,6 +207,18 @@ impl PeerHandle {
                     message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake).await.unwrap();
                 });
             },
+            TICKET_GENERATION => {
+                log::debug!("Generated ticket received -> Send to all current validators");
+                tokio::spawn(async move {
+                    message::recv_ticket_from_generator(recv_stream).await.unwrap();
+                });
+            },
+            TICKET_PROXY => {
+                log::debug!("Received ticket from proxy -> Include in a block");
+                tokio::spawn(async move {
+                    message::recv_ticket_distribution(recv_stream).await.unwrap();
+                }); 
+            },
             _ => {
                 log::error!("Unknown stream kind: {:?}", kind);
             },
@@ -252,6 +264,8 @@ impl PeerHandle {
                 }
             }
         }
+
+        //self.connection.close(0, b"Task finalized");
 
         log::info!("peer_task: connection loop finished for {}", self.connection.remote_address());
     }

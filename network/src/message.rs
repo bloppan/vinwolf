@@ -129,7 +129,7 @@ pub async fn handle_stream(mut connection_info: ConnectionInfo) {
         },
         TICKET_GENERATION => {
             log::debug!("Generated ticket received -> Send to all current validators");
-            recv_ticket_from_generator(connection_info).await.unwrap();
+            recv_ticket_from_generator(connection_info.recv_stream).await.unwrap();
         },
         TICKET_PROXY => {
             log::debug!("Received ticket from proxy -> Include in a block");
@@ -141,9 +141,8 @@ pub async fn handle_stream(mut connection_info: ConnectionInfo) {
     }
 }
 
-pub async fn recv_ticket_from_generator(connection_info: ConnectionInfo) -> Result<(), NetworkError> {
+pub async fn recv_ticket_from_generator(mut recv_stream: RecvStream) -> Result<(), NetworkError> {
 
-    let mut recv_stream = connection_info.recv_stream;
     let distributed_ticket_blob = NetworkMessage::recv(&mut recv_stream).await?;
     
     let distributed_ticket= decode_from_bytes::<TicketDistributed>(&distributed_ticket_blob).map_err(|e| {
@@ -184,23 +183,20 @@ pub async fn broadcast_ticket_to_validators(distributed_ticket_blob: Vec<u8>) {
                 continue;
             }
         };
-        log::debug!("Proxy ticket to {:?}", connection.remote_address());
+        log::info!("Proxy ticket to {:?}", connection.remote_address());
         let (mut send_stream, mut _recv_stream) = connection.open_bi().await.unwrap();
         send_stream.write_all(&proxy_ticket_msg).await.ok();
         send_stream.finish().unwrap();
     }
 }
 
-async fn recv_ticket_distribution(connection_info: ConnectionInfo) -> Result<(), NetworkError> {
+pub async fn recv_ticket_distribution(mut recv_stream: RecvStream) -> Result<(), NetworkError> {
 
-    let mut recv_stream = connection_info.recv_stream;
     let distributed_ticket = NetworkMessage::recv(&mut recv_stream).await?;
-    log::debug!("ticket distribution msg recv: {}", utils::hex::encode(&distributed_ticket));
-    
-    let state = state_handler::get_global_state().lock().unwrap();
-    log::debug!("Current validators: {:x?}", state.curr_validators.list);
-    log::debug!("Next validators: {:x?}", state.next_validators.list);
-
+    log::info!("ticket distribution msg recv: {}", utils::hex::encode(&distributed_ticket));
+    //let state = state_handler::get_global_state().lock().unwrap();
+    //log::debug!("Current validators: {:x?}", state.curr_validators.list);
+    //log::debug!("Next validators: {:x?}", state.next_validators.list);
     Ok(())
 }
 

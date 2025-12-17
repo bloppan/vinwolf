@@ -63,6 +63,7 @@ async fn main() -> Result<()> {
     endpoint.set_default_client_config(client_config);
     
     let net = std::sync::Arc::new(net_controller::NetworkController::new(endpoint));
+    
     let net_for_server = net.clone();
     node_config::set_account_id(validator_index);
     
@@ -81,10 +82,6 @@ async fn main() -> Result<()> {
         if index == validator_index as usize {
             continue;
         }
-
-        let net2 = net.clone();
-        let my_idx = validator_index;
-        let all_pubs = ed25519_public.clone();
 
         if net_controller::am_i_the_preferred_initiator(&ed25519_public[validator_index as usize], ed25519_key) {
             utils::log::info!("Initialize connection to node {:?}", index);
