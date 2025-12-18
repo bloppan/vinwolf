@@ -1,4 +1,3 @@
-pub mod client;
 pub mod dev_accounts;
 pub mod message;
 pub mod net_controller;
@@ -9,11 +8,9 @@ pub mod jamnp_types;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use jam_types::{Ed25519Public, ValidatorIndex};
+use jam_types::ValidatorIndex;
 use network::node_config;
 use utils::log;
-
-use crate::client::run_client;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
@@ -24,8 +21,6 @@ fn print_help() {
     println!("cargo run --dev-validator N");
     println!();
 }
-
-
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -83,7 +78,7 @@ async fn main() -> Result<()> {
             continue;
         }
 
-        if net_controller::am_i_the_preferred_initiator(&ed25519_public[validator_index as usize], ed25519_key) {
+        if net_utils::am_i_the_preferred_initiator(&ed25519_public[validator_index as usize], ed25519_key) {
             utils::log::info!("Initialize connection to node {:?}", index);
             let net_for_client = net.clone();
             clients_handler.push(tokio::spawn(async move {

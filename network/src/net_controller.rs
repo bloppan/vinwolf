@@ -11,11 +11,6 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use tokio::select;
 
-pub fn am_i_the_preferred_initiator(my_key: &Ed25519Public, peer_key: &Ed25519Public) -> bool {
-    let cond = ((my_key[31] > 127) ^ (peer_key[31] > 127)) ^ (my_key < peer_key);
-    cond
-}
-
 pub struct NetworkController {
     endpoint: Endpoint,
     peers: RwLock<HashMap<ValidatorIndex, PeerHandle>>,

@@ -1,4 +1,3 @@
-pub mod client;
 pub mod dev_accounts;
 pub mod jamnp_codec;
 pub mod jamnp_types;
