@@ -108,39 +108,6 @@ impl NetworkMessage {
     }
 }
 
-pub async fn handle_stream(mut connection_info: ConnectionInfo) {
-
-    match connection_info.kind {
-
-        BLOCK_ANNOUNCEMENT => {
-            tokio::spawn(async move {
-                let handshake: Vec<u8> = vec![15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0, 1, 15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0];
-                let len_bytes = (handshake.len() as u32).to_le_bytes();
-                connection_info.send_stream.write_all(&([len_bytes.to_vec(), handshake].concat())).await.ok();
-                log::debug!("Sent handshake response");
-                //let _ = block_announcement(connection_info).await;
-            });
-        },
-        BLOCK_REQUEST => {
-
-        },
-        STATE_REQUEST => {
-
-        },
-        TICKET_GENERATION => {
-            log::debug!("Generated ticket received -> Send to all current validators");
-            recv_ticket_from_generator(connection_info.recv_stream).await.unwrap();
-        },
-        TICKET_PROXY => {
-            log::debug!("Received ticket from proxy -> Include in a block");
-            //recv_ticket_distribution(connection_info).await;
-        },
-        _ => {
-            println!("Unknown stream kind: {:?}", connection_info.kind);
-        },
-    }
-}
-
 pub async fn recv_ticket_from_generator(mut recv_stream: RecvStream) -> Result<(), NetworkError> {
 
     let distributed_ticket_blob = NetworkMessage::recv(&mut recv_stream).await?;
