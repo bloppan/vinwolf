@@ -9,7 +9,7 @@ mod tests {
 
     fn run_test(filename: &str) {
         
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/history/tiny/{}", filename))).unwrap();
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/stf/history/tiny/{}", filename))).unwrap();
 
         /*let test_body: Vec<TestBody> = vec![TestBody::InputHistory, TestBody::RecentBlocks, TestBody::RecentBlocks];
         if encode_decode_test(&test_content, &test_body).is_err() {
