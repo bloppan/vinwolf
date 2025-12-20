@@ -151,15 +151,14 @@ pub fn epoch_mark_verify(header: &Header, entropy_pool: &EntropyPool) -> Result<
 
     let next_validators = state_handler::validators::get(ValidatorSet::Next);
 
-    let _ = next_validators.list.iter().enumerate().map(|v| {
-        if v.1.bandersnatch != header.unsigned.epoch_mark.as_ref().unwrap().validators[v.0].0 
-        || v.1.ed25519 != header.unsigned.epoch_mark.as_ref().unwrap().validators[v.0].1 {
-            log::error!("Pending validators index {:?} doesn't match with the ones in the epoch mark", v.0);
+    for (i, validator) in next_validators.list.iter().enumerate() {
+
+        if validator.bandersnatch != header.unsigned.epoch_mark.as_ref().unwrap().validators[i].0
+        || validator.ed25519 != header.unsigned.epoch_mark.as_ref().unwrap().validators[i].1 {
+            log::error!("Post pending validator index {:?} doesn't match with the one in the epoch mark", i);
             return Err(ProcessError::SafroleError(SafroleErrorCode::WrongEpochMark));
-        } else {
-            Ok(())
         } 
-    });
+    }
 
     return Ok(())
 }
