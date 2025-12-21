@@ -76,7 +76,6 @@ fn simple_fork(state_root: &OpaqueHash) -> (OpaqueHash, GlobalState, VecDeque<Ve
         (*pre_state_root, pre_state.clone(), verifiers_records.clone(), *parent_header)
     } else {
         // If we don't find the block parent state root in our record, return the last one
-        println!("Return the last one");
         state_record.back().unwrap().clone()
     };
 

@@ -6,10 +6,10 @@ BIN="vinwolf-target"
 SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 MANIFEST_PATH="$ROOT_DIR/$BIN/Cargo.toml"
-SUBMODULE_DIR="$ROOT_DIR/external/conformance_testing/"
+SUBMODULE_DIR="$ROOT_DIR/tests/conformance_testing/"
 
-if [[ ! -e "$ROOT_DIR/external/conformance_testing/.git" ]]; then
-  echo "Submódulo external/conformance_testing no inicializado"; exit 1
+if [[ ! -e "$ROOT_DIR/tests/conformance_testing/.git" ]]; then
+  echo "Submódulo tests/conformance_testing no inicializado"; exit 1
 fi
 
 cargo build --manifest-path "$MANIFEST_PATH" --release --features=full --no-default-features
