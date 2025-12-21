@@ -169,13 +169,8 @@ pub fn verify(block: &Block) -> Result<(), ProcessError> {
     extrinsic_verify(&block)?;
     validator_index_verify(&block.header)?;
     offenders_verify(&block)?;
-    // Check if the current block is the parent of the last block (the slot difference must be 1)
-    if (block.header.unsigned.slot).saturating_sub(state_handler::time::get()) == 1 {
-        // If the slot difference is not 1, then don't check the parent state root
-        state_root_verify(&block.header)?;
-        // And the parent header
-        parent_header_verify(&block.header)?;
-    }
+    state_root_verify(&block.header)?;   
+    parent_header_verify(&block.header)?;
     
     log::debug!("Header verified successfully");
     return Ok(());

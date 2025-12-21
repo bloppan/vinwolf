@@ -30,7 +30,7 @@ pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
         app_version: Version {
             major: 0,
             minor: 3,
-            patch: 6,
+            patch: 7,
         },
         jam_version: Version {
             major: 0,
@@ -76,6 +76,7 @@ fn simple_fork(state_root: &OpaqueHash) -> (OpaqueHash, GlobalState, VecDeque<Ve
         (*pre_state_root, pre_state.clone(), verifiers_records.clone(), *parent_header)
     } else {
         // If we don't find the block parent state root in our record, return the last one
+        println!("Return the last one");
         state_record.back().unwrap().clone()
     };
 
@@ -237,6 +238,7 @@ fn handle_connection(socket: &mut UnixStream) {
 
                 // Calc header hash
                 let header_hash = sp_core::blake2_256(&initialize.header.encode());
+                log::info!("Header hash: {}", hex::encode(&header_hash));
                 header::set_parent_header(header_hash.clone());
                 // Calc state root
                 let state_root = merkle_state(&utils::serialization::serialize(&global_state).map);
@@ -254,6 +256,7 @@ fn handle_connection(socket: &mut UnixStream) {
                 set_state_record(state_record);
 
                 log::info!("SetState - state root {}", hex::encode(state_root));
+                
                 if send_to_peer(&fuzz_msg(Message::StateRoot, &state_root), socket).is_err() {
                     break;
                 }
@@ -395,7 +398,7 @@ pub fn run_fuzzer(socket_path: &str, reports_path: &PathBuf) -> Result<(), Box<d
     let mut buffer = vec![0u8; 1024000];
     let n = socket.read(&mut buffer)?;
 
-    /*let path = std::path::Path::new("/home/bernar/workspace/storage-test/");
+    /*let path = std::path::Path::new("/home/bernar/workspace/vinwolf/tests/jam-conformance/fuzz-reports/0.7.2/traces/1766243315_8065/");
     //let path = std::path::Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/storage/");
     let start = std::time::Instant::now();
     fuzz_dir(&mut socket, &path);

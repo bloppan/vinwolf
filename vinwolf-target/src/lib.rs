@@ -38,7 +38,8 @@ pub fn parse_genesis_file(test_content: &[u8]) -> Result<(Block, GlobalState), R
 }
 
 pub fn process_trace(path: &Path) {
-    
+
+    log::info!("process trace: {:?}", path);
     let test_content = utils::common::read_bin_file(&path).expect("Error reading the trace bin file");
     let (pre_state, block, post_state) = parse_trace_file(&test_content).unwrap();
 

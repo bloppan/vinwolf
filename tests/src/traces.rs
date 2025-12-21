@@ -29,9 +29,11 @@ mod tests {
     }
     // 1758637363
     
-    //const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/1763371379";
-    const FUZZ_REPORT: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/1763371531";
-
+    // bien -> 1766244251_2939, 1766243861_2612, 
+    // medio -> 1766244251_2939
+    //const FUZZ_REPORT: &str = "/home/bernar/workspace/vinwolf/tests/jam-conformance/fuzz-reports/0.7.2/traces/1766243176";
+    const FUZZ_REPORT: &str = "/home/bernar/workspace/vinwolf/tests/jam-conformance/fuzz-reports/0.7.2/traces/1766243315_8065";
+    
     #[test]
     fn run_single_fuzz_report() {
 
@@ -44,7 +46,7 @@ mod tests {
     }   
 
     //const TRACES_DIR: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/";
-    const TRACES_DIR: &str = "/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/";
+    const TRACES_DIR: &str = "/home/bernar/workspace/vinwolf/tests/jam-conformance/fuzz-reports/0.7.2/traces/";
 
     #[test]
     fn run_all_traces_tests() {
