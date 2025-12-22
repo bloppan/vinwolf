@@ -47,8 +47,8 @@ pub fn add_acc_stats(service: ServiceId, gas_reports: (Gas, u32)) {
         acc_stats.insert(service, (0, 0));
     }
     let (gas_stored, num_repors_stored) = acc_stats.get(&service).unwrap();
-    log::debug!("Add service: {:?} to acc stats with {:?} gas used. Total gas used: {:?}", service, gas_reports.0, gas_reports.0 + gas_stored);
-    acc_stats.insert(service, (gas_reports.0 + gas_stored, *num_repors_stored + gas_reports.1));
+    log::debug!("Add service: {:?} to acc stats with {:?} gas used. Total gas used: {:?}", service, gas_reports.0, gas_reports.0.saturating_add(*gas_stored));
+    acc_stats.insert(service, (gas_reports.0.saturating_add(*gas_stored), (*num_repors_stored).saturating_add(gas_reports.1)));
     set_acc_stats(acc_stats);
 }
 

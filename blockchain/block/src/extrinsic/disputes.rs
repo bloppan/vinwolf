@@ -111,6 +111,8 @@ fn is_empty(disputes_extrinsic: &DisputesExtrinsic) -> bool {
 
 pub mod verdicts {
 
+    use jam_types::TimeSlot;
+
     use super::*;
 
     pub fn process(verdicts: &[Verdict], wr_reported: &[WorkReportHash], validator_set: &ValidatorsData) -> Result<Vec<(Hash, usize)>, ProcessError> {
@@ -155,12 +157,12 @@ pub mod verdicts {
             return Err(ProcessError::DisputesError(DisputesErrorCode::AlreadyJudged));
         }
 
-        let epoch = state_handler::time::get() as usize / EPOCH_LENGTH;
+        let epoch = state_handler::time::get() / EPOCH_LENGTH as TimeSlot;
 
         // Verify verdict ed25519 signatures
         for verdict in verdicts.iter() {
             
-            if epoch - verdict.age as usize > 1 {
+            if epoch.saturating_sub(verdict.age) > 1 {
                 return Err(ProcessError::DisputesError(DisputesErrorCode::BadJudgementAge));
             }
 

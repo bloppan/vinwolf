@@ -53,9 +53,9 @@ pub fn process(
 
     // We limit the sum of the number of items in the segment-root lookup dictionary and the number of prerequisites to MAX_DEPENDENCY_ITEMS
     for guarantee in guarantees_extrinsic.iter() {
-        if guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.len() > MAX_DEPENDENCY_ITEMS {
+        if guarantee.report.context.prerequisites.len().saturating_add(guarantee.report.segment_root_lookup.len()) > MAX_DEPENDENCY_ITEMS {
             log::error!("Too many dependencies: {:?} > MAX_DEPENDENCY_ITEMS: {:?}", 
-                        guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.len(), MAX_DEPENDENCY_ITEMS);
+                        guarantee.report.context.prerequisites.len().saturating_add(guarantee.report.segment_root_lookup.len()), MAX_DEPENDENCY_ITEMS);
             return Err(ProcessError::ReportError(ReportErrorCode::TooManyDependencies));
         }
     }
@@ -222,16 +222,16 @@ pub mod work_report {
             return Err(error);
         }
 
-        let mut work_report_size = 0;
+        let mut work_report_size: usize = 0;
         // We require that the work-report's results are valid
         match work_result::process(&work_report.results) {
-            Ok(results_size) => { work_report_size += results_size },
+            Ok(results_size) => { work_report_size = work_report_size.saturating_add(results_size) },
             Err(e) => { return Err(e) },
         }
         // In order to ensure fair use of a block’s extrinsic space, work-reports are limited in the maximum total size of 
         // the successful output blobs together with the authorizer output blob, effectively limiting their overall size
-        if work_report_size + work_report.auth_trace.len() > MAX_OUTPUT_BLOB_SIZE {
-            log::error!("Work report too big: {:?}. The max output blob size is {:?}", work_report_size + work_report.auth_trace.len(), MAX_OUTPUT_BLOB_SIZE);
+        if work_report_size.saturating_add(work_report.auth_trace.len()) > MAX_OUTPUT_BLOB_SIZE {
+            log::error!("Work report too big: {:?}. The max output blob size is {:?}", work_report_size.saturating_add(work_report.auth_trace.len()), MAX_OUTPUT_BLOB_SIZE);
             return Err(ProcessError::ReportError(ReportErrorCode::WorkReportTooBig));
         }
 
@@ -322,7 +322,7 @@ pub mod work_report {
                 let epoch_diff = (*post_tau - ROTATION_PERIOD) / EPOCH_LENGTH as u32 == *post_tau / EPOCH_LENGTH as u32;
                 let entropy_index = if epoch_diff { 2 } else { 3 };
                 let mut validators = if epoch_diff { current_validators.clone() } else { prev_validators.clone() };
-                let assignments = guarantor_assignments(&permute(&entropy_pool.buf[entropy_index], *post_tau - ROTATION_PERIOD), &mut validators);
+                let assignments = guarantor_assignments(&permute(&entropy_pool.buf[entropy_index], (*post_tau).saturating_sub(ROTATION_PERIOD)), &mut validators);
                 (validators, assignments)
             };
             
@@ -472,7 +472,7 @@ mod work_result {
         let mut total_accumulation_gas: Gas = 0;
         
         //let service_map: std::collections::HashMap<_, _> = services.0.iter().map(|s| (s.id, s)).collect();
-        let mut results_size = 0;
+        let mut results_size: usize = 0;
 
         for result in results.iter() {
             if let Some(account) = services.get(&result.service) {
@@ -489,10 +489,10 @@ mod work_result {
                     log::error!("Service item gas too low: {:?}. The min gas required is {:?}", result.gas, account.acc_min_gas);
                     return Err(ProcessError::ReportError(ReportErrorCode::ServiceItemGasTooLow));
                 }
-                total_accumulation_gas += result.gas;
+                total_accumulation_gas = total_accumulation_gas.saturating_add(result.gas);
 
                 if result.result[0] == 0 {
-                    results_size += result.result.len() - 1;
+                    results_size = results_size.saturating_add(result.result.len() - 1);
                 }
             } else {
                 log::error!("Bad service id: {:?}", result.service);

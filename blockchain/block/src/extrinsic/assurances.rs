@@ -1,7 +1,7 @@
 /*
-    The Assurances Extrinsic. The assurances extrinsic is a sequence of assurance values, at most one per validator. Each assurance is a sequence 
-    of binary values (i.e. a bitstring), one per core, together with a signature and the index of the validator who is assuring. A value of 1
-    (or ⊺, if interpreted as a Boolean) at any given index implies that the validator assures they are contributing to its availability.
+    The assurances extrinsic is a sequence of assurance values, at most one per validator. Each assurance is a sequence of binary values (i.e. a bitstring),
+    one per core, together with a signature and the index of the validator who is assuring. A value of 1 (or ⊺, if interpreted as a Boolean) at any given 
+    index implies that the validator assures they are contributing to its availability.
 */
 
 use sp_core::blake2_256;
@@ -21,11 +21,10 @@ pub fn process(
     parent: &Hash) 
 -> Result<OutputDataAssurances, ProcessError> {
 
-    log::debug!("Processing assurances extrinsic...");
-    // TODO no se si poner esto
-    /*if self.assurances.is_empty() {
+    if assurances_extrinsic.is_empty() {
         return Ok(OutputDataAssurances { reported: Vec::new() });
-    }*/
+    }
+
     // The assurances extrinsic is a sequence of assurance values, at most one per validator
     if assurances_extrinsic.len() > VALIDATORS_COUNT {
         log::error!("Too many extrinsic assurances: {:?}", assurances_extrinsic.len());
