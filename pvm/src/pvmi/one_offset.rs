@@ -2,11 +2,10 @@
     Instructions with Arguments of One Offset.
 */
 
-use std::cmp::min;
+use codec::{BytesReader, generic_codec::decode_integer};
 use crate::pvm_types::{Gas, RegSize, Registers, RamMemory, ExitReason, Program};
-use codec::generic_codec::decode_integer;
-use codec::BytesReader;
 use crate::pvmi::{skip, _branch, signed};
+use std::cmp::min;
 
 fn get_lx_length(pc: &u64, bitmask: &[u8]) -> u64 {
     min(4, skip(pc, bitmask)) as u64

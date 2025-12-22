@@ -1,11 +1,3 @@
-use crate::pvm_types::{Gas, RegSize, RamMemory, Registers, RamAddress};
-use crate::pvm_types::{ExitReason, Program};
-use constants::pvm::{*};
-use codec::EncodeSize;
-use codec::generic_codec::decode;
-use utils::log;
-use std::sync::{Mutex, LazyLock};
-
 pub mod no_arg;
 pub mod one_imm;
 pub mod one_offset;
@@ -20,19 +12,27 @@ pub mod two_reg_two_imm;
 pub mod two_reg;
 pub mod one_reg_one_ext_imm;
 
-use one_offset::*;
+use constants::pvm::{*};
+use codec::EncodeSize;
+use codec::generic_codec::decode;
+use crate::pvm_types::{Gas, RegSize, RamMemory, Registers, RamAddress};
+use crate::pvm_types::{ExitReason, Program};
+use std::sync::{Mutex, LazyLock};
+use utils::log;
+
 use no_arg::*;
 use one_imm::*;
+use one_offset::*;
+use one_reg_one_imm::*;
+use one_reg_two_imm::*;
+use one_reg_one_imm_one_offset::*;
+use one_reg_one_ext_imm::*;
+use three_reg::*;
 use two_reg::*;
 use two_reg_one_imm::*;
 use two_reg_two_imm::*;
 use two_reg_one_offset::*;
-use three_reg::*;
-use one_reg_one_ext_imm::*;
 use two_imm::*;
-use one_reg_one_imm::*;
-use one_reg_two_imm::*;
-use one_reg_one_imm_one_offset::*;
 
 pub const PAGE_SHIFT: RamAddress = PAGE_SIZE.trailing_zeros();
 pub const PAGE_MASK: RamAddress = PAGE_SIZE - 1;

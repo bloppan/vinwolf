@@ -1,9 +1,6 @@
-use jam_types::{
-    ActivityRecord, ValidatorStatistics, CoreActivityRecord, Statistics, CoresStatistics, SeviceActivityRecord, ServicesStatisticsMapEntry,
-    ServicesStatistics, ServiceId
-};
 use crate::{BytesReader, Decode, Encode, ReadError};
 use crate::generic_codec::{encode_unsigned, decode_unsigned};
+use jam_types::{*};
 
 impl Encode for ActivityRecord {
 

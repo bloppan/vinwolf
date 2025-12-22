@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod tests {
 
-    use std::sync::LazyLock;
+    use codec::{EncodeLen, Decode, BytesReader};
+    use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH};
     use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputAccumulate, StateAccumulate};
     use jam_types::{Account, Block, EntropyPool, Extrinsic, Header, OutputAccumulation, ServiceAccounts, StateKeyType, Statistics, ValidatorSet, ValidatorsData};
-    use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH};
     use state_handler::{get_global_state};
-    use codec::{EncodeLen, Decode, BytesReader};
+    use std::sync::LazyLock;
     use utils::serialization::construct_lookup_key;
     use utils::{serialization::{StateKeyTrait, construct_preimage_key, construct_storage_key}, log};
 

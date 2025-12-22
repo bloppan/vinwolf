@@ -5,18 +5,19 @@
     A work-package, which comprises several work items, is transformed by validators acting as guarantors into its corresponding 
     workreport, which similarly comprises several work outputs and then presented on-chain within the guarantees extrinsic.
 */
-use sp_core::blake2_256;
-use std::collections::{HashSet, HashMap};
-use constants::node::{CORES_COUNT, MAX_DEPENDENCY_ITEMS, MAX_WORK_ITEMS, WORK_REPORT_GAS_LIMIT};
+use codec::Encode;
+use constants::node::{
+    CORES_COUNT, MAX_DEPENDENCY_ITEMS, MAX_WORK_ITEMS, WORK_REPORT_GAS_LIMIT, EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, 
+    VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR
+};
 use jam_types::{
     AvailabilityAssignments, CoreIndex, EntropyPool, Hash, OutputDataReports, ProcessError, ReportErrorCode, TimeSlot, ValidatorIndex, 
     ValidatorsData, OpaqueHash, WorkReport, ValidatorSignature, Guarantee, Gas, AvailabilityAssignment, Ed25519Public, Entropy,
     ReportedPackage, WorkResult
 };
-use constants::node::{ EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR };
-use utils::{shuffle::shuffle, common::{VerifySignature, set_offenders_null}, log};
-use utils::common::is_sorted_and_unique;
-use codec::Encode;
+use sp_core::blake2_256;
+use std::collections::{HashSet, HashMap};
+use utils::{shuffle::shuffle, common::{VerifySignature, set_offenders_null}, log, common::is_sorted_and_unique};
 
 pub fn process(
     guarantees_extrinsic: &[Guarantee], 

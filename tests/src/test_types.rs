@@ -1,10 +1,4 @@
-use jam_types::{
-    AccumulatedHistory, AuthPools, AuthQueues, Assurance, AvailabilityAssignments, BandersnatchRingCommitment, RecentBlocks, CodeAuthorizers, 
-    CoresStatistics, DisputesErrorCode, DisputesRecords, Ed25519Public, Entropy, EntropyPool, HeaderHash, Offenders, OpaqueHash, OutputDataDisputes, 
-    OutputDataReports, Privileges, ReadyQueue, ReportErrorCode, ReportedWorkPackage, ServiceId, ServiceInfo, Services, ServicesStatistics, 
-    ServicesStatisticsMapEntry, TicketBody, Seal, TimeSlot, ValidatorIndex, ValidatorStatistics, ValidatorsData, WorkPackageHash, WorkReport,
-    Guarantee, Preimage, Ticket, Extrinsic,
-};
+use jam_types::*;
 
 // ----------------------------------------------------------------------------------------------------------
 // Authorizations

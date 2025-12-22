@@ -1,16 +1,17 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
+
+pub mod fuzz_types;
+mod fuzz;
+mod fuzz_codec;
+
 // Vamos Marcos!
+use constants::BUILD_PROFILE;
+use fuzz::*;
+use fuzz::VINWOLF_INFO;
 use std::path::{Path, PathBuf};
 use std::collections::HashSet;
 use utils::log;
-
-mod fuzz;
-mod fuzz_codec;
-pub mod fuzz_types;
-use fuzz::*;
-use fuzz::VINWOLF_INFO;
-use constants::BUILD_PROFILE;
 
 fn print_help() {    
     println!("vinwolf-target mode {}", BUILD_PROFILE);

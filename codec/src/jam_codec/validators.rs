@@ -1,5 +1,5 @@
-use jam_types::{BandersnatchPublic, Ed25519Public, BlsPublic, Metadata, ValidatorData, ValidatorsData};
 use crate::{Encode, Decode, BytesReader, ReadError};
+use jam_types::{BandersnatchPublic, Ed25519Public, BlsPublic, Metadata, ValidatorData, ValidatorsData};
 
 impl Encode for ValidatorData {
     

@@ -15,15 +15,11 @@
     the accumulator and the second the previous epoch’s statistics. For each epoch we track a performance record for each validator.
 */
 
-use std::sync::LazyLock;
-use std::sync::Mutex;
-use std::collections::{HashMap, HashSet};
-
-use jam_types::{
-    Block, CoresStatistics, Ed25519Public, Gas, ServiceId, ServicesStatistics, SeviceActivityRecord, Statistics, ValidatorStatistics, ValidatorsData, WorkReport
-};
-use utils::log;
 use constants::node::{CORES_COUNT, EPOCH_LENGTH, SEGMENT_SIZE, VALIDATORS_COUNT};
+use jam_types::{*};
+use std::collections::{HashMap, HashSet};
+use std::sync::{LazyLock, Mutex};
+use utils::log;
 
 static ACC_STATS: LazyLock<Mutex<HashMap<ServiceId, (Gas, u32)>>> = LazyLock::new(|| {
     Mutex::new(HashMap::default())

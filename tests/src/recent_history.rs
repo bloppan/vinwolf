@@ -1,10 +1,9 @@
 #[cfg(test)]
 mod tests {
 
-    //use crate::TestBody;
     use codec::{Decode, BytesReader};
-    use jam_types::{RecentBlocks, ReportedWorkPackages};
     use crate::test_types::InputHistory;
+    use jam_types::{RecentBlocks, ReportedWorkPackages};
     use utils::log;
 
     fn run_test(filename: &str) {

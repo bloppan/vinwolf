@@ -1,101 +1,41 @@
 /*
-    Jam's block production mechanism, termed Safrole after the novel Sassafras production mechanism of which it is 
-    a simplified variant, is a stateful system rather more complex than the Nakamoto consensus described in the YP.
-    The chief purpose of a block production consensus mechanism is to limit the rate at which new blocks may be
-    authored and, ideally, preclude the possibility of "forks": multiple blocks with equal numbers of ancestors.
+    Jam's block production mechanism, termed Safrole after the novel Sassafras production mechanism of which it is a simplified variant, 
+    is a stateful system rather more complex than the Nakamoto consensus described in the YP. The chief purpose of a block production consensus 
+    mechanism is to limit the rate at which new blocks may be authored and, ideally, preclude the possibility of "forks": multiple blocks with 
+    equal numbers of ancestors.
     
-    To achieve this, Safrole limits the possible author of any block within any given six-second timeslot to a single 
-    key-holder from within a prespecified set of validators. Furthermore, under normal operation, the identity of the
-    key-holder of any future timeslot will have a very high degree of anonymity. As a side effect of its operation, we
-    can generate a high-quality pool of entropy which may be used by other parts of the protocol and is accessible to
-    services running on it. 
+    To achieve this, Safrole limits the possible author of any block within any given six-second timeslot to a single key-holder from within a 
+    prespecified set of validators. Furthermore, under normal operation, the identity of the key-holder of any future timeslot will have a very 
+    high degree of anonymity. As a side effect of its operation, we can generate a high-quality pool of entropy which may be used by other parts 
+    of the protocol and is accessible to services running on it. 
     
-    Because of its tightly scoped role, the core of Safrole's state, "gamma", is independent of the 
-    rest of the protocol. It interacts with other portions of the protocol through "iota" and "kappa", the prospective 
-    and active sets of validator keys respectively; "tau" , the most recent block's timeslot; and "eta", the entropy 
-    accumulator.
+    Because of its tightly scoped role, the core of Safrole's state, "gamma", is independent of the rest of the protocol. It interacts with other 
+    portions of the protocol through "iota" and "kappa", the prospective  and active sets of validator keys respectively; "tau" , the most recent 
+    block's timeslot; and "eta", the entropy accumulator.
     
-    The Safrole protocol generates, once per epoch, a sequence of "EPOCH_LENGTH" sealing keys, one for each potential 
-    block within a whole epoch. Each block header includes its timeslot index Ht (the number of six-second periods since the 
-    Jam Common Era began) and a valid seal signature Hs, signed by the sealing key corresponding to the timeslot within 
-    the aforementioned sequence. Each sealing key is in fact a pseudonym for some validator which was agreed the privilege 
-    of authoring a block in the corresponding timeslot.
+    The Safrole protocol generates, once per epoch, a sequence of "EPOCH_LENGTH" sealing keys, one for each potential block within a whole epoch. 
+    Each block header includes its timeslot index Ht (the number of six-second periods since the Jam Common Era began) and a valid seal signature Hs, 
+    signed by the sealing key corresponding to the timeslot within the aforementioned sequence. Each sealing key is in fact a pseudonym for some 
+    validator which was agreed the privilege of authoring a block in the corresponding timeslot.
     
-    In order to generate this sequence of sealing keys in regular operation, and in particular to do so without making 
-    public the correspondence relation between them and the validator set, we use a novel cryptographic structure known as 
-    a Ringvrf, utilizing the Bandersnatch curve. Bandersnatch Ringvrf allows for a proof to be provided which simultaneously 
-    guarantees the author controlled a key within a set (in our case validators), and secondly provides an output, an 
-    unbiasable deterministic hash giving us a secure verifiable random function (vrf). This anonymous and secure random 
-    output is a ticket and validators' tickets with the best score define the new sealing keys allowing the chosen validators 
-    to exercise their privilege and create a new block at the appropriate time.
+    In order to generate this sequence of sealing keys in regular operation, and in particular to do so without making public the correspondence 
+    relation between them and the validator set, we use a novel cryptographic structure known as a Ringvrf, utilizing the Bandersnatch curve. Bandersnatch 
+    Ringvrf allows for a proof to be provided which simultaneously guarantees the author controlled a key within a set (in our case validators), 
+    and secondly provides an output, an unbiasable deterministic hash giving us a secure verifiable random function (vrf). This anonymous and secure random 
+    output is a ticket and validators' tickets with the best score define the new sealing keys allowing the chosen validators to exercise their privilege 
+    and create a new block at the appropriate time.
 */
 
 use ark_vrf::reexports::ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_vrf::suites::bandersnatch::Public;
-use utils::bandersnatch::Verifier;
-use utils::{print_hash, log};
-use ark_vrf::suites::bandersnatch::RingProofParams;
-
-use std::sync::LazyLock;
-use std::collections::VecDeque;
-use std::sync::Mutex;
-use sp_core::blake2_256;
-
+use ark_vrf::suites::bandersnatch::{RingProofParams, Public};
+use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
 use jam_types::{
     BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Block, Ed25519Public, Entropy, EntropyPool, EpochMark, OutputDataSafrole, 
     ProcessError, Safrole, SafroleErrorCode, TicketBody, TicketsMark, Seal, TimeSlot, ValidatorSet, ValidatorsData, GlobalState
 };
-use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
-
-static VERIFIERS: LazyLock<Mutex<VecDeque<Verifier>>> = LazyLock::new(|| { Mutex::new(VecDeque::new()) });
-
-pub mod verifier {
-
-    use super::*;
-
-    pub fn update(
-        new_verifier: Verifier, 
-        curr_validators: &ValidatorsData, 
-        epoch_diff: &TimeSlot
-    ) {
-
-        let mut verifiers = VERIFIERS.lock().unwrap().clone();
-        verifiers.push_back(new_verifier.clone());
-        verifiers.pop_front();
-        
-        if *epoch_diff > 1 {
-            verifiers[0] = Verifier::new(create_ring_set(curr_validators));
-            verifiers[1] = new_verifier; // TODO revisar esto luego, quiza sea mejor pedir el estado completo cuando estamos offline durante un tiempo
-        }
-        
-        set_all(verifiers);
-    }
-
-    pub fn set_all(verifiers: VecDeque<Verifier>) {
-        *VERIFIERS.lock().unwrap() = verifiers;
-    }
-
-    pub fn get_all() -> VecDeque<Verifier> {
-        VERIFIERS.lock().unwrap().clone()
-    }
-
-    pub fn get(validators: ValidatorSet) -> Verifier {
-        match validators {
-            ValidatorSet::Current => VERIFIERS.lock().unwrap().get(0).unwrap().clone(),
-            ValidatorSet::Pending => VERIFIERS.lock().unwrap().get(1).unwrap().clone(),
-            ValidatorSet::Next => VERIFIERS.lock().unwrap().get(2).unwrap().clone(),
-            _ => VERIFIERS.lock().unwrap().get(0).unwrap().clone(), // TODO arreglar esto
-        }
-    } 
-
-    pub fn init_all(state: &GlobalState) {
-        let mut verifiers = VecDeque::new();
-        verifiers.push_back(Verifier::new(create_ring_set(&state.curr_validators)));
-        verifiers.push_back(Verifier::new(create_ring_set(&state.safrole.pending_validators)));
-        verifiers.push_back(Verifier::new(create_ring_set(&state.next_validators)));
-        set_all(verifiers);
-    }
-}
+use sp_core::blake2_256;
+use std::{collections::VecDeque, sync::{LazyLock, Mutex}};
+use utils::{{bandersnatch::Verifier}, {print_hash, log}};
 
 // Process Safrole state
 pub fn process(
@@ -285,4 +225,52 @@ fn fallback(buf: &Entropy, current_keys: Box<[BandersnatchPublic; VALIDATORS_COU
     }
 }
 
+static VERIFIERS: LazyLock<Mutex<VecDeque<Verifier>>> = LazyLock::new(|| { Mutex::new(VecDeque::new()) });
 
+pub mod verifier {
+
+    use super::*;
+
+    pub fn update(
+        new_verifier: Verifier, 
+        curr_validators: &ValidatorsData, 
+        epoch_diff: &TimeSlot
+    ) {
+
+        let mut verifiers = VERIFIERS.lock().unwrap().clone();
+        verifiers.push_back(new_verifier.clone());
+        verifiers.pop_front();
+        
+        if *epoch_diff > 1 {
+            verifiers[0] = Verifier::new(create_ring_set(curr_validators));
+            verifiers[1] = new_verifier; // TODO revisar esto luego, quiza sea mejor pedir el estado completo cuando estamos offline durante un tiempo
+        }
+        
+        set_all(verifiers);
+    }
+
+    pub fn set_all(verifiers: VecDeque<Verifier>) {
+        *VERIFIERS.lock().unwrap() = verifiers;
+    }
+
+    pub fn get_all() -> VecDeque<Verifier> {
+        VERIFIERS.lock().unwrap().clone()
+    }
+
+    pub fn get(validators: ValidatorSet) -> Verifier {
+        match validators {
+            ValidatorSet::Current => VERIFIERS.lock().unwrap().get(0).unwrap().clone(),
+            ValidatorSet::Pending => VERIFIERS.lock().unwrap().get(1).unwrap().clone(),
+            ValidatorSet::Next => VERIFIERS.lock().unwrap().get(2).unwrap().clone(),
+            _ => VERIFIERS.lock().unwrap().get(0).unwrap().clone(), // TODO arreglar esto
+        }
+    } 
+
+    pub fn init_all(state: &GlobalState) {
+        let mut verifiers = VecDeque::new();
+        verifiers.push_back(Verifier::new(create_ring_set(&state.curr_validators)));
+        verifiers.push_back(Verifier::new(create_ring_set(&state.safrole.pending_validators)));
+        verifiers.push_back(Verifier::new(create_ring_set(&state.next_validators)));
+        set_all(verifiers);
+    }
+}

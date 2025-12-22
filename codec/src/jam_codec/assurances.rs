@@ -1,6 +1,6 @@
-use jam_types::{OpaqueHash, Ed25519Signature, ValidatorIndex, Assurance, WorkReport, OutputDataAssurances, OutputAssurances, AssurancesErrorCode};
-use crate::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
 use constants::node::AVAIL_BITFIELD_BYTES;
+use crate::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
+use jam_types::{OpaqueHash, Ed25519Signature, ValidatorIndex, Assurance, WorkReport, OutputDataAssurances, OutputAssurances, AssurancesErrorCode};
 
 impl Encode for Assurance {
     

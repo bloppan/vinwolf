@@ -5,13 +5,13 @@
     a judgment found to be contradiction to a work-report’s validity (faults). Both are considered a kind of offense.
 */
 
+use codec::Encode;
+use constants::node::{EPOCH_LENGTH, ONE_THIRD_VALIDATORS, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY};
 use jam_types::{
     AvailabilityAssignments, DisputesErrorCode, DisputesRecords, Ed25519Public, Hash, DisputesExtrinsic, Culprit, Verdict, Fault,
     OpaqueHash, OutputDataDisputes, ProcessError, ValidatorSet, ValidatorsData, WorkReportHash,
 };
-use constants::node::{EPOCH_LENGTH, ONE_THIRD_VALIDATORS, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY};
 use utils::common::{has_duplicates, is_sorted_and_unique, VerifySignature};
-use codec::Encode;
 
 pub fn process(
     disputes_extrinsic: &DisputesExtrinsic, 

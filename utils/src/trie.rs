@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use sp_core::{blake2_256, keccak_256};
-use jam_types::{Hash, Mmr, MmrPeak, StateKey};
 use codec::{Encode, EncodeSize};
+use jam_types::{Hash, Mmr, MmrPeak, StateKey};
+use sp_core::{blake2_256, keccak_256};
+use std::collections::HashMap;
 
 // State Merklization involves transforming the serialized mapping into a cryptographic commitment. 
 // We define this commitment as the root of the binary Patricia Merkle Trie with a format optimized 

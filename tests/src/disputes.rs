@@ -1,15 +1,15 @@
 #[cfg(test)]
 mod test {
 
+    use codec::{Decode, BytesReader};
+    use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, CORES_COUNT};
+    use crate::codec::tests::{TestBody, encode_decode_test};
+    use crate::FromProcessError;
+    use crate::test_types::{DisputesState, OutputDisputes};
+    use jam_types::{OutputDataDisputes, ValidatorSet, DisputesExtrinsic, ProcessError};
+    use state_handler::{get_global_state};
     use std::sync::LazyLock;
     use utils::log;
-    use crate::FromProcessError;
-    use crate::codec::tests::{TestBody, encode_decode_test};
-    use state_handler::{get_global_state};
-    use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, CORES_COUNT};
-    use jam_types::{OutputDataDisputes, ValidatorSet, DisputesExtrinsic, ProcessError};
-    use codec::{Decode, BytesReader};
-    use crate::test_types::{DisputesState, OutputDisputes};
 
     static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && CORES_COUNT == 2 {

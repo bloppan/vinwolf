@@ -4,15 +4,14 @@
     index implies that the validator assures they are contributing to its availability.
 */
 
-use sp_core::blake2_256;
+use codec::Encode;
+use constants::node::{AVAIL_BITFIELD_BYTES, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY, REPORTED_WORK_REPLACEMENT_PERIOD};
 use jam_types::{
     AssurancesErrorCode, OutputDataAssurances, ValidatorIndex, Hash, TimeSlot, Assurance, CoreIndex, AvailabilityAssignments, 
     ProcessError, ValidatorSet
 };
-use constants::node::{AVAIL_BITFIELD_BYTES, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY, REPORTED_WORK_REPLACEMENT_PERIOD};
-use codec::Encode;
-use utils::common::{is_sorted_and_unique, VerifySignature};
-use utils::log;
+use sp_core::blake2_256;
+use utils::{common::{is_sorted_and_unique, VerifySignature}, log};
 
 pub fn process(
     assurances_extrinsic: &[Assurance],

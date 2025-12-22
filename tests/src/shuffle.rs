@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
 
-    use std::path::PathBuf;
     use jam_types::{OpaqueHash, Entropy};
+    use std::path::PathBuf;
     use utils::{serde::{Deserialize, Value, from_json_str}, shuffle::shuffle};
 
     #[derive(Debug, PartialEq)]

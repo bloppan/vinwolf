@@ -1,15 +1,14 @@
 #[cfg(test)]
 mod tests {
 
-    use std::fs::File;
-    use std::io::Read;
-    use std::path::PathBuf;
-
     use codec::{BytesReader, Decode};
     use constants::pvm::{NUM_REG, PAGE_SIZE};
     use pvm::pvmi::invoke_pvm;
     use jam_types::{Gas};
     use pvm::pvm_types::{Program, PageFlags, RamAddress, ExitReason, Page, RamMemory};
+    use std::fs::File;
+    use std::io::Read;
+    use std::path::PathBuf;
     use utils::serde::{Deserialize, Value, from_json_str};
 
     #[derive(Debug, PartialEq)]

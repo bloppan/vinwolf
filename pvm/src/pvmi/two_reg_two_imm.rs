@@ -2,10 +2,9 @@
     Instruction with Arguments of Two Registers and Two Immediates
 */
 
-use std::cmp::{min, max};
-
 use crate::pvm_types::{RamMemory, Registers, Gas, ExitReason, Program, RegSize};
 use crate::pvmi::{skip, extend_sign, djump};
+use std::cmp::{min, max};
 
 fn get_reg(pc: &RegSize, program: &Program) -> (usize, usize) {
     let reg_a = min(12, program.code[*pc as usize + 1] & 15) as usize;

@@ -1,7 +1,7 @@
 mod default;
 // JAM Protocol Types
-use std::collections::{HashMap, VecDeque};
 use constants::node::{AVAIL_BITFIELD_BYTES, CORES_COUNT, ENTROPY_POOL_SIZE, EPOCH_LENGTH, MAX_ITEMS_AUTHORIZATION_QUEUE, SEGMENT_SIZE, VALIDATORS_COUNT};
+use std::collections::{HashMap, VecDeque};
 // ----------------------------------------------------------------------------------------------------------
 // Crypto
 // ----------------------------------------------------------------------------------------------------------

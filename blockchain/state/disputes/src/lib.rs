@@ -30,8 +30,8 @@
 // reports are not allowed to be resubmitted. Conversely, recording reports found to be valid ensures that additional
 // disputes cannot be raised in the future of the chain.
 
-use jam_types::{AvailabilityAssignments, DisputesRecords, OutputDataDisputes, DisputesExtrinsic, ProcessError};
 use block::extrinsic;
+use jam_types::{AvailabilityAssignments, DisputesRecords, OutputDataDisputes, DisputesExtrinsic, ProcessError};
 
 pub fn process(
     disputes_state: &mut DisputesRecords, 

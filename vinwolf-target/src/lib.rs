@@ -1,6 +1,6 @@
-use safrole::{create_ring_set, verifier::{self, get_all, set_all}};
-use jam_types::{Block, GlobalState, Header, OpaqueHash, RawState, ReadError};
 use codec::{Decode, BytesReader};
+use jam_types::{Block, GlobalState, OpaqueHash, RawState, ReadError};
+use safrole::verifier;
 use std::collections::VecDeque;
 use std::path::{PathBuf, Path};
 use std::{fs, collections::HashSet};

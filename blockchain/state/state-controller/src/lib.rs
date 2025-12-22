@@ -24,11 +24,11 @@
     are tracked in ψ and validator statistics are tracked in π.
 */
 
-use sp_core::blake2_256;
-use jam_types::{ValidatorSet, Block, ProcessError, OutputDataReports};
-use utils::{{trie::merkle_state}, log};
 use block::header;
 use codec::Encode;
+use jam_types::{ValidatorSet, Block, ProcessError, OutputDataReports};
+use sp_core::blake2_256;
+use utils::{{trie::merkle_state}, log};
 
 // We specify the state transition function as the implication of formulating all items of posterior state in terms of the prior
 // state and block. To aid the architecting of implementations which parallelize this computation, we minimize the depth of the

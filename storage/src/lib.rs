@@ -1,4 +1,5 @@
 pub mod ancestors;
+
 use jam_types::{OpaqueHash, TimeSlot};
 
 pub trait Storage {

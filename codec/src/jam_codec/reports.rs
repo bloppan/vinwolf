@@ -1,12 +1,7 @@
-
-use jam_types::{
-    AvailabilityAssignment, AvailabilityAssignments, AvailabilityAssignmentsItem, WorkReport, Hash, RefineContext, TimeSlot,
-    ReportedWorkPackage, ServiceId, WorkItem, WorkPackage, OpaqueHash, Gas, ImportSpec, ExtrinsicSpec, WorkResult, WorkExecResult, WorkExecError, RefineLoad,
-    Ed25519Public, WorkPackageHash, SegmentRootLookupItem, WorkPackageSpec, ReportedPackage, OutputDataReports, 
-};
 use constants::node::CORES_COUNT;
 use crate::{Encode, Decode, BytesReader, EncodeSize, EncodeLen, DecodeSize, DecodeLen, ReadError};
 use crate::generic_codec::{encode_unsigned, decode_unsigned};
+use jam_types::{*};
 
 impl Encode for WorkReport {
 

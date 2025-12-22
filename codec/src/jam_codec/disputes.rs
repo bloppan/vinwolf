@@ -1,9 +1,6 @@
-use jam_types::{
-    Judgement, ValidatorIndex, Ed25519Signature, Ed25519Public, WorkReportHash, OffendersMark, OutputDataDisputes, DisputesRecords, Fault, Culprit, Verdict,
-    OpaqueHash, 
-};
 use constants::node::VALIDATORS_SUPER_MAJORITY;
 use crate::{BytesReader, Decode, DecodeLen, Encode, EncodeLen, EncodeSize, ReadError};
+use jam_types::{*};
 
 impl Encode for DisputesRecords {
 

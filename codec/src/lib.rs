@@ -1,4 +1,5 @@
 use jam_types::ReadError;
+
 pub mod generic_codec;
 pub mod jam_codec;
 

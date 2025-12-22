@@ -1,5 +1,5 @@
-use jam_types::{BandersnatchPublic, BandersnatchRingVrfSignature, TicketAttempt, TicketBody, Ticket, TicketsMark, Seal, BandersnatchEpoch};
 use crate::{Encode, Decode, BytesReader, ReadError};
+use jam_types::{BandersnatchPublic, BandersnatchRingVrfSignature, TicketAttempt, TicketBody, Ticket, TicketsMark, Seal, BandersnatchEpoch};
 
 impl Encode for Ticket {
 

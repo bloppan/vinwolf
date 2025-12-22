@@ -5,12 +5,9 @@
     inner dictionaries of δ, a service index.
 */
 
-use jam_types::{OpaqueHash, StateKeyType, StateKey, SerializedState, GlobalState, ServiceInfo};
 use codec::Encode;
-use constants::node::{
-    ACCUMULATION_HISTORY, AUTH_POOLS, AUTH_QUEUE, AVAILABILITY, CURR_VALIDATORS, DISPUTES, ENTROPY, NEXT_VALIDATORS, PREV_VALIDATORS, PRIVILEGES, 
-    READY_QUEUE, RECENT_HISTORY, SAFROLE, STATISTICS, TIME, RECENT_ACC_OUTPUTS
-};
+use constants::node::*;
+use jam_types::{OpaqueHash, StateKeyType, StateKey, SerializedState, GlobalState, ServiceInfo};
 
 // The state serialization is then defined as the dictionary built from the amalgamation of each of the components.
 // Cryptographic hashing ensures that there will be no duplicate state-keys given that there are no duplicate inputs to C.

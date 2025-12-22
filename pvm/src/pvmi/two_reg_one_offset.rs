@@ -3,11 +3,10 @@
 */
 
 use std::cmp::{min, max};
-
-use crate::pvm_types::{RamMemory, Gas, Registers, ExitReason, Program, RegSize};
-use crate::pvmi::{skip, signed, _branch};
 use codec::BytesReader;
 use codec::generic_codec::decode_integer;
+use crate::pvm_types::{RamMemory, Gas, Registers, ExitReason, Program, RegSize};
+use crate::pvmi::{skip, signed, _branch};
 
 fn get_reg(pc: &RegSize, program: &Program) -> (usize, usize) {
     let reg_a = min(12, program.code[*pc as usize + 1] & 15) as usize;

@@ -1,5 +1,5 @@
-use jam_types::{OpaqueHash, Entropy, EntropyPool};
 use crate::{Encode, Decode, BytesReader, ReadError};
+use jam_types::{OpaqueHash, Entropy, EntropyPool};
 
 impl Encode for Entropy {
     fn encode(&self) -> Vec<u8> {

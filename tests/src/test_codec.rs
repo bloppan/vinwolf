@@ -1,17 +1,6 @@
-use jam_types::{
-    AccumulatedHistory, Assurance, AuthPools, AuthQueues, AvailabilityAssignments, BandersnatchRingCommitment, RecentBlocks, CodeAuthorizers, CoresStatistics, 
-    DisputesErrorCode, DisputesRecords, Ed25519Public, Entropy, EntropyPool, Guarantee, HeaderHash, OpaqueHash, OutputDataDisputes, OutputDataReports, 
-    Privileges, ReadError, ReadyQueue, ReportErrorCode, ReportedWorkPackage, ServiceId, ServiceInfo, Services, ServicesStatistics, 
-    ServicesStatisticsMapEntry, TicketBody, Seal, TimeSlot, ValidatorIndex, ValidatorStatistics, ValidatorsData, WorkPackageHash, WorkReport,
-    Preimage, Ticket, Extrinsic
-};
 use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
-use crate::test_types::{
-    AccountAccTest, AccountTest, AccountsAccMapEntry, AccountsMapEntry, DisputesState, InputAccumulate, InputAssurances, InputAuthorizations, 
-    InputHistory, InputPreimages, InputSafrole, InputStatistics, InputWorkReport, LookupMetaMapEntry, LookupMetaMapKeyTest, OutputDisputes, 
-    OutputWorkReport, PreimagesBlobMapEntry, PreimagesState, ReportsAccountsMapEntry, SafroleState, StateAccumulate, 
-    StateAssurances, StateAuthorizations, StateStatistics, StorageMapEntry, WorkReportState, PreimagesRequestsMapKey, PreimagesRequestsMapEntry
-};
+use crate::test_types::*;
+use jam_types::*;
 
 // ----------------------------------------------------------------------------------------------------------
 // Authorizations

@@ -1,11 +1,7 @@
-use {std::sync::LazyLock, std::sync::Mutex};
-use std::collections::HashSet;
-use jam_types::{
-    AccumulatedHistory, AuthPools, AuthQueues, AvailabilityAssignment, AvailabilityAssignments, CoreIndex, DisputesErrorCode, DisputesRecords, Entropy, EntropyPool, 
-    GlobalState, Offenders, OpaqueHash, Privileges, ProcessError, ReadyQueue, RecentBlocks, Safrole, ServiceAccounts, Statistics, TimeSlot, ValidatorSet, 
-    ValidatorsData, WorkReportHash, StorageKey
-};
 use codec::Encode;
+use jam_types::{*};
+use std::collections::HashSet;
+use std::sync::{LazyLock, Mutex};
 
 static GLOBAL_STATE: LazyLock<Mutex<GlobalState>> = LazyLock::new(|| {
     Mutex::new(GlobalState::default())
