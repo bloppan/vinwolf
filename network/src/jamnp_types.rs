@@ -1,5 +1,7 @@
 use jam_types::{*};
 
+pub type StreamKind = u8;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct LastFinalizedBlock {
     pub header_hash: OpaqueHash,
@@ -51,6 +53,7 @@ pub enum MessageError {
 
 #[derive(Debug, PartialEq)]
 pub enum StreamError {
+    OpenStream,
     ReadStream,
     WriteStream,
 }

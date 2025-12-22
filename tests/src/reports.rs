@@ -32,7 +32,7 @@ mod tests {
 
     fn run_test(filename: &str) {
 
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/reports/{}/{}", *TEST_TYPE, filename))).unwrap();
+        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/stf/reports/{}/{}", *TEST_TYPE, filename))).unwrap();
         let test_body: Vec<TestBody> = vec![
                                         TestBody::InputWorkReport,
                                         TestBody::WorkReportState,
@@ -268,6 +268,7 @@ mod tests {
             // Work report output is size is over the limit.
             "too_big_work_report_output-1.bin",
             "with_avail_assignments-1.bin",
+            "report_with_no_results-1.bin",
         ];
         for file in test_files {
             log::info!("Running test: {}", file);

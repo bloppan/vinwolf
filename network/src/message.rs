@@ -1,5 +1,5 @@
 use crate::{dev_accounts, node_config};
-use crate::jamnp_types::{Announcement, ConnectionError, Handshake, ImportedBlocks, NetworkError, StreamError, TicketDistributed};
+use crate::jamnp_types::{StreamKind, Announcement, ConnectionError, Handshake, ImportedBlocks, NetworkError, StreamError, TicketDistributed};
 use codec::{BytesReader, Decode, Encode};
 use codec::generic_codec::decode_from_bytes;
 use jam_types::{*};
@@ -8,11 +8,11 @@ use std::sync::{LazyLock, Mutex};
 use std::u32;
 use utils::{common, hex, log};
 
-pub const BLOCK_ANNOUNCEMENT: u8 = 0;
-pub const BLOCK_REQUEST: u8 = 128;
-pub const STATE_REQUEST: u8 = 129;
-pub const TICKET_GENERATION: u8 = 131;
-pub const TICKET_PROXY: u8 = 132;
+pub const BLOCK_ANNOUNCEMENT: StreamKind = 0;
+pub const BLOCK_REQUEST: StreamKind = 128;
+pub const STATE_REQUEST: StreamKind = 129;
+pub const TICKET_GENERATION: StreamKind = 131;
+pub const TICKET_PROXY: StreamKind = 132;
 
 pub struct TicketDistribution {
     pub epoch_index: TimeSlot,
@@ -48,7 +48,7 @@ pub struct NetworkMessage {
 }
 
 impl NetworkMessage {
-    fn new(kind: u8, payload: Vec<u8>) -> Vec<u8> {
+    pub fn new(kind: u8, payload: Vec<u8>) -> Vec<u8> {
         let len = payload.len() as u32;
         let len_bytes = len.to_le_bytes();
         let mut msg = Vec::with_capacity(5 + payload.len());
@@ -58,17 +58,7 @@ impl NetworkMessage {
         msg
     }
 
-    fn prepend_kind_and_len(&mut self, kind: u8) {
-        let len = self.msg.len() as u32;
-        let len_bytes = len.to_le_bytes();
-        let old_len = self.msg.len();
-        self.msg.resize(old_len + 5, 0);
-        self.msg.copy_within(0..old_len, 5);
-        self.msg[0] = kind;
-        self.msg[1..5].copy_from_slice(&len_bytes);
-    }
-
-    async fn recv(recv_stream: &mut RecvStream) -> Result<Vec<u8>, NetworkError> {
+    pub async fn recv(recv_stream: &mut RecvStream) -> Result<Vec<u8>, NetworkError> {
 
         let mut len_msg = [0u8; 4];
     
@@ -88,7 +78,7 @@ impl NetworkMessage {
         return Ok(buffer);
     }
 
-    async fn send(msg_kind: u8, payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
+    pub async fn send(msg_kind: u8, payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
         
         let message = NetworkMessage::new(msg_kind, payload);        
         
@@ -104,38 +94,22 @@ impl NetworkMessage {
 
         return Ok(());
     }
-}
 
-pub async fn handle_stream(connection_info: ConnectionInfo) {
+    pub async fn send_up(msg_kind: u8, payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
+        
+        let message = NetworkMessage::new(msg_kind, payload);        
+        
+        if let Err(e) = send_stream.write_all(&message).await {
+            log::error!("Failed to send stream: {:?}", e);
+            return Err(NetworkError::StreamError(StreamError::WriteStream));
+        }
 
-    match connection_info.kind {
-
-        BLOCK_ANNOUNCEMENT => {
-            block_announcement(connection_info).await;
-        },
-        BLOCK_REQUEST => {
-
-        },
-        STATE_REQUEST => {
-
-        },
-        TICKET_GENERATION => {
-            log::debug!("Generated ticket received -> Send to all current validators");
-            recv_ticket_from_generator(connection_info).await.unwrap();
-        },
-        TICKET_PROXY => {
-            log::debug!("Received ticket from proxy -> Include in a block");
-            //recv_ticket_distribution(connection_info).await;
-        },
-        _ => {
-            println!("Unknown stream kind: {:?}", connection_info.kind);
-        },
+        return Ok(());
     }
 }
 
-pub async fn recv_ticket_from_generator(connection_info: ConnectionInfo) -> Result<(), NetworkError> {
+pub async fn recv_ticket_from_generator(mut recv_stream: RecvStream) -> Result<(), NetworkError> {
 
-    let mut recv_stream = connection_info.recv_stream;
     let distributed_ticket_blob = NetworkMessage::recv(&mut recv_stream).await?;
     
     let distributed_ticket= decode_from_bytes::<TicketDistributed>(&distributed_ticket_blob).map_err(|e| {
@@ -172,27 +146,24 @@ pub async fn broadcast_ticket_to_validators(distributed_ticket_blob: Vec<u8>) {
         let connection = match dev_accounts::get_dev_account_connection(&validator.bandersnatch) {
             Some(conn) => conn,
             None => {
-                log::debug!("Error getting dev account connection for validator: {i}");
+                log::error!("Getting dev account connection for validator: {i}");
                 continue;
             }
         };
-        log::debug!("Proxy ticket to {:?}", connection.remote_address());
+        log::info!("Proxy ticket to {:?}", connection.remote_address());
         let (mut send_stream, mut _recv_stream) = connection.open_bi().await.unwrap();
         send_stream.write_all(&proxy_ticket_msg).await.ok();
         send_stream.finish().unwrap();
     }
 }
 
-async fn recv_ticket_distribution(connection_info: ConnectionInfo) -> Result<(), NetworkError> {
+pub async fn recv_ticket_distribution(mut recv_stream: RecvStream) -> Result<(), NetworkError> {
 
-    let mut recv_stream = connection_info.recv_stream;
     let distributed_ticket = NetworkMessage::recv(&mut recv_stream).await?;
-    log::debug!("ticket distribution msg recv: {}", utils::hex::encode(&distributed_ticket));
-    
-    let state = state_handler::get_global_state().lock().unwrap();
-    log::debug!("Current validators: {:x?}", state.curr_validators.list);
-    log::debug!("Next validators: {:x?}", state.next_validators.list);
-
+    log::info!("ticket distribution msg recv: {}", utils::hex::encode(&distributed_ticket));
+    //let state = state_handler::get_global_state().lock().unwrap();
+    //log::debug!("Current validators: {:x?}", state.curr_validators.list);
+    //log::debug!("Next validators: {:x?}", state.next_validators.list);
     Ok(())
 }
 
@@ -275,8 +246,6 @@ async fn block_request(request_info: BlockRequestInfo, connection: Connection) -
 
     return Ok(blocks);
 }
-
-
 
 async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connection) -> Result<(), NetworkError> {
 
@@ -365,26 +334,13 @@ fn is_new(announcement: &Announcement) -> bool {
     return true;
 }
 
-pub async fn block_announcement(connection_info: ConnectionInfo) -> Result<(), NetworkError> {
+pub async fn block_announcement(
+    connection: Connection,
+    _send_stream: &mut SendStream,
+    recv_stream: &mut RecvStream,
+    handshake: Handshake,
+) -> Result<(), NetworkError> {
 
-    let mut send_stream = connection_info.send_stream;
-    let mut recv_stream = connection_info.recv_stream;
-
-    let handshake = vec![15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0, 1, 15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0];
-    let len_bytes = (handshake.len() as u32).to_le_bytes();
-    /*send_stream.write_all(&len_bytes).await.ok();
-    send_stream.write_all(&handshake).await.ok();*/
-    send_stream.write_all(&([len_bytes.to_vec(), handshake].concat())).await.ok();
-    log::debug!("Sent handshake response");
- 
-    let mut len_handshake = [0u8; 4];
-    recv_stream.read_exact(&mut len_handshake).await.unwrap();
-    let mut buffer = vec![0u8; u32::from_le_bytes(len_handshake) as usize];
-    recv_stream.read_exact(&mut buffer).await.unwrap();
-    log::debug!("Handshake received: {:?} bytes", buffer.len());
-
-    let mut reader = BytesReader::new(&buffer);
-    let handshake = Handshake::decode(&mut reader).unwrap();
     log::debug!("Last finalized block: {} slot: {:?}", utils::hex::encode(&handshake.last_finalized_block.header_hash), handshake.last_finalized_block.slot);
     log::debug!("Leafs: {} Slots: {:?}"
     , handshake.leafs.iter().map(|leaf| utils::hex::encode(&leaf.header_hash)).collect::<Vec<_>>().join(", "),  handshake.leafs.iter().map(|leaf| leaf.slot).collect::<Vec<TimeSlot>>());
@@ -394,14 +350,14 @@ pub async fn block_announcement(connection_info: ConnectionInfo) -> Result<(), N
         leafs: handshake.leafs
     };
 
-    if let Err(e) = sync_blocks(imported_blocks, connection_info.connection.clone()).await {
+    if let Err(e) = sync_blocks(imported_blocks, connection.clone()).await {
         log::error!("Failed to sync blocks: {:?}", e);
         return Err(e);
     }
     
     loop {
 
-        let announcement_blob = NetworkMessage::recv(&mut recv_stream).await?;
+        let announcement_blob = NetworkMessage::recv(recv_stream).await?;
 
         let announcement = match decode_from_bytes::<Announcement>(&announcement_blob) {
             Ok(a) => a,
@@ -423,7 +379,7 @@ pub async fn block_announcement(connection_info: ConnectionInfo) -> Result<(), N
             num_blocks: 1
         };
 
-        let block = block_request(request_info, connection_info.connection.clone()).await.unwrap();
+        let block = block_request(request_info, connection.clone()).await.unwrap();
         log::debug!("process block in loop {}", utils::hex::encode(&sp_core::blake2_256(&block[0].header.encode())));
 
         match state_controller::stf(&block[0]) {

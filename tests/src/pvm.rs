@@ -149,7 +149,7 @@ mod tests {
 
     fn run_pvm_test(filename: &str) {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push("jamtestvectors/pvm/programs/");
+        path.push("pvm/programs/");
         path.push(filename);
         let mut file = File::open(&path).expect("Failed to open JSON file");
         let mut contents = String::new();

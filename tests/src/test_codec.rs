@@ -7,7 +7,10 @@ use jam_types::{
 };
 use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 use crate::test_types::{
-    AccountAccTest, AccountTest, AccountsAccMapEntry, AccountsMapEntry, DisputesState, InputAccumulate, InputAssurances, InputAuthorizations, InputHistory, InputPreimages, InputSafrole, InputStatistics, InputWorkReport, LookupMetaMapEntry, LookupMetaMapKeyTest, OutputDisputes, OutputWorkReport, PreimagesMapEntry, PreimagesState, PreimagesStatusMapEntry, ReportsAccountsMapEntry, SafroleState, StateAccumulate, StateAssurances, StateAuthorizations, StateStatistics, StorageMapEntry, WorkReportState
+    AccountAccTest, AccountTest, AccountsAccMapEntry, AccountsMapEntry, DisputesState, InputAccumulate, InputAssurances, InputAuthorizations, 
+    InputHistory, InputPreimages, InputSafrole, InputStatistics, InputWorkReport, LookupMetaMapEntry, LookupMetaMapKeyTest, OutputDisputes, 
+    OutputWorkReport, PreimagesBlobMapEntry, PreimagesState, ReportsAccountsMapEntry, SafroleState, StateAccumulate, 
+    StateAssurances, StateAuthorizations, StateStatistics, StorageMapEntry, WorkReportState, PreimagesRequestsMapKey, PreimagesRequestsMapEntry
 };
 
 // ----------------------------------------------------------------------------------------------------------
@@ -295,7 +298,7 @@ impl Decode for PreimagesState {
     }
 }
 
-impl Encode for PreimagesMapEntry {
+impl Encode for PreimagesBlobMapEntry {
 
     fn encode(&self) -> Vec<u8> {
 
@@ -311,23 +314,23 @@ impl Encode for PreimagesMapEntry {
     }
 }
 
-impl Decode for PreimagesMapEntry {
+impl Decode for PreimagesBlobMapEntry {
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
-        Ok(PreimagesMapEntry { 
+        Ok(PreimagesBlobMapEntry { 
             hash: HeaderHash::decode(reader)?,
             blob: Vec::<u8>::decode_len(reader)?,
         })
     }
 }
 
-impl Encode for PreimagesStatusMapEntry {
+impl Encode for PreimagesRequestsMapKey {
 
     fn encode(&self) -> Vec<u8> {
         
         let mut blob = vec![];
 
         self.hash.encode_to(&mut blob);
-        self.timeslots.encode_len().encode_to(&mut blob);
+        self.length.encode_to(&mut blob);
 
         return blob;
     }
@@ -337,11 +340,37 @@ impl Encode for PreimagesStatusMapEntry {
     }
 }
 
-impl Decode for PreimagesStatusMapEntry {
+impl Decode for PreimagesRequestsMapKey {
     fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
-        Ok(PreimagesStatusMapEntry {
+        Ok(PreimagesRequestsMapKey {
             hash: OpaqueHash::decode(reader)?,
-            timeslots: Vec::<TimeSlot>::decode_len(reader)?,
+            length: u32::decode(reader)?,
+        })
+    }
+}
+
+impl Encode for PreimagesRequestsMapEntry {
+
+    fn encode(&self) -> Vec<u8> {
+        
+        let mut blob = vec![];
+
+        self.key.encode_to(&mut blob);
+        self.value.encode_len().encode_to(&mut blob);
+
+        return blob;
+    }
+
+    fn encode_to(&self, into: &mut Vec<u8>) {
+        into.extend_from_slice(&self.encode());
+    }
+}
+
+impl Decode for PreimagesRequestsMapEntry {
+    fn decode(reader: &mut BytesReader) -> Result<Self, ReadError> {
+        Ok(PreimagesRequestsMapEntry{
+            key: PreimagesRequestsMapKey::decode(reader)?,
+            value: Vec::<TimeSlot>::decode(reader)?,
         })
     }
 }
@@ -384,7 +413,7 @@ impl Encode for AccountTest {
 impl Decode for AccountTest {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
         Ok(AccountTest { 
-            preimages: Vec::<PreimagesMapEntry>::decode_len(blob)?,
+            preimages: Vec::<PreimagesBlobMapEntry>::decode_len(blob)?,
             lookup_meta: Vec::<LookupMetaMapEntry>::decode_len(blob)?,
         })
     }
@@ -791,8 +820,8 @@ impl Decode for AccountAccTest {
         Ok(AccountAccTest { 
             service: ServiceInfo::decode(blob)?,
             storage: Vec::<StorageMapEntry>::decode_len(blob)?,
-            preimages: Vec::<PreimagesMapEntry>::decode_len(blob)?,
-            preimages_status: Vec::<PreimagesStatusMapEntry>::decode_len(blob)?,
+            preimages: Vec::<PreimagesBlobMapEntry>::decode_len(blob)?,
+            preimages_status: Vec::<PreimagesRequestsMapEntry>::decode_len(blob)?,
         })
     }
 }

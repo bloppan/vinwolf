@@ -21,6 +21,7 @@ reports = { workspace = true }
 rocksdb = { workspace = true, optional = true }
 safrole = { workspace = true }
 services = { workspace = true }
+sp-core = { workspace = true }
 state-controller = { workspace = true }
 state-handler = { workspace = true }
 statistics = { workspace = true }
@@ -28,9 +29,6 @@ storage = { workspace = true }
 utils = { workspace = true }
 vinwolf-target = { workspace = true }
 validators = { workspace = true }
-
-sp-core = { workspace = true }
-
 
 [features]
 default = ["tiny"]

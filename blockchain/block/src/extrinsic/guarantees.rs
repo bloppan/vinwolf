@@ -236,9 +236,9 @@ pub mod work_report {
         }
 
         // We require that each lookup-anchor block be within the last MAX_AGE_LOOKUP_ANCHOR timeslots
-        if *post_tau > work_report.context.lookup_anchor_slot + MAX_AGE_LOOKUP_ANCHOR {
+        if *post_tau > work_report.context.lookup_anchor_slot.saturating_add(MAX_AGE_LOOKUP_ANCHOR) {
             log::error!("Bad lookup anchor slot. Current slot {:?} > lookup anchor slot + MAX AGE LOOKUP ANCHOR {:?}", 
-                        *post_tau, work_report.context.lookup_anchor_slot + MAX_AGE_LOOKUP_ANCHOR);
+                        *post_tau, work_report.context.lookup_anchor_slot.saturating_add(MAX_AGE_LOOKUP_ANCHOR));
             return Err(ProcessError::ReportError(ReportErrorCode::BadLookupAnchorSlot));
         }
 

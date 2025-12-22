@@ -481,7 +481,15 @@ pub fn info(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, service_id:
     return ExitReason::Continue;
 }
 
-pub fn log(reg: &Registers, ram: &RamMemory, service_id: &ServiceId) -> ExitReason {
+pub fn log(gas: &mut Gas, reg: &mut Registers, ram: &RamMemory, service_id: &ServiceId) -> ExitReason {
+
+    *gas -= 10;
+
+    if *gas < 0 {
+        log::error!("Out of gas!");
+        reg[7] = WHAT;
+        return ExitReason::OutOfGas;
+    }
 
     let level = reg[7];
     
@@ -512,5 +520,6 @@ pub fn log(reg: &Registers, ram: &RamMemory, service_id: &ServiceId) -> ExitReas
         _ => { log::debug!("LOG unknown level: {:?}", level); },
     }
 
+    reg[7] = WHAT;
     return ExitReason::Continue;
 }

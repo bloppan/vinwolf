@@ -38,19 +38,20 @@ pub fn parse_genesis_file(test_content: &[u8]) -> Result<(Block, GlobalState), R
 }
 
 pub fn process_trace(path: &Path) {
-    
+
+    log::info!("process trace: {:?}", path);
     let test_content = utils::common::read_bin_file(&path).expect("Error reading the trace bin file");
     let (pre_state, block, post_state) = parse_trace_file(&test_content).unwrap();
 
     state_handler::set_global_state(pre_state.clone());
     state_handler::set_state_root(utils::trie::merkle_state(&utils::serialization::serialize(&pre_state).map));
+    // Set the parent header
+    block::header::set_parent_header(block.header.unsigned.parent);
 
-    if verifier::get_all().len() == 0 {
+    //if verifier::get_all().len() == 0 {
         // Initialize the verifiers 
         verifier::init_all(&state_handler::get_global_state().lock().unwrap());
-        // Set the parent header
-        block::header::set_parent_header(block.header.unsigned.parent);
-    }
+    //}
     
     match state_controller::stf(&block) {
         Ok(_) => { println!("Block {:?} processed successfully", path); },
@@ -78,9 +79,9 @@ pub fn read_all_bins(dir_path: &Path) -> Vec<(u32, PathBuf)> {
             let f = f.ok()?.path();
             if f.extension()? == "bin" {
                 let stem = f.file_stem()?.to_str()?;
-                if stem == "genesis" {
+                /*if stem == "genesis" {
                     return Some((0, f));
-                }
+                }*/
                 if let Ok(num) = stem.parse::<u32>() {
                     return Some((num, f));
                 }
