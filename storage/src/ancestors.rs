@@ -1,9 +1,9 @@
 use constants::node::MAX_AGE_LOOKUP_ANCHOR;
-use super::Storage;
 use jam_types::{TimeSlot, OpaqueHash};
 use std::sync::{Mutex, LazyLock};
 #[cfg(not(feature = "DB"))]
 use std::collections::HashMap;
+use super::Storage;
 #[cfg(feature = "DB")]
 use rocksdb::{DB, ColumnFamilyDescriptor, Options, IteratorMode};
 

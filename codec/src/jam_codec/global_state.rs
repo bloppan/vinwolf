@@ -1,5 +1,5 @@
-use jam_types::{KeyValue, StorageKey, RawState, StateRoot};
 use crate::{Encode, EncodeLen, Decode, DecodeLen, ReadError, BytesReader};
+use jam_types::{KeyValue, StorageKey, RawState, StateRoot};
 
 impl Encode for KeyValue {
 

@@ -1,12 +1,14 @@
-use std::collections::HashMap;
+pub mod accumulate; 
+pub mod is_authorized; 
+pub mod general_fn;
+pub mod refine; 
 
-use jam_types::{Account, AccumulationContext, DataSegment,WorkExecResult, WorkExecError};
-use utils::log;
+use crate::{pvmi::invoke_pvm, mm::program_init::init_std_program};
 use crate::pvm_types::{Program, ExitReason, HostCallFn, RamAddress, RamMemory, RegSize, Registers, RefineMemory, Gas};
 use codec::{BytesReader, Decode};
-use crate::{pvmi::invoke_pvm, mm::program_init::init_std_program};
-
-pub mod accumulate; pub mod refine; pub mod is_authorized; pub mod general_fn;
+use jam_types::{Account, AccumulationContext, DataSegment,WorkExecResult, WorkExecError};
+use std::collections::HashMap;
+use utils::log;
 
 /// An extended version of the pvm invocation which is able to progress an inner host-call
 /// state-machine in the case of a host-call halt condition is defined as:

@@ -1,8 +1,7 @@
-use std::collections::HashMap;
-
 use constants::node::CORES_COUNT;
-use jam_types::{Privileges, ServiceId, Gas};
 use crate::{generic_codec::{decode_unsigned, encode_unsigned}, BytesReader, Decode, Encode, ReadError};
+use jam_types::{Privileges, ServiceId, Gas};
+use std::collections::HashMap;
 
 impl Encode for Privileges {
 

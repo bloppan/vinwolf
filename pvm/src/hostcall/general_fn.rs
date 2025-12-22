@@ -1,20 +1,11 @@
-use jam_types::{
-    Account, AccumulationOperand, DataSegments, DeferredTransfer, Gas, OpaqueHash, ServiceAccounts, ServiceId, StateKeyType, WorkPackage, 
-    WorkExecResult, WorkItem, AccumulationInput};
-use crate::pvm_types::{ExitReason, RamAddress, RamMemory, RegSize, Registers};
-use constants::pvm::*;
-use utils::{hex, log};
-use constants::node::{
-    CORES_COUNT, EPOCH_LENGTH, VALIDATORS_COUNT, MIN_BALANCE_PER_ITEM, MIN_BALANCE_PER_OCTET, MIN_BALANCE, MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE,
-    WORK_REPORT_GAS_LIMIT, WORK_PACKAGE_GAS_LIMIT, WORK_PACKAGE_REFINE_GAS, TOTAL_GAS_ALLOCATED, RECENT_HISTORY_SIZE, MAX_WORK_ITEMS, MAX_DEPENDENCY_ITEMS, MAX_AGE_LOOKUP_ANCHOR,
-    MAX_ITEMS_AUTHORIZATION_POOL, SLOT_PERIOD, MAX_ITEMS_AUTHORIZATION_QUEUE, ROTATION_PERIOD, MAX_EXTRINSICS_IN_WP, REPORTED_WORK_REPLACEMENT_PERIOD,
-    MAX_IS_AUTHORIZED_SIZE, MAX_ENCODED_WORK_PACKAGE_SIZE, MAX_SERVICE_CODE_SIZE, PIECE_SIZE, MAX_WORK_PACKAGE_IMPORTS, SEGMENT_PIECES, MAX_WORK_REPORT_TOTAL_SIZE,
-    TRANSFER_MEMO_SIZE, MAX_WORK_PACKAGE_EXPORTS, TICKET_SUBMISSION_ENDS, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR,
-};
 use codec::{Encode, EncodeSize, EncodeLen};
-use utils::serialization::{construct_storage_key, construct_preimage_key, StateKeyTrait};
-
+use constants::node::*;
+use constants::pvm::*;
+use crate::pvm_types::{ExitReason, RamAddress, RamMemory, RegSize, Registers};
+use jam_types::*;
 use super::HostCallContext;
+use utils::{hex, log};
+use utils::serialization::{construct_storage_key, construct_preimage_key, StateKeyTrait};
 
 pub fn gas(gas: &mut Gas, reg: &mut Registers) -> ExitReason
 {

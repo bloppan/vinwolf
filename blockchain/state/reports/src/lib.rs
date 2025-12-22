@@ -13,10 +13,8 @@
 // arising from processing the availability assurances followed by the work-report guarantees. This synchroneity can be 
 // seen formally through the requirement of an intermediate state ρ‡.
 
-use jam_types::{
-    AvailabilityAssignments, EntropyPool, Hash, OutputDataAssurances, OutputDataReports, TimeSlot, ValidatorsData, ProcessError, Guarantee
-};
 use block::extrinsic;
+use jam_types::{AvailabilityAssignments, EntropyPool, Hash, OutputDataAssurances, OutputDataReports, TimeSlot, ValidatorsData, ProcessError, Guarantee};
 
 pub mod assurances {
 

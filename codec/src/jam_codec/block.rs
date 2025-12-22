@@ -1,8 +1,5 @@
-use jam_types::{
-    Block, Header, UnsignedHeader, Extrinsic, ReadError, BandersnatchVrfSignature, Ticket, Guarantee, Preimage, DisputesExtrinsic, OpaqueHash, EpochMark,
-    ValidatorIndex, Ed25519Public, TimeSlot, TicketsMark, Assurance, Verdict, Culprit, Fault, BandersnatchPublic, TicketBody,  Entropy
-};
 use constants::node::{EPOCH_LENGTH, VALIDATORS_COUNT};
+use jam_types::{*};
 use crate::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader};
 use crate::generic_codec::decode_unsigned;
 
@@ -160,11 +157,6 @@ impl Decode for UnsignedHeader {
         })
     }
 }
-
-// The header comprises a parent hash and prior state root, an extrinsic hash, a time-slot index, the epoch, 
-// winning-tickets and offenders markers, and, a Bandersnatch block author index and two Bandersnatch signatures; 
-// the entropy-yielding, vrf signature, and a block seal. Excepting the Genesis header, all block headers H have
-// an associated parent header, whose hash is Hp.
 
 impl Encode for Header {
 

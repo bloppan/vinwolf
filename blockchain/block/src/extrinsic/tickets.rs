@@ -8,13 +8,11 @@
     of valid tickets, each of which is a tuple of an entry index (a natural number less than N) and a proof of ticket validity.
 */
 
-use utils::bandersnatch::Verifier;
-use std::thread;
-use std::sync::mpsc;
+use codec::Encode;
 use constants::node::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR};
 use jam_types::{EntropyPool, OpaqueHash, Safrole, SafroleErrorCode, TicketBody, TimeSlot, Ticket, ProcessError};
-use codec::Encode;
-use utils::{common::{has_duplicates, bad_order}, log};
+use std::{{sync::mpsc}, thread};
+use utils::{common::{has_duplicates, bad_order}, log, bandersnatch::Verifier};
 
 pub fn process(
     tickets_extrinsic: &[Ticket],

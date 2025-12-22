@@ -12,18 +12,16 @@
 // (a very much unexpected eventuality).The epoch marker is either empty or, if the block is the first in a new epoch, then a tuple of
 // the epoch randomness and a sequence of Bandersnatch keys defining the Bandersnatch validator keys (kb) beginning in the next epoch.
 
-use {std::sync::LazyLock, std::sync::Mutex};
-use std::collections::HashSet;
-use state_handler::get_state_root;
-use utils::{{bandersnatch::Verifier}, log};
-
+use codec::{{Encode, EncodeLen, EncodeSize}, generic_codec::encode_unsigned};
 use constants::node::{EPOCH_LENGTH, VALIDATORS_COUNT, TICKET_ENTRIES_PER_VALIDATOR};
 use jam_types::{
-    EntropyPool, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, Seal, TimeSlot, ValidatorsData, Header, Block, Ed25519Public,
-    ValidatorSet
+    EntropyPool, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, Seal, TimeSlot, ValidatorsData, Header, Block, 
+    Ed25519Public,ValidatorSet
 };
-use codec::{Encode, EncodeLen, EncodeSize};
-use codec::generic_codec::encode_unsigned;
+use state_handler::get_state_root;
+use std::collections::HashSet;
+use std::sync::{LazyLock, Mutex};
+use utils::{{bandersnatch::Verifier}, log};
 
 static PARENT_HEADER: LazyLock<Mutex<OpaqueHash>> = LazyLock::new(|| {
     Mutex::new(OpaqueHash::default())

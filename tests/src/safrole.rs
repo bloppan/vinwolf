@@ -1,18 +1,18 @@
 #[cfg(test)]
 mod tests {
 
-    use std::sync::LazyLock;
-    use utils::{{bandersnatch::Verifier}, log};
+    use codec::{Decode, BytesReader};
+    use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, TICKET_ENTRIES_PER_VALIDATOR, MAX_TICKETS_PER_EXTRINSIC};
     use crate::FromProcessError;
-    use std::collections::VecDeque;
     use crate::codec::tests::{TestBody, encode_decode_test};
-    use jam_types::{Block, Header, Extrinsic, Safrole, OutputSafrole, DisputesRecords, ValidatorSet, ProcessError, OutputDataSafrole};
     use crate::test_types::{InputSafrole, SafroleState};
+    use jam_types::{Block, Header, Extrinsic, Safrole, OutputSafrole, DisputesRecords, ValidatorSet, ProcessError, OutputDataSafrole};
     use safrole::verifier;
     use safrole::create_ring_set;
-    use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, TICKET_ENTRIES_PER_VALIDATOR, MAX_TICKETS_PER_EXTRINSIC};
     use state_handler::{get_global_state};
-    use codec::{Decode, BytesReader};
+    use std::sync::LazyLock;
+    use std::collections::VecDeque;
+    use utils::{{bandersnatch::Verifier}, log};
 
     static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && TICKET_SUBMISSION_ENDS == 10 

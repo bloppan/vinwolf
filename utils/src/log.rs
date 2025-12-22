@@ -1,9 +1,9 @@
 #![forbid(unsafe_code)]
 
+use std::io::Write;
 use std::fmt;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::OnceLock;
-use std::io::Write;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Level { Error=1, Warn=2, Info=3, Debug=4, Trace=5 }

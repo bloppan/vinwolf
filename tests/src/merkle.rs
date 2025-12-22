@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod tests {
 
-    use std::fs::File;
-    use std::io::Read;
-    use std::path::PathBuf;
-    use std::collections::HashMap;
-    use utils::{trie::merkle, hex, serde::{Deserialize, Value, from_json_str}};
     use jam_types::{OpaqueHash};
+    use std::collections::HashMap;
+    use std::io::Read;
+    use std::fs::File;
+    use std::path::PathBuf;
+    use utils::{trie::merkle, hex, serde::{Deserialize, Value, from_json_str}};
 
     #[derive(Debug, PartialEq)]
     struct TestCase {

@@ -1,16 +1,9 @@
 #[cfg(test)]
 mod tests {
 
-    use std::fs::File;
-    use std::io::Read;
-    use std::path::PathBuf;
+    use jam_types::OpaqueHash;
     use sp_core::{ed25519, Pair};
-
-    use codec::{BytesReader, Decode};
-    use constants::pvm::{NUM_REG, PAGE_SIZE};
-    use jam_types::{Gas, OpaqueHash};
-    use pvm::pvm_types::{Program, PageFlags, RamAddress, ExitReason, Page, RamMemory};
-    use utils::serde::{Deserialize, Value, from_json_str};
+    use utils::serde::{Deserialize, Value};
 
     #[derive(Clone, Debug, PartialEq)]
     struct Testcase {

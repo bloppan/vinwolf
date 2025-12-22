@@ -5,11 +5,10 @@ pub mod net_utils;
 pub mod jamnp_codec;
 pub mod jamnp_types;
 
-use std::error::Error;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-
 use jam_types::ValidatorIndex;
 use network::node_config;
+use std::error::Error;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use utils::log;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;

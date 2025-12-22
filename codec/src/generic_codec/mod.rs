@@ -1,5 +1,5 @@
-use std::collections::BTreeMap;
 use crate::FromLeBytes;
+use std::collections::BTreeMap;
 
 mod encode;
 mod decode;

@@ -1,9 +1,8 @@
-use std::collections::VecDeque;
-
-use jam_types::*;
-use super::fuzz_types::*;
 use codec::{Encode, Decode, EncodeLen, DecodeLen, BytesReader};
 use codec::generic_codec::{encode_unsigned, decode_unsigned};
+use jam_types::*;
+use std::collections::VecDeque;
+use super::fuzz_types::*;
 
 impl Encode for Version {
 

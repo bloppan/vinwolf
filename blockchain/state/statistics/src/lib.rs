@@ -15,15 +15,11 @@
     the accumulator and the second the previous epoch’s statistics. For each epoch we track a performance record for each validator.
 */
 
-use std::sync::LazyLock;
-use std::sync::Mutex;
-use std::collections::{HashMap, HashSet};
-
-use jam_types::{
-    Block, CoresStatistics, Ed25519Public, Gas, ServiceId, ServicesStatistics, SeviceActivityRecord, Statistics, ValidatorStatistics, ValidatorsData, WorkReport
-};
-use utils::log;
 use constants::node::{CORES_COUNT, EPOCH_LENGTH, SEGMENT_SIZE, VALIDATORS_COUNT};
+use jam_types::{*};
+use std::collections::{HashMap, HashSet};
+use std::sync::{LazyLock, Mutex};
+use utils::log;
 
 static ACC_STATS: LazyLock<Mutex<HashMap<ServiceId, (Gas, u32)>>> = LazyLock::new(|| {
     Mutex::new(HashMap::default())
@@ -47,8 +43,8 @@ pub fn add_acc_stats(service: ServiceId, gas_reports: (Gas, u32)) {
         acc_stats.insert(service, (0, 0));
     }
     let (gas_stored, num_repors_stored) = acc_stats.get(&service).unwrap();
-    log::debug!("Add service: {:?} to acc stats with {:?} gas used. Total gas used: {:?}", service, gas_reports.0, gas_reports.0 + gas_stored);
-    acc_stats.insert(service, (gas_reports.0 + gas_stored, *num_repors_stored + gas_reports.1));
+    log::debug!("Add service: {:?} to acc stats with {:?} gas used. Total gas used: {:?}", service, gas_reports.0, gas_reports.0.saturating_add(*gas_stored));
+    acc_stats.insert(service, (gas_reports.0.saturating_add(*gas_stored), (*num_repors_stored).saturating_add(gas_reports.1)));
     set_acc_stats(acc_stats);
 }
 

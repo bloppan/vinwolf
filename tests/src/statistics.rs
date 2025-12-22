@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod tests {
 
-    use std::sync::LazyLock;
+    use codec::{Decode, BytesReader};
+    use constants::node::{CORES_COUNT, EPOCH_LENGTH, VALIDATORS_COUNT};
     use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputStatistics, StateStatistics};
-    use constants::node::{CORES_COUNT, EPOCH_LENGTH, VALIDATORS_COUNT};
     use jam_types::{Block, Ed25519Public, Header, Statistics, ValidatorSet};
     use state_handler::{get_global_state};
-    use codec::{Decode, BytesReader};
+    use std::sync::LazyLock;
     use utils::log;
 
     static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {

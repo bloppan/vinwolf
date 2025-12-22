@@ -1,6 +1,5 @@
-use std::{collections::VecDeque, str::Utf8Error};
-
 use jam_types::*;
+use std::{collections::VecDeque, str::Utf8Error};
 
 pub type Features = u32;
 

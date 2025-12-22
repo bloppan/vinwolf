@@ -5,13 +5,13 @@
     a judgment found to be contradiction to a work-report’s validity (faults). Both are considered a kind of offense.
 */
 
+use codec::Encode;
+use constants::node::{EPOCH_LENGTH, ONE_THIRD_VALIDATORS, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY};
 use jam_types::{
     AvailabilityAssignments, DisputesErrorCode, DisputesRecords, Ed25519Public, Hash, DisputesExtrinsic, Culprit, Verdict, Fault,
     OpaqueHash, OutputDataDisputes, ProcessError, ValidatorSet, ValidatorsData, WorkReportHash,
 };
-use constants::node::{EPOCH_LENGTH, ONE_THIRD_VALIDATORS, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY};
 use utils::common::{has_duplicates, is_sorted_and_unique, VerifySignature};
-use codec::Encode;
 
 pub fn process(
     disputes_extrinsic: &DisputesExtrinsic, 
@@ -111,6 +111,8 @@ fn is_empty(disputes_extrinsic: &DisputesExtrinsic) -> bool {
 
 pub mod verdicts {
 
+    use jam_types::TimeSlot;
+
     use super::*;
 
     pub fn process(verdicts: &[Verdict], wr_reported: &[WorkReportHash], validator_set: &ValidatorsData) -> Result<Vec<(Hash, usize)>, ProcessError> {
@@ -155,12 +157,12 @@ pub mod verdicts {
             return Err(ProcessError::DisputesError(DisputesErrorCode::AlreadyJudged));
         }
 
-        let epoch = state_handler::time::get() as usize / EPOCH_LENGTH;
+        let epoch = state_handler::time::get() / EPOCH_LENGTH as TimeSlot;
 
         // Verify verdict ed25519 signatures
         for verdict in verdicts.iter() {
             
-            if epoch - verdict.age as usize > 1 {
+            if epoch.saturating_sub(verdict.age) > 1 {
                 return Err(ProcessError::DisputesError(DisputesErrorCode::BadJudgementAge));
             }
 

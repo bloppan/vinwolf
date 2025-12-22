@@ -1,8 +1,7 @@
+use codec::{Encode, EncodeSize};
+use jam_types::Entropy;
 use sp_core::blake2_256;
 use std::convert::TryInto;
-
-use jam_types::Entropy;
-use codec::{Encode, EncodeSize};
 
 // The Fisher-Yates shuffle function is defined formally as:
 fn fisher_yattes_shuffle<T: Clone>(s: &[T], r: &[u32]) -> Vec<T> {

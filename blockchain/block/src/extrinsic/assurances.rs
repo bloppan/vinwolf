@@ -1,18 +1,17 @@
 /*
-    The Assurances Extrinsic. The assurances extrinsic is a sequence of assurance values, at most one per validator. Each assurance is a sequence 
-    of binary values (i.e. a bitstring), one per core, together with a signature and the index of the validator who is assuring. A value of 1
-    (or ⊺, if interpreted as a Boolean) at any given index implies that the validator assures they are contributing to its availability.
+    The assurances extrinsic is a sequence of assurance values, at most one per validator. Each assurance is a sequence of binary values (i.e. a bitstring),
+    one per core, together with a signature and the index of the validator who is assuring. A value of 1 (or ⊺, if interpreted as a Boolean) at any given 
+    index implies that the validator assures they are contributing to its availability.
 */
 
-use sp_core::blake2_256;
+use codec::Encode;
+use constants::node::{AVAIL_BITFIELD_BYTES, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY, REPORTED_WORK_REPLACEMENT_PERIOD};
 use jam_types::{
     AssurancesErrorCode, OutputDataAssurances, ValidatorIndex, Hash, TimeSlot, Assurance, CoreIndex, AvailabilityAssignments, 
     ProcessError, ValidatorSet
 };
-use constants::node::{AVAIL_BITFIELD_BYTES, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY, REPORTED_WORK_REPLACEMENT_PERIOD};
-use codec::Encode;
-use utils::common::{is_sorted_and_unique, VerifySignature};
-use utils::log;
+use sp_core::blake2_256;
+use utils::{common::{is_sorted_and_unique, VerifySignature}, log};
 
 pub fn process(
     assurances_extrinsic: &[Assurance],
@@ -21,11 +20,10 @@ pub fn process(
     parent: &Hash) 
 -> Result<OutputDataAssurances, ProcessError> {
 
-    log::debug!("Processing assurances extrinsic...");
-    // TODO no se si poner esto
-    /*if self.assurances.is_empty() {
+    if assurances_extrinsic.is_empty() {
         return Ok(OutputDataAssurances { reported: Vec::new() });
-    }*/
+    }
+
     // The assurances extrinsic is a sequence of assurance values, at most one per validator
     if assurances_extrinsic.len() > VALIDATORS_COUNT {
         log::error!("Too many extrinsic assurances: {:?}", assurances_extrinsic.len());

@@ -1,18 +1,10 @@
 #[cfg(test)]
 pub mod tests {
-use std::cmp::min;
 
-use jam_types::{
-    AccumulatedHistory, AuthPools, AuthQueues, Guarantee, AvailabilityAssignments, RecentBlocks, DisputesRecords, EntropyPool, KeyValue, Extrinsic,
-    OutputAccumulation, OutputAssurances, OutputPreimages, OutputSafrole, Privileges, RawState, ReadError, ReadyQueue, RefineContext, Safrole, 
-    Statistics, TimeSlot, ValidatorsData, WorkItem, WorkPackage, WorkReport, WorkResult, Assurance, Ticket, Preimage, Header, Block, DisputesExtrinsic
-};
-use crate::test_types::{
-    InputAuthorizations, StateAuthorizations, DisputesState, OutputDisputes, InputHistory, InputPreimages, PreimagesState, InputWorkReport, WorkReportState,
-    InputAssurances, StateAssurances, OutputWorkReport, InputSafrole, SafroleState, InputStatistics, StateStatistics, InputAccumulate, StateAccumulate
-};
 use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
-
+use crate::test_types::*;
+use jam_types::*;
+use std::cmp::min;
 
 fn find_first_difference(data1: &[u8], data2: &[u8], _part: &str) -> Option<usize> {
     data1.iter()

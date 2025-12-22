@@ -6,8 +6,8 @@
     work-package hashes of each item reported (which is no more than the total number of cores, C = 341).
 */
 
-use jam_types::{BlockInfo, Hash, Mmr, OpaqueHash, RecentBlocks, ReportedWorkPackages};
 use constants::node::RECENT_HISTORY_SIZE;
+use jam_types::{BlockInfo, Hash, Mmr, OpaqueHash, RecentBlocks, ReportedWorkPackages};
 
 pub fn process(
     recent_history_state: &mut RecentBlocks,

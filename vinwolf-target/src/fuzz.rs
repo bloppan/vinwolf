@@ -1,27 +1,21 @@
-use std::collections::VecDeque;
-use std::fs::DirEntry;
-use std::path::PathBuf;
-use std::io;
-
 use block::header;
+use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 use jam_types::{Block, Header, GlobalState, KeyValue, OpaqueHash};
 use safrole::verifier;
-use state_handler::{get_global_state, get_state_root};
-use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
-use utils::common::parse_state_keyvals;
-use utils::{trie::merkle_state, log, hex};
-use state_handler::set_global_state;
+use state_handler::{get_global_state, get_state_root, set_global_state};
 use safrole::{create_ring_set, verifier::{get_all, set_all}};
 use utils::bandersnatch::Verifier;
-use vinwolf_target::{parse_genesis_file, read_all_bins};
-
+use std::io;
 use std::io::{Read, Write};
+use std::collections::VecDeque;
+use std::path::PathBuf;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::{LazyLock, Mutex};
-
-use super::fuzz_types::*;
-
 use super::BUILD_PROFILE;
+use super::fuzz_types::*;
+use utils::common::parse_state_keyvals;
+use utils::{trie::merkle_state, log, hex};
+use vinwolf_target::read_all_bins;
 
 pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
     
@@ -30,7 +24,7 @@ pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
         app_version: Version {
             major: 0,
             minor: 3,
-            patch: 7,
+            patch: 8,
         },
         jam_version: Version {
             major: 0,

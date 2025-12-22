@@ -11,19 +11,17 @@
     will see, leads to the need for a second entry-point, on-transfer.
 */
 
-use std::collections::{HashSet, HashMap};
-use std::sync::{Arc, Mutex};
-use std::thread;
-
+use codec::{Encode, EncodeLen};
 use constants::node::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT, CORES_COUNT};
 use jam_types::{
     AccumulateErrorCode, AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, Gas, 
     OpaqueHash, Privileges, ProcessError, ReadyQueue, ReadyRecord, RecentAccOutputs, ServiceAccounts, ServiceId, StateKeyType, TimeSlot, 
     ValidatorsData, WorkPackageHash, WorkReport, AccumulationInput, AccInput
 };
-use codec::{Encode, EncodeLen};
-use utils::{serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key}, hex, log};
 use pvm::hostcall::accumulate::invoke_accumulation;
+use std::collections::{HashSet, HashMap};
+use std::{sync::{Arc, Mutex}, thread};
+use utils::{serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key}, hex, log};
 
 // Accumulation of a work-package/work-report is deferred in the case that it has a not-yet-fulfilled dependency and is 
 // cancelled entirely in the case of an invalid dependency. Dependencies are specified  as work-package hashes and in order 
@@ -123,17 +121,17 @@ fn outer_accumulation(
 
     'outer: for report in reports.iter() {
         for result in report.results.iter() {
-            if result.gas + gas_to_use > *gas_limit {
+            if gas_to_use.saturating_add(result.gas) > *gas_limit {
                 break 'outer;
             } 
-            gas_to_use += result.gas;
+            gas_to_use = gas_to_use.saturating_add(result.gas);
         }
         i += 1;
     }
     
     log::debug!("Num reports to acc: {i}. Gas to use: {:?}", gas_to_use);
 
-    let n = i + transfers.len() as u32 + always_acc.len() as u32;
+    let n: u32 = i.saturating_add(transfers.len() as u32).saturating_add(always_acc.len() as u32);
 
     if n == 0 {
         log::debug!("Exit outer accumulation: n = 0");
@@ -149,7 +147,7 @@ fn outer_accumulation(
     log::debug!("transfers: {:?} star_deferred_transfers: {:?} after parallelized acc: ", transfers, star_deferred_transfers);
     
     let total_gas_used: Gas = star_gas_used.iter().map(|(_, gas)| *gas).sum();
-    let star_gas: Gas = *gas_limit + transfers.iter().map(|transfer| transfer.gas_limit).sum::<Gas>();
+    let star_gas: Gas = (*gas_limit).saturating_add(transfers.iter().map(|transfer| transfer.gas_limit).sum::<Gas>());
 
     let (j, 
         prime_partial_state, 
@@ -424,12 +422,12 @@ fn single_service_accumulation(
 {
     log::info!("Single service accumulation. Service {:?}. Service gas pairs: {:?}", *service_id, always_acc);
     
-    let mut total_gas = 0;
+    let mut total_gas: Gas = 0;
     let mut input_operands: Vec<AccumulationOperand> = vec![];
     for report in reports.iter() {
         for result in report.results.iter() {
             if *service_id == result.service {
-                total_gas += result.gas;
+                total_gas = total_gas.saturating_add(result.gas);
                 //println!("total_gas: {:?}", total_gas);
                 input_operands.push(AccumulationOperand {
                     result: result.result.clone(),
@@ -448,12 +446,12 @@ fn single_service_accumulation(
     for transfer in transfers.iter() {
         if *service_id == transfer.to {
             input_transfers.push(transfer.clone());
-            total_gas += transfer.gas_limit;
+            total_gas = total_gas.saturating_add(transfer.gas_limit);
         }
     }
 
     if let Some(gas) = always_acc.get(service_id) {
-        total_gas += *gas;
+        total_gas = total_gas.saturating_add(*gas);
     } 
 
     let mut acc_input: Vec<AccumulationInput> = vec![];
@@ -567,8 +565,8 @@ fn save_statistics(
             }
             let (gas_stored, num_repors_stored) = acc_stats.get(service_id).unwrap();
             log::debug!("Insert service: {:?} with {:?} gas used and {:?} reports accumulated", service_id, *gas, acc_curr_block_reports.len());
-            acc_stats.insert(*service_id, (*gas + gas_stored, *num_repors_stored));
-        } else if * gas > 0 {
+            acc_stats.insert(*service_id, ((*gas).saturating_add(*gas_stored), *num_repors_stored));
+        } else if *gas > 0 {
             log::debug!("acc_curr_block_reports = 0 for service {:?}. Add {:?} gas to acc stats", *service_id, *gas);
             statistics::add_acc_stats(*service_id, (*gas, 0));
         }
@@ -591,13 +589,13 @@ fn save_statistics(
 
 fn get_gas_limit(always_acc: &HashMap<ServiceId, Gas>) -> Gas {
     
-    let mut gas_privilege_services = 0;
+    let mut gas_privilege_services: Gas = 0;
     
     for gas in always_acc.iter() {
-        gas_privilege_services += gas.1;
+        gas_privilege_services = gas_privilege_services.saturating_add(*gas.1);
     }
 
-    return std::cmp::max(TOTAL_GAS_ALLOCATED as Gas, (WORK_REPORT_GAS_LIMIT * CORES_COUNT as Gas) + gas_privilege_services);
+    return std::cmp::max(TOTAL_GAS_ALLOCATED as Gas, (WORK_REPORT_GAS_LIMIT * CORES_COUNT as Gas).saturating_add(gas_privilege_services));
 }
 
 // The newly available work-reports, are partitioned into two sequences based on the condition of having zero prerequisite work-reports.

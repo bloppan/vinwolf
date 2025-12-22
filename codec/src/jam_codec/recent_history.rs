@@ -1,8 +1,7 @@
-use std::collections::VecDeque;
-
-use jam_types::{ServiceId, BlockInfo, Mmr, MmrPeak, OpaqueHash, RecentAccOutputs, RecentBlocks, ReportedWorkPackages};
 use crate::{Encode, EncodeSize, Decode, DecodeLen, BytesReader, ReadError};
 use crate::generic_codec::{encode_unsigned, decode_unsigned};
+use jam_types::{ServiceId, BlockInfo, Mmr, MmrPeak, OpaqueHash, RecentAccOutputs, RecentBlocks, ReportedWorkPackages};
+use std::collections::VecDeque;
 
 impl Encode for BlockInfo {
 

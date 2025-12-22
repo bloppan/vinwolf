@@ -2,10 +2,9 @@
     Instructions with Arguments of One Immediate.
 */
 
-use std::cmp::{min, max};
 use crate::pvm_types::{Gas, RamMemory, Registers, ExitReason, Program, RegSize, HostCallFn};
 use crate::pvmi::{skip, extend_sign};
-
+use std::cmp::{min, max};
 
 fn get_imm(pc: &RegSize, program: &Program) -> RegSize {
     let start= (*pc + 1) as usize;

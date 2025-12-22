@@ -2,11 +2,11 @@
     Instructions with Arguments of One Register, One Immediate and One Offset.
 */
 
-use std::cmp::{min, max};
-use crate::pvm_types::{RamMemory, Gas, ExitReason, Program, RegSigned, RegSize, Registers};
-use crate::pvmi::{skip, extend_sign, signed, _branch};
 use codec::BytesReader;
 use codec::generic_codec::decode_integer;
+use crate::pvm_types::{RamMemory, Gas, ExitReason, Program, RegSigned, RegSize, Registers};
+use crate::pvmi::{skip, extend_sign, signed, _branch};
+use std::cmp::{min, max};
 
 fn get_reg(pc: &RegSize, program: &Program) -> u8 {
     min(12, program.code[*pc as usize + 1] & 15)

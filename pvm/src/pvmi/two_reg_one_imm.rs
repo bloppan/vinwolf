@@ -2,10 +2,9 @@
     Instructions with Arguments of Two Registers & One Immediate
 */
 
-use std::cmp::{min, max};
-
 use crate::pvm_types::{RamMemory, Gas, Registers, ExitReason, Program, RamAddress, RegSize};
 use crate::pvmi::{skip, extend_sign, _store, _load, signed, unsigned};
+use std::cmp::{min, max};
 
 fn get_imm(pc: &RegSize, program: &Program) -> RegSize {
    let start= (*pc + 2) as usize;

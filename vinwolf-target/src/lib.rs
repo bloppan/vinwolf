@@ -1,6 +1,6 @@
-use safrole::{create_ring_set, verifier::{self, get_all, set_all}};
-use jam_types::{Block, GlobalState, Header, OpaqueHash, RawState, ReadError};
 use codec::{Decode, BytesReader};
+use jam_types::{Block, GlobalState, OpaqueHash, RawState, ReadError};
+use safrole::verifier;
 use std::collections::VecDeque;
 use std::path::{PathBuf, Path};
 use std::{fs, collections::HashSet};
@@ -79,9 +79,9 @@ pub fn read_all_bins(dir_path: &Path) -> Vec<(u32, PathBuf)> {
             let f = f.ok()?.path();
             if f.extension()? == "bin" {
                 let stem = f.file_stem()?.to_str()?;
-                /*if stem == "genesis" {
+                if stem == "genesis" {
                     return Some((0, f));
-                }*/
+                }
                 if let Ok(num) = stem.parse::<u32>() {
                     return Some((num, f));
                 }
@@ -259,3 +259,4 @@ fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
     }
     assert_eq!(expected_state.statistics.services, result_state.statistics.services); 
 }
+

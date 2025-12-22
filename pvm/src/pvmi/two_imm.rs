@@ -2,10 +2,9 @@
     Instructions with Arguments of Two Immediates.
 */
 
-use std::cmp::{min, max};
 use crate::pvm_types::{Gas, RamMemory, Registers, ExitReason, Program, RamAddress, RegSize};
 use crate::pvmi::{skip, extend_sign};
-
+use std::cmp::{min, max};
 use super::_store;
 
 fn get_x_length(pc: &RegSize, program: &Program) -> RegSize {
