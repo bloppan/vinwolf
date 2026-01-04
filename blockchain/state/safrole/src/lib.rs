@@ -27,15 +27,12 @@
 */
 
 use ark_vrf::reexports::ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_vrf::suites::bandersnatch::{RingProofParams, Public};
-use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
-use jam_types::{
-    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Block, Ed25519Public, Entropy, EntropyPool, EpochMark, OutputDataSafrole, 
-    ProcessError, Safrole, SafroleErrorCode, TicketBody, TicketsMark, Seal, TimeSlot, ValidatorSet, ValidatorsData, GlobalState
-};
+use ark_vrf::suites::bandersnatch::{Public, RingProofParams};
+use constants::node::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, VALIDATORS_COUNT};
+use jam_types::*;
 use sp_core::blake2_256;
 use std::{collections::VecDeque, sync::{LazyLock, Mutex}};
-use utils::{{bandersnatch::Verifier}, {print_hash, log}};
+use utils::{log, {bandersnatch::Verifier}, {print_hash}};
 
 // Process Safrole state
 pub fn process(

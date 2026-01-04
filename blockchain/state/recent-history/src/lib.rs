@@ -7,7 +7,7 @@
 */
 
 use constants::node::RECENT_HISTORY_SIZE;
-use jam_types::{BlockInfo, Hash, Mmr, OpaqueHash, RecentBlocks, ReportedWorkPackages};
+use jam_types::*;
 
 pub fn process(
     recent_history_state: &mut RecentBlocks,

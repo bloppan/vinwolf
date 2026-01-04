@@ -7,10 +7,7 @@
 
 use codec::Encode;
 use constants::node::{EPOCH_LENGTH, ONE_THIRD_VALIDATORS, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY};
-use jam_types::{
-    AvailabilityAssignments, DisputesErrorCode, DisputesRecords, Ed25519Public, Hash, DisputesExtrinsic, Culprit, Verdict, Fault,
-    OpaqueHash, OutputDataDisputes, ProcessError, ValidatorSet, ValidatorsData, WorkReportHash,
-};
+use jam_types::*;
 use utils::common::{has_duplicates, is_sorted_and_unique, VerifySignature};
 
 pub fn process(

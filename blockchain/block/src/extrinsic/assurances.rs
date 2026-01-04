@@ -5,11 +5,8 @@
 */
 
 use codec::Encode;
-use constants::node::{AVAIL_BITFIELD_BYTES, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY, REPORTED_WORK_REPLACEMENT_PERIOD};
-use jam_types::{
-    AssurancesErrorCode, OutputDataAssurances, ValidatorIndex, Hash, TimeSlot, Assurance, CoreIndex, AvailabilityAssignments, 
-    ProcessError, ValidatorSet
-};
+use constants::node::{AVAIL_BITFIELD_BYTES, CORES_COUNT, REPORTED_WORK_REPLACEMENT_PERIOD, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY};
+use jam_types::*;
 use sp_core::blake2_256;
 use utils::{common::{is_sorted_and_unique, VerifySignature}, log};
 

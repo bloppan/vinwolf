@@ -7,17 +7,12 @@
 */
 use codec::Encode;
 use constants::node::{
-    CORES_COUNT, MAX_DEPENDENCY_ITEMS, MAX_WORK_ITEMS, WORK_REPORT_GAS_LIMIT, EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, 
-    VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR
+    CORES_COUNT, EPOCH_LENGTH, MAX_AGE_LOOKUP_ANCHOR, MAX_DEPENDENCY_ITEMS, MAX_OUTPUT_BLOB_SIZE, MAX_WORK_ITEMS, ROTATION_PERIOD, VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT
 };
-use jam_types::{
-    AvailabilityAssignments, CoreIndex, EntropyPool, Hash, OutputDataReports, ProcessError, ReportErrorCode, TimeSlot, ValidatorIndex, 
-    ValidatorsData, OpaqueHash, WorkReport, ValidatorSignature, Guarantee, Gas, AvailabilityAssignment, Ed25519Public, Entropy,
-    ReportedPackage, WorkResult
-};
+use jam_types::*;
 use sp_core::blake2_256;
-use std::collections::{HashSet, HashMap};
-use utils::{shuffle::shuffle, common::{VerifySignature, set_offenders_null}, log, common::is_sorted_and_unique};
+use std::collections::{HashMap, HashSet};
+use utils::{common::{is_sorted_and_unique, set_offenders_null, VerifySignature}, log, shuffle::shuffle};
 
 pub fn process(
     guarantees_extrinsic: &[Guarantee], 

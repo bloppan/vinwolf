@@ -9,10 +9,10 @@
 */
 
 use codec::Encode;
-use constants::node::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR};
-use jam_types::{EntropyPool, OpaqueHash, Safrole, SafroleErrorCode, TicketBody, TimeSlot, Ticket, ProcessError};
-use std::{{sync::mpsc}, thread};
-use utils::{common::{has_duplicates, bad_order}, log, bandersnatch::Verifier};
+use constants::node::{EPOCH_LENGTH, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR, TICKET_SUBMISSION_ENDS};
+use jam_types::*;
+use std::{thread, {sync::mpsc}};
+use utils::{bandersnatch::Verifier, common::{bad_order, has_duplicates}, log};
 
 pub fn process(
     tickets_extrinsic: &[Ticket],

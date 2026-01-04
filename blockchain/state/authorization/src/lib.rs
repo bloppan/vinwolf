@@ -24,7 +24,7 @@
     work-package is legitimately able to utilize that resource. It is this subsystem we will now define.
 */
 use constants::node::{CORES_COUNT, MAX_ITEMS_AUTHORIZATION_POOL, MAX_ITEMS_AUTHORIZATION_QUEUE};
-use jam_types::{AuthPools, TimeSlot, Guarantee};
+use jam_types::*;
 use utils::log;
 
 pub fn process(

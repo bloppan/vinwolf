@@ -14,11 +14,9 @@
 // seen formally through the requirement of an intermediate state ρ‡.
 
 use block::extrinsic;
-use jam_types::{AvailabilityAssignments, EntropyPool, Hash, OutputDataAssurances, OutputDataReports, TimeSlot, ValidatorsData, ProcessError, Guarantee};
+use jam_types::*;
 
 pub mod assurances {
-
-    use jam_types::Assurance;
 
     use super::*;
 

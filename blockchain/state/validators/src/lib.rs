@@ -1,5 +1,5 @@
 use constants::node::VALIDATORS_COUNT;
-use jam_types::{Safrole, ValidatorSet, ValidatorsData, ValidatorData};
+use jam_types::*;
 use utils::log;
 
 pub fn key_rotation(safrole_state: &mut Safrole, 

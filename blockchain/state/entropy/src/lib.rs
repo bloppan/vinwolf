@@ -1,6 +1,6 @@
-use jam_types::{Entropy, EntropyPool, OpaqueHash};
+use jam_types::*;
 use sp_core::blake2_256;
-use utils::{{print_hash, print_hash_start}, log};
+use utils::{log, {print_hash, print_hash_start}};
 
 pub fn rotate_pool(entropy_pool: &mut EntropyPool) {
     // In addition to the entropy accumulator η0, we retain three additional historical values of the accumulator at the point of 

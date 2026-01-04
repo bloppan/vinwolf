@@ -3,10 +3,10 @@
     Prior to accumulation, we must first integrate all preimages provided in the lookup extrinsic. 
  */
 
-use codec::{BytesReader, EncodeLen, DecodeLen};
-use jam_types::{TimeSlot, ServiceAccounts, ProcessError, PreimagesErrorCode, StateKeyType, Preimage};
+use codec::{BytesReader, DecodeLen, EncodeLen};
+use jam_types::*;
 use std::collections::HashSet;
-use utils::{serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key}, log};
+use utils::{log, serialization::{construct_lookup_key, construct_preimage_key, StateKeyTrait}};
 
 pub fn process(
     preimages_extrinsic: &[Preimage], 

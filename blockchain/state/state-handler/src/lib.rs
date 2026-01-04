@@ -1,5 +1,5 @@
 use codec::Encode;
-use jam_types::{*};
+use jam_types::*;
 use std::collections::HashSet;
 use std::sync::{LazyLock, Mutex};
 

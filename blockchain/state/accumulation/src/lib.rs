@@ -12,16 +12,12 @@
 */
 
 use codec::{Encode, EncodeLen};
-use constants::node::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT, CORES_COUNT};
-use jam_types::{
-    AccumulateErrorCode, AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, Gas, 
-    OpaqueHash, Privileges, ProcessError, ReadyQueue, ReadyRecord, RecentAccOutputs, ServiceAccounts, ServiceId, StateKeyType, TimeSlot, 
-    ValidatorsData, WorkPackageHash, WorkReport, AccumulationInput, AccInput
-};
+use constants::node::{CORES_COUNT, EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT};
+use jam_types::*;
 use pvm::hostcall::accumulate::invoke_accumulation;
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 use std::{sync::{Arc, Mutex}, thread};
-use utils::{serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key}, hex, log};
+use utils::{hex, log, serialization::{construct_lookup_key, construct_preimage_key, StateKeyTrait}};
 
 // Accumulation of a work-package/work-report is deferred in the case that it has a not-yet-fulfilled dependency and is 
 // cancelled entirely in the case of an invalid dependency. Dependencies are specified  as work-package hashes and in order 
