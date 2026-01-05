@@ -2,10 +2,10 @@
 members = [
     "blockchain/block",
     "blockchain/state/*",
-    "codec",
     "constants",
     "experiments/*",
     "jam-types",
+    "jam-utils/*",
     "network",
     "pvm",
     "storage",
@@ -29,7 +29,7 @@ repository = "https://github.com/bloppan/vinwolf"
 accumulation = { path = "blockchain/state/accumulation" }
 authorization = { path = "blockchain/state/authorization" }
 block = { path = "blockchain/block" }
-codec = { path = "codec" }
+codec = { path = "jam-utils/codec" }
 constants = { path = "constants" }
 disputes = { path = "blockchain/state/disputes" }
 entropy = { path = "blockchain/state/entropy" }
