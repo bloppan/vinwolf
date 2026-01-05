@@ -3,8 +3,7 @@ mod tests {
 
     use jam_types::OpaqueHash;
     use sp_core::{ed25519, Pair};
-    use tools::{hex, log};
-    use utils::serde::{Deserialize, Value};
+    use tools::{{hex, log}, serde::{Deserialize, Value}};
     
     #[derive(Clone, Debug, PartialEq)]
     struct Testcase {
@@ -40,7 +39,7 @@ mod tests {
 
 #[test]
 fn crypto_ed25519_test() {
-    use utils::serde::{from_json_str, Value};
+    use tools::serde::{from_json_str, Value};
     use std::io::Read;
 
     log::Builder::from_env(log::Env::default().default_filter_or("debug"))

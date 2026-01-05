@@ -1,7 +1,6 @@
 pub mod bandersnatch;
 pub mod common;
 pub mod grandpa;
-pub mod serde;
 pub mod serialization;
 pub mod shuffle;
 pub mod trie;

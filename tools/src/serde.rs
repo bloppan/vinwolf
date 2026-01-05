@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use std::collections::HashMap;
-use tools::hex;
+use crate::hex;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {

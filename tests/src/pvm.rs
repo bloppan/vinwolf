@@ -9,8 +9,7 @@ mod tests {
     use std::fs::File;
     use std::io::Read;
     use std::path::PathBuf;
-    use utils::serde::{Deserialize, Value, from_json_str};
-    use tools::log;
+    use tools::{log, serde::{Deserialize, Value, from_json_str}};
     
     #[derive(Debug, PartialEq)]
     struct Testcase {

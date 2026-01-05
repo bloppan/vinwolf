@@ -3,7 +3,8 @@ mod tests {
 
     use jam_types::{OpaqueHash, Entropy};
     use std::path::PathBuf;
-    use utils::{serde::{Deserialize, Value, from_json_str}, shuffle::shuffle};
+    use utils::shuffle::shuffle;
+    use tools::serde::{Deserialize, Value, from_json_str};
 
     #[derive(Debug, PartialEq)]
     struct TestCase {
