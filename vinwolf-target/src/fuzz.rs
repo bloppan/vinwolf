@@ -414,6 +414,7 @@ pub fn fuzz_reports(socket_path: &str, reports_path: &PathBuf) -> Result<(), Box
     let mut dirs: Vec<PathBuf> = vec![];
     tools::log::info!("path: {:?}", reports_path);
 
+    let start = std::time::Instant::now();
     for entry in std::fs::read_dir(reports_path).unwrap() {
 
         let dir_entry = entry.unwrap();
@@ -428,11 +429,13 @@ pub fn fuzz_reports(socket_path: &str, reports_path: &PathBuf) -> Result<(), Box
         fuzz_dir(&mut socket, &dir_path);
         dirs.push(dir_path);
     }
-
-    println!("Total reports processed: {:?}", dirs.len());
-    for dir in dirs {
+    
+    for dir in dirs.iter() {
         println!("Dir: {:?} processed successfully", dir);
     }
+
+    println!("Total time: {:?}", start.elapsed());
+    println!("Total reports processed: {:?}", dirs.len());
 
     Ok(())
 }

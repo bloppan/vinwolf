@@ -18,7 +18,7 @@ fn print_help() {
     //println!("\x1b[1m\x1b[4mUsage:\x1b[0m\x1b[1m vinwolf\x1b[0m [OPTIONS] <command>");
     println!("\x1b[1mUsage example:\x1b[0m\n");
     //println!("\x1b[4mCommands\x1b[0m");
-    println!("vinwolf --fuzz\t\t\t The default path is /tmp/jam_conformance.sock");
+    println!("vinwolf --fuzz\t\t\t The default path is /tmp/jam_target.sock");
     println!("vinwolf --fuzz other_path.sock");
     println!();
 }
@@ -80,12 +80,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             let socket_path = path.to_str().unwrap();
+            
             let result = fuzz_reports(socket_path, &reports_path);
             println!("End target: {:?}", result);
         }
         "--fuzz" => {
 
-            let mut path: PathBuf = PathBuf::from("/tmp/jam_conformance.sock");
+            let mut path: PathBuf = PathBuf::from("/tmp/jam_target.sock");
 
             if args.len() > 2 {
                 let args: Vec<String> = std::env::args().collect();
