@@ -22,7 +22,7 @@ mod tests {
 
     fn run_test(filename: &str) {
 
-        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("jamtestvectors/stf/statistics/{}/{}", *TEST_TYPE, filename))).unwrap();
+        let test_content = misc::read_bin_file(std::path::Path::new(&format!("jamtestvectors/stf/statistics/{}/{}", *TEST_TYPE, filename))).unwrap();
         let test_body: Vec<TestBody> = vec![
                                         TestBody::InputStatistics,
                                         TestBody::StateStatistics,

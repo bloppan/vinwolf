@@ -1,11 +1,11 @@
 use codec::{Decode, BytesReader};
 use jam_types::{Block, GlobalState, OpaqueHash, RawState, ReadError};
+use misc::parse_state_keyvals;
 use safrole::verifier;
 use std::collections::VecDeque;
 use std::path::{PathBuf, Path};
 use std::{fs, collections::HashSet};
 use trie::merkle_state;
-use utils::{misc::parse_state_keyvals};
 use tools::hex;
 
 pub fn parse_trace_file(test_content: &[u8]) -> Result<(GlobalState, Block, GlobalState), ReadError>{
@@ -42,7 +42,7 @@ pub fn parse_genesis_file(test_content: &[u8]) -> Result<(Block, GlobalState), R
 pub fn process_trace(path: &Path) {
 
     tools::log::info!("process trace: {:?}", path);
-    let test_content = utils::misc::read_bin_file(&path).expect("Error reading the trace bin file");
+    let test_content = misc::read_bin_file(&path).expect("Error reading the trace bin file");
     let (pre_state, block, post_state) = parse_trace_file(&test_content).unwrap();
 
     state_handler::set_global_state(pre_state.clone());

@@ -1,5 +1,5 @@
 [package]
-name = "safrole"
+name = "misc"
 version.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -7,15 +7,10 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-block = { workspace = true }
 codec = { workspace = true }
 constants = { workspace = true }
-entropy = { workspace = true }
 jam-types = { workspace = true }
-misc = { workspace = true }
+serialization = { workspace = true }
+sp-core = { workspace = true }
 tools = { workspace = true }
 utils = { workspace = true }
-validators = { workspace = true }
-
-ark-vrf = { workspace = true }
-sp-core = { workspace = true }

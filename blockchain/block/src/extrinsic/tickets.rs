@@ -11,8 +11,9 @@
 use codec::Encode;
 use constants::node::{EPOCH_LENGTH, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR, TICKET_SUBMISSION_ENDS};
 use jam_types::*;
+use misc::{bad_order, has_duplicates};
 use std::{thread, {sync::mpsc}};
-use utils::{bandersnatch::Verifier, misc::{bad_order, has_duplicates}};
+use utils::{bandersnatch::Verifier};
 use tools::log;
 
 pub fn process(

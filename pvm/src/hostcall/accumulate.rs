@@ -10,7 +10,7 @@ use sp_core::blake2_256;
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 use tools::hex;
-use utils::{misc::parse_preimage};
+use misc::parse_preimage;
 
 static ACC_INPUT: LazyLock<Mutex<HashMap<ServiceId, Vec<AccumulationInput>>>> = LazyLock::new(|| {
     Mutex::new(HashMap::new())
@@ -272,7 +272,7 @@ fn transfer(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut
         }
 
         let source_account = ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap();
-        let threshold = utils::misc::get_threshold(source_account);
+        let threshold = misc::get_threshold(source_account);
         
         tools::log::debug!("Threshold: {threshold} for service {:?}", ctx_x.service_id);
         tools::log::debug!("balance: {:?} acc min gas: {:?} xfer min gas: {:?}", source_account.balance, source_account.acc_min_gas, source_account.xfer_min_gas);
@@ -478,7 +478,7 @@ fn new(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Accu
         new_account.parent_service = ctx_x.service_id;
         new_account.octets = new_account.octets.saturating_add(81 + length);
         new_account.items = new_account.items.saturating_add(2 as u32);
-        let new_account_threshold = utils::misc::get_threshold(&new_account);
+        let new_account_threshold = misc::get_threshold(&new_account);
         new_account.balance = new_account_threshold;
         tools::log::debug!("new_account: {:x?}", new_account);
 
@@ -498,7 +498,7 @@ fn new(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut Accu
             return ExitReason::Continue;
         }
 
-        if service_account.balance < utils::misc::get_threshold(&ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap()) {
+        if service_account.balance < misc::get_threshold(&ctx_x.partial_state.service_accounts.get(&ctx_x.service_id).unwrap()) {
             reg[7] = CASH;
             tools::log::debug!("Exit: CASH");
             return ExitReason::Continue;
@@ -627,7 +627,7 @@ fn solicit(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
         }
     }
 
-    let threshold = utils::misc::get_threshold(&account);
+    let threshold = misc::get_threshold(&account);
     
     if account.balance < threshold {
         reg[7] = FULL;

@@ -7,7 +7,6 @@ use quinn::{SendStream, RecvStream, Connection};
 use std::sync::{LazyLock, Mutex};
 use std::u32;
 use tools::{hex, log};
-use utils::misc;
 
 pub const BLOCK_ANNOUNCEMENT: StreamKind = 0;
 pub const BLOCK_REQUEST: StreamKind = 128;

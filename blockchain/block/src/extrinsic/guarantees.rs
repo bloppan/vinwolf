@@ -10,10 +10,10 @@ use constants::node::{
     CORES_COUNT, EPOCH_LENGTH, MAX_AGE_LOOKUP_ANCHOR, MAX_DEPENDENCY_ITEMS, MAX_OUTPUT_BLOB_SIZE, MAX_WORK_ITEMS, ROTATION_PERIOD, VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT
 };
 use jam_types::*;
+use misc::{is_sorted_and_unique, set_offenders_null, VerifySignature};
 use shuffle::shuffle;
 use sp_core::blake2_256;
 use std::collections::{HashMap, HashSet};
-use utils::misc::{is_sorted_and_unique, set_offenders_null, VerifySignature};
 use tools::log;
 
 pub fn process(

@@ -1,7 +1,7 @@
-use jam_types::*;
 use codec::{ Decode, DecodeLen, BytesReader};
 use codec::generic_codec::{decode_unsigned, decode};
 use constants::node::*;
+use jam_types::*;
 use serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 use std::collections::{HashSet, HashMap};
 use std::hash::Hash;
@@ -131,7 +131,7 @@ pub fn set_offenders_null(validators_data: &mut ValidatorsData, offenders: &[Ed2
     'next_offender: for offender in offenders {
         for validator in validators_data.list.iter_mut() {
             if *offender == validator.ed25519 {
-                log::debug!("Validator {} belongs to offenders set", crate::print_hash!(validator.ed25519));
+                log::debug!("Validator {} belongs to offenders set", utils::print_hash!(validator.ed25519));
                 validator.bandersnatch = [0u8; std::mem::size_of::<BandersnatchPublic>()];
                 validator.ed25519 = [0u8; std::mem::size_of::<Ed25519Public>()];
                 validator.bls = [0u8; std::mem::size_of::<BlsPublic>()];

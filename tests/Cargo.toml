@@ -15,6 +15,7 @@ constants = { workspace = true }
 disputes = { workspace = true }
 entropy = { workspace = true }
 jam-types = { workspace = true }
+misc = { workspace = true }
 pvm = { workspace = true }
 recent-history = { workspace = true }
 reports = { workspace = true }

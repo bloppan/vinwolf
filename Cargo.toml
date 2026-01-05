@@ -35,6 +35,7 @@ disputes = { path = "blockchain/state/disputes" }
 grandpa = { path = "jam-utils/grandpa" }
 entropy = { path = "blockchain/state/entropy" }
 jam-types = { path = "jam-types" }
+misc = { path = "jam-utils/misc" }
 pvm = { path = "pvm" }
 recent-history = { path = "blockchain/state/recent-history" }
 reports = { path = "blockchain/state/reports" }

@@ -112,7 +112,7 @@ pub fn process(
         validators::key_rotation(safrole_state, curr_validators, prev_validators);
         // The posterior queued validator key set "pending_validators" is defined such that incoming keys belonging to the offenders 
         // are replaced with a null key containing only zeroes.
-        let there_are_offenders = utils::misc::set_offenders_null(&mut safrole_state.pending_validators, offenders); 
+        let there_are_offenders = misc::set_offenders_null(&mut safrole_state.pending_validators, offenders); 
         // Create the epoch root from next pending validators and update the safrole state
         let new_verifier = if !fallback_mode {
             let new_ring_set = create_ring_set(&safrole_state.pending_validators);
