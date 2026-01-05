@@ -6,9 +6,9 @@ mod tests {
     use std::io::Read;
     use std::fs::File;
     use std::path::PathBuf;
-    use utils::trie::merkle;
     use tools::{hex, serde::{Deserialize, Value, from_json_str}};
-
+    use trie::merkle;
+    
     #[derive(Debug, PartialEq)]
     struct TestCase {
         input: HashMap<Vec<u8>, Vec<u8>>,

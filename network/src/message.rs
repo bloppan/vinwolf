@@ -267,7 +267,7 @@ async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connectio
     log::debug!("Synced parent header: {}", hex::encode(&imported_blocks_stored.last_finalized_block.header_hash));
     
     // Calc state root
-    let state_root = utils::trie::merkle_state(&utils::serialization::serialize(&last_global_finalized_state).map);
+    let state_root = trie::merkle_state(&utils::serialization::serialize(&last_global_finalized_state).map);
     state_handler::set_state_root(state_root);
     log::debug!("Synced state root: {}", hex::encode(&state_root));
     

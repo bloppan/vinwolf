@@ -484,7 +484,7 @@ fn get_acc_root(service_hash: &mut RecentAccOutputs) -> OpaqueHash {
         pairs_blob.push([service_id.encode(), hash.encode()].concat());
     }
 
-    utils::trie::merkle_balanced(pairs_blob, sp_core::keccak_256)
+    trie::merkle_balanced(pairs_blob, sp_core::keccak_256)
 }
 
 // The preimage integration transforms a dictionary of service states and a set of service/hash pairs into a new 

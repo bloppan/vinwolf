@@ -13,12 +13,12 @@ codec = { workspace = true }
 constants = { workspace = true }
 jam-types = { workspace = true }
 safrole = { workspace = true }
+sp-core = { workspace = true }
 state-controller = { workspace = true }
 state-handler = { workspace = true }
 storage = { workspace = true }
+trie = { workspace = true }
 utils = { workspace = true }
-
-sp-core = { workspace = true }
 
 [features]
 default = ["tiny"]

@@ -44,6 +44,7 @@ state-handler = { path = "blockchain/state/state-handler" }
 statistics = { path = "blockchain/state/statistics" }
 storage = { path = "storage" }
 tools = { path = "tools" }
+trie = { path = "jam-utils/trie" }
 utils = { path = "utils" }
 validators = { path = "blockchain/state/validators" }
 vinwolf-target = { path = "vinwolf-target" }

@@ -3,8 +3,6 @@ pub mod common;
 pub mod grandpa;
 pub mod serialization;
 pub mod shuffle;
-pub mod trie;
-
 
 #[macro_export] macro_rules! print_hash {
     ($hash:expr) => {{
