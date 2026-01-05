@@ -57,10 +57,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
             return Ok(())
         },
-        "--target" => {
+        "--target-report" => {
             let path: PathBuf = PathBuf::from("/tmp/jam_target.sock");
-            let mut reports_path: PathBuf = PathBuf::from("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/");
-            //let mut reports_path: PathBuf = PathBuf::from("/home/bernar/workspace/storage-test/");
+            let mut report_path: PathBuf = PathBuf::from("../tests/jamtestvectors/traces/fallback/");
+
+            if args.len() > 2 {
+                let args: Vec<String> = std::env::args().collect();
+                report_path = PathBuf::from(&args[2]);
+            }
+
+            let socket_path = path.to_str().unwrap();
+            let result = fuzz_single_report(socket_path, &report_path);
+            println!("End target: {:?}", result);
+        },
+        "--target-reports" => {
+            let path: PathBuf = PathBuf::from("/tmp/jam_target.sock");
+            let mut reports_path: PathBuf = PathBuf::from("../tests/jamtestvectors/traces/");
 
             if args.len() > 2 {
                 let args: Vec<String> = std::env::args().collect();
@@ -68,9 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             let socket_path = path.to_str().unwrap();
-
-            let result = run_fuzzer(socket_path, &reports_path);
-
+            let result = fuzz_reports(socket_path, &reports_path);
             println!("End target: {:?}", result);
         }
         "--fuzz" => {
