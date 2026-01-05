@@ -32,6 +32,7 @@ block = { path = "blockchain/block" }
 codec = { path = "jam-utils/codec" }
 constants = { path = "constants" }
 disputes = { path = "blockchain/state/disputes" }
+grandpa = { path = "jam-utils/grandpa" }
 entropy = { path = "blockchain/state/entropy" }
 jam-types = { path = "jam-types" }
 pvm = { path = "pvm" }
