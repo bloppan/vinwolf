@@ -2,7 +2,6 @@ pub mod bandersnatch;
 pub mod common;
 pub mod grandpa;
 pub mod serialization;
-pub mod shuffle;
 
 #[macro_export] macro_rules! print_hash {
     ($hash:expr) => {{

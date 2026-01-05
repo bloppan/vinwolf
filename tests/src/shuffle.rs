@@ -2,8 +2,8 @@
 mod tests {
 
     use jam_types::{OpaqueHash, Entropy};
+    use shuffle::shuffle;
     use std::path::PathBuf;
-    use utils::shuffle::shuffle;
     use tools::serde::{Deserialize, Value, from_json_str};
 
     #[derive(Debug, PartialEq)]
