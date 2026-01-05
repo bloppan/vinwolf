@@ -12,7 +12,8 @@ use constants::node::{
 use jam_types::*;
 use sp_core::blake2_256;
 use std::collections::{HashMap, HashSet};
-use utils::{common::{is_sorted_and_unique, set_offenders_null, VerifySignature}, log, shuffle::shuffle};
+use utils::{common::{is_sorted_and_unique, set_offenders_null, VerifySignature}, shuffle::shuffle};
+use tools::log;
 
 pub fn process(
     guarantees_extrinsic: &[Guarantee], 

@@ -18,7 +18,8 @@ use jam_types::*;
 use state_handler::get_state_root;
 use std::collections::HashSet;
 use std::sync::{LazyLock, Mutex};
-use utils::{log, {bandersnatch::Verifier}};
+use utils::bandersnatch::Verifier;
+use tools::log;
 
 static PARENT_HEADER: LazyLock<Mutex<OpaqueHash>> = LazyLock::new(|| {
     Mutex::new(OpaqueHash::default())
@@ -29,7 +30,7 @@ pub fn get_parent_header() -> OpaqueHash {
 }
 
 pub fn set_parent_header(parent_header: OpaqueHash) {
-    utils::log::debug!("Set parent header: {}", utils::hex::encode(&parent_header));
+    log::debug!("Set parent header: {}", utils::hex::encode(&parent_header));
     *PARENT_HEADER.lock().unwrap() = parent_header;
 }
 

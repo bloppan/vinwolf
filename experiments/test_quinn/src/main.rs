@@ -3,8 +3,6 @@ mod server;
 
 use std::error::Error;
 use std::time::{Duration, SystemTime};
-use client::run_client;
-use server::run_server;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 

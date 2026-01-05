@@ -8,8 +8,9 @@ mod tests {
     use jam_types::{Account, Block, Extrinsic, Header, OutputPreimages, ProcessError, ServiceAccounts, StateKeyType, Statistics, ValidatorsData};
     use state_handler::{get_global_state};
     use std::collections::HashMap;
-    use utils::{serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key}, log};
-
+    use utils::{serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key}};
+    use tools::log;
+    
     impl FromProcessError for OutputPreimages {
         fn from_process_error(error: ProcessError) -> Self {
             match error {

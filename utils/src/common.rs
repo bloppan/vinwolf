@@ -5,11 +5,12 @@ use constants::node::*;
 use crate::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 use std::collections::{HashSet, HashMap};
 use std::hash::Hash;
-use super::{log, hex};
+use super::hex;
 use sp_core::{ed25519, Pair};
 use std::path::Path;
 use std::fs::File;
 use std::io::Read;
+use tools::log;
 
 pub fn dict_subtract<K: Eq + std::hash::Hash + Clone, V: Clone>(
     d: &HashMap<K, V>,

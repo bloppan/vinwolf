@@ -9,7 +9,7 @@ use jam_types::ValidatorIndex;
 use network::node_config;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use utils::log;
+use tools::log;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
@@ -23,7 +23,7 @@ fn print_help() {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    utils::log::Builder::from_env(utils::log::Env::default().default_filter_or("debug"))
+    log::Builder::from_env(log::Env::default().default_filter_or("debug"))
         .with_dotenv(true)
         .init();
 
@@ -52,7 +52,7 @@ async fn main() -> Result<()> {
     let client_config = net_utils::load_client_config(certs, key_der)?;
 
     let bind_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 40000 + validator_index);
-    utils::log::debug!("Listening on {}", bind_addr);
+    log::debug!("Listening on {}", bind_addr);
     let mut endpoint = quinn::Endpoint::server(server_config, bind_addr)?;
     endpoint.set_default_client_config(client_config);
     
@@ -78,7 +78,7 @@ async fn main() -> Result<()> {
         }
 
         if net_utils::am_i_the_preferred_initiator(&ed25519_public[validator_index as usize], ed25519_key) {
-            utils::log::info!("Initialize connection to node {:?}", index);
+            log::info!("Initialize connection to node {:?}", index);
             let net_for_client = net.clone();
             clients_handler.push(tokio::spawn(async move {
                 if let Err(e) = net_for_client.connect_to_peer(index as ValidatorIndex).await {
@@ -89,16 +89,16 @@ async fn main() -> Result<()> {
     }
     
     if let Err(e) = server_handler.await {
-        utils::log::error!("Server join error: {:?}", e);
+        log::error!("Server join error: {:?}", e);
     }
 
     for handle in clients_handler {
         if let Err(e) = handle.await {
-            utils::log::error!("Client join error: {:?}", e);
+            log::error!("Client join error: {:?}", e);
         }
     }
 
-    utils::log::info!("End networking");
+    log::info!("End networking");
     
     Ok(())
 }

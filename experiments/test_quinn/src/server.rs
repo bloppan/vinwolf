@@ -1,12 +1,12 @@
-use quinn::{ClientConfig, Endpoint, TransportConfig, ServerConfig};
+use quinn::{Endpoint, TransportConfig, ServerConfig};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime, PrivatePkcs8KeyDer};
 use rustls::crypto::{verify_tls12_signature, verify_tls13_signature};
 use rustls::client::danger::{ServerCertVerifier, ServerCertVerified, HandshakeSignatureValid};
 use rustls::server::danger::{ClientCertVerifier, ClientCertVerified};
-use rustls::{Error as RustlsError, SignatureScheme, DistinguishedName};
+use rustls::{SignatureScheme, DistinguishedName};
 use rustls::crypto::ring::default_provider;
 use rustls::crypto::CryptoProvider;
-use std::io::{Cursor, Read};
+use std::io::Read;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::error::Error;
@@ -239,7 +239,7 @@ pub async fn run_server() -> Result<()> {
     transport_config.max_concurrent_bidi_streams(100u32.into());
     server_config.transport = Arc::new(transport_config);
 
-    let mut endpoint = Endpoint::server(server_config, bind_addr)?;
+    let endpoint = Endpoint::server(server_config, bind_addr)?;
 
     println!("Listening on {}", bind_addr);
 

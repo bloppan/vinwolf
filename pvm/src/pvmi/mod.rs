@@ -18,7 +18,6 @@ use codec::generic_codec::decode;
 use crate::pvm_types::{Gas, RegSize, RamMemory, Registers, RamAddress};
 use crate::pvm_types::{ExitReason, Program};
 use std::sync::{Mutex, LazyLock};
-use utils::log;
 
 use no_arg::*;
 use one_imm::*;
@@ -33,6 +32,7 @@ use two_reg_one_imm::*;
 use two_reg_two_imm::*;
 use two_reg_one_offset::*;
 use two_imm::*;
+use tools::log;
 
 pub const PAGE_SHIFT: RamAddress = PAGE_SIZE.trailing_zeros();
 pub const PAGE_MASK: RamAddress = PAGE_SIZE - 1;
@@ -443,7 +443,7 @@ pub fn _store<T>(
     for i in 2032..2052 { 
         vector.push(ram.pages[1044447].as_ref().unwrap().data[i]);
     }
-    utils::log::info!("pc: {:?} RAM: {}", *pc, utils::hex::encode(&vector));*/
+    log::info!("pc: {:?} RAM: {}", *pc, utils::hex::encode(&vector));*/
 
     ExitReason::Continue
 }

@@ -12,6 +12,7 @@ codec = { workspace = true }
 constants = { workspace = true }
 entropy = { workspace = true }
 jam-types = { workspace = true }
+tools = { workspace = true }
 utils = { workspace = true }
 validators = { workspace = true }
 

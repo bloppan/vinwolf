@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use super::Storage;
 #[cfg(feature = "DB")]
 use rocksdb::{DB, ColumnFamilyDescriptor, Options, IteratorMode};
+use tools::log;
 
 #[cfg(feature = "DB")]
 const ANCESTORS_CF: &str = "ancestors";
@@ -173,7 +174,7 @@ pub fn lookup(slot: &TimeSlot, header_hash: &OpaqueHash) -> bool {
 
 pub fn update(slot: &TimeSlot, header_hash: &OpaqueHash) {
 
-    utils::log::debug!("Update ancestors. Build type: {:?}. slot: {:?} hash: {}", BUILD, *slot, utils::hex::encode(header_hash));
+    log::debug!("Update ancestors. Build type: {:?}. slot: {:?} hash: {}", BUILD, *slot, utils::hex::encode(header_hash));
     let mut ancestors = get().lock().unwrap();
     ancestors.map.insert(*slot, *header_hash);
     ancestors.max_timeslot = ancestors.max_timeslot.max(*slot);

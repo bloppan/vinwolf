@@ -3,7 +3,7 @@ pub mod program_init;
 use constants::pvm::{PAGE_SIZE, LOWEST_ACCESIBLE_PAGE};
 use crate::pvm_types::{ExitReason, Page, RamAccess, RamAddress, RamMemory};
 use crate::{mem_bounds, page_index, page_offset};
-use utils::log;
+use tools::log;
 
 impl RamMemory {
 

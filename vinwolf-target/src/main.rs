@@ -9,9 +9,8 @@ mod fuzz_codec;
 use constants::BUILD_PROFILE;
 use fuzz::*;
 use fuzz::VINWOLF_INFO;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::collections::HashSet;
-use utils::log;
 
 fn print_help() {    
     println!("vinwolf-target mode {}", BUILD_PROFILE);
@@ -59,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(())
         },
         "--target" => {
-            let mut path: PathBuf = PathBuf::from("/tmp/jam_target.sock");
+            let path: PathBuf = PathBuf::from("/tmp/jam_target.sock");
             let mut reports_path: PathBuf = PathBuf::from("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/");
             //let mut reports_path: PathBuf = PathBuf::from("/home/bernar/workspace/storage-test/");
 

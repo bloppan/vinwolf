@@ -9,8 +9,9 @@ mod tests {
     use state_handler::{get_global_state};
     use std::sync::LazyLock;
     use utils::serialization::construct_lookup_key;
-    use utils::{serialization::{StateKeyTrait, construct_preimage_key, construct_storage_key}, log};
-
+    use utils::{serialization::{StateKeyTrait, construct_preimage_key, construct_storage_key}};
+    use tools::log;
+    
     static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 {
             "tiny"
@@ -160,8 +161,8 @@ mod tests {
 
         //assert_eq!(expected_state.statistics, result_state.statistics.services);
 
-        //log::info!("Expected: {:?}", expected_state.statistics.records);
-        //log::info!("Result: {:?}", result_state.statistics.services.records);
+        //tools::log::info!("Expected: {:?}", expected_state.statistics.records);
+        //tools::log::info!("Result: {:?}", result_state.statistics.services.records);
 
         for service in expected_state.accounts.iter() {
 
@@ -193,7 +194,7 @@ mod tests {
         .with_dotenv(true)
         .init();
 
-        log::info!("Accumulate tests in {} mode", *TEST_TYPE);
+        tools::log::info!("Accumulate tests in {} mode", *TEST_TYPE);
 
         let test_files = vec![
             // No reports.
@@ -264,9 +265,9 @@ mod tests {
             "work_for_ejected_service-3.bin",
         ];
         for file in test_files {
-            log::info!("");
-            log::info!("Running test: {}", file);
-            log::info!("");
+            tools::log::info!("");
+            tools::log::info!("Running test: {}", file);
+            tools::log::info!("");
             run_test(file);
         }
 

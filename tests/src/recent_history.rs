@@ -4,7 +4,7 @@ mod tests {
     use codec::{Decode, BytesReader};
     use crate::test_types::InputHistory;
     use jam_types::{RecentBlocks, ReportedWorkPackages};
-    use utils::log;
+    use tools::log;
 
     fn run_test(filename: &str) {
         

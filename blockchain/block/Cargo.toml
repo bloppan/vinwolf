@@ -12,6 +12,7 @@ constants = { workspace = true }
 jam-types = { workspace = true }
 state-handler = { workspace = true }
 storage = { workspace = true }
+tools = { workspace = true }
 utils = { workspace = true }
 
 ark-vrf = { workspace = true }

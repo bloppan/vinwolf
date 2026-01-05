@@ -6,7 +6,8 @@
 use codec::{BytesReader, DecodeLen, EncodeLen};
 use jam_types::*;
 use std::collections::HashSet;
-use utils::{log, serialization::{construct_lookup_key, construct_preimage_key, StateKeyTrait}};
+use utils::serialization::{construct_lookup_key, construct_preimage_key, StateKeyTrait};
+use tools::log;
 
 pub fn process(
     preimages_extrinsic: &[Preimage], 

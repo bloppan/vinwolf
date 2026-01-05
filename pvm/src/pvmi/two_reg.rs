@@ -8,6 +8,7 @@ use crate::pvm_types::{ExitReason, RamMemory, Registers, Gas, Program, RamAddres
 use crate::pvmi::skip;
 use crate::pvmi::{signed, unsigned};
 use std::cmp::min;
+use tools::log;
 
 fn get_reg(pc: &u64, code: &[u8]) -> (u8, u8) {
     let reg_a: u8 = min(12, code[*pc as usize + 1] >> 4);
@@ -26,9 +27,9 @@ pub fn move_reg(program: &Program, pc: &mut RegSize, _gas: &mut Gas, _ram: &mut 
 pub fn sbrk(program: &Program, pc: &mut RegSize, _gas: &mut Gas, ram: &mut RamMemory, reg: &mut Registers) -> ExitReason {
     let (reg_a, reg_d) = get_reg(pc, &program.code);
     let value_a = reg[reg_a as usize];
-    utils::log::trace!("curr_heap_pointer: {:?}", ram.curr_heap_pointer);
+    log::trace!("curr_heap_pointer: {:?}", ram.curr_heap_pointer);
     if value_a == 0 {
-        utils::log::trace!("value 0");
+        log::trace!("value 0");
         reg[reg_d as usize] = ram.curr_heap_pointer as RegSize;
         *pc += skip(pc, &program.bitmask) + 1;
         return ExitReason::Continue;

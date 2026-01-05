@@ -13,6 +13,7 @@ jam-types = { workspace = true }
 pvm = { workspace = true }
 state-handler = { workspace = true }
 statistics = { workspace = true }
+tools = { workspace = true }
 utils = { workspace = true }
 
 ark-vrf = { workspace = true }

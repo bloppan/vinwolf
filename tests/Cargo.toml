@@ -26,6 +26,7 @@ state-controller = { workspace = true }
 state-handler = { workspace = true }
 statistics = { workspace = true }
 storage = { workspace = true }
+tools = { workspace = true }
 utils = { workspace = true }
 vinwolf-target = { workspace = true }
 validators = { workspace = true }

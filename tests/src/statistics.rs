@@ -8,7 +8,7 @@ mod tests {
     use jam_types::{Block, Ed25519Public, Header, Statistics, ValidatorSet};
     use state_handler::{get_global_state};
     use std::sync::LazyLock;
-    use utils::log;
+    use tools::log;
 
     static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && CORES_COUNT == 2 {

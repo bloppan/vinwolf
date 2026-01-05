@@ -2,14 +2,14 @@ use codec::generic_codec::decode_from_bytes;
 use crate::message::{BLOCK_ANNOUNCEMENT, TICKET_GENERATION, TICKET_PROXY};
 use crate::{message, message::NetworkMessage, dev_accounts};
 use crate::jamnp_types::{ConnectionError, NetworkError, Handshake, StreamKind};
-use jam_types::{ValidatorIndex, Ed25519Public};
+use jam_types::ValidatorIndex;
 use quinn::{Connection, RecvStream, SendStream, Endpoint};
-use utils::log;
 use std::collections::HashMap;
-use std::net::{IpAddr, Ipv6Addr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use tokio::select;
+use tools::log;
 
 pub struct NetworkController {
     endpoint: Endpoint,

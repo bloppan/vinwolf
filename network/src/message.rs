@@ -6,7 +6,8 @@ use jam_types::{*};
 use quinn::{SendStream, RecvStream, Connection};
 use std::sync::{LazyLock, Mutex};
 use std::u32;
-use utils::{common, hex, log};
+use utils::{common, hex};
+use tools::log;
 
 pub const BLOCK_ANNOUNCEMENT: StreamKind = 0;
 pub const BLOCK_REQUEST: StreamKind = 128;

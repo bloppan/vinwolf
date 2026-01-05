@@ -222,7 +222,7 @@ mod test {
         .collect();
         
         for file in bin_files.iter() {
-            log::info!("file: {:?}", file);
+            tools::log::info!("file: {:?}", file);
             let test_content = utils::common::read_bin_file(file).unwrap();
             let mut reader = BytesReader::new(&test_content);
             let msg_type: Message = reader.read_byte().unwrap().into();
@@ -263,10 +263,10 @@ mod test {
                     let error_decoded = Vec::<u8>::decode_len(&mut reader).unwrap();
                     let error_encoded = [Message::Error.encode(), error_decoded.encode_len()].concat();
                     assert_eq!(test_content, error_encoded);
-                    log::error!("{:?}", String::from_utf8(error_decoded).unwrap())
+                    tools::log::error!("{:?}", String::from_utf8(error_decoded).unwrap())
                 },
                 _ => {
-                    log::error!("Message type {:?} not supported", msg_type);
+                    tools::log::error!("Message type {:?} not supported", msg_type);
                 },
             };
         }

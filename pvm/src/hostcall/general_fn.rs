@@ -4,8 +4,9 @@ use constants::pvm::*;
 use crate::pvm_types::{ExitReason, RamAddress, RamMemory, RegSize, Registers};
 use jam_types::*;
 use super::HostCallContext;
-use utils::{hex, log};
+use utils::{hex};
 use utils::serialization::{construct_storage_key, construct_preimage_key, StateKeyTrait};
+use tools::log;
 
 pub fn gas(gas: &mut Gas, reg: &mut Registers) -> ExitReason
 {

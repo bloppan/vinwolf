@@ -69,7 +69,7 @@ async fn example_02() -> Result<(), tokio::sync::mpsc::error::SendError<Ctrl>> {
     sleep_ms(2000).await;
 
     println!("Health message sent...");
-    let (mut rtx, mut rrx) = oneshot::channel();
+    let (rtx, rrx) = oneshot::channel();
     ctx.send(Ctrl::Health(rtx)).await?;
     let response = rrx.await;
     println!("Received health response!");

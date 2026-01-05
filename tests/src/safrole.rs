@@ -12,8 +12,9 @@ mod tests {
     use state_handler::{get_global_state};
     use std::sync::LazyLock;
     use std::collections::VecDeque;
-    use utils::{{bandersnatch::Verifier}, log};
-
+    use utils::{{bandersnatch::Verifier}};
+    use tools::log;
+    
     static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && TICKET_SUBMISSION_ENDS == 10 
         && TICKET_ENTRIES_PER_VALIDATOR == 3 && MAX_TICKETS_PER_EXTRINSIC == 3 {

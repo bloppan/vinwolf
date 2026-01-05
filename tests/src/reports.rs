@@ -9,7 +9,7 @@ mod tests {
     use jam_types::{Account, DisputesRecords, Extrinsic, Header, OutputDataReports, ProcessError, ServiceAccounts, Statistics, ValidatorSet, Block, Ed25519Public};
     use state_handler::{get_global_state};
     use std::sync::LazyLock;
-    use utils::log;
+    use tools::log;
 
     static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if VALIDATORS_COUNT == 6 && CORES_COUNT == 2 && ROTATION_PERIOD == 4 && EPOCH_LENGTH == 12 {

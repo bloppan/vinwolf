@@ -8,7 +8,7 @@ mod tests {
     use jam_types::{Guarantee, WorkReport};
     use state_handler::{get_global_state};
     use std::sync::LazyLock;
-    use utils::log;
+    use tools::log;
 
     static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if CORES_COUNT == 2 {

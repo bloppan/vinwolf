@@ -1,17 +1,18 @@
 [workspace]
-members = [ 
+members = [
     "blockchain/block",
     "blockchain/state/*",
     "codec",
     "constants",
-    "experiments/*", 
-    "jam-types", 
+    "experiments/*",
+    "jam-types",
     "network",
-    "pvm", 
+    "pvm",
     "storage",
     "tests",
+    "tools",
     "utils",
-    "vinwolf-target", 
+    "vinwolf-target",
 ]
 resolver = "2"
 
@@ -33,7 +34,6 @@ constants = { path = "constants" }
 disputes = { path = "blockchain/state/disputes" }
 entropy = { path = "blockchain/state/entropy" }
 jam-types = { path = "jam-types" }
-
 pvm = { path = "pvm" }
 recent-history = { path = "blockchain/state/recent-history" }
 reports = { path = "blockchain/state/reports" }
@@ -43,6 +43,7 @@ state-controller = { path = "blockchain/state/state-controller" }
 state-handler = { path = "blockchain/state/state-handler" }
 statistics = { path = "blockchain/state/statistics" }
 storage = { path = "storage" }
+tools = { path = "tools" }
 utils = { path = "utils" }
 validators = { path = "blockchain/state/validators" }
 vinwolf-target = { path = "vinwolf-target" }

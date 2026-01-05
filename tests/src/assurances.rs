@@ -8,7 +8,7 @@ mod tests {
     use state_handler::{get_global_state};
     use std::path::Path;
     use std::sync::LazyLock;
-    use utils::log;
+    use tools::log;
     
     static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if VALIDATORS_COUNT == 6 && CORES_COUNT == 2 {
