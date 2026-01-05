@@ -22,7 +22,6 @@ state-handler = { workspace = true }
 tokio = { version = "1.40", features = ["full"] }
 tools = { workspace = true }
 trie = { workspace = true }
-utils = { workspace = true }
 
 [features]
 default = ["tiny"]

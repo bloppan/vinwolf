@@ -12,13 +12,13 @@
 // (a very much unexpected eventuality).The epoch marker is either empty or, if the block is the first in a new epoch, then a tuple of
 // the epoch randomness and a sequence of Bandersnatch keys defining the Bandersnatch validator keys (kb) beginning in the next epoch.
 
+use bandersnatch_vrf_spec::Verifier;
 use codec::{generic_codec::encode_unsigned, {Encode, EncodeLen, EncodeSize}};
 use constants::node::{EPOCH_LENGTH, TICKET_ENTRIES_PER_VALIDATOR, VALIDATORS_COUNT};
 use jam_types::*;
 use state_handler::get_state_root;
 use std::collections::HashSet;
 use std::sync::{LazyLock, Mutex};
-use utils::bandersnatch::Verifier;
 use tools::{hex, log};
 
 static PARENT_HEADER: LazyLock<Mutex<OpaqueHash>> = LazyLock::new(|| {

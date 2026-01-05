@@ -13,4 +13,3 @@ jam-types = { workspace = true }
 serialization = { workspace = true }
 sp-core = { workspace = true }
 tools = { workspace = true }
-utils = { workspace = true }

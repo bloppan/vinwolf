@@ -1,20 +1,20 @@
+use bandersnatch_vrf_spec::Verifier;
 use block::header;
 use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 use jam_types::{Block, Header, GlobalState, KeyValue, OpaqueHash};
 use misc::parse_state_keyvals;
 use safrole::verifier;
 use state_handler::{get_global_state, get_state_root, set_global_state};
+use std::collections::VecDeque;
 use std::io;
 use std::io::{Read, Write};
-use std::collections::VecDeque;
-use std::path::PathBuf;
 use std::os::unix::net::{UnixListener, UnixStream};
+use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
 use super::BUILD_PROFILE;
 use super::fuzz_types::*;
-use trie::merkle_state;
 use tools::hex;
-use utils::bandersnatch::Verifier;
+use trie::merkle_state;
 use vinwolf_target::read_all_bins;
 
 pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {

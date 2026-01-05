@@ -5,13 +5,18 @@ members = [
     "constants",
     "experiments/*",
     "jam-types",
-    "jam-utils/*",
+    "jam-utils/bandersnatch-vrf-spec/vinwolf/",
+    "jam-utils/codec",
+    "jam-utils/grandpa",
+    "jam-utils/misc",
+    "jam-utils/serialization",
+    "jam-utils/shuffle",
+    "jam-utils/trie",
     "network",
     "pvm",
     "storage",
     "tests",
     "tools",
-    "utils",
     "vinwolf-target",
 ]
 resolver = "2"
@@ -28,6 +33,7 @@ repository = "https://github.com/bloppan/vinwolf"
 [workspace.dependencies]
 accumulation = { path = "blockchain/state/accumulation" }
 authorization = { path = "blockchain/state/authorization" }
+bandersnatch-vrf-spec = { package = "bandersnatch_vrf_spec", path = "jam-utils/bandersnatch-vrf-spec/vinwolf" }
 block = { path = "blockchain/block" }
 codec = { path = "jam-utils/codec" }
 constants = { path = "constants" }
@@ -49,7 +55,6 @@ statistics = { path = "blockchain/state/statistics" }
 storage = { path = "storage" }
 tools = { path = "tools" }
 trie = { path = "jam-utils/trie" }
-utils = { path = "utils" }
 validators = { path = "blockchain/state/validators" }
 vinwolf-target = { path = "vinwolf-target" }
 

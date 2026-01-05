@@ -18,4 +18,3 @@ state-handler = { workspace = true }
 statistics = { workspace = true }
 tools = { workspace = true }
 trie = { workspace = true }
-utils = { workspace = true }

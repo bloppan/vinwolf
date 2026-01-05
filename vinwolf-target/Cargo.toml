@@ -7,7 +7,7 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-tools = { workspace = true }
+bandersnatch-vrf-spec = { workspace = true }
 block = { workspace = true }
 codec = { workspace = true }
 constants = { workspace = true }
@@ -19,8 +19,8 @@ sp-core = { workspace = true }
 state-controller = { workspace = true }
 state-handler = { workspace = true }
 storage = { workspace = true }
+tools = { workspace = true }
 trie = { workspace = true }
-utils = { workspace = true }
 
 [features]
 default = ["tiny"]

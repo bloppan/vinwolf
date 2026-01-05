@@ -11,6 +11,5 @@ constants = { workspace = true }
 jam-types = { workspace = true }
 state-handler = { workspace = true }
 tools = { workspace = true }
-utils = { workspace = true }
 
 sp-core = { workspace = true }
