@@ -8,7 +8,8 @@ use jam_types::{*};
 use sp_core::blake2_256;
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
-use utils::{common::parse_preimage, hex};
+use tools::hex;
+use utils::{common::parse_preimage};
 use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 
 static ACC_INPUT: LazyLock<Mutex<HashMap<ServiceId, Vec<AccumulationInput>>>> = LazyLock::new(|| {

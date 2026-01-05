@@ -3,6 +3,7 @@ mod server;
 
 use std::error::Error;
 use std::time::{Duration, SystemTime};
+use tools::hex;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
@@ -67,7 +68,7 @@ fn dns_alt_name_from_pubkey(pk: &[u8; 32]) -> String {
 fn alternative_name_test() {
     let result = dns_alt_name_from_pubkey(&PUBKEY);
     println!("result ascii: {}", result);
-    println!("result hex: {}", utils::hex::encode(result));
+    println!("result hex: {}", hex::encode(result));
 }
 
 #[test]

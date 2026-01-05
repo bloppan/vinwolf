@@ -192,7 +192,7 @@ mod test {
     use super::*;
     use std::sync::LazyLock;
     use std::path::PathBuf;
-    use utils::log;
+    use tools::log;
     
     static FUZZER_TESTS_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
         let crate_root = std::env::var("CARGO_MANIFEST_DIR").unwrap();

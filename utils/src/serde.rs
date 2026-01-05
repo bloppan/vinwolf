@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use std::collections::HashMap;
+use tools::hex;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -127,7 +128,7 @@ impl Deserialize for [u8; 32] {
         if s.len() != 64 {
             return Err("expected 64 hex chars for [u8;32]".into());
         }
-        let bytes = crate::hex::decode(s).map_err(|_| "invalid hex for [u8;32]".to_string())?;
+        let bytes = hex::decode(s).map_err(|_| "invalid hex for [u8;32]".to_string())?;
         if bytes.len() != 32 {
             return Err("decoded len != 32".into());
         }
@@ -178,7 +179,7 @@ impl<T: Deserialize> Deserialize for Vec<T> {
 
 impl Serialize for [u8; 32] {
     fn to_value(&self) -> Value {
-        Value::String(crate::hex::encode(self))
+        Value::String(hex::encode(self))
     }
 }
 

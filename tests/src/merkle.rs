@@ -6,7 +6,8 @@ mod tests {
     use std::io::Read;
     use std::fs::File;
     use std::path::PathBuf;
-    use utils::{trie::merkle, hex, serde::{Deserialize, Value, from_json_str}};
+    use utils::{trie::merkle, serde::{Deserialize, Value, from_json_str}};
+    use tools::hex;
 
     #[derive(Debug, PartialEq)]
     struct TestCase {

@@ -13,7 +13,8 @@ use std::sync::{LazyLock, Mutex};
 use super::BUILD_PROFILE;
 use super::fuzz_types::*;
 use utils::common::parse_state_keyvals;
-use utils::{trie::merkle_state, hex};
+use utils::trie::merkle_state;
+use tools::hex;
 use vinwolf_target::read_all_bins;
 
 pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
