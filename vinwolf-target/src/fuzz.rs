@@ -1,20 +1,20 @@
+use bandersnatch_vrf_spec::Verifier;
 use block::header;
 use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 use jam_types::{Block, Header, GlobalState, KeyValue, OpaqueHash};
+use misc::parse_state_keyvals;
 use safrole::verifier;
 use state_handler::{get_global_state, get_state_root, set_global_state};
-use safrole::{create_ring_set, verifier::{get_all, set_all}};
-use utils::bandersnatch::Verifier;
+use std::collections::VecDeque;
 use std::io;
 use std::io::{Read, Write};
-use std::collections::VecDeque;
-use std::path::PathBuf;
 use std::os::unix::net::{UnixListener, UnixStream};
+use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
 use super::BUILD_PROFILE;
 use super::fuzz_types::*;
-use utils::common::parse_state_keyvals;
-use utils::{trie::merkle_state, log, hex};
+use tools::hex;
+use trie::merkle_state;
 use vinwolf_target::read_all_bins;
 
 pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
@@ -109,7 +109,7 @@ pub fn run_unix_server(socket_path: &str) -> Result<(), Box<dyn std::error::Erro
     let listener = UnixListener::bind(socket_path)?;
 
     println!("{:?}", print_vinwolf_target_info(socket_path));
-    log::info!("{:?}", print_vinwolf_target_info(socket_path));
+    tools::log::info!("{:?}", print_vinwolf_target_info(socket_path));
 
     listen_socket(&listener)?;
 
@@ -131,7 +131,7 @@ fn listen_socket(listener: &UnixListener) -> Result<(), Box<dyn std::error::Erro
             }
             Err(error) => {
                 println!("Error accepting connection");
-                log::error!("Accepting connection: {}", error);
+                tools::log::error!("Accepting connection: {}", error);
                 return Err(Box::new(error));
             }
         }
@@ -140,7 +140,7 @@ fn listen_socket(listener: &UnixListener) -> Result<(), Box<dyn std::error::Erro
 
 fn print_peer_info(peer: &PeerInfo, rol: &str) {
 
-    log::info!(
+    tools::log::info!(
         "{} info: {:?} version: {}.{}.{} GP version: {}.{}.{} features: {} fuzz-proto version: {}",
         rol,
         match String::from_utf8(peer.app_name.clone()) {
@@ -165,14 +165,14 @@ fn read_socket(socket: &mut UnixStream) -> std::io::Result<Vec<u8>> {
     let msg_len = u32::from_le_bytes(len_buf) as usize;
     let mut buf = vec![0u8; msg_len];
     socket.read_exact(&mut buf)?;
-    log::info!("New message from fuzzer with length: {:?}", msg_len);
+    tools::log::info!("New message from fuzzer with length: {:?}", msg_len);
     Ok(buf)
 }
 
 fn handle_connection(socket: &mut UnixStream) {
 
     let vinwolf_info = &*VINWOLF_INFO;
-    log::info!("New incomming connection accepted...");
+    tools::log::info!("New incomming connection accepted...");
 
     loop {
         let buffer = match read_socket(socket) {
@@ -184,7 +184,7 @@ fn handle_connection(socket: &mut UnixStream) {
         let msg_type: Message = match reader.read_byte() {
             Ok(m_type) => { m_type.into() },
             Err(error) => {
-                log::error!("Failed to decode msg type: {:?}", error);
+                tools::log::error!("Failed to decode msg type: {:?}", error);
                 continue;
             },
         };
@@ -195,7 +195,7 @@ fn handle_connection(socket: &mut UnixStream) {
                 let fuzzer_info = match PeerInfo::decode(&mut reader) {
                     Ok(fuzzer_info) => fuzzer_info,
                     Err(error) => {
-                        log::error!("Failed to decode the peer info: {:?}", error);
+                        tools::log::error!("Failed to decode the peer info: {:?}", error);
                         continue;
                     }
                 };
@@ -209,32 +209,32 @@ fn handle_connection(socket: &mut UnixStream) {
             },
             Message::Initialize => {
 
-                log::info!("Initialize frame received");
+                tools::log::info!("Initialize frame received");
                 
                 let initialize = match Initialize::decode(&mut reader) {
                     Ok(initialize) => initialize,
                     Err(error) => {
-                        log::error!("Failed to decode initialize frame: {:?}", error);
+                        tools::log::error!("Failed to decode initialize frame: {:?}", error);
                         continue;
                     }
                 };
 
                 let mut global_state = GlobalState::default();
-                log::debug!("Parse keyvals");
+                tools::log::debug!("Parse keyvals");
                 match parse_state_keyvals(&initialize.keyvals, &mut global_state) {
                     Ok(_) => { },
                     Err(error) => {
-                        log::error!("Failed to parse the state keyvals: {:?}", error);
+                        tools::log::error!("Failed to parse the state keyvals: {:?}", error);
                         continue;
                     },
                 }
 
                 // Calc header hash
                 let header_hash = sp_core::blake2_256(&initialize.header.encode());
-                log::info!("Header hash: {}", hex::encode(&header_hash));
+                tools::log::info!("Header hash: {}", hex::encode(&header_hash));
                 header::set_parent_header(header_hash.clone());
                 // Calc state root
-                let state_root = merkle_state(&utils::serialization::serialize(&global_state).map);
+                let state_root = merkle_state(&serialization::serialize(&global_state).map);
                 state_handler::set_state_root(state_root.clone());
                 // Set global state
                 set_global_state(global_state.clone());
@@ -248,7 +248,7 @@ fn handle_connection(socket: &mut UnixStream) {
                 state_record.push_back((state_root, global_state.clone(), verifiers, header_hash));
                 set_state_record(state_record);
 
-                log::info!("SetState - state root {}", hex::encode(state_root));
+                tools::log::info!("SetState - state root {}", hex::encode(state_root));
                 
                 if send_to_peer(&fuzz_msg(Message::StateRoot, &state_root), socket).is_err() {
                     break;
@@ -264,12 +264,12 @@ fn handle_connection(socket: &mut UnixStream) {
             },
             Message::ImportBlock => {
 
-                log::info!("ImportBlock frame received");
+                tools::log::info!("ImportBlock frame received");
 
                 let block = match Block::decode(&mut reader) {
                     Ok(block) => block,
                     Err(error) => {
-                        log::error!("Failed to decode block: {:?}", error);
+                        tools::log::error!("Failed to decode block: {:?}", error);
                         if send_to_peer(&fuzz_msg(Message::Error, &format!("Failed to decode block: {:?}", error).as_bytes().to_vec().encode_len()), socket).is_err() {
                             break;
                         }
@@ -289,8 +289,8 @@ fn handle_connection(socket: &mut UnixStream) {
 
                 match state_controller::stf(&block) {
                     Ok(_) => {
-                        //println!("Block {} processed successfully", utils::print_hash!(header_hash));
-                        log::info!("Block proccessed successfully");
+                        //println!("Block {} processed successfully", tools::print_hash!(header_hash));
+                        tools::log::info!("Block proccessed successfully");
                         let post_state_root = get_state_root().lock().unwrap().clone();
                         update_state_record(
                             &block.header.unsigned.parent_state_root, 
@@ -302,8 +302,8 @@ fn handle_connection(socket: &mut UnixStream) {
                         }
                     },
                     Err(error) => {
-                        //println!("Refused block {}", utils::print_hash!(header_hash));
-                        log::error!("Block execution failure: {:?}", error);
+                        //println!("Refused block {}", tools::print_hash!(header_hash));
+                        tools::log::error!("Block execution failure: {:?}", error);
                         if send_to_peer(&fuzz_msg(Message::Error, &format!("Block execution failure: {:?}", error).as_bytes().to_vec().encode_len()), socket).is_err() {
                             break;
                         }
@@ -328,18 +328,18 @@ fn handle_connection(socket: &mut UnixStream) {
             },
             Message::GetState => {
 
-                log::info!("GetState frame received");
+                tools::log::info!("GetState frame received");
                 let header_hash = match OpaqueHash::decode(&mut reader) {
                     Ok(header_hash) => header_hash,
                     Err(error) => {
-                        log::error!("Failed to decode the header hash: {:?}", error);
+                        tools::log::error!("Failed to decode the header hash: {:?}", error);
                         continue;
                     }
                 };
 
-                log::info!("Header hash received: 0x{}", hex::encode(header_hash));
+                tools::log::info!("Header hash received: 0x{}", hex::encode(header_hash));
                 let global_state = get_global_state().lock().unwrap().clone();
-                let raw_state = utils::serialization::serialize(&global_state);
+                let raw_state = serialization::serialize(&global_state);
 
                 let mut keyvalues: Vec<KeyValue> = vec![];
 
@@ -358,7 +358,7 @@ fn handle_connection(socket: &mut UnixStream) {
                 }
             },
             _ => {
-                    log::error!("Message type not supported: {:?}", msg_type);
+                    tools::log::error!("Message type not supported: {:?}", msg_type);
                     send_to_peer(&fuzz_msg(Message::Error, &format!("Message type not supported: {:?}", msg_type).as_bytes().to_vec().encode_len()), socket).unwrap();
                     break;
                 },
@@ -402,7 +402,7 @@ pub fn run_fuzzer(socket_path: &str, reports_path: &PathBuf) -> Result<(), Box<d
     //let reports_path = std::path::Path::new("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/");
     //   let path = std::path::Path::new("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/_new2/");
     let mut dirs: Vec<PathBuf> = vec![];
-    log::info!("path: {:?}", reports_path);
+    tools::log::info!("path: {:?}", reports_path);
 
     for entry in std::fs::read_dir(reports_path).unwrap() {
 
@@ -413,7 +413,7 @@ pub fn run_fuzzer(socket_path: &str, reports_path: &PathBuf) -> Result<(), Box<d
             continue;
         }
 
-        log::info!("Fuzzing dir: {:?}", dir_path);
+        tools::log::info!("Fuzzing dir: {:?}", dir_path);
         println!("Fuzzing dir: {:?}", dir_path);
         fuzz_dir(&mut socket, &dir_path);
         dirs.push(dir_path);
@@ -492,7 +492,7 @@ fn fuzz_dir(socket: &mut UnixStream, dir_path: &std::path::Path) {
         }
 
         // Export block
-        println!("Exporting block {}", utils::print_hash!(&(sp_core::blake2_256(&block.header.encode()))));
+        println!("Exporting block {}", tools::print_hash!(&(sp_core::blake2_256(&block.header.encode()))));
         let import_block_msg = [vec![Message::ImportBlock as u8], block.encode()].concat();
         let msg = [(import_block_msg.len() as u32).encode(), import_block_msg].concat();
         socket.write_all(&msg).unwrap();

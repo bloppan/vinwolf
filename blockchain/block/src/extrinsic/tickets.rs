@@ -8,11 +8,13 @@
     of valid tickets, each of which is a tuple of an entry index (a natural number less than N) and a proof of ticket validity.
 */
 
+use bandersnatch_vrf_spec::Verifier;
 use codec::Encode;
-use constants::node::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR};
-use jam_types::{EntropyPool, OpaqueHash, Safrole, SafroleErrorCode, TicketBody, TimeSlot, Ticket, ProcessError};
-use std::{{sync::mpsc}, thread};
-use utils::{common::{has_duplicates, bad_order}, log, bandersnatch::Verifier};
+use constants::node::{EPOCH_LENGTH, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR, TICKET_SUBMISSION_ENDS};
+use jam_types::*;
+use misc::{bad_order, has_duplicates};
+use std::{thread, {sync::mpsc}};
+use tools::log;
 
 pub fn process(
     tickets_extrinsic: &[Ticket],
@@ -118,7 +120,7 @@ fn ticket_seal_verify(verifier: &Verifier, ticket: &Ticket, fixed_input_data: &[
             return Ok(TicketBody { id: result, attempt: ticket.attempt });
         },
         Err(_) => { 
-            log::error!("Bad ticket proof. Ticket signature: {}", utils::print_hash!(ticket.signature)); 
+            log::error!("Bad ticket proof. Ticket signature: {}", tools::print_hash!(ticket.signature)); 
             return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketProof)); 
         }
     }

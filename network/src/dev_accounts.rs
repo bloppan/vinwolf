@@ -1,7 +1,7 @@
 use jam_types::{BandersnatchPublic, Ed25519Public, OpaqueHash};
 use quinn::Connection;
 use std::{collections::HashMap, sync::LazyLock, sync::Mutex};
-use utils::common::hex_to_32;
+use misc::hex_to_32;
 
 #[derive(Clone)]
 pub struct RawIdentity {

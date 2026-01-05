@@ -9,7 +9,7 @@ mod test {
     use jam_types::{OutputDataDisputes, ValidatorSet, DisputesExtrinsic, ProcessError};
     use state_handler::{get_global_state};
     use std::sync::LazyLock;
-    use utils::log;
+    use tools::log;
 
     static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if VALIDATORS_COUNT == 6 && EPOCH_LENGTH == 12 && CORES_COUNT == 2 {
@@ -32,7 +32,7 @@ mod test {
     
     fn run_test(filename: &str) {
     
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/stf/disputes/{}/{}", *TEST_TYPE, filename))).unwrap();
+        let test_content = misc::read_bin_file(std::path::Path::new(&format!("jamtestvectors/stf/disputes/{}/{}", *TEST_TYPE, filename))).unwrap();
         let test_body: Vec<TestBody> = vec![
                                             TestBody::DisputesExtrinsic,
                                             TestBody::DisputesState,

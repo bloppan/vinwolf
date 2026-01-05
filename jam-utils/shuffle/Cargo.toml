@@ -1,0 +1,12 @@
+[package]
+name = "shuffle"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+codec = { workspace = true }
+jam-types = { workspace = true }
+sp-core = { workspace = true }

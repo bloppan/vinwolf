@@ -8,9 +8,9 @@ repository.workspace = true
 
 [dependencies]
 constants = { workspace = true }
-rocksdb = { workspace = true, optional = true }
 jam-types = { workspace = true }
-utils = { workspace = true }
+rocksdb = { workspace = true, optional = true }
+tools = { workspace = true }
 
 [features]
 DB = ["rocksdb"]

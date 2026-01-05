@@ -5,13 +5,11 @@
 */
 
 use codec::Encode;
-use constants::node::{AVAIL_BITFIELD_BYTES, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY, REPORTED_WORK_REPLACEMENT_PERIOD};
-use jam_types::{
-    AssurancesErrorCode, OutputDataAssurances, ValidatorIndex, Hash, TimeSlot, Assurance, CoreIndex, AvailabilityAssignments, 
-    ProcessError, ValidatorSet
-};
+use constants::node::{AVAIL_BITFIELD_BYTES, CORES_COUNT, REPORTED_WORK_REPLACEMENT_PERIOD, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY};
+use jam_types::*;
+use misc::{is_sorted_and_unique, VerifySignature};
 use sp_core::blake2_256;
-use utils::{common::{is_sorted_and_unique, VerifySignature}, log};
+use tools::log;
 
 pub fn process(
     assurances_extrinsic: &[Assurance],
@@ -55,7 +53,7 @@ pub fn process(
     for assurance in assurances_extrinsic {
         // The assurances must all be anchored on the parent
         if assurance.anchor != *parent {
-            log::error!("Bad attestation parent: 0x{} != Block parent: 0x{}", utils::print_hash!(assurance.anchor), utils::print_hash!(*parent));
+            log::error!("Bad attestation parent: 0x{} != Block parent: 0x{}", tools::print_hash!(assurance.anchor), tools::print_hash!(*parent));
             return Err(ProcessError::AssurancesError(AssurancesErrorCode::BadAttestationParent));
         }
         // The signature must be one whose public key is that of the validator assuring and whose message is the
@@ -98,11 +96,11 @@ pub fn process(
             // We remove the items which are available
             if core_marks[core as usize] >= VALIDATORS_SUPER_MAJORITY {
                 new_availables_wr.push(assignment.report.clone());
-                log::debug!("Remove assignment {} from core {:?}. This report is now available", utils::print_hash!(assignment.report.package_spec.hash), core);
+                log::debug!("Remove assignment {} from core {:?}. This report is now available", tools::print_hash!(assignment.report.package_spec.hash), core);
                 state_handler::reports::remove_assignment(&(core as CoreIndex), availability_state);
             // We also remove the items which have timed out
             } else if *post_tau >= assignment.timeout + REPORTED_WORK_REPLACEMENT_PERIOD as TimeSlot {
-                log::debug!("Remove assignment {} from core {:?}. This report have timed out!", utils::print_hash!(assignment.report.package_spec.hash), core);
+                log::debug!("Remove assignment {} from core {:?}. This report have timed out!", tools::print_hash!(assignment.report.package_spec.hash), core);
                 state_handler::reports::remove_assignment(&(core as CoreIndex), availability_state);
             }
         };

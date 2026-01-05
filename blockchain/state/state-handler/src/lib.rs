@@ -1,7 +1,8 @@
 use codec::Encode;
-use jam_types::{*};
+use jam_types::*;
 use std::collections::HashSet;
 use std::sync::{LazyLock, Mutex};
+use tools::{hex, log};
 
 static GLOBAL_STATE: LazyLock<Mutex<GlobalState>> = LazyLock::new(|| {
     Mutex::new(GlobalState::default())
@@ -20,7 +21,7 @@ pub fn set_global_state(new_state: GlobalState) {
 }
 // State root
 pub fn set_state_root(new_root: OpaqueHash) {
-    utils::log::debug!("Set state root: {}", utils::hex::encode(&new_root));
+    log::debug!("Set state root: {}", hex::encode(&new_root));
     *STATE_ROOT.lock().unwrap() = new_root;
 }
 pub fn get_state_root() -> &'static Mutex<OpaqueHash> {
@@ -147,7 +148,7 @@ pub mod disputes {
 
         // In the disputes extrinsic can not be offenders already reported
         let all_offenders = Vec::from([disputes_state.offenders.clone(), new_offenders.clone()].concat());
-        if utils::common::has_duplicates(&all_offenders) {
+        if misc::has_duplicates(&all_offenders) {
             return Err(ProcessError::DisputesError(DisputesErrorCode::OffenderAlreadyReported));
         }   
 

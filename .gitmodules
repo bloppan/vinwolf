@@ -7,3 +7,6 @@
 [submodule "tests/jamtestvectors"]
 	path = tests/jamtestvectors
 	url = https://github.com/davxy/jam-test-vectors
+[submodule "jam-utils/bandersnatch-vrf-spec"]
+	path = jam-utils/bandersnatch-vrf-spec
+	url = https://github.com/bloppan/bandersnatch-vrf-spec

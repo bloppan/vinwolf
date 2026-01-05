@@ -9,7 +9,7 @@ mod tests {
     use jam_types::{Account, DisputesRecords, Extrinsic, Header, OutputDataReports, ProcessError, ServiceAccounts, Statistics, ValidatorSet, Block, Ed25519Public};
     use state_handler::{get_global_state};
     use std::sync::LazyLock;
-    use utils::log;
+    use tools::log;
 
     static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if VALIDATORS_COUNT == 6 && CORES_COUNT == 2 && ROTATION_PERIOD == 4 && EPOCH_LENGTH == 12 {
@@ -32,7 +32,7 @@ mod tests {
 
     fn run_test(filename: &str) {
 
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/stf/reports/{}/{}", *TEST_TYPE, filename))).unwrap();
+        let test_content = misc::read_bin_file(std::path::Path::new(&format!("jamtestvectors/stf/reports/{}/{}", *TEST_TYPE, filename))).unwrap();
         let test_body: Vec<TestBody> = vec![
                                         TestBody::InputWorkReport,
                                         TestBody::WorkReportState,

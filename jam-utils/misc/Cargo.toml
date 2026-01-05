@@ -1,0 +1,15 @@
+[package]
+name = "misc"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+codec = { workspace = true }
+constants = { workspace = true }
+jam-types = { workspace = true }
+serialization = { workspace = true }
+sp-core = { workspace = true }
+tools = { workspace = true }

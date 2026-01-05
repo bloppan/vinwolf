@@ -3,7 +3,7 @@ mod tests {
     
     use std::collections::HashSet;
     use std::path::Path;
-    use utils::log;
+    use tools::log;
     use vinwolf_target::{process_all_bins, process_all_dirs, process_trace};
     
     const REPORTS_FUZZER_DIR: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces";
@@ -45,8 +45,8 @@ mod tests {
         let _ = process_all_bins(dir_base);
     }   
 
-    //const TRACES_DIR: &str = "/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.1/traces/";
-    const TRACES_DIR: &str = "/home/bernar/workspace/vinwolf/tests/jam-conformance/fuzz-reports/0.7.2/traces/";
+    const TRACES_DIR: &str = "/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/";
+    //const TRACES_DIR: &str = "/home/bernar/workspace/vinwolf/tests/jam-conformance/fuzz-reports/0.7.2/traces/";
 
     #[test]
     fn run_all_traces_tests() {

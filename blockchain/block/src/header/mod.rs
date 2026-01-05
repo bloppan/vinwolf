@@ -12,16 +12,14 @@
 // (a very much unexpected eventuality).The epoch marker is either empty or, if the block is the first in a new epoch, then a tuple of
 // the epoch randomness and a sequence of Bandersnatch keys defining the Bandersnatch validator keys (kb) beginning in the next epoch.
 
-use codec::{{Encode, EncodeLen, EncodeSize}, generic_codec::encode_unsigned};
-use constants::node::{EPOCH_LENGTH, VALIDATORS_COUNT, TICKET_ENTRIES_PER_VALIDATOR};
-use jam_types::{
-    EntropyPool, OpaqueHash, ProcessError, HeaderErrorCode, Safrole, SafroleErrorCode, Seal, TimeSlot, ValidatorsData, Header, Block, 
-    Ed25519Public,ValidatorSet
-};
+use bandersnatch_vrf_spec::Verifier;
+use codec::{generic_codec::encode_unsigned, {Encode, EncodeLen, EncodeSize}};
+use constants::node::{EPOCH_LENGTH, TICKET_ENTRIES_PER_VALIDATOR, VALIDATORS_COUNT};
+use jam_types::*;
 use state_handler::get_state_root;
 use std::collections::HashSet;
 use std::sync::{LazyLock, Mutex};
-use utils::{{bandersnatch::Verifier}, log};
+use tools::{hex, log};
 
 static PARENT_HEADER: LazyLock<Mutex<OpaqueHash>> = LazyLock::new(|| {
     Mutex::new(OpaqueHash::default())
@@ -32,7 +30,7 @@ pub fn get_parent_header() -> OpaqueHash {
 }
 
 pub fn set_parent_header(parent_header: OpaqueHash) {
-    utils::log::debug!("Set parent header: {}", utils::hex::encode(&parent_header));
+    log::debug!("Set parent header: {}", hex::encode(&parent_header));
     *PARENT_HEADER.lock().unwrap() = parent_header;
 }
 
@@ -76,7 +74,7 @@ pub fn seal_verify(
             };
 
             if tickets.tickets_mark[i as usize].id != seal_vrf_output {
-                log::error!("Ticket {i} not match: id {} != seal vrf {}", utils::print_hash!(tickets.tickets_mark[i as usize].id), utils::print_hash!(seal_vrf_output));
+                log::error!("Ticket {i} not match: id {} != seal vrf {}", tools::print_hash!(tickets.tickets_mark[i as usize].id), tools::print_hash!(seal_vrf_output));
                 return Err(ProcessError::SafroleError(SafroleErrorCode::TicketNotMatch));
             }
             log::debug!("Seal tickets verified successfully");
@@ -103,7 +101,7 @@ pub fn seal_verify(
             };
             
             if keys.epoch[i as usize] != current_validators.list[block_author].bandersnatch {
-                log::error!("Key not match: Seal key {:02x?} != bandersnatch key author {block_author} {:02x?}", utils::print_hash!(keys.epoch[i as usize]), utils::print_hash!(current_validators.list[block_author].bandersnatch));
+                log::error!("Key not match: Seal key {:02x?} != bandersnatch key author {block_author} {:02x?}", tools::print_hash!(keys.epoch[i as usize]), tools::print_hash!(current_validators.list[block_author].bandersnatch));
                 return Err(ProcessError::SafroleError(SafroleErrorCode::KeyNotMatch));
             }
 
@@ -131,7 +129,7 @@ pub fn seal_verify(
         },
     };
 
-    log::debug!("Seal header verified successfully. vrf output: 0x{}", utils::print_hash!(entropy_source_vrf_output));
+    log::debug!("Seal header verified successfully. vrf output: 0x{}", tools::print_hash!(entropy_source_vrf_output));
     Ok(entropy_source_vrf_output)
 }
 
@@ -199,7 +197,7 @@ pub fn offenders_verify(block: &Block) -> Result<(), ProcessError> {
     //The offenders markers must contain exactly the keys of all new offenders, respectively
     for header_offender in &block.header.unsigned.offenders_mark {
         if !extrinsic_offenders.contains(header_offender) {
-            log::error!("The offender {} is found in the header, but is not found in the extrinsic", utils::print_hash!(*header_offender));
+            log::error!("The offender {} is found in the header, but is not found in the extrinsic", tools::print_hash!(*header_offender));
             return Err(ProcessError::HeaderError(HeaderErrorCode::BadOffenders));
         }
     }
@@ -218,7 +216,7 @@ fn parent_header_verify(header: &Header) -> Result<(), ProcessError> {
     let parent_header = get_parent_header();
 
     if parent_header != header.unsigned.parent {
-        log::error!("Expected parent header {} != received parent header {}", utils::print_hash!(parent_header), utils::print_hash!(header.unsigned.parent));
+        log::error!("Expected parent header {} != received parent header {}", tools::print_hash!(parent_header), tools::print_hash!(header.unsigned.parent));
         return Err(ProcessError::HeaderError(HeaderErrorCode::BadParentHeader));
     }
 
@@ -230,11 +228,11 @@ pub fn state_root_verify(header: &Header) -> Result<(), ProcessError> {
     let parent_state_root = get_state_root().lock().unwrap();
 
     if header.unsigned.parent_state_root != *parent_state_root {
-        log::error!("Bad parent state root: header state root {} != parent state root {}", utils::print_hash!(header.unsigned.parent_state_root), utils::print_hash!(*parent_state_root));
+        log::error!("Bad parent state root: header state root {} != parent state root {}", tools::print_hash!(header.unsigned.parent_state_root), tools::print_hash!(*parent_state_root));
         return Err(ProcessError::HeaderError(HeaderErrorCode::BadParentStateRoot));
     }
 
-    log::debug!("The block's parent state root {} matches", utils::print_hash!(header.unsigned.parent_state_root));
+    log::debug!("The block's parent state root {} matches", tools::print_hash!(header.unsigned.parent_state_root));
     return Ok(());
 }
 
@@ -272,7 +270,7 @@ pub fn extrinsic_verify(block: &Block) -> Result<(), ProcessError> {
                             sp_core::blake2_256(&block.extrinsic.disputes.encode())].concat();
 
     if block.header.unsigned.extrinsic_hash != sp_core::blake2_256(&a) {
-        log::error!("Bad extrinsic hash: header extrinsic hash {} != calculated {}", utils::print_hash!(block.header.unsigned.extrinsic_hash), utils::print_hash!(sp_core::blake2_256(&a)));
+        log::error!("Bad extrinsic hash: header extrinsic hash {} != calculated {}", tools::print_hash!(block.header.unsigned.extrinsic_hash), tools::print_hash!(sp_core::blake2_256(&a)));
         return Err(ProcessError::HeaderError(HeaderErrorCode::BadExtrinsicHash));
     }
 

@@ -8,7 +8,7 @@ mod tests {
     use state_handler::{get_global_state};
     use std::path::Path;
     use std::sync::LazyLock;
-    use utils::log;
+    use tools::log;
     
     static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if VALIDATORS_COUNT == 6 && CORES_COUNT == 2 {
@@ -31,7 +31,7 @@ mod tests {
     
     fn run_test(filename: &str) {
 
-        let test_content = utils::common::read_bin_file(Path::new(&format!("jamtestvectors/stf/assurances/{}/{}", *TEST_TYPE, filename))).unwrap();
+        let test_content = misc::read_bin_file(Path::new(&format!("jamtestvectors/stf/assurances/{}/{}", *TEST_TYPE, filename))).unwrap();
         let test_body: Vec<TestBody> = vec![
                                         TestBody::InputAssurances,
                                         TestBody::StateAssurances,

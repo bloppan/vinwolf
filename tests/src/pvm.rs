@@ -9,8 +9,8 @@ mod tests {
     use std::fs::File;
     use std::io::Read;
     use std::path::PathBuf;
-    use utils::serde::{Deserialize, Value, from_json_str};
-
+    use tools::{log, serde::{Deserialize, Value, from_json_str}};
+    
     #[derive(Debug, PartialEq)]
     struct Testcase {
         name: String,
@@ -182,7 +182,7 @@ mod tests {
         let program = match Program::decode(&mut BytesReader::new(&testcase.program)) {
             Ok(program) => { program },
             Err(_) => { 
-                utils::log::error!("Panic: Decoding code program");
+                log::error!("Panic: Decoding code program");
                 return; 
             }
         };
@@ -191,7 +191,7 @@ mod tests {
         let mut reg = testcase.initial_regs;
         let mut gas = testcase.initial_gas;
 
-        utils::log::info!("Initial regs: {:?}", reg);
+        log::info!("Initial regs: {:?}", reg);
         let exit_reason = invoke_pvm(&program, &mut pc, &mut gas, &mut ram, &mut reg.0);
 
         let mut ram_result: Vec<MemoryChunk> = vec![];              
@@ -229,7 +229,7 @@ mod tests {
 
     #[test]
     fn test_programs() {
-        utils::log::Builder::from_env(utils::log::Env::default().default_filter_or("debug"))
+        log::Builder::from_env(log::Env::default().default_filter_or("debug"))
             .with_dotenv(true)
             .init();
 
@@ -546,7 +546,7 @@ mod tests {
         ];
         
         for file in test_files {
-            utils::log::info!("Running test for file: {}", file);
+            log::info!("Running test for file: {}", file);
             run_pvm_test(file);
             //println!("Ok");
         }

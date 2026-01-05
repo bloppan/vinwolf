@@ -31,7 +31,7 @@
 // disputes cannot be raised in the future of the chain.
 
 use block::extrinsic;
-use jam_types::{AvailabilityAssignments, DisputesRecords, OutputDataDisputes, DisputesExtrinsic, ProcessError};
+use jam_types::*;
 
 pub fn process(
     disputes_state: &mut DisputesRecords, 

@@ -7,7 +7,7 @@
 */
 
 use constants::node::RECENT_HISTORY_SIZE;
-use jam_types::{BlockInfo, Hash, Mmr, OpaqueHash, RecentBlocks, ReportedWorkPackages};
+use jam_types::*;
 
 pub fn process(
     recent_history_state: &mut RecentBlocks,
@@ -52,8 +52,8 @@ pub fn finalize(
         return;
     }
 
-    let mmr = utils::trie::append(&recent_history_state.mmr, *acc_outputs_result, sp_core::keccak_256);
-    let acc_outputs_result = utils::trie::mmr_super_peak(&mmr);
+    let mmr = trie::append(&recent_history_state.mmr, *acc_outputs_result, sp_core::keccak_256);
+    let acc_outputs_result = trie::mmr_super_peak(&mmr);
     recent_history_state.mmr = mmr;
 
     // The final state transition for βH appends a new item including the new block's header hash, a Merkle commitment to the block's 

@@ -1,10 +1,12 @@
 use codec::{Decode, BytesReader};
 use jam_types::{Block, GlobalState, OpaqueHash, RawState, ReadError};
+use misc::parse_state_keyvals;
 use safrole::verifier;
 use std::collections::VecDeque;
 use std::path::{PathBuf, Path};
 use std::{fs, collections::HashSet};
-use utils::{common::parse_state_keyvals, serialization, trie::merkle_state, log, hex};
+use trie::merkle_state;
+use tools::hex;
 
 pub fn parse_trace_file(test_content: &[u8]) -> Result<(GlobalState, Block, GlobalState), ReadError>{
 
@@ -39,12 +41,12 @@ pub fn parse_genesis_file(test_content: &[u8]) -> Result<(Block, GlobalState), R
 
 pub fn process_trace(path: &Path) {
 
-    log::info!("process trace: {:?}", path);
-    let test_content = utils::common::read_bin_file(&path).expect("Error reading the trace bin file");
+    tools::log::info!("process trace: {:?}", path);
+    let test_content = misc::read_bin_file(&path).expect("Error reading the trace bin file");
     let (pre_state, block, post_state) = parse_trace_file(&test_content).unwrap();
 
     state_handler::set_global_state(pre_state.clone());
-    state_handler::set_state_root(utils::trie::merkle_state(&utils::serialization::serialize(&pre_state).map));
+    state_handler::set_state_root(trie::merkle_state(&serialization::serialize(&pre_state).map));
     // Set the parent header
     block::header::set_parent_header(block.header.unsigned.parent);
 
@@ -59,13 +61,13 @@ pub fn process_trace(path: &Path) {
     };
 
     let result_state = state_handler::get_global_state().lock().unwrap().clone();        
-    let state_root_result = utils::trie::merkle_state(&utils::serialization::serialize(&result_state).map);
-    let state_root_expected = utils::trie::merkle_state(&utils::serialization::serialize(&post_state).map);
+    let state_root_result = trie::merkle_state(&serialization::serialize(&result_state).map);
+    let state_root_expected = trie::merkle_state(&serialization::serialize(&post_state).map);
 
     assert_eq_state(&post_state, &result_state);
     assert_eq!(state_root_expected, state_root_result);
     
-    log::info!("Trace {:?} processed successfully", path);
+    tools::log::info!("Trace {:?} processed successfully", path);
 }
 
 pub fn read_all_bins(dir_path: &Path) -> Vec<(u32, PathBuf)> {
@@ -79,9 +81,9 @@ pub fn read_all_bins(dir_path: &Path) -> Vec<(u32, PathBuf)> {
             let f = f.ok()?.path();
             if f.extension()? == "bin" {
                 let stem = f.file_stem()?.to_str()?;
-                if stem == "genesis" {
+                /*if stem == "genesis" {
                     return Some((0, f));
-                }
+                }*/
                 if let Ok(num) = stem.parse::<u32>() {
                     return Some((num, f));
                 }
@@ -97,13 +99,13 @@ pub fn read_all_bins(dir_path: &Path) -> Vec<(u32, PathBuf)> {
 pub fn process_all_bins(dir_path: &Path) -> std::io::Result<()> {
 
     //storage::ancestors::set_ancestors_feature(true);
-    let mut bin_files = read_all_bins(dir_path);
+    let bin_files = read_all_bins(dir_path);
     //bin_files.drain(0..131);
 
     for (_slot, bin_path) in bin_files {
         
         process_trace(&bin_path);
-        log::info!("{:?} processed successfully", bin_path);
+        tools::log::info!("{:?} processed successfully", bin_path);
     }
 
     Ok(())
@@ -171,49 +173,49 @@ fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
 
     /*for service_account in expected_state.service_accounts.iter() {
         if let Some(account) = result_state.service_accounts.get(&service_account.0) {
-        log::info!("- Expected for service: {:?}", *service_account.0);
+        tools::log::info!("- Expected for service: {:?}", *service_account.0);
         for item in service_account.1.storage.iter() { 
-            log::info!("key: {}", hex::encode(item.0));
+            tools::log::info!("key: {}", hex::encode(item.0));
             if item.1.len() > 31 {
-                log::info!("val: {}...", hex::encode(&item.1[..31]));
+                tools::log::info!("val: {}...", hex::encode(&item.1[..31]));
             } else {
-                log::info!("val: {} | len: {:?}", hex::encode(item.1), item.1.len());
+                tools::log::info!("val: {} | len: {:?}", hex::encode(item.1), item.1.len());
             }
             if let Some(result_item) = account.storage.get(item.0) {
-                log::info!("key: {} result", hex::encode(item.0));
+                tools::log::info!("key: {} result", hex::encode(item.0));
                 if result_item.len() > 31 {
-                    log::info!("val: {}... result", hex::encode(&result_item[..31]));
+                    tools::log::info!("val: {}... result", hex::encode(&result_item[..31]));
                 } else {
-                    log::info!("val: {} | len: {:?} result", hex::encode(result_item), result_item.len());
+                    tools::log::info!("val: {} | len: {:?} result", hex::encode(result_item), result_item.len());
                 }
             } else {
-                log::error!("key: {} not found in result storage", hex::encode(item.0));
+                tools::log::error!("key: {} not found in result storage", hex::encode(item.0));
             }
         }
         } else {
-            log::error!("!! Service account not found in result state: {:?}", service_account.0);
+            tools::log::error!("!! Service account not found in result state: {:?}", service_account.0);
         }
     }*/
 
     /*for result_account in result_state.service_accounts.iter() {
         if let Some(expected_account) = expected_state.service_accounts.get(&result_account.0) {
-            log::debug!("checking service: {:?}", result_account.0);
+            tools::log::debug!("checking service: {:?}", result_account.0);
             for item in result_account.1.storage.iter() {
                 if let Some(value) = expected_account.storage.get(item.0) {
                     if item.1 != value {
-                        log::debug!("key: {}", hex::encode(&item.0));
-                        log::debug!("expected value: {} != result value: {}", hex::encode(item.1), hex::encode(value));
+                        tools::log::debug!("key: {}", hex::encode(&item.0));
+                        tools::log::debug!("expected value: {} != result value: {}", hex::encode(item.1), hex::encode(value));
                         assert_eq!(item.1, value);
                     }
                 } else {
-                    log::error!("Service: {:?}. Expected key storage not found : {:x?}", *result_account.0, utils::hex::encode(item.0));
+                    tools::log::error!("Service: {:?}. Expected key storage not found : {:x?}", *result_account.0, utils::hex::encode(item.0));
                 }
             }
         } 
     }*/
     for service_account in expected_state.service_accounts.iter() {
         if let Some(account) = result_state.service_accounts.get(&service_account.0) {
-            log::debug!("checking service: {:?}", service_account.0);
+            tools::log::debug!("checking service: {:?}", service_account.0);
             assert_eq!(service_account.1.code_hash, account.code_hash);
             assert_eq!(service_account.1.balance, account.balance);
             assert_eq!(service_account.1.acc_min_gas, account.acc_min_gas);
@@ -229,19 +231,19 @@ fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
 
                 if let Some(value) = account.storage.get(item.0) {
                     if item.1 != value {
-                        log::debug!("key: {}", hex::encode(&item.0));
-                        log::debug!("expected value: {} != result value: {}", hex::encode(item.1), hex::encode(value));
+                        tools::log::debug!("key: {}", hex::encode(&item.0));
+                        tools::log::debug!("expected value: {} != result value: {}", hex::encode(item.1), hex::encode(value));
                         assert_eq!(item.1, value);
                     }
                     //assert_eq!(item.1, value);
                 } else {
-                    log::error!("Service: {:?}. Key storage not found : {:x?}", *service_account.0, *item.0);
+                    tools::log::error!("Service: {:?}. Key storage not found : {:x?}", *service_account.0, *item.0);
                 }
             }
             assert_eq!(service_account.1.storage.len(), account.storage.len());
             assert_eq!(service_account.1.storage, account.storage);
         } else {
-            log::error!("Service account not found in state: {:?}", service_account.0);
+            tools::log::error!("Service account not found in state: {:?}", service_account.0);
         }
     }
     assert_eq!(expected_state.service_accounts, result_state.service_accounts);
@@ -251,7 +253,7 @@ fn assert_eq_state(expected_state: &GlobalState, result_state: &GlobalState) {
     assert_eq!(expected_state.statistics.cores, result_state.statistics.cores);
     for expected_id_record in expected_state.statistics.services.records.iter() {
         if let Some(result_record) = result_state.statistics.services.records.get(&expected_id_record.0) {
-            log::debug!("Checking stats for service: {:?}", expected_id_record.0);
+            tools::log::debug!("Checking stats for service: {:?}", expected_id_record.0);
             assert_eq!(expected_id_record.1, result_record);
         } else {
             panic!("Service {:?} not found in statistics: {:?}", expected_id_record.0, expected_id_record.1);

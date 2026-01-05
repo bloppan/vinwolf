@@ -6,7 +6,7 @@ use jam_types::{*};
 use quinn::{SendStream, RecvStream, Connection};
 use std::sync::{LazyLock, Mutex};
 use std::u32;
-use utils::{common, hex, log};
+use tools::{hex, log};
 
 pub const BLOCK_ANNOUNCEMENT: StreamKind = 0;
 pub const BLOCK_REQUEST: StreamKind = 128;
@@ -160,7 +160,7 @@ pub async fn broadcast_ticket_to_validators(distributed_ticket_blob: Vec<u8>) {
 pub async fn recv_ticket_distribution(mut recv_stream: RecvStream) -> Result<(), NetworkError> {
 
     let distributed_ticket = NetworkMessage::recv(&mut recv_stream).await?;
-    log::info!("ticket distribution msg recv: {}", utils::hex::encode(&distributed_ticket));
+    log::info!("ticket distribution msg recv: {}", hex::encode(&distributed_ticket));
     //let state = state_handler::get_global_state().lock().unwrap();
     //log::debug!("Current validators: {:x?}", state.curr_validators.list);
     //log::debug!("Next validators: {:x?}", state.next_validators.list);
@@ -181,7 +181,7 @@ async fn state_request(header_hash: OpaqueHash, connection: Connection) -> Resul
     let payload = [header_hash.encode(), key_start.encode(), key_end.encode(), max_size.encode()].concat();
 
     NetworkMessage::send(STATE_REQUEST, payload, &mut send_stream).await?;
-    log::debug!("State request sent to address: {:?} for header: {}", connection.remote_address(), utils::hex::encode(&header_hash));
+    log::debug!("State request sent to address: {:?} for header: {}", connection.remote_address(), hex::encode(&header_hash));
     
     let _boundary_nodes = NetworkMessage::recv(&mut recv_stream).await?;
     let state_keyvals_blob = NetworkMessage::recv(&mut recv_stream).await?;
@@ -206,7 +206,7 @@ async fn state_request(header_hash: OpaqueHash, connection: Connection) -> Resul
 
     let mut global_state = GlobalState::default();
     
-    if let Err(e) = common::parse_state_keyvals(&keyvals, &mut global_state) {
+    if let Err(e) = misc::parse_state_keyvals(&keyvals, &mut global_state) {
         log::error!("Failed to parse state keyvals: {:?}", e);
         return Err(NetworkError::ReadError(e));
     }
@@ -225,7 +225,7 @@ async fn block_request(request_info: BlockRequestInfo, connection: Connection) -
 
     let payload = [request_info.header_hash.encode(), vec![request_info.direction], request_info.num_blocks.to_le_bytes().to_vec()].concat();
     NetworkMessage::send(BLOCK_REQUEST, payload, &mut send_stream).await?;
-    log::debug!("Block request sent from block {} num_blocks: {:?}", utils::hex::encode(&request_info.header_hash), request_info.num_blocks);
+    log::debug!("Block request sent from block {} num_blocks: {:?}", hex::encode(&request_info.header_hash), request_info.num_blocks);
 
     let blocks_blob = NetworkMessage::recv(&mut recv_stream).await?;
     log::debug!("Blocks received: {:?} bytes", blocks_blob.len());
@@ -263,10 +263,10 @@ async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connectio
 
     let last_global_finalized_state = state_request(imported_blocks_stored.last_finalized_block.header_hash, connection.clone()).await?;
     block::header::set_parent_header(imported_blocks_stored.last_finalized_block.header_hash);
-    log::debug!("Synced parent header: {}", utils::hex::encode(&imported_blocks_stored.last_finalized_block.header_hash));
+    log::debug!("Synced parent header: {}", hex::encode(&imported_blocks_stored.last_finalized_block.header_hash));
     
     // Calc state root
-    let state_root = utils::trie::merkle_state(&utils::serialization::serialize(&last_global_finalized_state).map);
+    let state_root = trie::merkle_state(&serialization::serialize(&last_global_finalized_state).map);
     state_handler::set_state_root(state_root);
     log::debug!("Synced state root: {}", hex::encode(&state_root));
     
@@ -289,7 +289,7 @@ async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connectio
     blocks.sort_by_key(|block| block.header.unsigned.slot);
 
     for block in blocks.iter() {
-        log::debug!("SYNC process block {}", utils::hex::encode(&sp_core::blake2_256(&block.header.encode())));
+        log::debug!("SYNC process block {}", hex::encode(&sp_core::blake2_256(&block.header.encode())));
         match state_controller::stf(block) {
             Ok(_) => { log::debug!("processed successfully"); },
             Err(e) => { log::error!("error processing block: {:?}", e); },
@@ -341,9 +341,9 @@ pub async fn block_announcement(
     handshake: Handshake,
 ) -> Result<(), NetworkError> {
 
-    log::debug!("Last finalized block: {} slot: {:?}", utils::hex::encode(&handshake.last_finalized_block.header_hash), handshake.last_finalized_block.slot);
+    log::debug!("Last finalized block: {} slot: {:?}", hex::encode(&handshake.last_finalized_block.header_hash), handshake.last_finalized_block.slot);
     log::debug!("Leafs: {} Slots: {:?}"
-    , handshake.leafs.iter().map(|leaf| utils::hex::encode(&leaf.header_hash)).collect::<Vec<_>>().join(", "),  handshake.leafs.iter().map(|leaf| leaf.slot).collect::<Vec<TimeSlot>>());
+    , handshake.leafs.iter().map(|leaf| hex::encode(&leaf.header_hash)).collect::<Vec<_>>().join(", "),  handshake.leafs.iter().map(|leaf| leaf.slot).collect::<Vec<TimeSlot>>());
 
     let imported_blocks = ImportedBlocks {
         last_finalized_block: handshake.last_finalized_block,
@@ -372,7 +372,7 @@ pub async fn block_announcement(
         }
 
         let header_hash = sp_core::blake2_256(&announcement.header.encode());
-        log::debug!("Import block {} parent {}", utils::hex::encode(&header_hash), utils::hex::encode(&announcement.header.unsigned.parent));
+        log::debug!("Import block {} parent {}", hex::encode(&header_hash), hex::encode(&announcement.header.unsigned.parent));
         let request_info = BlockRequestInfo {
             header_hash,
             direction: 1,
@@ -380,7 +380,7 @@ pub async fn block_announcement(
         };
 
         let block = block_request(request_info, connection.clone()).await.unwrap();
-        log::debug!("process block in loop {}", utils::hex::encode(&sp_core::blake2_256(&block[0].header.encode())));
+        log::debug!("process block in loop {}", hex::encode(&sp_core::blake2_256(&block[0].header.encode())));
 
         match state_controller::stf(&block[0]) {
             Ok(_) => { log::debug!("block successfully processed"); }

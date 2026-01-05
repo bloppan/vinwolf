@@ -1,6 +1,6 @@
 use block::extrinsic;
-use jam_types::{Preimage, ProcessError, OutputPreimages, ServiceAccounts, TimeSlot};
-use utils::log;
+use jam_types::*;
+use tools::log;
 
 pub fn process(
     services: &mut ServiceAccounts, 

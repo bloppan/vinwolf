@@ -2,14 +2,14 @@ use codec::generic_codec::decode_from_bytes;
 use crate::message::{BLOCK_ANNOUNCEMENT, TICKET_GENERATION, TICKET_PROXY};
 use crate::{message, message::NetworkMessage, dev_accounts};
 use crate::jamnp_types::{ConnectionError, NetworkError, Handshake, StreamKind};
-use jam_types::{ValidatorIndex, Ed25519Public};
+use jam_types::ValidatorIndex;
 use quinn::{Connection, RecvStream, SendStream, Endpoint};
-use utils::log;
 use std::collections::HashMap;
-use std::net::{IpAddr, Ipv6Addr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use tokio::select;
+use tools::{hex, log};
 
 pub struct NetworkController {
     endpoint: Endpoint,
@@ -46,7 +46,7 @@ impl NetworkController {
                         log::info!(
                             "New connection established from {} bandersnatch public: {}",
                             connection.remote_address(),
-                            utils::hex::encode(&dev_accounts[id_account as usize].bandersnatch_public)
+                            hex::encode(&dev_accounts[id_account as usize].bandersnatch_public)
                         );
 
                         dev_accounts::add_dev_account(
@@ -104,7 +104,7 @@ impl NetworkController {
         log::info!(
             "Attempt connection to {} bandersnatch public: {}",
             node_addr,
-            utils::hex::encode(&dev_accounts[peer_index as usize].bandersnatch_public)
+            hex::encode(&dev_accounts[peer_index as usize].bandersnatch_public)
         );
 
         let connecting = self.endpoint.connect(node_addr, &node_alt_name).unwrap();

@@ -6,10 +6,11 @@ mod tests {
     use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputPreimages, PreimagesState};
     use jam_types::{Account, Block, Extrinsic, Header, OutputPreimages, ProcessError, ServiceAccounts, StateKeyType, Statistics, ValidatorsData};
+    use serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
     use state_handler::{get_global_state};
     use std::collections::HashMap;
-    use utils::{serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key}, log};
-
+    use tools::log;
+    
     impl FromProcessError for OutputPreimages {
         fn from_process_error(error: ProcessError) -> Self {
             match error {
@@ -21,7 +22,7 @@ mod tests {
     
     fn run_test(filename: &str) {
 
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/stf/preimages/tiny/{}", filename))).unwrap();
+        let test_content = misc::read_bin_file(std::path::Path::new(&format!("jamtestvectors/stf/preimages/tiny/{}", filename))).unwrap();
         let test_body: Vec<TestBody> = vec![
                                         TestBody::InputPreimages,
                                         TestBody::PreimagesState,

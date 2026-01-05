@@ -24,8 +24,8 @@
     work-package is legitimately able to utilize that resource. It is this subsystem we will now define.
 */
 use constants::node::{CORES_COUNT, MAX_ITEMS_AUTHORIZATION_POOL, MAX_ITEMS_AUTHORIZATION_QUEUE};
-use jam_types::{AuthPools, TimeSlot, Guarantee};
-use utils::log;
+use jam_types::*;
+use tools::log;
 
 pub fn process(
         auth_pools: &mut AuthPools, 
@@ -46,7 +46,7 @@ pub fn process(
                         for i in 0..auth_pools.0[report.report.core_index as usize].len() {
                             if auth_pools.0[report.report.core_index as usize][i] == report.report.authorizer_hash {
                                 auth_pools.0[report.report.core_index as usize].remove(i);
-                                log::debug!("Remove auth {} from core {:?}", utils::print_hash!(report.report.authorizer_hash), report.report.core_index);
+                                log::debug!("Remove auth {} from core {:?}", tools::print_hash!(report.report.authorizer_hash), report.report.core_index);
                                 continue 'next_report;
                             }
                         }

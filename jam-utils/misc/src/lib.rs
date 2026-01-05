@@ -1,15 +1,15 @@
-use jam_types::*;
 use codec::{ Decode, DecodeLen, BytesReader};
 use codec::generic_codec::{decode_unsigned, decode};
 use constants::node::*;
-use crate::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
+use jam_types::*;
+use serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 use std::collections::{HashSet, HashMap};
 use std::hash::Hash;
-use super::{log, hex};
 use sp_core::{ed25519, Pair};
 use std::path::Path;
 use std::fs::File;
 use std::io::Read;
+use tools::{hex, log};
 
 pub fn dict_subtract<K: Eq + std::hash::Hash + Clone, V: Clone>(
     d: &HashMap<K, V>,
@@ -131,7 +131,7 @@ pub fn set_offenders_null(validators_data: &mut ValidatorsData, offenders: &[Ed2
     'next_offender: for offender in offenders {
         for validator in validators_data.list.iter_mut() {
             if *offender == validator.ed25519 {
-                log::debug!("Validator {} belongs to offenders set", crate::print_hash!(validator.ed25519));
+                log::debug!("Validator {} belongs to offenders set", tools::print_hash!(validator.ed25519));
                 validator.bandersnatch = [0u8; std::mem::size_of::<BandersnatchPublic>()];
                 validator.ed25519 = [0u8; std::mem::size_of::<Ed25519Public>()];
                 validator.bls = [0u8; std::mem::size_of::<BlsPublic>()];

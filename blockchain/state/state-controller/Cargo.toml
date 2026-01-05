@@ -18,11 +18,12 @@ jam-types = { workspace = true }
 recent-history = { workspace = true }
 reports = { workspace = true }
 safrole = { workspace = true }
+serialization = { workspace = true }
 services = { workspace = true }
+sp-core = { workspace = true }
 statistics = { workspace = true }
 state-handler = { workspace = true }
 storage = { workspace = true }
-utils = { workspace = true }
+tools = { workspace = true }
+trie = { workspace = true }
 validators = { workspace = true }
-
-sp-core = { workspace = true }

@@ -3,8 +3,8 @@ mod tests {
 
     use jam_types::OpaqueHash;
     use sp_core::{ed25519, Pair};
-    use utils::serde::{Deserialize, Value};
-
+    use tools::{{hex, log}, serde::{Deserialize, Value}};
+    
     #[derive(Clone, Debug, PartialEq)]
     struct Testcase {
         number: u32,
@@ -39,10 +39,10 @@ mod tests {
 
 #[test]
 fn crypto_ed25519_test() {
-    use utils::serde::{from_json_str, Value};
+    use tools::serde::{from_json_str, Value};
     use std::io::Read;
 
-    utils::log::Builder::from_env(utils::log::Env::default().default_filter_or("debug"))
+    log::Builder::from_env(log::Env::default().default_filter_or("debug"))
         .with_dotenv(true)
         .init();
 
@@ -64,7 +64,7 @@ fn crypto_ed25519_test() {
             _ => return Err("missing msg".into()),
         };
         let msg_hex = msg_hex.strip_prefix("0x").unwrap_or(msg_hex);
-        let msg = utils::hex::decode(msg_hex).map_err(|_| "invalid msg hex".to_string())?;
+        let msg = hex::decode(msg_hex).map_err(|_| "invalid msg hex".to_string())?;
 
         Ok(Testcase {
             number: u32::from_value(o.get("number").ok_or("missing number")?)?,
@@ -113,7 +113,7 @@ fn crypto_ed25519_test() {
         let ok = ed25519::Pair::verify(&signature, &tc.msg, &public_key);
         let expected = tc.pk_canonical && tc.r_canonical;
 
-        utils::log::info!("tc {} {} -> ok={}, expected={}", tc.number, tc.desc, ok, expected);
+        log::info!("tc {} {} -> ok={}, expected={}", tc.number, tc.desc, ok, expected);
         assert_eq!(ok, expected, "mismatch in testcase {}", tc.number);
     }
 }

@@ -1,11 +1,11 @@
 #[cfg(feature = "DB")]
 use std::env;
 #[cfg(feature = "DB")]
-use utils::hex;
-#[cfg(feature = "DB")]
 use rocksdb::IteratorMode;
 #[cfg(feature = "DB")]
 use storage::{ancestors::{RocksDBWrapper}, Storage};  
+#[cfg(feature = "DB")]
+use tools::hex;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "DB")]

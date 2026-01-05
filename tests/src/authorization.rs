@@ -8,7 +8,7 @@ mod tests {
     use jam_types::{Guarantee, WorkReport};
     use state_handler::{get_global_state};
     use std::sync::LazyLock;
-    use utils::log;
+    use tools::log;
 
     static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {
         if CORES_COUNT == 2 {
@@ -22,7 +22,7 @@ mod tests {
 
     fn run_test(filename: &str) {
 
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/stf/authorizations/{}/{}", *TEST_TYPE, filename))).unwrap();
+        let test_content = misc::read_bin_file(std::path::Path::new(&format!("jamtestvectors/stf/authorizations/{}/{}", *TEST_TYPE, filename))).unwrap();
         let test_body: Vec<TestBody> = vec![
                                         TestBody::InputAuthorizations,
                                         TestBody::StateAuthorizations,

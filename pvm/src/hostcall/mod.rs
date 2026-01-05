@@ -8,7 +8,7 @@ use crate::pvm_types::{Program, ExitReason, HostCallFn, RamAddress, RamMemory, R
 use codec::{BytesReader, Decode};
 use jam_types::{Account, AccumulationContext, DataSegment,WorkExecResult, WorkExecError};
 use std::collections::HashMap;
-use utils::log;
+use tools::log;
 
 /// An extended version of the pvm invocation which is able to progress an inner host-call
 /// state-machine in the case of a host-call halt condition is defined as:
@@ -39,7 +39,7 @@ where
         for i in 2254..2300 { 
             vector.push(ram.pages[1044447].as_ref().unwrap().data[i]);
         }
-        utils::log::info!("RAM: {}", utils::hex::encode(&vector));*/
+        log::info!("RAM: {}", hex::encode(&vector));*/
 
         if exit_reason == ExitReason::Halt 
             || exit_reason == ExitReason::Panic 

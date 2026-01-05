@@ -19,7 +19,7 @@ use constants::node::{CORES_COUNT, EPOCH_LENGTH, SEGMENT_SIZE, VALIDATORS_COUNT}
 use jam_types::{*};
 use std::collections::{HashMap, HashSet};
 use std::sync::{LazyLock, Mutex};
-use utils::log;
+use tools::log;
 
 static ACC_STATS: LazyLock<Mutex<HashMap<ServiceId, (Gas, u32)>>> = LazyLock::new(|| {
     Mutex::new(HashMap::default())

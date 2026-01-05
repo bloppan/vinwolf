@@ -12,16 +12,13 @@
 */
 
 use codec::{Encode, EncodeLen};
-use constants::node::{EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT, CORES_COUNT};
-use jam_types::{
-    AccumulateErrorCode, AccumulatedHistory, AccumulationOperand, AccumulationPartialState, AuthQueues, DeferredTransfer, Gas, 
-    OpaqueHash, Privileges, ProcessError, ReadyQueue, ReadyRecord, RecentAccOutputs, ServiceAccounts, ServiceId, StateKeyType, TimeSlot, 
-    ValidatorsData, WorkPackageHash, WorkReport, AccumulationInput, AccInput
-};
+use constants::node::{CORES_COUNT, EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT};
+use jam_types::*;
 use pvm::hostcall::accumulate::invoke_accumulation;
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 use std::{sync::{Arc, Mutex}, thread};
-use utils::{serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key}, hex, log};
+use serialization::{construct_lookup_key, construct_preimage_key, StateKeyTrait};
+use tools::{hex, log};
 
 // Accumulation of a work-package/work-report is deferred in the case that it has a not-yet-fulfilled dependency and is 
 // cancelled entirely in the case of an invalid dependency. Dependencies are specified  as work-package hashes and in order 
@@ -79,7 +76,7 @@ pub fn process(
     save_statistics(&mut post_partial_state, &service_gas_pairs, &current_block_accumulatable, num_wi_accumulated);
 
     let acc_root = get_acc_root(&mut service_hash_pairs);
-    log::debug!("Accumulation root: 0x{}", utils::print_hash!(acc_root));
+    log::debug!("Accumulation root: 0x{}", tools::print_hash!(acc_root));
     log::debug!("service_gas_pairs: {:?}", service_gas_pairs);
     log::debug!("service_hash_pairs: {:?}", service_hash_pairs);
 
@@ -487,7 +484,7 @@ fn get_acc_root(service_hash: &mut RecentAccOutputs) -> OpaqueHash {
         pairs_blob.push([service_id.encode(), hash.encode()].concat());
     }
 
-    utils::trie::merkle_balanced(pairs_blob, sp_core::keccak_256)
+    trie::merkle_balanced(pairs_blob, sp_core::keccak_256)
 }
 
 // The preimage integration transforms a dictionary of service states and a set of service/hash pairs into a new 

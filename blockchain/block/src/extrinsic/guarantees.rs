@@ -7,17 +7,14 @@
 */
 use codec::Encode;
 use constants::node::{
-    CORES_COUNT, MAX_DEPENDENCY_ITEMS, MAX_WORK_ITEMS, WORK_REPORT_GAS_LIMIT, EPOCH_LENGTH, ROTATION_PERIOD, MAX_OUTPUT_BLOB_SIZE, 
-    VALIDATORS_COUNT, MAX_AGE_LOOKUP_ANCHOR
+    CORES_COUNT, EPOCH_LENGTH, MAX_AGE_LOOKUP_ANCHOR, MAX_DEPENDENCY_ITEMS, MAX_OUTPUT_BLOB_SIZE, MAX_WORK_ITEMS, ROTATION_PERIOD, VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT
 };
-use jam_types::{
-    AvailabilityAssignments, CoreIndex, EntropyPool, Hash, OutputDataReports, ProcessError, ReportErrorCode, TimeSlot, ValidatorIndex, 
-    ValidatorsData, OpaqueHash, WorkReport, ValidatorSignature, Guarantee, Gas, AvailabilityAssignment, Ed25519Public, Entropy,
-    ReportedPackage, WorkResult
-};
+use jam_types::*;
+use misc::{is_sorted_and_unique, set_offenders_null, VerifySignature};
+use shuffle::shuffle;
 use sp_core::blake2_256;
-use std::collections::{HashSet, HashMap};
-use utils::{shuffle::shuffle, common::{VerifySignature, set_offenders_null}, log, common::is_sorted_and_unique};
+use std::collections::{HashMap, HashSet};
+use tools::log;
 
 pub fn process(
     guarantees_extrinsic: &[Guarantee], 
@@ -133,14 +130,14 @@ pub fn process(
         // We require that the work-package of the report not be the work-package of some other report made in the past.
         // We ensure that the work-package not appear anywhere within our pipeline.
         if wp_hashes_in_our_pipeline.contains(&guarantee.report.package_spec.hash) {
-            log::error!("Duplicate package 0x{}", utils::print_hash!(guarantee.report.package_spec.hash));
+            log::error!("Duplicate package 0x{}", tools::print_hash!(guarantee.report.package_spec.hash));
             return Err(ProcessError::ReportError(ReportErrorCode::DuplicatePackage));
         }
 
         // We require that the prerequisite work-packages, if present, be either in the extrinsic or in our recent history 
         for prerequisite in &guarantee.report.context.prerequisites {
             if !packages_map.contains_key(prerequisite) && !recent_history_map.contains_key(prerequisite) {
-                log::error!("Dependency missing 0x{}", utils::print_hash!(*prerequisite));
+                log::error!("Dependency missing 0x{}", tools::print_hash!(*prerequisite));
                 return Err(ProcessError::ReportError(ReportErrorCode::DependencyMissing));
             }
         }
@@ -207,13 +204,13 @@ pub mod work_report {
         curr_validators: &ValidatorsData) 
     -> Result<OutputDataReports, ProcessError> {
 
-        log::debug!("Processing work report 0x{}", utils::print_hash!(work_report.package_spec.hash));
+        log::debug!("Processing work report 0x{}", tools::print_hash!(work_report.package_spec.hash));
 
         let auth_pools = state_handler::auth_pools::get();
         // A report is valid only if the authorizer hash is present in the authorizer pool of the core on which the
         // work is reported
         if !auth_pools.0[work_report.core_index as usize].contains(&work_report.authorizer_hash) {
-            log::error!("Core {:?} unauthorized. Could not found 0x{} auth hash", work_report.core_index, utils::print_hash!(work_report.authorizer_hash));
+            log::error!("Core {:?} unauthorized. Could not found 0x{} auth hash", work_report.core_index, tools::print_hash!(work_report.authorizer_hash));
             return Err(ProcessError::ReportError(ReportErrorCode::CoreUnauthorized));
         }
 
@@ -260,7 +257,7 @@ pub mod work_report {
                     prev_validators,
                     curr_validators)?;
 
-        log::debug!("Work report 0x{} processed successfully", utils::print_hash!(work_report.package_spec.hash));
+        log::debug!("Work report 0x{} processed successfully", tools::print_hash!(work_report.package_spec.hash));
         return Ok(OutputDataReports{reported: new_reported, reporters: new_reporters});
     }
 
@@ -272,7 +269,7 @@ pub mod work_report {
             if block.header_hash == work_report.context.anchor {
                 if block.state_root != work_report.context.state_root {
                     log::error!("Bad state root. Block state root 0x{} != Context state root 0x{}", 
-                                utils::print_hash!(block.state_root), utils::print_hash!(work_report.context.state_root));
+                                tools::print_hash!(block.state_root), tools::print_hash!(work_report.context.state_root));
                     return Err(ProcessError::ReportError(ReportErrorCode::BadStateRoot));
                 }
 
@@ -300,7 +297,7 @@ pub mod work_report {
                  current_validators: &ValidatorsData) 
     -> Result<OutputDataReports, ProcessError> {
 
-        log::debug!("Try place work report 0x{}", utils::print_hash!(work_report.package_spec.hash));
+        log::debug!("Try place work report 0x{}", tools::print_hash!(work_report.package_spec.hash));
         
         let mut reported: Vec<ReportedPackage> = Vec::new();
         let mut reporters: Vec<Ed25519Public> = Vec::new();
@@ -480,7 +477,7 @@ mod work_result {
                 // We require that all work results within the extrinsic predicted the correct code hash for their 
                 // corresponding service
                 if result.code_hash != account.code_hash {
-                    log::error!("Service {:?} Bad code hash 0x{} != 0x{}", result.service, utils::print_hash!(result.code_hash), utils::print_hash!(account.code_hash));
+                    log::error!("Service {:?} Bad code hash 0x{} != 0x{}", result.service, tools::print_hash!(result.code_hash), tools::print_hash!(account.code_hash));
                     return Err(ProcessError::ReportError(ReportErrorCode::BadCodeHash));
                 }
                 // We require that the gas allotted for accumulation of each work item in each work-report respects 

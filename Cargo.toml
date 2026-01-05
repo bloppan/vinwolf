@@ -1,17 +1,23 @@
 [workspace]
-members = [ 
+members = [
     "blockchain/block",
     "blockchain/state/*",
-    "codec",
     "constants",
-    "experiments/*", 
-    "jam-types", 
+    "experiments/*",
+    "jam-types",
+    "jam-utils/bandersnatch-vrf-spec/vinwolf/",
+    "jam-utils/codec",
+    "jam-utils/grandpa",
+    "jam-utils/misc",
+    "jam-utils/serialization",
+    "jam-utils/shuffle",
+    "jam-utils/trie",
     "network",
-    "pvm", 
+    "pvm",
     "storage",
     "tests",
-    "utils",
-    "vinwolf-target", 
+    "tools",
+    "vinwolf-target",
 ]
 resolver = "2"
 
@@ -27,23 +33,28 @@ repository = "https://github.com/bloppan/vinwolf"
 [workspace.dependencies]
 accumulation = { path = "blockchain/state/accumulation" }
 authorization = { path = "blockchain/state/authorization" }
+bandersnatch-vrf-spec = { package = "bandersnatch_vrf_spec", path = "jam-utils/bandersnatch-vrf-spec/vinwolf" }
 block = { path = "blockchain/block" }
-codec = { path = "codec" }
+codec = { path = "jam-utils/codec" }
 constants = { path = "constants" }
 disputes = { path = "blockchain/state/disputes" }
+grandpa = { path = "jam-utils/grandpa" }
 entropy = { path = "blockchain/state/entropy" }
 jam-types = { path = "jam-types" }
-
+misc = { path = "jam-utils/misc" }
 pvm = { path = "pvm" }
 recent-history = { path = "blockchain/state/recent-history" }
 reports = { path = "blockchain/state/reports" }
 safrole = { path = "blockchain/state/safrole" }
+serialization = { path = "jam-utils/serialization" }
 services = { path = "blockchain/state/services" }
+shuffle = { path = "jam-utils/shuffle" }
 state-controller = { path = "blockchain/state/state-controller" }
 state-handler = { path = "blockchain/state/state-handler" }
 statistics = { path = "blockchain/state/statistics" }
 storage = { path = "storage" }
-utils = { path = "utils" }
+tools = { path = "tools" }
+trie = { path = "jam-utils/trie" }
 validators = { path = "blockchain/state/validators" }
 vinwolf-target = { path = "vinwolf-target" }
 

@@ -15,18 +15,22 @@ constants = { workspace = true }
 disputes = { workspace = true }
 entropy = { workspace = true }
 jam-types = { workspace = true }
+misc = { workspace = true }
 pvm = { workspace = true }
 recent-history = { workspace = true }
 reports = { workspace = true }
 rocksdb = { workspace = true, optional = true }
 safrole = { workspace = true }
+serialization = { workspace = true }
 services = { workspace = true }
+shuffle = { workspace = true }
 sp-core = { workspace = true }
 state-controller = { workspace = true }
 state-handler = { workspace = true }
 statistics = { workspace = true }
 storage = { workspace = true }
-utils = { workspace = true }
+tools = { workspace = true }
+trie = { workspace = true }
 vinwolf-target = { workspace = true }
 validators = { workspace = true }
 

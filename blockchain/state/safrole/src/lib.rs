@@ -27,15 +27,13 @@
 */
 
 use ark_vrf::reexports::ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_vrf::suites::bandersnatch::{RingProofParams, Public};
-use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS};
-use jam_types::{
-    BandersnatchEpoch, BandersnatchPublic, BandersnatchRingCommitment, Block, Ed25519Public, Entropy, EntropyPool, EpochMark, OutputDataSafrole, 
-    ProcessError, Safrole, SafroleErrorCode, TicketBody, TicketsMark, Seal, TimeSlot, ValidatorSet, ValidatorsData, GlobalState
-};
+use ark_vrf::suites::bandersnatch::{Public, RingProofParams};
+use bandersnatch_vrf_spec::Verifier;
+use constants::node::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, VALIDATORS_COUNT};
+use jam_types::*;
 use sp_core::blake2_256;
 use std::{collections::VecDeque, sync::{LazyLock, Mutex}};
-use utils::{{bandersnatch::Verifier}, {print_hash, log}};
+use tools::{log, print_hash};
 
 // Process Safrole state
 pub fn process(
@@ -114,7 +112,7 @@ pub fn process(
         validators::key_rotation(safrole_state, curr_validators, prev_validators);
         // The posterior queued validator key set "pending_validators" is defined such that incoming keys belonging to the offenders 
         // are replaced with a null key containing only zeroes.
-        let there_are_offenders = utils::common::set_offenders_null(&mut safrole_state.pending_validators, offenders); 
+        let there_are_offenders = misc::set_offenders_null(&mut safrole_state.pending_validators, offenders); 
         // Create the epoch root from next pending validators and update the safrole state
         let new_verifier = if !fallback_mode {
             let new_ring_set = create_ring_set(&safrole_state.pending_validators);

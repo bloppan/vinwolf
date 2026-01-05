@@ -3,10 +3,11 @@
     Prior to accumulation, we must first integrate all preimages provided in the lookup extrinsic. 
  */
 
-use codec::{BytesReader, EncodeLen, DecodeLen};
-use jam_types::{TimeSlot, ServiceAccounts, ProcessError, PreimagesErrorCode, StateKeyType, Preimage};
+use codec::{BytesReader, DecodeLen, EncodeLen};
+use jam_types::*;
+use serialization::{construct_lookup_key, construct_preimage_key, StateKeyTrait};
 use std::collections::HashSet;
-use utils::{serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key}, log};
+use tools::{hex, log};
 
 pub fn process(
     preimages_extrinsic: &[Preimage], 
@@ -34,15 +35,15 @@ pub fn process(
     for preimage in preimages_extrinsic {
         let hash = sp_core::blake2_256(&preimage.blob);
         let length = preimage.blob.len() as u32;
-        log::debug!("length: {length}, hash: 0x{}", utils::print_hash!(hash));
+        log::debug!("length: {length}, hash: 0x{}", tools::print_hash!(hash));
         let lookup_key = StateKeyType::Account(preimage.requester, construct_lookup_key(&hash, length)).construct();
         let preimage_key = StateKeyType::Account(preimage.requester, construct_preimage_key(&hash)).construct();
-        log::debug!("lookup key: {}", utils::hex::encode(&lookup_key));
-        log::debug!("preimage key: {}", utils::hex::encode(&preimage_key));
+        log::debug!("lookup key: {}", hex::encode(&lookup_key));
+        log::debug!("preimage key: {}", hex::encode(&preimage_key));
         if services.contains_key(&preimage.requester) {
             let account = services.get_mut(&preimage.requester).unwrap();
             if account.storage.contains_key(&preimage_key) {
-                log::error!("Preimage unneeded. The key 0x{} is already contained in this account", utils::print_hash!(hash));
+                log::error!("Preimage unneeded. The key 0x{} is already contained in this account", tools::print_hash!(hash));
                 return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
             }
             if disregarded_lookups.contains(&lookup_key) {
@@ -55,7 +56,7 @@ pub fn process(
                     return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
                 }
             } else {
-                log::error!("Preimage unneeded: Lookup key 0x{} not found", utils::hex::encode(&lookup_key));
+                log::error!("Preimage unneeded: Lookup key 0x{} not found", hex::encode(&lookup_key));
                 return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
             }
             account.storage.insert(preimage_key, preimage.blob.clone());

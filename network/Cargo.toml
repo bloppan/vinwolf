@@ -8,17 +8,20 @@ repository.workspace = true
 
 [dependencies]
 block = { workspace = true }
-constants = { workspace = true }
 codec = { workspace = true }
+constants = { workspace = true }
 jam-types = { workspace = true }
+misc = { workspace = true }
 quinn = { version = "0.11", features = ["rustls"] }
 rustls = { version = "0.23.31", features = ["ring"] }
 safrole = { workspace = true }
+serialization = { workspace = true }
 sp-core = { workspace = true }
 state-controller = { workspace = true }
 state-handler = { workspace = true }
 tokio = { version = "1.40", features = ["full"] }
-utils = { workspace = true }
+tools = { workspace = true }
+trie = { workspace = true }
 
 [features]
 default = ["tiny"]
