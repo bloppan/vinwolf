@@ -9,7 +9,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use tokio::select;
-use tools::log;
+use tools::{hex, log};
 
 pub struct NetworkController {
     endpoint: Endpoint,
@@ -46,7 +46,7 @@ impl NetworkController {
                         log::info!(
                             "New connection established from {} bandersnatch public: {}",
                             connection.remote_address(),
-                            utils::hex::encode(&dev_accounts[id_account as usize].bandersnatch_public)
+                            hex::encode(&dev_accounts[id_account as usize].bandersnatch_public)
                         );
 
                         dev_accounts::add_dev_account(
@@ -104,7 +104,7 @@ impl NetworkController {
         log::info!(
             "Attempt connection to {} bandersnatch public: {}",
             node_addr,
-            utils::hex::encode(&dev_accounts[peer_index as usize].bandersnatch_public)
+            hex::encode(&dev_accounts[peer_index as usize].bandersnatch_public)
         );
 
         let connecting = self.endpoint.connect(node_addr, &node_alt_name).unwrap();

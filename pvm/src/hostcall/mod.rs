@@ -39,7 +39,7 @@ where
         for i in 2254..2300 { 
             vector.push(ram.pages[1044447].as_ref().unwrap().data[i]);
         }
-        log::info!("RAM: {}", utils::hex::encode(&vector));*/
+        log::info!("RAM: {}", hex::encode(&vector));*/
 
         if exit_reason == ExitReason::Halt 
             || exit_reason == ExitReason::Panic 

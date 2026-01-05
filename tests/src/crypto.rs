@@ -3,8 +3,8 @@ mod tests {
 
     use jam_types::OpaqueHash;
     use sp_core::{ed25519, Pair};
+    use tools::{hex, log};
     use utils::serde::{Deserialize, Value};
-    use tools::log;
     
     #[derive(Clone, Debug, PartialEq)]
     struct Testcase {
@@ -65,7 +65,7 @@ fn crypto_ed25519_test() {
             _ => return Err("missing msg".into()),
         };
         let msg_hex = msg_hex.strip_prefix("0x").unwrap_or(msg_hex);
-        let msg = utils::hex::decode(msg_hex).map_err(|_| "invalid msg hex".to_string())?;
+        let msg = hex::decode(msg_hex).map_err(|_| "invalid msg hex".to_string())?;
 
         Ok(Testcase {
             number: u32::from_value(o.get("number").ok_or("missing number")?)?,

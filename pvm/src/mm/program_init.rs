@@ -47,7 +47,7 @@ pub fn init_std_program(program: &[u8], arg: &[u8]) -> Result<Option<StandardPro
     let mut ram = RamMemory::default();
     ram.init(&params, arg);
 
-    log::trace!("page: {}", utils::hex::encode(&ram.pages[1044447 as usize].as_ref().unwrap().data[..]));
+    log::trace!("page: {}", hex::encode(&ram.pages[1044447 as usize].as_ref().unwrap().data[..]));
     return Ok(Some(StandardProgram {
         ram,
         reg: init_registers(&params, arg),
@@ -216,7 +216,7 @@ impl RamMemory {
 
 use crate::pvm_types::Program;
 use codec::generic_codec::{decode_integer, decode_unsigned};
-use tools::log;
+use tools::{hex, log};
 
 impl Decode for Program {
 

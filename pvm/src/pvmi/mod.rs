@@ -32,7 +32,7 @@ use two_reg_one_imm::*;
 use two_reg_two_imm::*;
 use two_reg_one_offset::*;
 use two_imm::*;
-use tools::log;
+use tools::{hex, log};
 
 pub const PAGE_SHIFT: RamAddress = PAGE_SIZE.trailing_zeros();
 pub const PAGE_MASK: RamAddress = PAGE_SIZE - 1;
@@ -443,7 +443,7 @@ pub fn _store<T>(
     for i in 2032..2052 { 
         vector.push(ram.pages[1044447].as_ref().unwrap().data[i]);
     }
-    log::info!("pc: {:?} RAM: {}", *pc, utils::hex::encode(&vector));*/
+    log::info!("pc: {:?} RAM: {}", *pc, hex::encode(&vector));*/
 
     ExitReason::Continue
 }

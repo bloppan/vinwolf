@@ -7,7 +7,7 @@ use codec::{BytesReader, DecodeLen, EncodeLen};
 use jam_types::*;
 use std::collections::HashSet;
 use utils::serialization::{construct_lookup_key, construct_preimage_key, StateKeyTrait};
-use tools::log;
+use tools::{hex, log};
 
 pub fn process(
     preimages_extrinsic: &[Preimage], 
@@ -38,8 +38,8 @@ pub fn process(
         log::debug!("length: {length}, hash: 0x{}", utils::print_hash!(hash));
         let lookup_key = StateKeyType::Account(preimage.requester, construct_lookup_key(&hash, length)).construct();
         let preimage_key = StateKeyType::Account(preimage.requester, construct_preimage_key(&hash)).construct();
-        log::debug!("lookup key: {}", utils::hex::encode(&lookup_key));
-        log::debug!("preimage key: {}", utils::hex::encode(&preimage_key));
+        log::debug!("lookup key: {}", hex::encode(&lookup_key));
+        log::debug!("preimage key: {}", hex::encode(&preimage_key));
         if services.contains_key(&preimage.requester) {
             let account = services.get_mut(&preimage.requester).unwrap();
             if account.storage.contains_key(&preimage_key) {
@@ -56,7 +56,7 @@ pub fn process(
                     return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
                 }
             } else {
-                log::error!("Preimage unneeded: Lookup key 0x{} not found", utils::hex::encode(&lookup_key));
+                log::error!("Preimage unneeded: Lookup key 0x{} not found", hex::encode(&lookup_key));
                 return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
             }
             account.storage.insert(preimage_key, preimage.blob.clone());
