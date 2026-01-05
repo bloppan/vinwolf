@@ -1,6 +1,5 @@
 pub mod bandersnatch;
 pub mod common;
-pub mod serialization;
 
 #[macro_export] macro_rules! print_hash {
     ($hash:expr) => {{

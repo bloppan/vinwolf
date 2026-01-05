@@ -154,7 +154,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
         &new_available_workreports.reported,
     );
 
-    state_handler::set_state_root(merkle_state(&utils::serialization::serialize(&new_state).map));
+    state_handler::set_state_root(merkle_state(&serialization::serialize(&new_state).map));
 
     if storage::ancestors::is_ancestors_feature_enabled() {
         storage::ancestors::update(&block.header.unsigned.slot, &header_hash); 

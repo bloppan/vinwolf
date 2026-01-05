@@ -17,7 +17,7 @@ use jam_types::*;
 use pvm::hostcall::accumulate::invoke_accumulation;
 use std::collections::{HashMap, HashSet};
 use std::{sync::{Arc, Mutex}, thread};
-use utils::{serialization::{construct_lookup_key, construct_preimage_key, StateKeyTrait}};
+use serialization::{construct_lookup_key, construct_preimage_key, StateKeyTrait};
 use tools::{hex, log};
 
 // Accumulation of a work-package/work-report is deferred in the case that it has a not-yet-fulfilled dependency and is 

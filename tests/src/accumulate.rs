@@ -6,10 +6,9 @@ mod tests {
     use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputAccumulate, StateAccumulate};
     use jam_types::{Account, Block, EntropyPool, Extrinsic, Header, OutputAccumulation, ServiceAccounts, StateKeyType, Statistics, ValidatorSet, ValidatorsData};
+    use serialization::{StateKeyTrait, construct_preimage_key, construct_storage_key, construct_lookup_key};
     use state_handler::{get_global_state};
     use std::sync::LazyLock;
-    use utils::serialization::construct_lookup_key;
-    use utils::{serialization::{StateKeyTrait, construct_preimage_key, construct_storage_key}};
     use tools::log;
     
     static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {

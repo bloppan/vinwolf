@@ -13,6 +13,7 @@ codec = { workspace = true }
 constants = { workspace = true }
 jam-types = { workspace = true }
 safrole = { workspace = true }
+serialization = { workspace = true }
 sp-core = { workspace = true }
 state-controller = { workspace = true }
 state-handler = { workspace = true }

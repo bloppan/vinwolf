@@ -6,9 +6,9 @@ mod tests {
     use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputPreimages, PreimagesState};
     use jam_types::{Account, Block, Extrinsic, Header, OutputPreimages, ProcessError, ServiceAccounts, StateKeyType, Statistics, ValidatorsData};
+    use serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
     use state_handler::{get_global_state};
     use std::collections::HashMap;
-    use utils::{serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key}};
     use tools::log;
     
     impl FromProcessError for OutputPreimages {

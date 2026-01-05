@@ -5,8 +5,8 @@
 
 use codec::{BytesReader, DecodeLen, EncodeLen};
 use jam_types::*;
+use serialization::{construct_lookup_key, construct_preimage_key, StateKeyTrait};
 use std::collections::HashSet;
-use utils::serialization::{construct_lookup_key, construct_preimage_key, StateKeyTrait};
 use tools::{hex, log};
 
 pub fn process(

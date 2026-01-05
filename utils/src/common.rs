@@ -2,7 +2,7 @@ use jam_types::*;
 use codec::{ Decode, DecodeLen, BytesReader};
 use codec::generic_codec::{decode_unsigned, decode};
 use constants::node::*;
-use crate::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
+use serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 use std::collections::{HashSet, HashMap};
 use std::hash::Hash;
 use sp_core::{ed25519, Pair};

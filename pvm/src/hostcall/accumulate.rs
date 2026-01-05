@@ -5,12 +5,12 @@ use crate::hostcall::{hostcall_argument, HostCallContext};
 use crate::hostcall::general_fn::{fetch, write, info, read, lookup, log};
 use crate::pvm_types::{RamAddress, RamMemory, RegSize, Registers, ExitReason, HostCallFn};
 use jam_types::{*};
+use serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 use sp_core::blake2_256;
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 use tools::hex;
 use utils::{common::parse_preimage};
-use utils::serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
 
 static ACC_INPUT: LazyLock<Mutex<HashMap<ServiceId, Vec<AccumulationInput>>>> = LazyLock::new(|| {
     Mutex::new(HashMap::new())

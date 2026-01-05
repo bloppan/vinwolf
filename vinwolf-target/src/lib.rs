@@ -5,7 +5,7 @@ use std::collections::VecDeque;
 use std::path::{PathBuf, Path};
 use std::{fs, collections::HashSet};
 use trie::merkle_state;
-use utils::{common::parse_state_keyvals, serialization};
+use utils::{common::parse_state_keyvals};
 use tools::hex;
 
 pub fn parse_trace_file(test_content: &[u8]) -> Result<(GlobalState, Block, GlobalState), ReadError>{
@@ -46,7 +46,7 @@ pub fn process_trace(path: &Path) {
     let (pre_state, block, post_state) = parse_trace_file(&test_content).unwrap();
 
     state_handler::set_global_state(pre_state.clone());
-    state_handler::set_state_root(trie::merkle_state(&utils::serialization::serialize(&pre_state).map));
+    state_handler::set_state_root(trie::merkle_state(&serialization::serialize(&pre_state).map));
     // Set the parent header
     block::header::set_parent_header(block.header.unsigned.parent);
 
@@ -61,8 +61,8 @@ pub fn process_trace(path: &Path) {
     };
 
     let result_state = state_handler::get_global_state().lock().unwrap().clone();        
-    let state_root_result = trie::merkle_state(&utils::serialization::serialize(&result_state).map);
-    let state_root_expected = trie::merkle_state(&utils::serialization::serialize(&post_state).map);
+    let state_root_result = trie::merkle_state(&serialization::serialize(&result_state).map);
+    let state_root_expected = trie::merkle_state(&serialization::serialize(&post_state).map);
 
     assert_eq_state(&post_state, &result_state);
     assert_eq!(state_root_expected, state_root_result);

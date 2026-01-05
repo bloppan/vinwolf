@@ -20,6 +20,7 @@ recent-history = { workspace = true }
 reports = { workspace = true }
 rocksdb = { workspace = true, optional = true }
 safrole = { workspace = true }
+serialization = { workspace = true }
 services = { workspace = true }
 shuffle = { workspace = true }
 sp-core = { workspace = true }

@@ -234,7 +234,7 @@ fn handle_connection(socket: &mut UnixStream) {
                 tools::log::info!("Header hash: {}", hex::encode(&header_hash));
                 header::set_parent_header(header_hash.clone());
                 // Calc state root
-                let state_root = merkle_state(&utils::serialization::serialize(&global_state).map);
+                let state_root = merkle_state(&serialization::serialize(&global_state).map);
                 state_handler::set_state_root(state_root.clone());
                 // Set global state
                 set_global_state(global_state.clone());
@@ -339,7 +339,7 @@ fn handle_connection(socket: &mut UnixStream) {
 
                 tools::log::info!("Header hash received: 0x{}", hex::encode(header_hash));
                 let global_state = get_global_state().lock().unwrap().clone();
-                let raw_state = utils::serialization::serialize(&global_state);
+                let raw_state = serialization::serialize(&global_state);
 
                 let mut keyvalues: Vec<KeyValue> = vec![];
 

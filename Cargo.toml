@@ -39,6 +39,7 @@ pvm = { path = "pvm" }
 recent-history = { path = "blockchain/state/recent-history" }
 reports = { path = "blockchain/state/reports" }
 safrole = { path = "blockchain/state/safrole" }
+serialization = { path = "jam-utils/serialization" }
 services = { path = "blockchain/state/services" }
 shuffle = { path = "jam-utils/shuffle" }
 state-controller = { path = "blockchain/state/state-controller" }

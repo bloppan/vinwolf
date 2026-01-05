@@ -10,6 +10,7 @@ repository.workspace = true
 codec = { workspace = true }
 constants = { workspace = true }
 jam-types = { workspace = true }
+serialization = { workspace = true }
 state-handler = { workspace = true }
 tools = { workspace = true }
 utils = { workspace = true }
