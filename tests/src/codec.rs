@@ -304,7 +304,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
 
     #[test]
     fn run_refine_context_test() {
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/refine_context.bin", TEST_DIR))).unwrap();
+        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("{}/refine_context.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::RefineContext];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -312,7 +312,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
 
     #[test]
     fn run_work_item_test() {
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/work_item.bin", TEST_DIR))).unwrap();
+        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("{}/work_item.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::WorkItem];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -320,7 +320,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
     
     #[test]
     fn run_work_package_test() {
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/work_package.bin", TEST_DIR))).unwrap();
+        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("{}/work_package.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::WorkPackage];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -328,7 +328,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
     
     #[test]
     fn run_work_result_0() {
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/work_result_0.bin", TEST_DIR))).unwrap();
+        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("{}/work_result_0.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::WorkResult];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -336,7 +336,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
     
     #[test]
     fn run_work_result_1() {
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/work_result_1.bin", TEST_DIR))).unwrap();
+        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("{}/work_result_1.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::WorkResult];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -344,7 +344,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
     
     #[test]
     fn run_work_report() {
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/work_report.bin", TEST_DIR))).unwrap();
+        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("{}/work_report.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::WorkReport];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -352,7 +352,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
     
     #[test]
     fn run_tickets_extrinsic() {
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/tickets_extrinsic.bin", TEST_DIR))).unwrap();
+        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("{}/tickets_extrinsic.bin", TEST_DIR))).unwrap();
         let mut reader = BytesReader::new(&test_content);
         let decoded = Vec::<Ticket>::decode_len(&mut reader);
         assert_eq!(decoded.is_ok(), true);
@@ -362,7 +362,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
     
    #[test]
     fn run_disputes_extrinsic() {
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/disputes_extrinsic.bin", TEST_DIR))).unwrap();
+        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("{}/disputes_extrinsic.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::DisputesExtrinsic];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -370,7 +370,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
     
     #[test]
     fn run_preimages_extrinsic() {
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/preimages_extrinsic.bin", TEST_DIR))).unwrap();
+        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("{}/preimages_extrinsic.bin", TEST_DIR))).unwrap();
         let mut reader = BytesReader::new(&test_content);
         let decoded = Vec::<Preimage>::decode_len(&mut reader);
         assert_eq!(decoded.is_ok(), true);
@@ -380,7 +380,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
     
     #[test]
     fn run_assurances_extrinsic() {
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/assurances_extrinsic.bin", TEST_DIR))).unwrap();
+        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("{}/assurances_extrinsic.bin", TEST_DIR))).unwrap();
         let mut reader = BytesReader::new(&test_content);
         let decoded = Vec::<Assurance>::decode_len(&mut reader);
         assert_eq!(decoded.is_ok(), true);
@@ -390,7 +390,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
     
     #[test]
     fn run_guarantees_extrinsic() {
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/guarantees_extrinsic.bin", TEST_DIR))).unwrap();
+        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("{}/guarantees_extrinsic.bin", TEST_DIR))).unwrap();
         let mut reader = BytesReader::new(&test_content);
         let decoded = Vec::<Guarantee>::decode_len(&mut reader);
         assert_eq!(decoded.is_ok(), true);
@@ -400,7 +400,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
     
     #[test]
     fn run_extrinsic() {
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/extrinsic.bin", TEST_DIR))).unwrap();
+        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("{}/extrinsic.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::Extrinsic];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -408,7 +408,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
 
     #[test]
     fn run_header_0() {
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/header_0.bin", TEST_DIR))).unwrap();
+        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("{}/header_0.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::Header];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -416,7 +416,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
     
     #[test]
     fn run_header_1() {
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/header_1.bin", TEST_DIR))).unwrap();
+        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("{}/header_1.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::Header];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);
@@ -424,7 +424,7 @@ pub fn encode_decode_test(blob: &[u8], test_body: &Vec<TestBody>) -> Result<(), 
     
     #[test]
     fn run_block() {
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("{}/block.bin", TEST_DIR))).unwrap();
+        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("{}/block.bin", TEST_DIR))).unwrap();
         let test_body: Vec<TestBody> = vec![TestBody::Block];
         let result = encode_decode_test(&test_content, &test_body);
         assert_eq!(result.is_ok(), true);

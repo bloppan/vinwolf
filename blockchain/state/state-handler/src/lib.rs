@@ -148,7 +148,7 @@ pub mod disputes {
 
         // In the disputes extrinsic can not be offenders already reported
         let all_offenders = Vec::from([disputes_state.offenders.clone(), new_offenders.clone()].concat());
-        if utils::common::has_duplicates(&all_offenders) {
+        if utils::misc::has_duplicates(&all_offenders) {
             return Err(ProcessError::DisputesError(DisputesErrorCode::OffenderAlreadyReported));
         }   
 

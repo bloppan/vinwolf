@@ -376,7 +376,7 @@ pub fn write(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: &
         NONE as RegSize
     };
 
-    let threshold = utils::common::get_threshold(&modified_account);
+    let threshold = utils::misc::get_threshold(&modified_account);
     log::debug!("l: {l}, threshold: {threshold}");
 
     if threshold > modified_account.balance {
@@ -417,7 +417,7 @@ pub fn info(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, service_id:
     };
 
     let metadata: Option<Vec<u8>> = if let Some(account) = account.as_ref() {
-        let threshold = utils::common::get_threshold(account);
+        let threshold = utils::misc::get_threshold(account);
         Some([
             account.code_hash.encode(),
             account.balance.encode_size(8),
@@ -458,7 +458,7 @@ pub fn info(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, service_id:
     }
 
     log::debug!("code_hash: 0x{}", hex::encode(account.as_ref().unwrap().code_hash));
-    let threshold = utils::common::get_threshold(account.as_ref().unwrap());
+    let threshold = utils::misc::get_threshold(account.as_ref().unwrap());
     log::debug!("balance: {:?}, threshold: {:?}, acc gas: {:?}, xfer gas: {:?}, items: {:?}, octets: {:?}, gratis_offset: {:?}, created_at: {:?}, last_acc: {:?}, parent_service: {:?}", 
                 account.as_ref().unwrap().balance, threshold, account.as_ref().unwrap().acc_min_gas,
                 account.as_ref().unwrap().xfer_min_gas, account.as_ref().unwrap().items, account.as_ref().unwrap().octets,

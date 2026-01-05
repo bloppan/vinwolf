@@ -8,7 +8,7 @@
 use codec::Encode;
 use constants::node::{EPOCH_LENGTH, ONE_THIRD_VALIDATORS, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY};
 use jam_types::*;
-use utils::common::{has_duplicates, is_sorted_and_unique, VerifySignature};
+use utils::misc::{has_duplicates, is_sorted_and_unique, VerifySignature};
 
 pub fn process(
     disputes_extrinsic: &DisputesExtrinsic, 

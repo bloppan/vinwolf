@@ -7,7 +7,7 @@ use quinn::{SendStream, RecvStream, Connection};
 use std::sync::{LazyLock, Mutex};
 use std::u32;
 use tools::{hex, log};
-use utils::common;
+use utils::misc;
 
 pub const BLOCK_ANNOUNCEMENT: StreamKind = 0;
 pub const BLOCK_REQUEST: StreamKind = 128;
@@ -207,7 +207,7 @@ async fn state_request(header_hash: OpaqueHash, connection: Connection) -> Resul
 
     let mut global_state = GlobalState::default();
     
-    if let Err(e) = common::parse_state_keyvals(&keyvals, &mut global_state) {
+    if let Err(e) = misc::parse_state_keyvals(&keyvals, &mut global_state) {
         log::error!("Failed to parse state keyvals: {:?}", e);
         return Err(NetworkError::ReadError(e));
     }

@@ -13,7 +13,7 @@ use jam_types::*;
 use shuffle::shuffle;
 use sp_core::blake2_256;
 use std::collections::{HashMap, HashSet};
-use utils::common::{is_sorted_and_unique, set_offenders_null, VerifySignature};
+use utils::misc::{is_sorted_and_unique, set_offenders_null, VerifySignature};
 use tools::log;
 
 pub fn process(

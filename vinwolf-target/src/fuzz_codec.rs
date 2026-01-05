@@ -223,7 +223,7 @@ mod test {
         
         for file in bin_files.iter() {
             tools::log::info!("file: {:?}", file);
-            let test_content = utils::common::read_bin_file(file).unwrap();
+            let test_content = utils::misc::read_bin_file(file).unwrap();
             let mut reader = BytesReader::new(&test_content);
             let msg_type: Message = reader.read_byte().unwrap().into();
 

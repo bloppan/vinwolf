@@ -32,7 +32,7 @@ mod test {
     
     fn run_test(filename: &str) {
     
-        let test_content = utils::common::read_bin_file(std::path::Path::new(&format!("jamtestvectors/stf/disputes/{}/{}", *TEST_TYPE, filename))).unwrap();
+        let test_content = utils::misc::read_bin_file(std::path::Path::new(&format!("jamtestvectors/stf/disputes/{}/{}", *TEST_TYPE, filename))).unwrap();
         let test_body: Vec<TestBody> = vec![
                                             TestBody::DisputesExtrinsic,
                                             TestBody::DisputesState,
