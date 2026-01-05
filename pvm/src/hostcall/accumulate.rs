@@ -945,7 +945,7 @@ fn provide(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
     let item = ram.read(start_address, size);
     let lookup_key = StateKeyType::Account(service_id, construct_lookup_key(&sp_core::blake2_256(&item), size)).construct();
     tools::log::debug!("lookup key: 0x{}", hex::encode(lookup_key));
-    tools::log::debug!("item: {}, {:?} bytes", utils::print_hash!(&item), item.len());
+    tools::log::debug!("item: {}, {:?} bytes", tools::print_hash!(&item), item.len());
 
     if let Some(timeslots_blob) = account.unwrap().storage.get(&lookup_key) {
         
@@ -959,13 +959,13 @@ fn provide(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
 
         if timeslots.len() != 0 {
             reg[7] = HUH;
-            tools::log::debug!("The preimage for lookup_key: {} was already provided in slot: {:?}", utils::print_hash!(&lookup_key), timeslots);
+            tools::log::debug!("The preimage for lookup_key: {} was already provided in slot: {:?}", tools::print_hash!(&lookup_key), timeslots);
             tools::log::debug!("Exit: HUH");
             return ExitReason::Continue;
         }
     } else {
         reg[7] = HUH;
-        tools::log::debug!("lookup_key: {} not found. The preimage was not solicited previously", utils::print_hash!(&lookup_key));
+        tools::log::debug!("lookup_key: {} not found. The preimage was not solicited previously", tools::print_hash!(&lookup_key));
         tools::log::debug!("Exit: HUH");
         return ExitReason::Continue;
     }

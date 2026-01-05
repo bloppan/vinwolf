@@ -76,7 +76,7 @@ pub fn process(
     save_statistics(&mut post_partial_state, &service_gas_pairs, &current_block_accumulatable, num_wi_accumulated);
 
     let acc_root = get_acc_root(&mut service_hash_pairs);
-    log::debug!("Accumulation root: 0x{}", utils::print_hash!(acc_root));
+    log::debug!("Accumulation root: 0x{}", tools::print_hash!(acc_root));
     log::debug!("service_gas_pairs: {:?}", service_gas_pairs);
     log::debug!("service_hash_pairs: {:?}", service_hash_pairs);
 

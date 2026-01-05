@@ -37,7 +37,7 @@ use trie::merkle_state;
 pub fn stf(block: &Block) -> Result<(), ProcessError> {
         
     let header_hash = blake2_256(&block.header.encode());
-    log::debug!("Importing new block: 0x{}", utils::print_hash!(header_hash));
+    log::debug!("Importing new block: 0x{}", tools::print_hash!(header_hash));
     
     header::verify(&block)?;
     
@@ -163,7 +163,7 @@ pub fn stf(block: &Block) -> Result<(), ProcessError> {
     header::set_parent_header(header_hash);
     state_handler::set_global_state(new_state);
 
-    log::debug!("Block 0x{} processed succesfully", utils::print_hash!(header_hash));
+    log::debug!("Block 0x{} processed succesfully", tools::print_hash!(header_hash));
 
     Ok(())
 }

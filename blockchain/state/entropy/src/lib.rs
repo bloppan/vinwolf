@@ -1,6 +1,6 @@
 use jam_types::*;
 use sp_core::blake2_256;
-use utils::{print_hash, print_hash_start};
+use tools::{print_hash, print_hash_start};
 use tools::log;
 
 pub fn rotate_pool(entropy_pool: &mut EntropyPool) {

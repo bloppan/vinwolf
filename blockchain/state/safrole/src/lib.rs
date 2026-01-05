@@ -32,8 +32,8 @@ use constants::node::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, VALIDATORS_COUNT};
 use jam_types::*;
 use sp_core::blake2_256;
 use std::{collections::VecDeque, sync::{LazyLock, Mutex}};
-use utils::{bandersnatch::Verifier, print_hash};
-use tools::log;
+use utils::{bandersnatch::Verifier};
+use tools::{log, print_hash};
 
 // Process Safrole state
 pub fn process(

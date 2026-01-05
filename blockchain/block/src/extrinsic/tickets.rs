@@ -120,7 +120,7 @@ fn ticket_seal_verify(verifier: &Verifier, ticket: &Ticket, fixed_input_data: &[
             return Ok(TicketBody { id: result, attempt: ticket.attempt });
         },
         Err(_) => { 
-            log::error!("Bad ticket proof. Ticket signature: {}", utils::print_hash!(ticket.signature)); 
+            log::error!("Bad ticket proof. Ticket signature: {}", tools::print_hash!(ticket.signature)); 
             return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketProof)); 
         }
     }

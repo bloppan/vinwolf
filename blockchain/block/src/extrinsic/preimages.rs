@@ -35,7 +35,7 @@ pub fn process(
     for preimage in preimages_extrinsic {
         let hash = sp_core::blake2_256(&preimage.blob);
         let length = preimage.blob.len() as u32;
-        log::debug!("length: {length}, hash: 0x{}", utils::print_hash!(hash));
+        log::debug!("length: {length}, hash: 0x{}", tools::print_hash!(hash));
         let lookup_key = StateKeyType::Account(preimage.requester, construct_lookup_key(&hash, length)).construct();
         let preimage_key = StateKeyType::Account(preimage.requester, construct_preimage_key(&hash)).construct();
         log::debug!("lookup key: {}", hex::encode(&lookup_key));
@@ -43,7 +43,7 @@ pub fn process(
         if services.contains_key(&preimage.requester) {
             let account = services.get_mut(&preimage.requester).unwrap();
             if account.storage.contains_key(&preimage_key) {
-                log::error!("Preimage unneeded. The key 0x{} is already contained in this account", utils::print_hash!(hash));
+                log::error!("Preimage unneeded. The key 0x{} is already contained in this account", tools::print_hash!(hash));
                 return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
             }
             if disregarded_lookups.contains(&lookup_key) {

@@ -289,7 +289,7 @@ fn handle_connection(socket: &mut UnixStream) {
 
                 match state_controller::stf(&block) {
                     Ok(_) => {
-                        //println!("Block {} processed successfully", utils::print_hash!(header_hash));
+                        //println!("Block {} processed successfully", tools::print_hash!(header_hash));
                         tools::log::info!("Block proccessed successfully");
                         let post_state_root = get_state_root().lock().unwrap().clone();
                         update_state_record(
@@ -302,7 +302,7 @@ fn handle_connection(socket: &mut UnixStream) {
                         }
                     },
                     Err(error) => {
-                        //println!("Refused block {}", utils::print_hash!(header_hash));
+                        //println!("Refused block {}", tools::print_hash!(header_hash));
                         tools::log::error!("Block execution failure: {:?}", error);
                         if send_to_peer(&fuzz_msg(Message::Error, &format!("Block execution failure: {:?}", error).as_bytes().to_vec().encode_len()), socket).is_err() {
                             break;
@@ -492,7 +492,7 @@ fn fuzz_dir(socket: &mut UnixStream, dir_path: &std::path::Path) {
         }
 
         // Export block
-        println!("Exporting block {}", utils::print_hash!(&(sp_core::blake2_256(&block.header.encode()))));
+        println!("Exporting block {}", tools::print_hash!(&(sp_core::blake2_256(&block.header.encode()))));
         let import_block_msg = [vec![Message::ImportBlock as u8], block.encode()].concat();
         let msg = [(import_block_msg.len() as u32).encode(), import_block_msg].concat();
         socket.write_all(&msg).unwrap();
