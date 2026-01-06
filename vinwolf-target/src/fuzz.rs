@@ -377,7 +377,7 @@ fn fuzz_msg(msg_type: Message, msg: &[u8]) -> Vec<u8> {
     [(msg.len() as u32 + 1).encode(), msg_type.encode(), msg.encode()].concat()
 }
 
-pub fn run_fuzzer(socket_path: &str, reports_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+pub fn fuzz_single_report(socket_path: &str, report_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
 
     let vinwolf_info = &*VINWOLF_INFO;
 
@@ -391,19 +391,30 @@ pub fn run_fuzzer(socket_path: &str, reports_path: &PathBuf) -> Result<(), Box<d
     let mut buffer = vec![0u8; 1024000];
     let n = socket.read(&mut buffer)?;
 
-    /*let path = std::path::Path::new("/home/bernar/workspace/vinwolf/tests/jam-conformance/fuzz-reports/0.7.2/traces/1766243315_8065/");
-    //let path = std::path::Path::new("/home/bernar/workspace/vinwolf/tests/jamtestvectors/traces/storage/");
     let start = std::time::Instant::now();
-    fuzz_dir(&mut socket, &path);
+    fuzz_dir(&mut socket, &report_path);
     println!("Total time: {:?}", start.elapsed());
-    return Ok(());*/
+    return Ok(());
+}
 
+pub fn fuzz_reports(socket_path: &str, reports_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
 
-    //let reports_path = std::path::Path::new("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/");
-    //   let path = std::path::Path::new("/home/bernar/workspace/jam-conformance/fuzz-reports/0.7.0/traces/_new2/");
+    let vinwolf_info = &*VINWOLF_INFO;
+
+    let mut socket = UnixStream::connect(socket_path)?;
+
+    let peer_info_msg = [Message::PeerInfo.encode(), vinwolf_info.encode()].concat();
+    let msg = [(peer_info_msg.len() as u32).encode(), peer_info_msg.encode()].concat();
+    socket.write_all(&msg)?;
+
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    let mut buffer = vec![0u8; 1024000];
+    let n = socket.read(&mut buffer)?;
+
     let mut dirs: Vec<PathBuf> = vec![];
     tools::log::info!("path: {:?}", reports_path);
 
+    let start = std::time::Instant::now();
     for entry in std::fs::read_dir(reports_path).unwrap() {
 
         let dir_entry = entry.unwrap();
@@ -418,11 +429,13 @@ pub fn run_fuzzer(socket_path: &str, reports_path: &PathBuf) -> Result<(), Box<d
         fuzz_dir(&mut socket, &dir_path);
         dirs.push(dir_path);
     }
-
-    println!("Total reports processed: {:?}", dirs.len());
-    for dir in dirs {
+    
+    for dir in dirs.iter() {
         println!("Dir: {:?} processed successfully", dir);
     }
+
+    println!("Total time: {:?}", start.elapsed());
+    println!("Total reports processed: {:?}", dirs.len());
 
     Ok(())
 }

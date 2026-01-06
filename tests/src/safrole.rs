@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
 
+    use bandersnatch_vrf_spec::Verifier;
     use codec::{Decode, BytesReader};
     use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, TICKET_ENTRIES_PER_VALIDATOR, MAX_TICKETS_PER_EXTRINSIC};
     use crate::FromProcessError;
@@ -12,7 +13,6 @@ mod tests {
     use state_handler::{get_global_state};
     use std::sync::LazyLock;
     use std::collections::VecDeque;
-    use utils::{{bandersnatch::Verifier}};
     use tools::log;
     
     static TEST_TYPE: LazyLock<&'static str> = LazyLock::new(|| {

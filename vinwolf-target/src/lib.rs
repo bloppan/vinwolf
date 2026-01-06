@@ -1,5 +1,5 @@
 use codec::{Decode, BytesReader};
-use jam_types::{Block, GlobalState, OpaqueHash, RawState, ReadError};
+use jam_types::*;
 use misc::parse_state_keyvals;
 use safrole::verifier;
 use std::collections::VecDeque;
@@ -26,17 +26,16 @@ pub fn parse_trace_file(test_content: &[u8]) -> Result<(GlobalState, Block, Glob
     return Ok((state, block, expected_state));
 }
 
-pub fn parse_genesis_file(test_content: &[u8]) -> Result<(Block, GlobalState), ReadError>{
+pub fn parse_genesis_file(test_content: &[u8]) -> Result<(Header, GlobalState), ReadError>{
 
     let mut reader = BytesReader::new(&test_content);
-    let block = Block::decode(&mut reader).expect("Error decoding the block");
-    // ? let header = Header::decode(&mut reader).expect("Error decoding Header");
+    let header = Header::decode(&mut reader).expect("Error decoding Header");
     let first_state = RawState::decode(&mut reader).expect("Error decoding post state");
     let mut state = GlobalState::default();
     parse_state_keyvals(&first_state.keyvals, &mut state).expect("Error decoding post state keyvals");
     assert_eq!(first_state.state_root.clone(), merkle_state(&serialization::serialize(&state).map));
 
-    return Ok((block, state));
+    return Ok((header, state));
 }
 
 pub fn process_trace(path: &Path) {
@@ -81,9 +80,9 @@ pub fn read_all_bins(dir_path: &Path) -> Vec<(u32, PathBuf)> {
             let f = f.ok()?.path();
             if f.extension()? == "bin" {
                 let stem = f.file_stem()?.to_str()?;
-                /*if stem == "genesis" {
+                if stem == "genesis" {
                     return Some((0, f));
-                }*/
+                }
                 if let Ok(num) = stem.parse::<u32>() {
                     return Some((num, f));
                 }
@@ -100,10 +99,13 @@ pub fn process_all_bins(dir_path: &Path) -> std::io::Result<()> {
 
     //storage::ancestors::set_ancestors_feature(true);
     let bin_files = read_all_bins(dir_path);
-    //bin_files.drain(0..131);
-
-    for (_slot, bin_path) in bin_files {
+    
+    for (slot, bin_path) in bin_files {
         
+        if slot == 0 {
+            continue;
+        }
+
         process_trace(&bin_path);
         tools::log::info!("{:?} processed successfully", bin_path);
     }

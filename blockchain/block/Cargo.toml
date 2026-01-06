@@ -7,6 +7,7 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
+ark-vrf = { workspace = true }
 bandersnatch-vrf-spec = { workspace = true }
 codec = { workspace = true }
 constants = { workspace = true }
@@ -14,9 +15,7 @@ jam-types = { workspace = true }
 misc = { workspace = true }
 serialization = { workspace = true }
 shuffle = { workspace = true }
+sp-core = { workspace = true }
 state-handler = { workspace = true }
 storage = { workspace = true }
 tools = { workspace = true }
-
-ark-vrf = { workspace = true }
-sp-core = { workspace = true }

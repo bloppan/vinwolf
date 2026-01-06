@@ -1,1 +1,0 @@
-# Erasure Coding Test Vectors
