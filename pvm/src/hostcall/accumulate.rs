@@ -758,7 +758,9 @@ fn assign(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut A
 
     let core_index = reg[7] as CoreIndex;
     let start_address = reg[8] as RamAddress;
-    let assign_service = reg[9] as ServiceId;
+    let assign_service = reg[9];
+    
+    tools::log::debug!("core_index: {core_index}, start_address: {start_address}, assign_service: {assign_service}");
 
     if let Err(_) = ram.is_readable(start_address, 32 * MAX_ITEMS_AUTHORIZATION_QUEUE as RamAddress) {
         tools::log::error!("Panic: The RAM is not readable from address: {:?} num_bytes: {:?}", start_address, 32 * MAX_ITEMS_AUTHORIZATION_QUEUE);
@@ -779,11 +781,18 @@ fn assign(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut A
         return ExitReason::Continue;
     }
 
+    if assign_service > ServiceId::MAX as RegSize {
+        tools::log::debug!("assign_service {assign_service} > ServiceId::MAX");
+        tools::log::debug!("Exit: WHO");
+        reg[7] = WHO;
+        return ExitReason::Continue;
+    } 
+
     for i in 0..MAX_ITEMS_AUTHORIZATION_QUEUE {
         ctx_x.partial_state.queues_auth.0[core_index as usize][i] = ram.read(start_address + 32 * i as u32, 32).try_into().unwrap();
     }
 
-    ctx_x.partial_state.assigners[core_index as usize] = assign_service;
+    ctx_x.partial_state.assigners[core_index as usize] = assign_service as ServiceId;
     reg[7] = OK;
 
     tools::log::debug!("Exit: OK");
