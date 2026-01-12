@@ -61,7 +61,7 @@ where
             // to allow the outer environment to resolve the fault and re-try the host-call. Conversely, if we successfully transition state
             // according to the host-call, then on resumption we wish to begin with the instruction directly following the host-call.
             let hostcall_exit_reason = dispatch_hostcall(n, gas, reg, ram, ctx);
-
+            log::debug!("Hostcall Exit: {:?}, gas = {:?}, reg = {:?}", hostcall_exit_reason, gas, reg);
             match hostcall_exit_reason {
                 ExitReason::PageFault(hostcall_page_fault) => {
                     log::error!("Page fault: {:?}", hostcall_page_fault);

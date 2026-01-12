@@ -2,13 +2,13 @@
 #![allow(unused_variables)]
 
 pub mod fuzz_types;
-mod fuzz;
+mod fuzz_proto;
 mod fuzz_codec;
 
 // Vamos Marcos!
 use constants::BUILD_PROFILE;
-use fuzz::*;
-use fuzz::VINWOLF_INFO;
+use fuzz_proto::*;
+use fuzz_proto::VINWOLF_INFO;
 use std::path::PathBuf;
 use std::collections::HashSet;
 

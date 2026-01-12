@@ -40,7 +40,7 @@ pub fn process(
 ) -> Result<(OpaqueHash, RecentAccOutputs, ServiceAccounts, ValidatorsData, AuthQueues, Privileges), ProcessError> {
   
     log::debug!("Process accumulation");
-    state_handler::service_accounts::clean_disregard_lookup();
+    state_handler::service_accounts::clean_disregard_lookup(); // TODO arreglar esto
     
     // We define the final state of the ready queue and the accumulated map by integrating those work-reports which were accumulated in this 
     // block and shifting any from the prior state with the oldest such items being dropped entirely:
@@ -74,16 +74,17 @@ pub fn process(
     )?;
     
     save_statistics(&mut post_partial_state, &service_gas_pairs, &current_block_accumulatable, num_wi_accumulated);
+    
+    // The newly available work-reports, are partitioned into two sequences based on the condition of having zero prerequisite work-reports.
+    // Those meeting the condition are accumulated immediately. Those not, (reports_for_queue) are for queued execution.
+    let reports_for_queue = get_reports_for_queue(new_available_reports, &accumulated_history);
 
     let acc_root = get_acc_root(&mut service_hash_pairs);
     log::debug!("Accumulation root: 0x{}", tools::print_hash!(acc_root));
     log::debug!("service_gas_pairs: {:?}", service_gas_pairs);
     log::debug!("service_hash_pairs: {:?}", service_hash_pairs);
 
-    accumulate_history::update(accumulated_history, map_workreports(&current_block_accumulatable));
-    // The newly available work-reports, are partitioned into two sequences based on the condition of having zero prerequisite work-reports.
-    // Those meeting the condition are accumulated immediately. Those not, (reports_for_queue) are for queued execution.
-    let reports_for_queue = get_reports_for_queue(new_available_reports, &accumulated_history);
+    accumulate_history::update(accumulated_history, map_workreports(&current_block_accumulatable[..num_wi_accumulated as usize]));
     ready_queue::update(ready_queue, accumulated_history, post_tau, reports_for_queue);
 
     let post_privileges = Privileges {
@@ -287,7 +288,7 @@ fn parallelized_accumulation(
                 ref_results.lock().unwrap().acc_output_map.push((*service, acc_output));
             });
 
-            //thread::sleep(std::time::Duration::from_millis(100));
+            //thread::sleep(std::time::Duration::from_millis(500));
         }
     });
 
@@ -613,7 +614,7 @@ fn get_reports_for_queue(reports: &[WorkReport], accumulated_history: &Accumulat
     let new_ready_records: Vec<ReadyRecord> = D(reports);
     let mut records_with_dependencies = vec![];
     for record in new_ready_records.iter() {
-        if record.dependencies.len() > 0 {
+        if record.dependencies.len() > 0 || record.report.segment_root_lookup.len() > 0 {
             records_with_dependencies.push(record.clone());
         }
     }
@@ -709,7 +710,7 @@ fn D(reports: &[WorkReport]) -> Vec<ReadyRecord> {
 // of work-reports  when some of them are accumulated. Functionally, it removes all entries whose work-report’s hash is in
 // the set provided as a parameter, and removes any dependencies which appear in said set.
 fn queue_edit(ready_reports: &[ReadyRecord], hashes_to_remove: &[WorkPackageHash]) -> Vec<ReadyRecord> {
-
+    
     let mut hashes: HashSet<WorkPackageHash> = HashSet::new();
     for hash in hashes_to_remove.iter() {
         hashes.insert(*hash);
@@ -775,6 +776,7 @@ mod accumulate_history {
     use super::*;
 
     pub fn update(acc_history: &mut AccumulatedHistory, hash_reports: Vec<WorkPackageHash>) {
+        log::info!("history len: {:?}", acc_history.queue.len());
         acc_history.queue.pop_front();
         let mut sorted_reports: Vec<WorkPackageHash> = hash_reports.clone();
         sorted_reports.sort();
