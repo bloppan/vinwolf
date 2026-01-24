@@ -185,7 +185,7 @@ struct AccResult {
     recent_acc_outputs: RecentAccOutputs,
     deferred_xfer: Vec<DeferredTransfer>,
     removed_services: RemovedServices,
-    new_services: ServiceAccounts,
+    new_and_altered_services: ServiceAccounts,
     preimages: Preimages,
 }
 
@@ -197,7 +197,7 @@ impl Default for AccResult {
             recent_acc_outputs: RecentAccOutputs::default(), 
             deferred_xfer: Vec::new(), 
             removed_services: RemovedServices::default(), 
-            new_services: ServiceAccounts::default(),
+            new_and_altered_services: ServiceAccounts::default(),
             preimages: Preimages::default(), 
         }
     }
@@ -288,7 +288,7 @@ fn parallelized_accumulation(
                 ref_results.lock().unwrap().acc_output_map.push((*service, acc_output));
             });
 
-            //thread::sleep(std::time::Duration::from_millis(500));
+            //thread::sleep(std::time::Duration::from_millis(1000));
         }
     });
 
@@ -338,16 +338,27 @@ fn parallelized_accumulation(
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
 
-        acc_result.new_services.extend(n);
+        acc_result.new_and_altered_services.extend(n);
     }
 
     log::debug!("After threads: {:?}", acc_result.gas_used);
     log::debug!("Accumulation of privileged services: {:?}, {:?}, {:?}, {:?}", partial_state.manager, partial_state.assigners, partial_state.delegator, partial_state.always_acc);
+
+    let new_services: Vec<&ServiceId> = acc_result.new_and_altered_services
+        .keys()
+        .filter(|s| !s_services.contains(*s))
+        .collect();
+
+    log::info!("new_and_altered_services: {:?}", acc_result.new_and_altered_services.keys());
+    log::info!("new_services: {:?}", new_services);
+    log::info!("rm services: {:?}", acc_result.removed_services);
+
     // Different services may not each contribute the same index for a new, altered or removed service. This cannot happen for the set of
     // removed and altered services since the code hash of removable services has no known preimage and thus cannot execute itself to make
-    // an alteration. For new services this should also never happen since new indices are explicitly selected to avoid such conflicts.
+    // an alteration. 
+    // For new services this should also never happen since new indices are explicitly selected to avoid such conflicts.
     // In the unlikely event it does happen, the block must be considered invalid.
-    for key in acc_result.new_services.keys() {
+    for key in new_services {
         if acc_result.removed_services.contains(key) {
             log::error!("Service conflict: key {:?}", *key);
             return Err(ProcessError::AccumulateError(AccumulateErrorCode::ServiceConflict)); // Collision
@@ -383,7 +394,7 @@ fn parallelized_accumulation(
     }
 
     let mut d_services = partial_state.service_accounts.clone();
-    d_services.extend(acc_result.new_services.clone());
+    d_services.extend(acc_result.new_and_altered_services.clone());
 
     let result_services: ServiceAccounts = d_services
                                             .iter()
