@@ -24,7 +24,7 @@ pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
         app_version: Version {
             major: 0,
             minor: 3,
-            patch: 9,
+            patch: 10,
         },
         jam_version: Version {
             major: 0,
