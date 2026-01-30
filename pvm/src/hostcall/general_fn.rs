@@ -280,6 +280,7 @@ pub fn read(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: &O
     }
 
     reg[7] = value_len as RegSize;
+    log::debug!("Write from address: {start_write_address} value: {}", hex::encode(&value.unwrap()[f as usize..(f + l) as usize]));
     ram.write(start_write_address, &value.unwrap()[f as usize..(f + l) as usize]);
 
     log::debug!("Exit: OK");

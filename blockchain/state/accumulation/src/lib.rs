@@ -341,6 +341,8 @@ fn parallelized_accumulation(
         acc_result.new_and_altered_services.extend(n);
     }
 
+    acc_result.deferred_xfer.sort_by_key(|xfer| xfer.from);
+
     log::debug!("After threads: {:?}", acc_result.gas_used);
     log::debug!("Accumulation of privileged services: {:?}, {:?}, {:?}, {:?}", partial_state.manager, partial_state.assigners, partial_state.delegator, partial_state.always_acc);
 
