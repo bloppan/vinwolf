@@ -37,7 +37,7 @@ use trie::merkle_state;
 pub fn stf(block: &Block) -> Result<(), ProcessError> {
         
     let header_hash = blake2_256(&block.header.encode());
-    log::debug!("Importing new block: 0x{}", tools::print_hash!(header_hash));
+    log::debug!("Importing new block: 0x{} from validator idx: {:?}", tools::print_hash!(header_hash), block.header.unsigned.author_index);
     
     header::verify(&block)?;
     

@@ -1,3 +1,4 @@
+use constants::node::VALIDATORS_COUNT;
 use jam_types::{ValidatorIndex, Ed25519Public};
 use quinn::{ClientConfig, ServerConfig, TransportConfig};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime, PrivatePkcs8KeyDer};
@@ -15,6 +16,28 @@ type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 pub fn am_i_the_preferred_initiator(my_key: &Ed25519Public, peer_key: &Ed25519Public) -> bool {
     let cond = ((my_key[31] > 127) ^ (peer_key[31] > 127)) ^ (my_key < peer_key);
     cond
+}
+
+/// Grid width W = floor(sqrt(V)) as defined in JAMNP-S.
+pub const fn grid_width() -> usize {
+    // Integer sqrt: largest w such that w*w <= V
+    let mut w = 1;
+    while (w + 1) * (w + 1) <= VALIDATORS_COUNT {
+        w += 1;
+    }
+    w
+}
+
+/// Two validators in the same epoch are grid neighbours if they share
+/// the same row (index / W) or the same column (index % W).
+pub fn is_grid_neighbour(my_index: ValidatorIndex, other_index: ValidatorIndex) -> bool {
+    if my_index == other_index {
+        return false;
+    }
+    let w = grid_width();
+    let same_row = (my_index as usize / w) == (other_index as usize / w);
+    let same_col = (my_index as usize % w) == (other_index as usize % w);
+    same_row || same_col
 }
 
 fn base64_decode(input: &str) -> Result<Vec<u8>> {

@@ -12,7 +12,7 @@ members = [
     "jam-utils/serialization",
     "jam-utils/shuffle",
     "jam-utils/trie",
-    "network",
+    "network", "node",
     "pvm",
     "storage",
     "tests",

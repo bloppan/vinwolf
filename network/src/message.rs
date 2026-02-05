@@ -6,6 +6,7 @@ use jam_types::{*};
 use quinn::{SendStream, RecvStream, Connection};
 use std::sync::{LazyLock, Mutex};
 use std::u32;
+use tokio::sync::mpsc;
 use tools::{hex, log};
 
 pub const BLOCK_ANNOUNCEMENT: StreamKind = 0;
@@ -160,7 +161,7 @@ pub async fn broadcast_ticket_to_validators(distributed_ticket_blob: Vec<u8>) {
 pub async fn recv_ticket_distribution(mut recv_stream: RecvStream) -> Result<(), NetworkError> {
 
     let distributed_ticket = NetworkMessage::recv(&mut recv_stream).await?;
-    log::info!("ticket distribution msg recv: {}", hex::encode(&distributed_ticket));
+    log::info!("ticket distribution msg recv: {}", tools::print_hash!(&distributed_ticket));
     //let state = state_handler::get_global_state().lock().unwrap();
     //log::debug!("Current validators: {:x?}", state.curr_validators.list);
     //log::debug!("Next validators: {:x?}", state.next_validators.list);
@@ -336,9 +337,10 @@ fn is_new(announcement: &Announcement) -> bool {
 
 pub async fn block_announcement(
     connection: Connection,
-    _send_stream: &mut SendStream,
+    send_stream: &mut SendStream,
     recv_stream: &mut RecvStream,
     handshake: Handshake,
+    mut announcement_rx: mpsc::Receiver<Vec<u8>>,
 ) -> Result<(), NetworkError> {
 
     log::debug!("Last finalized block: {} slot: {:?}", hex::encode(&handshake.last_finalized_block.header_hash), handshake.last_finalized_block.slot);
@@ -354,42 +356,52 @@ pub async fn block_announcement(
         log::error!("Failed to sync blocks: {:?}", e);
         return Err(e);
     }
-    
+
     loop {
+        tokio::select! {
+            result = NetworkMessage::recv(recv_stream) => {
+                let announcement_blob = result?;
 
-        let announcement_blob = NetworkMessage::recv(recv_stream).await?;
+                let announcement = match decode_from_bytes::<Announcement>(&announcement_blob) {
+                    Ok(a) => a,
+                    Err(e) => {
+                        log::error!("Failed to decode announcement: {:?}", e);
+                        continue;
+                    }
+                };
 
-        let announcement = match decode_from_bytes::<Announcement>(&announcement_blob) {
-            Ok(a) => a,
-            Err(e) => {
-                log::error!("Failed to decode announcement: {:?}", e);
-                continue;
+                if !is_new(&announcement) {
+                    continue;
+                }
+
+                let header_hash = sp_core::blake2_256(&announcement.header.encode());
+                log::debug!("Import block {} parent {}", hex::encode(&header_hash), hex::encode(&announcement.header.unsigned.parent));
+                let request_info = BlockRequestInfo {
+                    header_hash,
+                    direction: 1,
+                    num_blocks: 1
+                };
+
+                let block = block_request(request_info, connection.clone()).await.unwrap();
+                log::debug!("process block in loop {}", hex::encode(&sp_core::blake2_256(&block[0].header.encode())));
+
+                match state_controller::stf(&block[0]) {
+                    Ok(_) => { log::debug!("block successfully processed"); }
+                    Err(e) => { log::error!("error processing block: {:?}", e); }
+                }
             }
-        };
 
-        if !is_new(&announcement) {
-            continue;
+            Some(announcement_blob) = announcement_rx.recv() => {
+                let len_bytes = (announcement_blob.len() as u32).to_le_bytes();
+                if let Err(e) = send_stream.write_all(&len_bytes).await {
+                    log::error!("Failed to send announcement length to {}: {:?}", connection.remote_address(), e);
+                    continue;
+                }
+                if let Err(e) = send_stream.write_all(&announcement_blob).await {
+                    log::error!("Failed to send announcement payload to {}: {:?}", connection.remote_address(), e);
+                }
+            }
         }
-
-        let header_hash = sp_core::blake2_256(&announcement.header.encode());
-        log::debug!("Import block {} parent {}", hex::encode(&header_hash), hex::encode(&announcement.header.unsigned.parent));
-        let request_info = BlockRequestInfo {
-            header_hash,
-            direction: 1,
-            num_blocks: 1
-        };
-
-        let block = block_request(request_info, connection.clone()).await.unwrap();
-        log::debug!("process block in loop {}", hex::encode(&sp_core::blake2_256(&block[0].header.encode())));
-
-        match state_controller::stf(&block[0]) {
-            Ok(_) => { log::debug!("block successfully processed"); }
-            Err(e) => { log::error!("error processing block: {:?}", e); }
-        }
-
-        let state = state_handler::get_global_state().lock().unwrap().clone();
-        //tokio::spawn(state_request(announcement.last_finalized_block.header_hash, connection_info.connection.clone()));
-        //tokio::spawn(block_request(request_info, connection_info.connection.clone()));
     }
 }
 

@@ -16,6 +16,7 @@ use bandersnatch_vrf_spec::Verifier;
 use codec::{generic_codec::encode_unsigned, {Encode, EncodeLen, EncodeSize}};
 use constants::node::{EPOCH_LENGTH, TICKET_ENTRIES_PER_VALIDATOR, VALIDATORS_COUNT};
 use jam_types::*;
+use sp_core::OpaqueMetadata;
 use state_handler::get_state_root;
 use std::collections::HashSet;
 use std::sync::{LazyLock, Mutex};
@@ -278,4 +279,30 @@ pub fn extrinsic_verify(block: &Block) -> Result<(), ProcessError> {
     log::trace!("Header extrinsic   result: {:x?}\n", sp_core::blake2_256(&a) );
     
     return Ok(());
+}
+
+pub fn encode_extrinsic(block: &Block) -> OpaqueHash {
+
+    let mut guarantees_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Header>() * block.extrinsic.guarantees.len());
+    encode_unsigned(block.extrinsic.guarantees.len()).encode_to(&mut guarantees_blob);
+
+    for guarantee in block.extrinsic.guarantees.iter() {
+
+        sp_core::blake2_256(&guarantee.report.encode()).encode_to(&mut guarantees_blob);
+        guarantee.slot.encode_size(4).encode_to(&mut guarantees_blob);
+        encode_unsigned(guarantee.signatures.len()).encode_to(&mut guarantees_blob);
+
+        for signature in &guarantee.signatures {
+            signature.validator_index.encode_to(&mut guarantees_blob);
+            signature.signature.encode_to(&mut guarantees_blob);
+        }
+    }
+
+    let a = [sp_core::blake2_256(&block.extrinsic.tickets.encode_len()),
+                            sp_core::blake2_256(&block.extrinsic.preimages.encode_len()),
+                            sp_core::blake2_256(&guarantees_blob),
+                            sp_core::blake2_256(&block.extrinsic.assurances.encode_len()),
+                            sp_core::blake2_256(&block.extrinsic.disputes.encode())].concat();
+    
+    sp_core::blake2_256(&a)
 }

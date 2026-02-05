@@ -1,6 +1,6 @@
 use codec::generic_codec::decode_from_bytes;
 use crate::message::{BLOCK_ANNOUNCEMENT, TICKET_GENERATION, TICKET_PROXY};
-use crate::{message, message::NetworkMessage, dev_accounts};
+use crate::{message, message::NetworkMessage, dev_accounts, net_utils, node_config};
 use crate::jamnp_types::{ConnectionError, NetworkError, Handshake, StreamKind};
 use jam_types::ValidatorIndex;
 use quinn::{Connection, RecvStream, SendStream, Endpoint};
@@ -58,6 +58,7 @@ impl NetworkController {
                         let handle = PeerHandle {
                             connection: connection.clone(),
                             sender: tx,
+                            announcement_tx: Arc::new(std::sync::Mutex::new(None)),
                         };
 
                         {
@@ -83,6 +84,23 @@ impl NetworkController {
 
         self.endpoint.wait_idle().await;
         Ok(())
+    }
+
+    pub async fn broadcast_announcement(&self, announcement_blob: Vec<u8>) {
+        let my_index = node_config::get_account_id();
+        let peers = self.peers.read().await;
+        for (&peer_index, handle) in peers.iter() {
+            if !net_utils::is_grid_neighbour(my_index, peer_index) {
+                continue;
+            }
+            let tx = handle.announcement_tx.lock().unwrap().clone();
+            if let Some(tx) = tx {
+                if let Err(e) = tx.send(announcement_blob.clone()).await {
+                    log::error!("Failed to send announcement to peer {}: {:?}", peer_index, e);
+                }
+            }
+            log::info!("Broadcast announcement to peer {peer_index}");
+        }
     }
 
     pub async fn connect_to_peer(
@@ -116,6 +134,7 @@ impl NetworkController {
         let handle = PeerHandle {
             connection: connection.clone(),
             sender: tx,
+            announcement_tx: Arc::new(std::sync::Mutex::new(None)),
         };
 
         {
@@ -153,6 +172,7 @@ pub enum PeerCommand {
 pub struct PeerHandle {
     pub connection: Connection,
     pub sender: mpsc::Sender<PeerCommand>,
+    pub announcement_tx: Arc<std::sync::Mutex<Option<mpsc::Sender<Vec<u8>>>>>,
 }
 
 impl PeerHandle {
@@ -171,8 +191,10 @@ impl PeerHandle {
                 NetworkMessage::send_up(BLOCK_ANNOUNCEMENT, handshake, &mut send_stream).await.unwrap();
                 let handshake = decode_from_bytes::<Handshake>(&NetworkMessage::recv(&mut recv_stream).await?).unwrap();
                 let connection = self.connection.clone();
+                let (ann_tx, ann_rx) = mpsc::channel::<Vec<u8>>(16);
+                *self.announcement_tx.lock().unwrap() = Some(ann_tx);
                 tokio::spawn(async move {
-                    message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake).await.unwrap();
+                    message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await.unwrap();
                 });
             },
             _ => {
@@ -198,8 +220,10 @@ impl PeerHandle {
                 let len_bytes = (handshake.len() as u32).to_le_bytes();
                 send_stream.write_all(&([len_bytes.to_vec(), handshake].concat())).await.ok();
                 let handshake = decode_from_bytes::<Handshake>(&NetworkMessage::recv(&mut recv_stream).await?).unwrap();
+                let (ann_tx, ann_rx) = mpsc::channel::<Vec<u8>>(16);
+                *self.announcement_tx.lock().unwrap() = Some(ann_tx);
                 tokio::spawn(async move {
-                    message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake).await.unwrap();
+                    message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await.unwrap();
                 });
             },
             TICKET_GENERATION => {
