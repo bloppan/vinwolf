@@ -28,6 +28,65 @@ pub fn get_block(header_hash: &OpaqueHash) -> Option<Block> {
     BLOCK_STORE.lock().unwrap().get(header_hash).cloned()
 }
 
+static TICKET_POOL: LazyLock<Mutex<Vec<Ticket>>> = LazyLock::new(|| Mutex::new(Vec::new()));
+
+pub fn store_ticket(ticket: Ticket) {
+    log::debug!("Storing ticket attempt={}", ticket.attempt);
+    TICKET_POOL.lock().unwrap().push(ticket);
+}
+
+pub fn take_tickets_for_block(slot: TimeSlot) -> Vec<Ticket> {
+    use constants::node::{EPOCH_LENGTH, MAX_TICKETS_PER_EXTRINSIC, TICKET_SUBMISSION_ENDS};
+
+    let slot_in_epoch = slot % EPOCH_LENGTH as TimeSlot;
+    if slot_in_epoch >= TICKET_SUBMISSION_ENDS as TimeSlot {
+        return vec![];
+    }
+
+    let (safrole_state, entropy_state) = {
+        let state = state_handler::get_global_state().lock().unwrap();
+        (state.safrole.clone(), state.entropy.clone())
+    };
+
+    let existing_ids: Vec<OpaqueHash> = safrole_state.ticket_accumulator.iter().map(|t| t.id).collect();
+
+    let verifier = safrole::verifier::get(ValidatorSet::Next);
+    let fixed_input_data: Vec<u8> = [&b"jam_ticket_seal"[..], &entropy_state.buf[2].encode()].concat();
+
+    let mut pool = TICKET_POOL.lock().unwrap();
+
+    let mut valid_tickets: Vec<(Ticket, OpaqueHash)> = Vec::new();
+
+    pool.retain(|ticket| {
+        let vrf_input = [&fixed_input_data[..], &ticket.attempt.encode()].concat();
+        match verifier.ring_vrf_verify(&vrf_input, &[], &ticket.signature) {
+            Ok(id) => {
+                if existing_ids.contains(&id) {
+                    log::debug!("Ticket already in accumulator, discarding");
+                    false
+                } else {
+                    valid_tickets.push((ticket.clone(), id));
+                    false
+                }
+            }
+            Err(_) => {
+                log::error!("Invalid ticket proof, discarding");
+                false
+            }
+        }
+    });
+
+    valid_tickets.sort_by(|a, b| a.1.cmp(&b.1));
+    let selected: Vec<Ticket> = valid_tickets.into_iter()
+        .take(MAX_TICKETS_PER_EXTRINSIC)
+        .map(|(ticket, _)| ticket)
+        .collect();
+
+    log::debug!("Selected {} tickets for block at slot {}", selected.len(), slot);
+
+    selected
+}
+
 pub struct TicketDistribution {
     pub epoch_index: TimeSlot,
     pub ticket: Ticket,
@@ -205,11 +264,16 @@ pub async fn broadcast_ticket_to_validators(distributed_ticket_blob: Vec<u8>) {
 
 pub async fn recv_ticket_distribution(mut recv_stream: RecvStream) -> Result<(), NetworkError> {
 
-    let distributed_ticket = NetworkMessage::recv(&mut recv_stream).await?;
-    log::info!("ticket distribution msg recv: {}", tools::print_hash!(&distributed_ticket));
-    //let state = state_handler::get_global_state().lock().unwrap();
-    //log::debug!("Current validators: {:x?}", state.curr_validators.list);
-    //log::debug!("Next validators: {:x?}", state.next_validators.list);
+    let distributed_ticket_blob = NetworkMessage::recv(&mut recv_stream).await?;
+
+    let distributed_ticket = decode_from_bytes::<TicketDistributed>(&distributed_ticket_blob).map_err(|e| {
+        log::error!("Failed to decode distributed ticket: {:?}", e);
+        NetworkError::ReadError(e)
+    })?;
+
+    log::info!("Ticket distribution received: epoch={} attempt={}", distributed_ticket.epoch, distributed_ticket.ticket.attempt);
+    store_ticket(distributed_ticket.ticket);
+
     Ok(())
 }
 
@@ -256,6 +320,9 @@ async fn state_request(header_hash: OpaqueHash, connection: Connection) -> Resul
         log::error!("Failed to parse state keyvals: {:?}", e);
         return Err(NetworkError::ReadError(e));
     }
+    
+    // Initialize the verifiers 
+    safrole::verifier::init_all(&global_state);
     
     log::debug!("Total keyvalues decoded: {c}");
 

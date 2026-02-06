@@ -118,16 +118,40 @@ async fn main() -> Result<()> {
 
 
 async fn node_ctrl(net: std::sync::Arc<net_controller::NetworkController>) {
+    use crate::jamnp_types::TicketDistributed;
+    use codec::Encode;
 
     let identities = dev_accounts::parse_dev_accounts();
     let this_node_index = node_config::get_account_id();
     let bandersnatch_public = identities[this_node_index as usize].bandersnatch_public;
+    let mut last_epoch: Option<TimeSlot> = None;
 
     loop {
 
         wait_until_next_slot();
         let slot = current_slot();
-        log::debug!("Slot {} started - checking block production", slot);
+        let current_epoch = slot / EPOCH_LENGTH as TimeSlot;
+        log::debug!("Slot {} started (epoch {}) - checking block production", slot, current_epoch);
+
+        if last_epoch.is_none() || last_epoch.unwrap() < current_epoch {
+            last_epoch = Some(current_epoch);
+            log::info!("New epoch {} detected, generating tickets", current_epoch);
+
+            let tickets = generate_tickets();
+            let next_epoch = current_epoch + 1;
+
+            for ticket in tickets {
+                message::store_ticket(ticket.clone());
+
+                let distributed = TicketDistributed { epoch: next_epoch, ticket };
+                let blob = distributed.encode();
+
+                tokio::spawn(async move {
+                    message::broadcast_ticket_to_validators(blob).await;
+                });
+            }
+        }
+
         if let Some(header) = should_produce_block(slot, &bandersnatch_public) {
             let announcement = build_announcement(header);
             net.broadcast_announcement(announcement).await;
@@ -207,28 +231,45 @@ fn produce_block() -> Header {
         .entropy
         .clone();
 
-    // Entropy source 
-
-
     let mut block = Block::default();
+    block.extrinsic.tickets = message::take_tickets_for_block(current_slot());
     block.header.unsigned.author_index = this_node_index;
     block.header.unsigned.extrinsic_hash = header::encode_extrinsic(&block);
     block.header.unsigned.parent = block::header::get_parent_header();
     block.header.unsigned.parent_state_root = state_handler::get_state_root().lock().unwrap().clone();
     block.header.unsigned.slot = current_slot();
 
+    let safrole_state = state_handler::get_global_state()
+        .lock()
+        .unwrap()
+        .safrole.clone();
+
     // Seal
-
-    // Step 1
-    let c = [&b"jam_fallback_seal"[..], &entropy.buf[3].encode()].concat();
-    let vrf_output = prover.vrf_output(&c);
-
-    // Step 2 
-    let context = [&b"jam_entropy"[..], &vrf_output.encode()].concat();
-    block.header.unsigned.entropy_source = prover.ietf_vrf_sign(&context, &[]).try_into().unwrap();
-
-    // Step 3
-    block.header.seal = prover.ietf_vrf_sign(&c, &block.header.unsigned.encode()).try_into().unwrap();
+    match safrole_state.seal {
+        Seal::Tickets(tickets) => {
+            // The context is "jam_fallback_seal" + entropy[3] + ticket_attempt
+            let c = [&b"jam_ticket_seal"[..], &entropy.buf[3].encode(), &tickets.tickets_mark[this_node_index as usize].attempt.encode()].concat();
+            let vrf_output = prover.vrf_output(&c);
+            // Step 2 
+            let context = [&b"jam_entropy"[..], &vrf_output.encode()].concat();
+            block.header.unsigned.entropy_source = prover.ietf_vrf_sign(&context, &[]).try_into().unwrap();
+            // Step 3
+            block.header.seal = prover.ietf_vrf_sign(&c, &block.header.unsigned.encode()).try_into().unwrap();
+        },
+        Seal::Keys(keys) => {
+            // Step 1
+            let c = [&b"jam_fallback_seal"[..], &entropy.buf[3].encode()].concat();
+            let vrf_output = prover.vrf_output(&c);
+            // Step 2 
+            let context = [&b"jam_entropy"[..], &vrf_output.encode()].concat();
+            block.header.unsigned.entropy_source = prover.ietf_vrf_sign(&context, &[]).try_into().unwrap();
+            // Step 3
+            block.header.seal = prover.ietf_vrf_sign(&c, &block.header.unsigned.encode()).try_into().unwrap();
+        },
+        Seal::None => {
+            { };
+        },
+    }
 
     message::store_block(&block);
     let _ = state_controller::stf(&block);
@@ -252,6 +293,55 @@ fn build_announcement(header: Header) -> Vec<u8> {
     };
 
     announcement.encode()
+}
+
+fn generate_tickets() -> Vec<Ticket> {
+    use bandersnatch_vrf_spec::Prover;
+    use ark_vrf::reexports::ark_serialize::CanonicalDeserialize;
+    use ark_vrf::suites::bandersnatch::{Public, RingProofParams};
+    use ark_vrf::suites::bandersnatch::Secret;
+    use codec::Encode;
+
+    let this_node_index = node_config::get_account_id();
+    let identities = dev_accounts::parse_dev_accounts();
+
+    let bandersnatch_public_keys: Vec<BandersnatchPublic> = identities.iter()
+        .map(|key| key.bandersnatch_public)
+        .collect();
+    let bandersnatch_secret_key = identities[this_node_index as usize].bandersnatch_secret_seed;
+
+    let ring: Vec<Public> = bandersnatch_public_keys.iter()
+        .map(|key| Public::deserialize_compressed_unchecked(&key[..])
+            .unwrap_or_else(|_| Public::from(RingProofParams::padding_point())))
+        .collect();
+
+    let prover = Prover {
+        prover_idx: this_node_index as usize,
+        secret: Secret::from_seed(&bandersnatch_secret_key),
+        ring,
+    };
+
+    let entropy = state_handler::get_global_state()
+        .lock()
+        .unwrap()
+        .entropy
+        .clone();
+
+    let fixed_input = [&b"jam_ticket_seal"[..], &entropy.buf[2].encode()].concat();
+
+    let mut tickets = Vec::with_capacity(TICKET_ENTRIES_PER_VALIDATOR as usize);
+
+    for attempt in 0..TICKET_ENTRIES_PER_VALIDATOR {
+        let vrf_input = [&fixed_input[..], &attempt.encode()].concat();
+        let signature_bytes = prover.ring_vrf_sign(&vrf_input, &[]);
+        let signature: BandersnatchRingVrfSignature = signature_bytes.try_into()
+            .expect("ring_vrf_sign output should be 784 bytes");
+
+        tickets.push(Ticket { attempt, signature });
+        log::info!("Generated ticket attempt={}", attempt);
+    }
+
+    tickets
 }
 
 fn wait_until_next_slot() {
