@@ -155,7 +155,8 @@ pub async fn recv_ticket_from_generator(mut recv_stream: RecvStream) -> Result<(
         NetworkError::ReadError(e)
     })?;
 
-    log::debug!("Ticket: {:?}", distributed_ticket.ticket);
+    log::debug!("Ticket: {} attempt: {:?} epoch: {:?}", 
+        tools::print_hash!(&distributed_ticket.ticket.signature), distributed_ticket.ticket.attempt, distributed_ticket.epoch);
 
     tokio::spawn(async move { 
         broadcast_ticket_to_validators(distributed_ticket_blob).await; 
@@ -166,8 +167,6 @@ pub async fn recv_ticket_from_generator(mut recv_stream: RecvStream) -> Result<(
 
 pub async fn broadcast_ticket_to_validators(distributed_ticket_blob: Vec<u8>) {
 
-    let proxy_ticket_msg = NetworkMessage::new(TICKET_PROXY, distributed_ticket_blob);
-
     let validators = {
         let state = state_handler::get_global_state().lock().unwrap();
         state.curr_validators.list.clone()
@@ -176,11 +175,11 @@ pub async fn broadcast_ticket_to_validators(distributed_ticket_blob: Vec<u8>) {
     let this_node = node_config::get_account_id();
 
     for (i, validator) in validators.iter().enumerate() {
-        
+
         if i == this_node as usize {
             continue;
         }
-        
+
         let connection = match dev_accounts::get_dev_account_connection(&validator.bandersnatch) {
             Some(conn) => conn,
             None => {
@@ -188,10 +187,19 @@ pub async fn broadcast_ticket_to_validators(distributed_ticket_blob: Vec<u8>) {
                 continue;
             }
         };
-        log::info!("Proxy ticket to {:?}", connection.remote_address());
-        let (mut send_stream, mut _recv_stream) = connection.open_bi().await.unwrap();
-        send_stream.write_all(&proxy_ticket_msg).await.ok();
-        send_stream.finish().unwrap();
+
+        let (mut send_stream, _recv_stream) = match connection.open_bi().await {
+            Ok(streams) => streams,
+            Err(e) => {
+                log::error!("Failed to open stream to validator {i}: {:?}", e);
+                continue;
+            }
+        };
+
+        log::info!("Proxy ticket to validator {i} at {:?}", connection.remote_address());
+        if let Err(e) = NetworkMessage::send(TICKET_PROXY, distributed_ticket_blob.clone(), &mut send_stream).await {
+            log::error!("Failed to send ticket to validator {i}: {:?}", e);
+        }
     }
 }
 
@@ -326,7 +334,7 @@ async fn block_request(request_info: BlockRequestInfo, connection: Connection) -
             NetworkError::ReadError(e)
         })?;
 
-        log::debug!("Slot: {:?} Block: {:x?}", block.header.unsigned.slot, block);
+        //log::debug!("Slot: {:?} Block: {:x?}", block.header.unsigned.slot, block);
         blocks.push(block);
     }    
 
