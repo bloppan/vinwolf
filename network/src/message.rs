@@ -4,6 +4,7 @@ use codec::{BytesReader, Decode, Encode};
 use codec::generic_codec::decode_from_bytes;
 use jam_types::{*};
 use quinn::{SendStream, RecvStream, Connection};
+use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 use std::u32;
 use tokio::sync::mpsc;
@@ -14,6 +15,18 @@ pub const BLOCK_REQUEST: StreamKind = 128;
 pub const STATE_REQUEST: StreamKind = 129;
 pub const TICKET_GENERATION: StreamKind = 131;
 pub const TICKET_PROXY: StreamKind = 132;
+
+static BLOCK_STORE: LazyLock<Mutex<HashMap<OpaqueHash, Block>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+
+pub fn store_block(block: &Block) {
+    let header_hash = sp_core::blake2_256(&block.header.encode());
+    log::debug!("Storing block {}", hex::encode(&header_hash));
+    BLOCK_STORE.lock().unwrap().insert(header_hash, block.clone());
+}
+
+pub fn get_block(header_hash: &OpaqueHash) -> Option<Block> {
+    BLOCK_STORE.lock().unwrap().get(header_hash).cloned()
+}
 
 pub struct TicketDistribution {
     pub epoch_index: TimeSlot,
@@ -97,11 +110,35 @@ impl NetworkMessage {
     }
 
     pub async fn send_up(msg_kind: u8, payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
-        
-        let message = NetworkMessage::new(msg_kind, payload);        
-        
+
+        let message = NetworkMessage::new(msg_kind, payload);
+
         if let Err(e) = send_stream.write_all(&message).await {
             log::error!("Failed to send stream: {:?}", e);
+            return Err(NetworkError::StreamError(StreamError::WriteStream));
+        }
+
+        return Ok(());
+    }
+
+    /// Sends a length-prefixed message without kind byte, then finishes the stream.
+    /// Use for CE stream responses where the kind byte was already sent at stream open.
+    pub async fn reply(payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
+
+        let len_bytes = (payload.len() as u32).to_le_bytes();
+
+        if let Err(e) = send_stream.write_all(&len_bytes).await {
+            log::error!("Failed to send message length: {:?}", e);
+            return Err(NetworkError::StreamError(StreamError::WriteStream));
+        }
+
+        if let Err(e) = send_stream.write_all(&payload).await {
+            log::error!("Failed to send message payload: {:?}", e);
+            return Err(NetworkError::StreamError(StreamError::WriteStream));
+        }
+
+        if let Err(e) = send_stream.finish() {
+            log::error!("Failed to finish stream: {:?}", e);
             return Err(NetworkError::StreamError(StreamError::WriteStream));
         }
 
@@ -217,6 +254,54 @@ async fn state_request(header_hash: OpaqueHash, connection: Connection) -> Resul
     return Ok(global_state);
 } 
 
+pub async fn handle_block_request(mut send_stream: SendStream, mut recv_stream: RecvStream) -> Result<(), NetworkError> {
+
+    let request_blob = NetworkMessage::recv(&mut recv_stream).await?;
+    let mut reader = BytesReader::new(&request_blob);
+
+    let header_hash = OpaqueHash::decode(&mut reader).map_err(|e| {
+        log::error!("Failed to decode block request header hash: {:?}", e);
+        NetworkError::ReadError(e)
+    })?;
+    let direction = u8::decode(&mut reader).map_err(|e| {
+        log::error!("Failed to decode block request direction: {:?}", e);
+        NetworkError::ReadError(e)
+    })?;
+    let num_blocks = u32::decode(&mut reader).map_err(|e| {
+        log::error!("Failed to decode block request num_blocks: {:?}", e);
+        NetworkError::ReadError(e)
+    })?;
+
+    log::debug!("Block request received: hash={} direction={} num_blocks={}", hex::encode(&header_hash), direction, num_blocks);
+
+    let mut response: Vec<u8> = Vec::new();
+    let mut current_hash = header_hash;
+
+    for _ in 0..num_blocks {
+        match direction {
+            // Ascending exclusive: skip the requested block, start from its child
+            0 => {
+                // TODO: requires a parent->child index, not yet implemented
+                log::error!("Ascending exclusive block request not yet supported");
+                break;
+            }
+            // Descending inclusive: start from the requested block, then parent, etc.
+            1 => {
+                if let Some(block) = get_block(&current_hash) {
+                    current_hash = block.header.unsigned.parent;
+                    block.encode_to(&mut response);
+                } else {
+                    log::debug!("Block {} not found in store", hex::encode(&current_hash));
+                    break;
+                }
+            }
+            _ => break,
+        }
+    }
+
+    NetworkMessage::reply(response, &mut send_stream).await
+}
+
 async fn block_request(request_info: BlockRequestInfo, connection: Connection) -> Result<Vec<Block>, NetworkError> {
 
     let (mut send_stream, mut recv_stream) = connection.open_bi().await.map_err(|e| {
@@ -291,6 +376,7 @@ async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connectio
 
     for block in blocks.iter() {
         log::debug!("SYNC process block {}", hex::encode(&sp_core::blake2_256(&block.header.encode())));
+        store_block(block);
         match state_controller::stf(block) {
             Ok(_) => { log::debug!("processed successfully"); },
             Err(e) => { log::error!("error processing block: {:?}", e); },
@@ -384,6 +470,8 @@ pub async fn block_announcement(
 
                 let block = block_request(request_info, connection.clone()).await.unwrap();
                 log::debug!("process block in loop {}", hex::encode(&sp_core::blake2_256(&block[0].header.encode())));
+
+                store_block(&block[0]);
 
                 match state_controller::stf(&block[0]) {
                     Ok(_) => { log::debug!("block successfully processed"); }

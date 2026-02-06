@@ -1,5 +1,5 @@
 use codec::generic_codec::decode_from_bytes;
-use crate::message::{BLOCK_ANNOUNCEMENT, TICKET_GENERATION, TICKET_PROXY};
+use crate::message::{BLOCK_ANNOUNCEMENT, BLOCK_REQUEST, TICKET_GENERATION, TICKET_PROXY};
 use crate::{message, message::NetworkMessage, dev_accounts, net_utils, node_config};
 use crate::jamnp_types::{ConnectionError, NetworkError, Handshake, StreamKind};
 use jam_types::ValidatorIndex;
@@ -224,6 +224,14 @@ impl PeerHandle {
                 *self.announcement_tx.lock().unwrap() = Some(ann_tx);
                 tokio::spawn(async move {
                     message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await.unwrap();
+                });
+            },
+            BLOCK_REQUEST => {
+                log::debug!("Block request received from {}", self.connection.remote_address());
+                tokio::spawn(async move {
+                    if let Err(e) = message::handle_block_request(send_stream, recv_stream).await {
+                        log::error!("Failed to handle block request: {:?}", e);
+                    }
                 });
             },
             TICKET_GENERATION => {

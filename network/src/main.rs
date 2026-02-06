@@ -230,6 +230,7 @@ fn produce_block() -> Header {
     // Step 3
     block.header.seal = prover.ietf_vrf_sign(&c, &block.header.unsigned.encode()).try_into().unwrap();
 
+    message::store_block(&block);
     let _ = state_controller::stf(&block);
 
     block.header
