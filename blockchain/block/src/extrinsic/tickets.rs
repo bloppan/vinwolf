@@ -105,7 +105,7 @@ pub fn process(
         safrole_state.ticket_accumulator.drain(EPOCH_LENGTH..);
     }
 
-    log::debug!("Extrinsic tickets processed succesfully");
+    log::debug!("Ticket accumulator len={:?}", safrole_state.ticket_accumulator.len());
 
     Ok(())
 }

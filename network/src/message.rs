@@ -30,6 +30,10 @@ pub fn get_block(header_hash: &OpaqueHash) -> Option<Block> {
 
 static TICKET_POOL: LazyLock<Mutex<Vec<Ticket>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
+pub fn clear_ticket_pool() {
+    TICKET_POOL.lock().unwrap().clear();
+}
+
 pub fn store_ticket(ticket: Ticket) {
     log::debug!("Storing ticket attempt={}", ticket.attempt);
     TICKET_POOL.lock().unwrap().push(ticket);
@@ -205,20 +209,79 @@ impl NetworkMessage {
     }
 }
 
+pub async fn send_ticket_to_proxy(distributed_ticket_blob: Vec<u8>, proxy_bandersnatch: &BandersnatchPublic) {
+
+    let connection = match dev_accounts::get_dev_account_connection(proxy_bandersnatch) {
+        Some(conn) => conn,
+        None => {
+            log::error!("No connection to proxy validator {}", hex::encode(proxy_bandersnatch));
+            return;
+        }
+    };
+
+    let (mut send_stream, _recv_stream) = match connection.open_bi().await {
+        Ok(streams) => streams,
+        Err(e) => {
+            log::error!("Failed to open stream to proxy validator: {:?}", e);
+            return;
+        }
+    };
+
+    log::info!("Sending ticket to proxy validator at {:?} (CE 131)", connection.remote_address());
+    if let Err(e) = NetworkMessage::send(TICKET_GENERATION, distributed_ticket_blob, &mut send_stream).await {
+        log::error!("Failed to send ticket to proxy: {:?}", e);
+    }
+}
+
 pub async fn recv_ticket_from_generator(mut recv_stream: RecvStream) -> Result<(), NetworkError> {
 
     let distributed_ticket_blob = NetworkMessage::recv(&mut recv_stream).await?;
-    
-    let distributed_ticket= decode_from_bytes::<TicketDistributed>(&distributed_ticket_blob).map_err(|e| {
+
+    let distributed_ticket = decode_from_bytes::<TicketDistributed>(&distributed_ticket_blob).map_err(|e| {
         log::error!("Failed to decode distributed ticket: {:?}", e);
         NetworkError::ReadError(e)
     })?;
 
-    log::debug!("Ticket: {} attempt: {:?} epoch: {:?}", 
-        tools::print_hash!(&distributed_ticket.ticket.signature), distributed_ticket.ticket.attempt, distributed_ticket.epoch);
+    log::debug!("Ticket received (CE 131): attempt={} epoch={}",
+        distributed_ticket.ticket.attempt, distributed_ticket.epoch);
 
-    tokio::spawn(async move { 
-        broadcast_ticket_to_validators(distributed_ticket_blob).await; 
+    // Verify that we are the correct proxy for this ticket
+    let entropy_state = {
+        let state = state_handler::get_global_state().lock().unwrap();
+        state.entropy.clone()
+    };
+
+    let verifier = safrole::verifier::get(ValidatorSet::Next);
+    let fixed_input_data: Vec<u8> = [&b"jam_ticket_seal"[..], &entropy_state.buf[2].encode()].concat();
+    let vrf_input = [&fixed_input_data[..], &distributed_ticket.ticket.attempt.encode()].concat();
+
+    let ticket_id = match verifier.ring_vrf_verify(&vrf_input, &[], &distributed_ticket.ticket.signature) {
+        Ok(id) => id,
+        Err(_) => {
+            log::error!("Invalid ticket proof received on CE 131, discarding");
+            return Ok(());
+        }
+    };
+
+    let proxy_index = {
+        let last_4 = &ticket_id[28..32];
+        let val = u32::from_be_bytes(last_4.try_into().unwrap());
+        (val as usize) % constants::node::VALIDATORS_COUNT
+    };
+
+    let this_node = node_config::get_account_id() as usize;
+    if proxy_index != this_node {
+        log::error!("We are not the correct proxy for this ticket (proxy={}, we={}), discarding", proxy_index, this_node);
+        return Ok(());
+    }
+
+    log::info!("We are the correct proxy for ticket attempt={}, forwarding to all validators (CE 132)",
+        distributed_ticket.ticket.attempt);
+
+    store_ticket(distributed_ticket.ticket);
+
+    tokio::spawn(async move {
+        broadcast_ticket_to_validators(distributed_ticket_blob).await;
     });
 
     return Ok(());
@@ -477,6 +540,10 @@ fn is_synced(imported_blocks: &ImportedBlocks) -> bool {
 }
 
 static LAST_ANNOUNCEMENT: LazyLock<Mutex<Announcement>> = LazyLock::new(|| { Mutex::new(Announcement::default()) });
+
+pub fn set_last_announcement(announcement: Announcement) {
+    *LAST_ANNOUNCEMENT.lock().unwrap() = announcement;
+}
 
 fn is_new(announcement: &Announcement) -> bool {
 
