@@ -4,10 +4,10 @@ use codec::{BytesReader, Decode, Encode};
 use codec::generic_codec::decode_from_bytes;
 use jam_types::{*};
 use quinn::{SendStream, RecvStream, Connection};
-use std::collections::HashMap;
-use std::sync::{LazyLock, Mutex};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::{LazyLock, Mutex, OnceLock};
 use std::u32;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tools::{hex, log};
 
 pub const BLOCK_ANNOUNCEMENT: StreamKind = 0;
@@ -26,6 +26,85 @@ pub fn store_block(block: &Block) {
 
 pub fn get_block(header_hash: &OpaqueHash) -> Option<Block> {
     BLOCK_STORE.lock().unwrap().get(header_hash).cloned()
+}
+
+// --- Block processing queue ---
+
+pub struct QueuedBlock {
+    pub block: Block,
+    pub result_tx: Option<oneshot::Sender<Result<(), ProcessError>>>,
+}
+
+static BLOCK_QUEUE_TX: OnceLock<mpsc::Sender<QueuedBlock>> = OnceLock::new();
+
+pub fn init_block_queue(buffer: usize) -> mpsc::Receiver<QueuedBlock> {
+    let (tx, rx) = mpsc::channel(buffer);
+    BLOCK_QUEUE_TX.set(tx).expect("init_block_queue called more than once");
+    rx
+}
+
+pub async fn enqueue_block(block: Block) {
+    let tx = BLOCK_QUEUE_TX.get().expect("block queue not initialized");
+    let queued = QueuedBlock { block, result_tx: None };
+    if let Err(e) = tx.send(queued).await {
+        log::error!("Failed to enqueue block: {:?}", e);
+    }
+}
+
+pub async fn enqueue_block_and_wait(block: Block) -> Result<(), ProcessError> {
+    let tx = BLOCK_QUEUE_TX.get().expect("block queue not initialized");
+    let (result_tx, result_rx) = oneshot::channel();
+    let queued = QueuedBlock { block, result_tx: Some(result_tx) };
+    tx.send(queued).await.map_err(|_| {
+        log::error!("Failed to enqueue block for processing");
+        ProcessError::HeaderError(HeaderErrorCode::BadParentHeader)
+    })?;
+    result_rx.await.unwrap_or_else(|_| {
+        log::error!("Block queue consumer dropped without sending result");
+        Err(ProcessError::HeaderError(HeaderErrorCode::BadParentHeader))
+    })
+}
+
+pub async fn run_block_queue(mut rx: mpsc::Receiver<QueuedBlock>) {
+    loop {
+        // Wait for at least one block
+        let first = match rx.recv().await {
+            Some(qb) => qb,
+            None => {
+                log::info!("Block queue channel closed, consumer exiting");
+                return;
+            }
+        };
+
+        // Drain any additional queued blocks
+        let mut pending = vec![first];
+        while let Ok(qb) = rx.try_recv() {
+            pending.push(qb);
+        }
+
+        // Sort by slot using BTreeMap
+        let mut by_slot: BTreeMap<TimeSlot, Vec<QueuedBlock>> = BTreeMap::new();
+        for qb in pending {
+            let slot = qb.block.header.unsigned.slot;
+            by_slot.entry(slot).or_default().push(qb);
+        }
+
+        // Process in ascending slot order
+        for (slot, blocks) in by_slot {
+            for qb in blocks {
+                log::debug!("Queue: processing block slot={}", slot);
+                store_block(&qb.block);
+                let result = state_controller::stf(&qb.block);
+                match &result {
+                    Ok(_) => log::debug!("Queue: block slot={} processed successfully", slot),
+                    Err(e) => log::error!("Queue: error processing block slot={}: {:?}", slot, e),
+                }
+                if let Some(tx) = qb.result_tx {
+                    let _ = tx.send(result);
+                }
+            }
+        }
+    }
 }
 
 static TICKET_POOL: LazyLock<Mutex<Vec<Ticket>>> = LazyLock::new(|| Mutex::new(Vec::new()));
@@ -81,10 +160,27 @@ pub fn take_tickets_for_block(slot: TimeSlot) -> Vec<Ticket> {
     });
 
     valid_tickets.sort_by(|a, b| a.1.cmp(&b.1));
-    let selected: Vec<Ticket> = valid_tickets.into_iter()
+    let candidates: Vec<(Ticket, OpaqueHash)> = valid_tickets.into_iter()
         .take(MAX_TICKETS_PER_EXTRINSIC)
-        .map(|(ticket, _)| ticket)
         .collect();
+
+    // Simulate insertion into the accumulator to discard tickets that would be dropped
+    let candidate_ids: Vec<OpaqueHash> = candidates.iter().map(|(_, id)| *id).collect();
+    let mut simulated_acc: Vec<OpaqueHash> = existing_ids;
+    simulated_acc.extend(&candidate_ids);
+    simulated_acc.sort();
+
+    let selected: Vec<Ticket> = if simulated_acc.len() > EPOCH_LENGTH {
+        let survivors: HashSet<OpaqueHash> = simulated_acc[..EPOCH_LENGTH].iter().cloned().collect();
+        candidates.into_iter()
+            .filter(|(_, id)| survivors.contains(id))
+            .map(|(ticket, _)| ticket)
+            .collect()
+    } else {
+        candidates.into_iter()
+            .map(|(ticket, _)| ticket)
+            .collect()
+    };
 
     log::debug!("Selected {} tickets for block at slot {}", selected.len(), slot);
 
@@ -613,12 +709,7 @@ pub async fn block_announcement(
                 let block = block_request(request_info, connection.clone()).await.unwrap();
                 log::debug!("process block in loop {}", hex::encode(&sp_core::blake2_256(&block[0].header.encode())));
 
-                store_block(&block[0]);
-
-                match state_controller::stf(&block[0]) {
-                    Ok(_) => { log::debug!("block successfully processed"); }
-                    Err(e) => { log::error!("error processing block: {:?}", e); }
-                }
+                enqueue_block(block[0].clone()).await;
             }
 
             Some(announcement_blob) = announcement_rx.recv() => {

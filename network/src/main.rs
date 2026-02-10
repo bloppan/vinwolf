@@ -60,7 +60,12 @@ async fn main() -> Result<()> {
     endpoint.set_default_client_config(client_config);
     
     let net = std::sync::Arc::new(net_controller::NetworkController::new(endpoint));
-    
+
+    let block_queue_rx = message::init_block_queue(32);
+    tokio::spawn(async move {
+        message::run_block_queue(block_queue_rx).await;
+    });
+
     let net_for_server = net.clone();
     node_config::set_account_id(validator_index);
     
@@ -117,6 +122,35 @@ async fn main() -> Result<()> {
 }
 
 
+fn build_curr_prover(bandersnatch_public: &BandersnatchPublic) -> bandersnatch_vrf_spec::Prover {
+    use ark_vrf::reexports::ark_serialize::CanonicalDeserialize;
+    use ark_vrf::suites::bandersnatch::{Public, Secret, RingProofParams};
+
+    let this_node_index = node_config::get_account_id();
+    let identities = dev_accounts::parse_dev_accounts();
+    let bandersnatch_secret_seed = identities[this_node_index as usize].bandersnatch_secret_seed;
+
+    let curr_validators = {
+        let state = state_handler::get_global_state().lock().unwrap();
+        state.curr_validators.clone()
+    };
+
+    let ring: Vec<Public> = curr_validators.list.iter()
+        .map(|v| Public::deserialize_compressed_unchecked(&v.bandersnatch[..])
+            .unwrap_or_else(|_| Public::from(RingProofParams::padding_point())))
+        .collect();
+
+    let prover_idx = curr_validators.list.iter()
+        .position(|v| v.bandersnatch == *bandersnatch_public)
+        .expect("This validator must be present in curr_validators");
+
+    bandersnatch_vrf_spec::Prover {
+        prover_idx,
+        secret: Secret::from_seed(&bandersnatch_secret_seed),
+        ring,
+    }
+}
+
 async fn node_ctrl(net: std::sync::Arc<net_controller::NetworkController>) {
     use crate::jamnp_types::TicketDistributed;
     use codec::Encode;
@@ -125,12 +159,21 @@ async fn node_ctrl(net: std::sync::Arc<net_controller::NetworkController>) {
     let this_node_index = node_config::get_account_id();
     let bandersnatch_public = identities[this_node_index as usize].bandersnatch_public;
 
+    let mut cached_epoch: Option<TimeSlot> = None;
+    let mut curr_prover: Option<bandersnatch_vrf_spec::Prover> = None;
+
     loop {
 
-        wait_until_next_slot();
         let slot = current_slot();
         let current_epoch = slot / EPOCH_LENGTH as TimeSlot;
         log::debug!("Slot {} started (epoch {}) - checking block production", slot, current_epoch);
+
+        // Rebuild prover only when epoch changes
+        if cached_epoch != Some(current_epoch) {
+            log::info!("Building prover for epoch {}", current_epoch);
+            curr_prover = Some(build_curr_prover(&bandersnatch_public));
+            cached_epoch = Some(current_epoch);
+        }
 
         if slot % EPOCH_LENGTH as TimeSlot == 4 {
             log::info!("New epoch {} detected, generating tickets", current_epoch);
@@ -167,23 +210,22 @@ async fn node_ctrl(net: std::sync::Arc<net_controller::NetworkController>) {
             }
         }
 
-        if let Some(header) = should_produce_block(slot, &bandersnatch_public) {
+        if let Some(header) = should_produce_block(slot, curr_prover.as_ref().unwrap(), &bandersnatch_public).await {
             let announcement = build_announcement(header);
             net.broadcast_announcement(announcement).await;
         }
+
+        wait_until_next_slot(slot).await;
     }
 }
 
-fn should_produce_block(slot: TimeSlot, bandersnatch_public: &BandersnatchPublic) -> Option<Header> {
+async fn should_produce_block(slot: TimeSlot, prover: &bandersnatch_vrf_spec::Prover, bandersnatch_public: &BandersnatchPublic) -> Option<Header> {
 
-    use bandersnatch_vrf_spec::Prover;
-    use ark_vrf::reexports::ark_serialize::CanonicalDeserialize;
-    use ark_vrf::suites::bandersnatch::{Public, Secret, RingProofParams};
     use codec::Encode;
 
-    let (safrole_state, entropy, curr_validators) = {
+    let (safrole_state, entropy) = {
         let state = state_handler::get_global_state().lock().unwrap();
-        (state.safrole.clone(), state.entropy.clone(), state.curr_validators.clone())
+        (state.safrole.clone(), state.entropy.clone())
     };
 
     let slot_index = (slot % EPOCH_LENGTH as TimeSlot) as usize;
@@ -193,33 +235,12 @@ fn should_produce_block(slot: TimeSlot, bandersnatch_public: &BandersnatchPublic
             let ticket = &tickets.tickets_mark[slot_index];
             log::info!("Seal mode: Tickets. Slot {} ticket id: {}", slot, hex::encode(&ticket.id));
 
-            // Compute our VRF output for this ticket's context to check if we own it
-            let this_node_index = node_config::get_account_id();
-            let identities = dev_accounts::parse_dev_accounts();
-            let bandersnatch_secret_seed = identities[this_node_index as usize].bandersnatch_secret_seed;
-
-            // Build ring from curr_validators (matching seal_verify which uses ValidatorSet::Current)
-            let ring: Vec<Public> = curr_validators.list.iter()
-                .map(|v| Public::deserialize_compressed_unchecked(&v.bandersnatch[..])
-                    .unwrap_or_else(|_| Public::from(RingProofParams::padding_point())))
-                .collect();
-
-            let prover_idx = curr_validators.list.iter()
-                .position(|v| v.bandersnatch == *bandersnatch_public)
-                .expect("This validator must be present in curr_validators");
-
-            let prover = Prover {
-                prover_idx,
-                secret: Secret::from_seed(&bandersnatch_secret_seed),
-                ring,
-            };
-
             let context = [&b"jam_ticket_seal"[..], &entropy.buf[3].encode(), &ticket.attempt.encode()].concat();
             let our_vrf_output: Vec<u8> = prover.vrf_output(&context);
 
             if our_vrf_output == ticket.id {
                 log::info!("Block production: ticket matches! Slot {}", slot);
-                return Some(produce_block());
+                return produce_block(prover).await;
             }
         },
         Seal::Keys(ref keys) => {
@@ -228,7 +249,7 @@ fn should_produce_block(slot: TimeSlot, bandersnatch_public: &BandersnatchPublic
 
             if *key == *bandersnatch_public {
                 log::info!("Block production: key matches! Slot {}", slot);
-                return Some(produce_block());
+                return produce_block(prover).await;
             }
         },
         Seal::None => {},
@@ -237,42 +258,18 @@ fn should_produce_block(slot: TimeSlot, bandersnatch_public: &BandersnatchPublic
     None
 }
 
-fn produce_block() -> Header {
+async fn produce_block(prover: &bandersnatch_vrf_spec::Prover) -> Option<Header> {
 
-    use bandersnatch_vrf_spec::Prover;
-    use ark_vrf::reexports::ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-    use ark_vrf::suites::bandersnatch::{Public, Secret, RingProofParams};
     use codec::Encode;
 
-    let this_node_index = node_config::get_account_id();
-    let identities = dev_accounts::parse_dev_accounts();
-    let bandersnatch_secret_key = identities[this_node_index as usize].bandersnatch_secret_seed;
-    let bandersnatch_public = identities[this_node_index as usize].bandersnatch_public;
-
-    // Build ring from curr_validators (matching seal_verify which uses ValidatorSet::Current)
-    let (curr_validators, entropy) = {
+    let entropy = {
         let state = state_handler::get_global_state().lock().unwrap();
-        (state.curr_validators.clone(), state.entropy.clone())
-    };
-
-    let ring: Vec<Public> = curr_validators.list.iter()
-        .map(|v| Public::deserialize_compressed_unchecked(&v.bandersnatch[..])
-            .unwrap_or_else(|_| Public::from(RingProofParams::padding_point())))
-        .collect();
-
-    let prover_idx = curr_validators.list.iter()
-        .position(|v| v.bandersnatch == bandersnatch_public)
-        .expect("This validator must be present in curr_validators");
-
-    let prover = Prover {
-        prover_idx,
-        secret: Secret::from_seed(&bandersnatch_secret_key),
-        ring,
+        state.entropy.clone()
     };
 
     let mut block = Block::default();
     block.extrinsic.tickets = message::take_tickets_for_block(current_slot());
-    block.header.unsigned.author_index = prover_idx as ValidatorIndex;
+    block.header.unsigned.author_index = prover.prover_idx as ValidatorIndex;
     block.header.unsigned.extrinsic_hash = header::encode_extrinsic(&block);
     block.header.unsigned.parent = block::header::get_parent_header();
     block.header.unsigned.parent_state_root = state_handler::get_state_root().lock().unwrap().clone();
@@ -290,7 +287,7 @@ fn produce_block() -> Header {
             let slot_index = (block.header.unsigned.slot % EPOCH_LENGTH as TimeSlot) as usize;
             let c = [&b"jam_ticket_seal"[..], &entropy.buf[3].encode(), &tickets.tickets_mark[slot_index].attempt.encode()].concat();
             let vrf_output = prover.vrf_output(&c);
-            // Step 2 
+            // Step 2
             let context = [&b"jam_entropy"[..], &vrf_output.encode()].concat();
             block.header.unsigned.entropy_source = prover.ietf_vrf_sign(&context, &[]).try_into().unwrap();
             // Step 3
@@ -300,7 +297,7 @@ fn produce_block() -> Header {
             // Step 1
             let c = [&b"jam_fallback_seal"[..], &entropy.buf[3].encode()].concat();
             let vrf_output = prover.vrf_output(&c);
-            // Step 2 
+            // Step 2
             let context = [&b"jam_entropy"[..], &vrf_output.encode()].concat();
             block.header.unsigned.entropy_source = prover.ietf_vrf_sign(&context, &[]).try_into().unwrap();
             // Step 3
@@ -312,21 +309,24 @@ fn produce_block() -> Header {
     }
 
     log::info!("PRODUCING BLOCK...");
-    message::store_block(&block);
-    
-    let _ = state_controller::stf(&block);
 
-    let announcement = jamnp_types::Announcement {
-        header: block.header.clone(),
-        last_finalized_block: jamnp_types::LastFinalizedBlock {
-            header_hash: block.header.unsigned.parent,
-            slot: block.header.unsigned.slot,
+    match message::enqueue_block_and_wait(block.clone()).await {
+        Ok(_) => {
+            let announcement = jamnp_types::Announcement {
+                header: block.header.clone(),
+                last_finalized_block: jamnp_types::LastFinalizedBlock {
+                    header_hash: block.header.unsigned.parent,
+                    slot: block.header.unsigned.slot,
+                }
+            };
+            message::set_last_announcement(announcement);
+            Some(block.header)
         }
-    };
-    
-    message::set_last_announcement(announcement);
-    
-    block.header
+        Err(e) => {
+            log::error!("STF failed for own block: {:?}", e);
+            None
+        }
+    }
 }
 
 fn build_announcement(header: Header) -> Vec<u8> {
@@ -415,28 +415,22 @@ fn compute_proxy_index(ticket_id: &OpaqueHash) -> usize {
     (val as usize) % constants::node::VALIDATORS_COUNT
 }
 
-fn wait_until_next_slot() {
+async fn wait_until_next_slot(current_slot: TimeSlot) {
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("time went backwards");
-
-    let now_millis = now.as_millis() as u64;
     let era_millis = constants::node::JAM_COMMON_ERA * 1000;
     let slot_millis = (constants::node::SLOT_PERIOD as u64) * 1000;
 
-    // Calculate milliseconds elapsed since JAM era
-    let elapsed_since_era = now_millis.saturating_sub(era_millis);
+    // Exact timestamp when the next slot starts
+    let next_slot_start = era_millis + (current_slot as u64 + 1) * slot_millis;
 
-    // Calculate how many milliseconds into the current slot we are
-    let millis_into_slot = elapsed_since_era % slot_millis;
+    let now_millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("time went backwards")
+        .as_millis() as u64;
 
-    // Calculate milliseconds until next slot starts
-    let millis_until_next_slot = slot_millis - millis_into_slot;
-
-    // Sleep until the next slot boundary
-    std::thread::sleep(Duration::from_millis(millis_until_next_slot));
+    let millis_to_wait = next_slot_start.saturating_sub(now_millis);
+    tokio::time::sleep(Duration::from_millis(millis_to_wait)).await;
 }
 
 pub fn current_slot() -> jam_types::TimeSlot {
