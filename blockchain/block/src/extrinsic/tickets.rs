@@ -105,7 +105,16 @@ pub fn process(
         safrole_state.ticket_accumulator.drain(EPOCH_LENGTH..);
     }
 
-    log::debug!("Extrinsic tickets processed succesfully");
+    //  It is invalid to include useless tickets in extrinsic, so all submitted tickets must exist in their posterior ticket accumulator
+    let surviving_ids: std::collections::HashSet<OpaqueHash> = safrole_state.ticket_accumulator.iter().map(|t| t.id).collect();
+    for id in &new_ticket_ids {
+        if !surviving_ids.contains(id) {
+            log::error!("Ticket {} dropped: submitted ticket did not survive accumulator truncation", tools::hex::encode(id));
+            return Err(ProcessError::SafroleError(SafroleErrorCode::TicketDropped));
+        }
+    }
+
+    log::debug!("Ticket accumulator len={:?}", safrole_state.ticket_accumulator.len());
 
     Ok(())
 }

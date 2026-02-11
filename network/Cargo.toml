@@ -7,6 +7,8 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
+ark-vrf = { workspace = true }
+bandersnatch-vrf-spec = { workspace = true }
 block = { workspace = true }
 codec = { workspace = true }
 constants = { workspace = true }

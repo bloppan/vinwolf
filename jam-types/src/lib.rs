@@ -645,6 +645,7 @@ pub enum SafroleErrorCode {
     EmptyTicketsMark = 22,
     UnexpectedTicketsMark = 23,
     WrongTicketsMark = 24,
+    TicketDropped = 25,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Disputes

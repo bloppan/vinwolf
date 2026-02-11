@@ -317,7 +317,7 @@ pub mod work_report {
                 (validators, assignments)
             } else {
                 // We also define the previous 'guarantors_assigments' as it would have been under the previous rotation
-                let epoch_diff = (*post_tau - ROTATION_PERIOD) / EPOCH_LENGTH as u32 == *post_tau / EPOCH_LENGTH as u32;
+                let epoch_diff = (post_tau.saturating_sub(ROTATION_PERIOD)) / EPOCH_LENGTH as u32 == *post_tau / EPOCH_LENGTH as u32;
                 let entropy_index = if epoch_diff { 2 } else { 3 };
                 let mut validators = if epoch_diff { current_validators.clone() } else { prev_validators.clone() };
                 let assignments = guarantor_assignments(&permute(&entropy_pool.buf[entropy_index], (*post_tau).saturating_sub(ROTATION_PERIOD)), &mut validators);

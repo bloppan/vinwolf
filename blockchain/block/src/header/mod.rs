@@ -279,3 +279,29 @@ pub fn extrinsic_verify(block: &Block) -> Result<(), ProcessError> {
     
     return Ok(());
 }
+
+pub fn encode_extrinsic(block: &Block) -> OpaqueHash {
+
+    let mut guarantees_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Header>() * block.extrinsic.guarantees.len());
+    encode_unsigned(block.extrinsic.guarantees.len()).encode_to(&mut guarantees_blob);
+
+    for guarantee in block.extrinsic.guarantees.iter() {
+
+        sp_core::blake2_256(&guarantee.report.encode()).encode_to(&mut guarantees_blob);
+        guarantee.slot.encode_size(4).encode_to(&mut guarantees_blob);
+        encode_unsigned(guarantee.signatures.len()).encode_to(&mut guarantees_blob);
+
+        for signature in &guarantee.signatures {
+            signature.validator_index.encode_to(&mut guarantees_blob);
+            signature.signature.encode_to(&mut guarantees_blob);
+        }
+    }
+
+    let a = [sp_core::blake2_256(&block.extrinsic.tickets.encode_len()),
+                            sp_core::blake2_256(&block.extrinsic.preimages.encode_len()),
+                            sp_core::blake2_256(&guarantees_blob),
+                            sp_core::blake2_256(&block.extrinsic.assurances.encode_len()),
+                            sp_core::blake2_256(&block.extrinsic.disputes.encode())].concat();
+    
+    sp_core::blake2_256(&a)
+}
