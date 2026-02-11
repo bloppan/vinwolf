@@ -152,8 +152,12 @@ fn build_curr_prover(bandersnatch_public: &BandersnatchPublic) -> bandersnatch_v
 }
 
 async fn node_ctrl(net: std::sync::Arc<net_controller::NetworkController>) {
+
     use crate::jamnp_types::TicketDistributed;
     use codec::Encode;
+
+    let slot = current_slot();
+    wait_until_next_slot(slot).await;
 
     let identities = dev_accounts::parse_dev_accounts();
     let this_node_index = node_config::get_account_id();
