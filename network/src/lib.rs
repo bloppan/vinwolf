@@ -5,6 +5,7 @@ pub mod message;
 pub mod net_controller;
 pub mod net_utils;
 pub mod scheduler;
+pub mod topology;
 
 use jam_types::ValidatorIndex;
 use rustls::lock::Mutex;

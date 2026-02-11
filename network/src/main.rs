@@ -1,7 +1,7 @@
 use block::header;
 use constants::node::*;
 use jam_types::*;
-use network::{dev_accounts, jamnp_types, message, net_controller, net_utils, node_config};
+use network::{dev_accounts, jamnp_types, message, net_controller, net_utils, node_config, topology};
 use state_handler::time::get_current;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -79,7 +79,7 @@ async fn main() -> Result<()> {
             continue;
         }
 
-        if net_utils::am_i_the_preferred_initiator(&ed25519_public[validator_index as usize], ed25519_key) {
+        if topology::am_i_the_preferred_initiator(&ed25519_public[validator_index as usize], ed25519_key) {
             log::info!("Initialize connection to node {:?}", index);
             let net_for_client = net.clone();
             clients_handler.push(tokio::spawn(async move {

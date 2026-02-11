@@ -1,6 +1,6 @@
 use codec::generic_codec::decode_from_bytes;
 use crate::message::{BLOCK_ANNOUNCEMENT, BLOCK_REQUEST, TICKET_GENERATION, TICKET_PROXY};
-use crate::{message, message::NetworkMessage, dev_accounts, net_utils, node_config};
+use crate::{message, message::NetworkMessage, dev_accounts, node_config, topology};
 use crate::jamnp_types::{ConnectionError, NetworkError, Handshake, StreamKind};
 use jam_types::ValidatorIndex;
 use quinn::{Connection, RecvStream, SendStream, Endpoint};
@@ -90,7 +90,7 @@ impl NetworkController {
         let my_index = node_config::get_account_id();
         let peers = self.peers.read().await;
         for (&peer_index, handle) in peers.iter() {
-            if !net_utils::is_grid_neighbour(my_index, peer_index) {
+            if !topology::is_grid_neighbour(my_index, peer_index) {
                 continue;
             }
             let tx = handle.announcement_tx.lock().unwrap().clone();
