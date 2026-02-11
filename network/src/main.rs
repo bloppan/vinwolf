@@ -1,14 +1,7 @@
-pub mod dev_accounts;
-pub mod message;
-pub mod net_controller;
-pub mod net_utils;
-pub mod jamnp_codec;
-pub mod jamnp_types;
-
 use block::header;
 use constants::node::*;
 use jam_types::*;
-use network::node_config;
+use network::{dev_accounts, jamnp_types, message, net_controller, net_utils, node_config};
 use state_handler::time::get_current;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -153,7 +146,7 @@ fn build_curr_prover(bandersnatch_public: &BandersnatchPublic) -> bandersnatch_v
 
 async fn node_ctrl(net: std::sync::Arc<net_controller::NetworkController>) {
 
-    use crate::jamnp_types::TicketDistributed;
+    use network::jamnp_types::TicketDistributed;
     use codec::Encode;
 
     let slot = current_slot();

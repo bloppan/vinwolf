@@ -291,3 +291,27 @@ impl ServerCertVerifier for SkipServerVerification {
         self.0.signature_verification_algorithms.supported_schemes()
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::dev_accounts;
+
+    #[test]
+    fn preferred_initiator_test() {
+
+        let identities = dev_accounts::parse_dev_accounts();
+        let ed25519_public: Vec<_> = identities.iter().map(|key| key.ed25519_public).collect();
+        let node_id: usize = 5;
+
+        for id in ed25519_public.iter() {
+            let is_preferred = am_i_the_preferred_initiator(id, &ed25519_public[node_id]);
+            if is_preferred {
+                println!("mismo");
+            } else {
+                println!("el otro");
+            }
+        }
+    }
+}
