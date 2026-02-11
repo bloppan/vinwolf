@@ -16,7 +16,6 @@ use bandersnatch_vrf_spec::Verifier;
 use codec::{generic_codec::encode_unsigned, {Encode, EncodeLen, EncodeSize}};
 use constants::node::{EPOCH_LENGTH, TICKET_ENTRIES_PER_VALIDATOR, VALIDATORS_COUNT};
 use jam_types::*;
-use sp_core::OpaqueMetadata;
 use state_handler::get_state_root;
 use std::collections::HashSet;
 use std::sync::{LazyLock, Mutex};
