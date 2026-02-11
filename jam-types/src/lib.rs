@@ -985,6 +985,11 @@ pub enum ProcessError {
     AssurancesError(AssurancesErrorCode),
     PreimagesError(PreimagesErrorCode),
     AccumulateError(AccumulateErrorCode),
+    TimeError(TimeErrorCode),
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum TimeErrorCode {
+    TimeWentBackwards,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub enum AccumulateErrorCode {

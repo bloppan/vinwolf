@@ -21,7 +21,8 @@ serialization = { workspace = true }
 sp-core = { workspace = true }
 state-controller = { workspace = true }
 state-handler = { workspace = true }
-tokio = { version = "1.40", features = ["full"] }
+time = { workspace = true }
+tokio = { workspace = true }
 tools = { workspace = true }
 trie = { workspace = true }
 
