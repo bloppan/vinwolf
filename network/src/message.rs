@@ -538,13 +538,22 @@ async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connectio
     let time = state_handler::time::get();
     log::debug!("Time set: {time}");
 
-    let request_info = BlockRequestInfo {
-                            header_hash: imported_blocks_stored.leafs[0].header_hash,
-                            direction: 1,
-                            num_blocks: imported_blocks_stored.leafs[0].slot - imported_blocks_stored.last_finalized_block.slot
+    let leaf = match imported_blocks_stored.leafs.first() {
+        Some(l) => l,
+        None => {
+            log::error!("sync_blocks: no leafs in stored imported blocks");
+            return Ok(());
+        }
     };
 
-    log::debug!("Request blocks from slot {:?} in order to sync", imported_blocks_recv.leafs[0].slot);
+    let request_info = BlockRequestInfo {
+                            header_hash: leaf.header_hash,
+                            direction: 1,
+                            num_blocks: leaf.slot - imported_blocks_stored.last_finalized_block.slot
+    };
+
+    let recv_slot = imported_blocks_recv.leafs.first().map(|l| l.slot);
+    log::debug!("Request blocks from slot {:?} in order to sync", recv_slot);
     let mut blocks = block_request(request_info, connection.clone()).await?;
     blocks.sort_by_key(|block| block.header.unsigned.slot);
 

@@ -43,6 +43,14 @@ impl NetworkController {
                         let id_account = connection.remote_address().port().saturating_sub(40000);
                         let dev_accounts = dev_accounts::parse_dev_accounts();
 
+                        if id_account as usize >= dev_accounts.len() {
+                            log::error!(
+                                "Invalid peer index {} from port {}, ignoring connection",
+                                id_account, connection.remote_address().port()
+                            );
+                            return;
+                        }
+
                         log::info!(
                             "New connection established from {} bandersnatch public: {}",
                             connection.remote_address(),
@@ -88,16 +96,22 @@ impl NetworkController {
 
     pub async fn broadcast_announcement(&self, announcement_blob: Vec<u8>) {
         let my_index = node_config::get_account_id();
-        let peers = self.peers.read().await;
-        for (&peer_index, handle) in peers.iter() {
-            if !topology::is_grid_neighbour(my_index, peer_index) {
-                continue;
-            }
-            let tx = handle.announcement_tx.lock().unwrap().clone();
-            if let Some(tx) = tx {
-                if let Err(e) = tx.send(announcement_blob.clone()).await {
-                    log::error!("Failed to send announcement to peer {}: {:?}", peer_index, e);
-                }
+
+        // Collect senders while holding the read lock, then release it before awaiting
+        let targets: Vec<(ValidatorIndex, mpsc::Sender<Vec<u8>>)> = {
+            let peers = self.peers.read().await;
+            peers.iter()
+                .filter(|(&peer_index, _)| topology::is_grid_neighbour(my_index, peer_index))
+                .filter_map(|(&peer_index, handle)| {
+                    let tx = handle.announcement_tx.lock().unwrap().clone();
+                    tx.map(|tx| (peer_index, tx))
+                })
+                .collect()
+        };
+
+        for (peer_index, tx) in targets {
+            if let Err(e) = tx.send(announcement_blob.clone()).await {
+                log::error!("Failed to send announcement to peer {}: {:?}", peer_index, e);
             }
             log::info!("Broadcast announcement to peer {peer_index}");
         }
