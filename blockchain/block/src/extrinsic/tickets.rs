@@ -22,7 +22,7 @@ pub fn process(
     entropy_state: &EntropyPool,
     post_tau: &TimeSlot,
     verifier: &Verifier,
-) -> Result<(), ProcessError> {
+) -> Result<(), ImportError> {
 
     if tickets_extrinsic.is_empty() {
         return Ok(());
@@ -32,12 +32,12 @@ pub fn process(
     // must have an empty tickets extrinsic
     if (*post_tau % EPOCH_LENGTH as TimeSlot) >= TICKET_SUBMISSION_ENDS as TimeSlot {
         log::error!("Unexpected ticket. Block slot: {:?}", post_tau);
-        return Err(ProcessError::SafroleError(SafroleErrorCode::UnexpectedTicket));
+        return Err(ImportError::SafroleError(SafroleErrorCode::UnexpectedTicket));
     }
 
     if tickets_extrinsic.len() > MAX_TICKETS_PER_EXTRINSIC {
         log::error!("Too many tickets: {:?}", tickets_extrinsic.len());
-        return Err(ProcessError::SafroleError(SafroleErrorCode::TooManyTickets));
+        return Err(ImportError::SafroleError(SafroleErrorCode::TooManyTickets));
     }
 
     // We define the extrinsic as a sequence of proofs of valid tickets, each of which is a tuple of an entry index (a
@@ -45,7 +45,7 @@ pub fn process(
     for i in 0..tickets_extrinsic.len() {
         if tickets_extrinsic[i].attempt >= TICKET_ENTRIES_PER_VALIDATOR {
             log::error!("Bad ticket attempt: {:?}", tickets_extrinsic[i].attempt);
-            return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketAttempt));
+            return Err(ImportError::SafroleError(SafroleErrorCode::BadTicketAttempt));
         }
     }
 
@@ -87,14 +87,14 @@ pub fn process(
     // Check tickets order
     if bad_order(&new_ticket_ids) {
         log::error!("Bad tickets order");
-        return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketOrder));
+        return Err(ImportError::SafroleError(SafroleErrorCode::BadTicketOrder));
     }
 
     // Check if there are duplicate tickets
     let ids: Vec<OpaqueHash> = safrole_state.ticket_accumulator.iter().map(|ticket| ticket.id.clone()).collect();
     if has_duplicates(&ids) {
         log::error!("Duplicate ticket");
-        return Err(ProcessError::SafroleError(SafroleErrorCode::DuplicateTicket));
+        return Err(ImportError::SafroleError(SafroleErrorCode::DuplicateTicket));
     }
 
     // Sort tickets
@@ -105,12 +105,21 @@ pub fn process(
         safrole_state.ticket_accumulator.drain(EPOCH_LENGTH..);
     }
 
-    log::debug!("Extrinsic tickets processed succesfully");
+    //  It is invalid to include useless tickets in extrinsic, so all submitted tickets must exist in their posterior ticket accumulator
+    let surviving_ids: std::collections::HashSet<OpaqueHash> = safrole_state.ticket_accumulator.iter().map(|t| t.id).collect();
+    for id in &new_ticket_ids {
+        if !surviving_ids.contains(id) {
+            log::error!("Ticket {} dropped: submitted ticket did not survive accumulator truncation", tools::hex::encode(id));
+            return Err(ImportError::SafroleError(SafroleErrorCode::TicketDropped));
+        }
+    }
+
+    log::debug!("Ticket accumulator len={:?}", safrole_state.ticket_accumulator.len());
 
     Ok(())
 }
 
-fn ticket_seal_verify(verifier: &Verifier, ticket: &Ticket, fixed_input_data: &[u8]) -> Result<TicketBody, ProcessError> {
+fn ticket_seal_verify(verifier: &Verifier, ticket: &Ticket, fixed_input_data: &[u8]) -> Result<TicketBody, ImportError> {
 
     let vrf_input_data = [fixed_input_data, &ticket.attempt.encode()].concat();
     let aux_data = vec![];
@@ -121,7 +130,7 @@ fn ticket_seal_verify(verifier: &Verifier, ticket: &Ticket, fixed_input_data: &[
         },
         Err(_) => { 
             log::error!("Bad ticket proof. Ticket signature: {}", tools::print_hash!(ticket.signature)); 
-            return Err(ProcessError::SafroleError(SafroleErrorCode::BadTicketProof)); 
+            return Err(ImportError::SafroleError(SafroleErrorCode::BadTicketProof)); 
         }
     }
 }

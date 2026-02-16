@@ -25,7 +25,7 @@ pub mod assurances {
         assurances: &[Assurance], 
         post_tau: &TimeSlot,
         parent: &Hash) 
-    -> Result<OutputDataAssurances, ProcessError> {
+    -> Result<OutputDataAssurances, ImportError> {
         
         let output_data = extrinsic::assurances::process(assurances, availability_state, post_tau, parent)?;
 
@@ -46,7 +46,7 @@ pub mod guarantees {
         entropy_pool: &EntropyPool,
         prev_validators: &ValidatorsData,
         curr_validators: &ValidatorsData) 
-    -> Result<OutputDataReports, ProcessError> {
+    -> Result<OutputDataReports, ImportError> {
 
         let output_data = extrinsic::guarantees::process(guarantees_extrinsic, availability_state, post_tau, entropy_pool, prev_validators, curr_validators)?;
 

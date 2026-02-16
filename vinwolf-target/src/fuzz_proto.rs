@@ -24,7 +24,7 @@ pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
         app_version: Version {
             major: 0,
             minor: 3,
-            patch: 11,
+            patch: 12,
         },
         jam_version: Version {
             major: 0,
@@ -287,7 +287,7 @@ fn handle_connection(socket: &mut UnixStream) {
                 state_handler::set_state_root(pre_state_root.clone());
                 header::set_parent_header(parent_header);
 
-                match state_controller::stf(&block) {
+                match state_ctrl::stf(&block) {
                     Ok(_) => {
                         //println!("Block {} processed successfully", tools::print_hash!(header_hash));
                         tools::log::info!("Block proccessed successfully");

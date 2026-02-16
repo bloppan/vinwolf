@@ -73,7 +73,8 @@ pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 14_400;
 
 
 // Time in terms of seconds passed since the beginning of the Jam Common Era, 12:00 UTC on January 1, 2025
-pub const JAM_COMMON_ERA: std::time::Duration = std::time::Duration::from_secs(1_735_732_800);
+//pub const JAM_COMMON_ERA: std::time::Duration = std::time::Duration::from_secs(1_735_732_800);
+pub const JAM_COMMON_ERA: u64 = 1_735_732_800;
 // The size of the on-chain entropy pool
 pub const ENTROPY_POOL_SIZE: usize = 4;
 // Validator super majority

@@ -3,8 +3,8 @@ mod tests {
 
     use codec::{Decode, BytesReader};
     use constants::node::{CORES_COUNT, VALIDATORS_COUNT};
-    use crate::{codec::tests::{TestBody, encode_decode_test}, FromProcessError, test_types::{InputAssurances, StateAssurances}};
-    use jam_types::{OutputDataAssurances, OutputAssurances, ValidatorSet, ProcessError};
+    use crate::{codec::tests::{TestBody, encode_decode_test}, FromImportError, test_types::{InputAssurances, StateAssurances}};
+    use jam_types::{OutputDataAssurances, OutputAssurances, ValidatorSet, ImportError};
     use state_handler::{get_global_state};
     use std::path::Path;
     use std::sync::LazyLock;
@@ -20,10 +20,10 @@ mod tests {
         }
     });
 
-    impl FromProcessError for OutputAssurances {
-        fn from_process_error(error: ProcessError) -> Self {
+    impl FromImportError for OutputAssurances {
+        fn from_process_error(error: ImportError) -> Self {
             match error {
-                ProcessError::AssurancesError(code) => OutputAssurances::Err(code),
+                ImportError::AssurancesError(code) => OutputAssurances::Err(code),
                 _ => panic!("Unexpected error type in conversion"),
             }
         }

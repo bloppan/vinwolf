@@ -7,6 +7,8 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
+ark-vrf = { workspace = true }
+bandersnatch-vrf-spec = { workspace = true }
 block = { workspace = true }
 codec = { workspace = true }
 constants = { workspace = true }
@@ -17,9 +19,10 @@ rustls = { version = "0.23.31", features = ["ring"] }
 safrole = { workspace = true }
 serialization = { workspace = true }
 sp-core = { workspace = true }
-state-controller = { workspace = true }
+state-ctrl = { workspace = true }
 state-handler = { workspace = true }
-tokio = { version = "1.40", features = ["full"] }
+time = { workspace = true }
+tokio = { workspace = true }
 tools = { workspace = true }
 trie = { workspace = true }
 

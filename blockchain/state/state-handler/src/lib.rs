@@ -142,14 +142,14 @@ pub mod disputes {
         new_wr_reported: &DisputesRecords, 
         culprits_keys: &[WorkReportHash],
         faults_keys: &[WorkReportHash]) 
-    -> Result<Offenders, ProcessError> {
+    -> Result<Offenders, ImportError> {
 
         let new_offenders = Vec::from([culprits_keys, faults_keys].concat());
 
         // In the disputes extrinsic can not be offenders already reported
         let all_offenders = Vec::from([disputes_state.offenders.clone(), new_offenders.clone()].concat());
         if misc::has_duplicates(&all_offenders) {
-            return Err(ProcessError::DisputesError(DisputesErrorCode::OffenderAlreadyReported));
+            return Err(ImportError::DisputesError(DisputesErrorCode::OffenderAlreadyReported));
         }   
 
         // If the state was initialized, then we save the auxiliar records in the state

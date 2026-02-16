@@ -645,6 +645,7 @@ pub enum SafroleErrorCode {
     EmptyTicketsMark = 22,
     UnexpectedTicketsMark = 23,
     WrongTicketsMark = 24,
+    TicketDropped = 25,
 }
 // ----------------------------------------------------------------------------------------------------------
 // Disputes
@@ -975,7 +976,7 @@ pub struct GlobalState {
     pub privileges: Privileges,
 }
 #[derive(Debug, PartialEq)]
-pub enum ProcessError {
+pub enum ImportError {
     ReadError(ReadError),
     HeaderError(HeaderErrorCode),
     SafroleError(SafroleErrorCode),
@@ -984,6 +985,11 @@ pub enum ProcessError {
     AssurancesError(AssurancesErrorCode),
     PreimagesError(PreimagesErrorCode),
     AccumulateError(AccumulateErrorCode),
+    TimeError(TimeErrorCode),
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum TimeErrorCode {
+    TimeWentBackwards,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub enum AccumulateErrorCode {

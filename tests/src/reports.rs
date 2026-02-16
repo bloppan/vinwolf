@@ -3,10 +3,10 @@ mod tests {
     
     use codec::{Decode, BytesReader};
     use constants::node::{CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD, VALIDATORS_COUNT};
-    use crate::FromProcessError;
+    use crate::FromImportError;
     use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputWorkReport, WorkReportState, OutputWorkReport};
-    use jam_types::{Account, DisputesRecords, Extrinsic, Header, OutputDataReports, ProcessError, ServiceAccounts, Statistics, ValidatorSet, Block, Ed25519Public};
+    use jam_types::{Account, DisputesRecords, Extrinsic, Header, OutputDataReports, ImportError, ServiceAccounts, Statistics, ValidatorSet, Block, Ed25519Public};
     use state_handler::{get_global_state};
     use std::sync::LazyLock;
     use tools::log;
@@ -21,10 +21,10 @@ mod tests {
         }
     });
 
-    impl FromProcessError for OutputWorkReport {
-        fn from_process_error(error: ProcessError) -> Self {
+    impl FromImportError for OutputWorkReport {
+        fn from_process_error(error: ImportError) -> Self {
             match error {
-                ProcessError::ReportError(code) => OutputWorkReport::Err(code),
+                ImportError::ReportError(code) => OutputWorkReport::Err(code),
                 _ => panic!("Unexpected error type in conversion"),
             }
         }

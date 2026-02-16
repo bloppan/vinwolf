@@ -2,19 +2,19 @@
 mod tests {
 
     use codec::{EncodeLen, Decode, BytesReader};
-    use crate::FromProcessError;
+    use crate::FromImportError;
     use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputPreimages, PreimagesState};
-    use jam_types::{Account, Block, Extrinsic, Header, OutputPreimages, ProcessError, ServiceAccounts, StateKeyType, Statistics, ValidatorsData};
+    use jam_types::{Account, Block, Extrinsic, Header, OutputPreimages, ImportError, ServiceAccounts, StateKeyType, Statistics, ValidatorsData};
     use serialization::{StateKeyTrait, construct_lookup_key, construct_preimage_key};
     use state_handler::{get_global_state};
     use std::collections::HashMap;
     use tools::log;
     
-    impl FromProcessError for OutputPreimages {
-        fn from_process_error(error: ProcessError) -> Self {
+    impl FromImportError for OutputPreimages {
+        fn from_process_error(error: ImportError) -> Self {
             match error {
-                ProcessError::PreimagesError(code) => OutputPreimages::Err(code),
+                ImportError::PreimagesError(code) => OutputPreimages::Err(code),
                 _ => panic!("Unexpected error type in conversion"),
             }
         }

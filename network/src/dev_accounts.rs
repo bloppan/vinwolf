@@ -1,4 +1,4 @@
-use jam_types::{BandersnatchPublic, Ed25519Public, OpaqueHash};
+use jam_types::{BandersnatchPublic, Ed25519Public, OpaqueHash, ValidatorIndex};
 use quinn::Connection;
 use std::{collections::HashMap, sync::LazyLock, sync::Mutex};
 use misc::hex_to_32;

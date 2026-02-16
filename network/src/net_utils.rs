@@ -1,4 +1,4 @@
-use jam_types::{ValidatorIndex, Ed25519Public};
+use jam_types::ValidatorIndex;
 use quinn::{ClientConfig, ServerConfig, TransportConfig};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime, PrivatePkcs8KeyDer};
 use rustls::crypto::{verify_tls12_signature, verify_tls13_signature};
@@ -11,11 +11,6 @@ use std::sync::Arc;
 use std::error::Error;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
-
-pub fn am_i_the_preferred_initiator(my_key: &Ed25519Public, peer_key: &Ed25519Public) -> bool {
-    let cond = ((my_key[31] > 127) ^ (peer_key[31] > 127)) ^ (my_key < peer_key);
-    cond
-}
 
 fn base64_decode(input: &str) -> Result<Vec<u8>> {
 
