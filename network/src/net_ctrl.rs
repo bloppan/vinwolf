@@ -1,7 +1,7 @@
 use codec::generic_codec::decode_from_bytes;
 use crate::message::{BLOCK_ANNOUNCEMENT, BLOCK_REQUEST, TICKET_GENERATION, TICKET_PROXY};
-use crate::{message, message::NetworkMessage, dev_accounts, net_utils, node_config};
-use crate::jamnp_types::{ConnectionError, NetworkError, Handshake, StreamKind};
+use crate::{message, message::NetworkMessage, dev_accounts, node_config, topology};
+use crate::jamnp_types::{NetworkError, Handshake, StreamKind};
 use jam_types::ValidatorIndex;
 use quinn::{Connection, RecvStream, SendStream, Endpoint};
 use std::collections::HashMap;
@@ -42,6 +42,14 @@ impl NetworkController {
                         
                         let id_account = connection.remote_address().port().saturating_sub(40000);
                         let dev_accounts = dev_accounts::parse_dev_accounts();
+
+                        if id_account as usize >= dev_accounts.len() {
+                            log::error!(
+                                "Invalid peer index {} from port {}, ignoring connection",
+                                id_account, connection.remote_address().port()
+                            );
+                            return;
+                        }
 
                         log::info!(
                             "New connection established from {} bandersnatch public: {}",
@@ -88,16 +96,22 @@ impl NetworkController {
 
     pub async fn broadcast_announcement(&self, announcement_blob: Vec<u8>) {
         let my_index = node_config::get_account_id();
-        let peers = self.peers.read().await;
-        for (&peer_index, handle) in peers.iter() {
-            if !net_utils::is_grid_neighbour(my_index, peer_index) {
-                continue;
-            }
-            let tx = handle.announcement_tx.lock().unwrap().clone();
-            if let Some(tx) = tx {
-                if let Err(e) = tx.send(announcement_blob.clone()).await {
-                    log::error!("Failed to send announcement to peer {}: {:?}", peer_index, e);
-                }
+
+        // Collect senders while holding the read lock, then release it before awaiting
+        let targets: Vec<(ValidatorIndex, mpsc::Sender<Vec<u8>>)> = {
+            let peers = self.peers.read().await;
+            peers.iter()
+                .filter(|(&peer_index, _)| topology::is_grid_neighbour(my_index, peer_index))
+                .filter_map(|(&peer_index, handle)| {
+                    let tx = handle.announcement_tx.lock().unwrap().clone();
+                    tx.map(|tx| (peer_index, tx))
+                })
+                .collect()
+        };
+
+        for (peer_index, tx) in targets {
+            if let Err(e) = tx.send(announcement_blob.clone()).await {
+                log::error!("Failed to send announcement to peer {}: {:?}", peer_index, e);
             }
             log::info!("Broadcast announcement to peer {peer_index}");
         }
@@ -125,8 +139,8 @@ impl NetworkController {
             hex::encode(&dev_accounts[peer_index as usize].bandersnatch_public)
         );
 
-        let connecting = self.endpoint.connect(node_addr, &node_alt_name).unwrap();
-        let connection = connecting.await.unwrap();
+        let connecting = self.endpoint.connect(node_addr, &node_alt_name)?;
+        let connection = connecting.await?;
 
         log::info!("Connected to {}", node_addr);
 
@@ -144,8 +158,10 @@ impl NetworkController {
 
         let peer_handle = handle.clone();
 
-        tokio::spawn( async move {
-            handle.open_stream(BLOCK_ANNOUNCEMENT).await.unwrap();
+        tokio::spawn(async move {
+            if let Err(e) = handle.open_stream(BLOCK_ANNOUNCEMENT).await {
+                log::error!("Failed to open announcement stream: {:?}", e);
+            }
         });
 
         peer_handle.peer_task(rx).await;
@@ -179,22 +195,21 @@ impl PeerHandle {
 
     pub async fn open_stream(&self, kind: StreamKind) -> Result<(), NetworkError> {
 
-        let (mut send_stream, mut recv_stream) = self.connection.open_bi().await.map_err(|e| {
-            log::error!("Failed to open bidirectional stream: {:?}", e);
-            NetworkError::ConnectionError(ConnectionError::OpenBidirectionalStream)
-        })?;
+        let (mut send_stream, mut recv_stream) = self.connection.open_bi().await?;
 
         match kind {
             BLOCK_ANNOUNCEMENT => {
                 log::info!("Open stream {BLOCK_ANNOUNCEMENT} for address: {:?}", self.connection.remote_address());
                 let handshake: Vec<u8> = vec![15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0, 1, 15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0];
-                NetworkMessage::send_up(BLOCK_ANNOUNCEMENT, handshake, &mut send_stream).await.unwrap();
-                let handshake = decode_from_bytes::<Handshake>(&NetworkMessage::recv(&mut recv_stream).await?).unwrap();
+                NetworkMessage::send_up(BLOCK_ANNOUNCEMENT, handshake, &mut send_stream).await?;
+                let handshake = decode_from_bytes::<Handshake>(&NetworkMessage::recv(&mut recv_stream).await?)?;
                 let connection = self.connection.clone();
                 let (ann_tx, ann_rx) = mpsc::channel::<Vec<u8>>(16);
                 *self.announcement_tx.lock().unwrap() = Some(ann_tx);
                 tokio::spawn(async move {
-                    message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await.unwrap();
+                    if let Err(e) = message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await {
+                        log::error!("Block announcement stream ended: {:?}", e);
+                    }
                 });
             },
             _ => {
@@ -208,7 +223,7 @@ impl PeerHandle {
     async fn handle_stream(&self, mut send_stream: SendStream, mut recv_stream: RecvStream) -> Result<(), NetworkError> {
 
         let mut stream_kind_buf = [0u8; 1];
-        recv_stream.read_exact(&mut stream_kind_buf).await.unwrap();
+        recv_stream.read_exact(&mut stream_kind_buf).await?;
 
         let kind = u8::from_le_bytes(stream_kind_buf);
         
@@ -219,11 +234,13 @@ impl PeerHandle {
                 let handshake: Vec<u8> = vec![15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0, 1, 15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0];
                 let len_bytes = (handshake.len() as u32).to_le_bytes();
                 send_stream.write_all(&([len_bytes.to_vec(), handshake].concat())).await.ok();
-                let handshake = decode_from_bytes::<Handshake>(&NetworkMessage::recv(&mut recv_stream).await?).unwrap();
+                let handshake = decode_from_bytes::<Handshake>(&NetworkMessage::recv(&mut recv_stream).await?)?;
                 let (ann_tx, ann_rx) = mpsc::channel::<Vec<u8>>(16);
                 *self.announcement_tx.lock().unwrap() = Some(ann_tx);
                 tokio::spawn(async move {
-                    message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await.unwrap();
+                    if let Err(e) = message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await {
+                        log::error!("Block announcement stream ended: {:?}", e);
+                    }
                 });
             },
             BLOCK_REQUEST => {
@@ -237,14 +254,18 @@ impl PeerHandle {
             TICKET_GENERATION => {
                 log::debug!("Generated ticket received -> Send to all current validators");
                 tokio::spawn(async move {
-                    message::recv_ticket_from_generator(recv_stream).await.unwrap();
+                    if let Err(e) = message::recv_ticket_from_generator(recv_stream).await {
+                        log::error!("Failed to handle ticket from generator: {:?}", e);
+                    }
                 });
             },
             TICKET_PROXY => {
                 log::debug!("Received ticket from proxy -> Include in a block");
                 tokio::spawn(async move {
-                    message::recv_ticket_distribution(recv_stream).await.unwrap();
-                }); 
+                    if let Err(e) = message::recv_ticket_distribution(recv_stream).await {
+                        log::error!("Failed to handle ticket distribution: {:?}", e);
+                    }
+                });
             },
             _ => {
                 log::error!("Unknown stream kind: {:?}", kind);
@@ -263,7 +284,9 @@ impl PeerHandle {
                 incoming = self.connection.accept_bi() => {
                     match incoming {
                         Ok((send_stream, recv_stream)) => {
-                            self.handle_stream(send_stream, recv_stream).await.unwrap();
+                            if let Err(e) = self.handle_stream(send_stream, recv_stream).await {
+                                log::error!("Failed to handle stream from {}: {:?}", self.connection.remote_address(), e);
+                            }
                         }
                         Err(e) => {
                             log::info!("Connection closed from {}: {:?}", self.connection.remote_address(), e);

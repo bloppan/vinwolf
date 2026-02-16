@@ -1,12 +1,11 @@
 use crate::{dev_accounts, node_config};
-use crate::jamnp_types::{StreamKind, Announcement, ConnectionError, Handshake, ImportedBlocks, NetworkError, StreamError, TicketDistributed};
+use crate::jamnp_types::{StreamKind, Announcement, Handshake, ImportedBlocks, NetworkError, TicketDistributed};
 use codec::{BytesReader, Decode, Encode};
 use codec::generic_codec::decode_from_bytes;
 use jam_types::{*};
 use quinn::{SendStream, RecvStream, Connection};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::{LazyLock, Mutex, OnceLock};
-use std::u32;
 use tokio::sync::{mpsc, oneshot};
 use tools::{hex, log};
 
@@ -32,7 +31,7 @@ pub fn get_block(header_hash: &OpaqueHash) -> Option<Block> {
 
 pub struct QueuedBlock {
     pub block: Block,
-    pub result_tx: Option<oneshot::Sender<Result<(), ProcessError>>>,
+    pub result_tx: Option<oneshot::Sender<Result<(), ImportError>>>,
 }
 
 static BLOCK_QUEUE_TX: OnceLock<mpsc::Sender<QueuedBlock>> = OnceLock::new();
@@ -51,17 +50,17 @@ pub async fn enqueue_block(block: Block) {
     }
 }
 
-pub async fn enqueue_block_and_wait(block: Block) -> Result<(), ProcessError> {
+pub async fn enqueue_block_and_wait(block: Block) -> Result<(), ImportError> {
     let tx = BLOCK_QUEUE_TX.get().expect("block queue not initialized");
     let (result_tx, result_rx) = oneshot::channel();
     let queued = QueuedBlock { block, result_tx: Some(result_tx) };
     tx.send(queued).await.map_err(|_| {
         log::error!("Failed to enqueue block for processing");
-        ProcessError::HeaderError(HeaderErrorCode::BadParentHeader)
+        ImportError::HeaderError(HeaderErrorCode::BadParentHeader)
     })?;
     result_rx.await.unwrap_or_else(|_| {
         log::error!("Block queue consumer dropped without sending result");
-        Err(ProcessError::HeaderError(HeaderErrorCode::BadParentHeader))
+        Err(ImportError::HeaderError(HeaderErrorCode::BadParentHeader))
     })
 }
 
@@ -94,7 +93,7 @@ pub async fn run_block_queue(mut rx: mpsc::Receiver<QueuedBlock>) {
             for qb in blocks {
                 log::debug!("Queue: processing block slot={}", slot);
                 store_block(&qb.block);
-                let result = state_controller::stf(&qb.block);
+                let result = state_ctrl::stf(&qb.block);
                 match &result {
                     Ok(_) => log::debug!("Queue: block slot={} processed successfully", slot),
                     Err(e) => log::error!("Queue: error processing block slot={}: {:?}", slot, e),
@@ -232,76 +231,35 @@ impl NetworkMessage {
     }
 
     pub async fn recv(recv_stream: &mut RecvStream) -> Result<Vec<u8>, NetworkError> {
-
         let mut len_msg = [0u8; 4];
-    
-        if let Err(e) =  recv_stream.read_exact(&mut len_msg).await {
-            log::error!("Failed to read the stream's length: {:?}", e);
-            return Err(NetworkError::StreamError(StreamError::ReadStream));
-        }
-
+        recv_stream.read_exact(&mut len_msg).await?;
         let len_msg = u32::from_le_bytes(len_msg) as usize;
         let mut buffer = vec![0u8; len_msg];
-
-        if let Err(e) = recv_stream.read_exact(&mut buffer).await {
-            log::error!("Failed to read the stream. Msg len: {:?}. {:?}", len_msg, e);
-            return Err(NetworkError::StreamError(StreamError::ReadStream));
-        }
-
-        return Ok(buffer);
+        recv_stream.read_exact(&mut buffer).await?;
+        Ok(buffer)
     }
 
     pub async fn send(msg_kind: u8, payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
-        
-        let message = NetworkMessage::new(msg_kind, payload);        
-        
-        if let Err(e) = send_stream.write_all(&message).await {
-            log::error!("Failed to send stream: {:?}", e);
-            return Err(NetworkError::StreamError(StreamError::WriteStream));
-        }
-        
-        if let Err(e) = send_stream.finish() {
-            log::error!("Failed to finish stream: {:?}", e);
-            return Err(NetworkError::StreamError(StreamError::WriteStream));
-        }
-
-        return Ok(());
+        let message = NetworkMessage::new(msg_kind, payload);
+        send_stream.write_all(&message).await?;
+        send_stream.finish()?;
+        Ok(())
     }
 
     pub async fn send_up(msg_kind: u8, payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
-
         let message = NetworkMessage::new(msg_kind, payload);
-
-        if let Err(e) = send_stream.write_all(&message).await {
-            log::error!("Failed to send stream: {:?}", e);
-            return Err(NetworkError::StreamError(StreamError::WriteStream));
-        }
-
-        return Ok(());
+        send_stream.write_all(&message).await?;
+        Ok(())
     }
 
     /// Sends a length-prefixed message without kind byte, then finishes the stream.
     /// Use for CE stream responses where the kind byte was already sent at stream open.
     pub async fn reply(payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
-
         let len_bytes = (payload.len() as u32).to_le_bytes();
-
-        if let Err(e) = send_stream.write_all(&len_bytes).await {
-            log::error!("Failed to send message length: {:?}", e);
-            return Err(NetworkError::StreamError(StreamError::WriteStream));
-        }
-
-        if let Err(e) = send_stream.write_all(&payload).await {
-            log::error!("Failed to send message payload: {:?}", e);
-            return Err(NetworkError::StreamError(StreamError::WriteStream));
-        }
-
-        if let Err(e) = send_stream.finish() {
-            log::error!("Failed to finish stream: {:?}", e);
-            return Err(NetworkError::StreamError(StreamError::WriteStream));
-        }
-
-        return Ok(());
+        send_stream.write_all(&len_bytes).await?;
+        send_stream.write_all(&payload).await?;
+        send_stream.finish()?;
+        Ok(())
     }
 }
 
@@ -335,7 +293,7 @@ pub async fn recv_ticket_from_generator(mut recv_stream: RecvStream) -> Result<(
 
     let distributed_ticket = decode_from_bytes::<TicketDistributed>(&distributed_ticket_blob).map_err(|e| {
         log::error!("Failed to decode distributed ticket: {:?}", e);
-        NetworkError::ReadError(e)
+        NetworkError::Decode(e)
     })?;
 
     log::debug!("Ticket received (CE 131): attempt={} epoch={}",
@@ -380,7 +338,7 @@ pub async fn recv_ticket_from_generator(mut recv_stream: RecvStream) -> Result<(
         broadcast_ticket_to_validators(distributed_ticket_blob).await;
     });
 
-    return Ok(());
+    Ok(())
 }
 
 pub async fn broadcast_ticket_to_validators(distributed_ticket_blob: Vec<u8>) {
@@ -427,7 +385,7 @@ pub async fn recv_ticket_distribution(mut recv_stream: RecvStream) -> Result<(),
 
     let distributed_ticket = decode_from_bytes::<TicketDistributed>(&distributed_ticket_blob).map_err(|e| {
         log::error!("Failed to decode distributed ticket: {:?}", e);
-        NetworkError::ReadError(e)
+        NetworkError::Decode(e)
     })?;
 
     log::info!("Ticket distribution received: epoch={} attempt={}", distributed_ticket.epoch, distributed_ticket.ticket.attempt);
@@ -438,10 +396,7 @@ pub async fn recv_ticket_distribution(mut recv_stream: RecvStream) -> Result<(),
 
 async fn state_request(header_hash: OpaqueHash, connection: Connection) -> Result<GlobalState, NetworkError> {
 
-    let (mut send_stream, mut recv_stream) = connection.open_bi().await.map_err(|e| {
-        log::error!("Failed to open bidirectional stream: {:?}", e);
-        NetworkError::ConnectionError(ConnectionError::OpenBidirectionalStream)
-    })?;
+    let (mut send_stream, mut recv_stream) = connection.open_bi().await?;
 
     let key_start = [0u8; 31];
     let key_end = [0xFFu8; 31];
@@ -467,7 +422,7 @@ async fn state_request(header_hash: OpaqueHash, connection: Connection) -> Resul
 
         let keyval = KeyValue::decode(&mut reader).map_err(|e| {
             log::error!("Failed to decode keyvalue {c}: {:?}", e);
-            NetworkError::ReadError(e)
+            NetworkError::Decode(e)
         })?;
 
         keyvals.push(keyval);
@@ -475,17 +430,14 @@ async fn state_request(header_hash: OpaqueHash, connection: Connection) -> Resul
 
     let mut global_state = GlobalState::default();
     
-    if let Err(e) = misc::parse_state_keyvals(&keyvals, &mut global_state) {
-        log::error!("Failed to parse state keyvals: {:?}", e);
-        return Err(NetworkError::ReadError(e));
-    }
+    misc::parse_state_keyvals(&keyvals, &mut global_state)?;
     
     // Initialize the verifiers 
     safrole::verifier::init_all(&global_state);
     
     log::debug!("Total keyvalues decoded: {c}");
 
-    return Ok(global_state);
+    Ok(global_state)
 } 
 
 pub async fn handle_block_request(mut send_stream: SendStream, mut recv_stream: RecvStream) -> Result<(), NetworkError> {
@@ -493,18 +445,9 @@ pub async fn handle_block_request(mut send_stream: SendStream, mut recv_stream: 
     let request_blob = NetworkMessage::recv(&mut recv_stream).await?;
     let mut reader = BytesReader::new(&request_blob);
 
-    let header_hash = OpaqueHash::decode(&mut reader).map_err(|e| {
-        log::error!("Failed to decode block request header hash: {:?}", e);
-        NetworkError::ReadError(e)
-    })?;
-    let direction = u8::decode(&mut reader).map_err(|e| {
-        log::error!("Failed to decode block request direction: {:?}", e);
-        NetworkError::ReadError(e)
-    })?;
-    let num_blocks = u32::decode(&mut reader).map_err(|e| {
-        log::error!("Failed to decode block request num_blocks: {:?}", e);
-        NetworkError::ReadError(e)
-    })?;
+    let header_hash = OpaqueHash::decode(&mut reader)?;
+    let direction = u8::decode(&mut reader)?;
+    let num_blocks = u32::decode(&mut reader)?;
 
     log::debug!("Block request received: hash={} direction={} num_blocks={}", hex::encode(&header_hash), direction, num_blocks);
 
@@ -538,10 +481,7 @@ pub async fn handle_block_request(mut send_stream: SendStream, mut recv_stream: 
 
 async fn block_request(request_info: BlockRequestInfo, connection: Connection) -> Result<Vec<Block>, NetworkError> {
 
-    let (mut send_stream, mut recv_stream) = connection.open_bi().await.map_err(|e| {
-        log::error!("Failed to open bidirectional stream: {:?}", e);
-        NetworkError::ConnectionError(ConnectionError::OpenBidirectionalStream)
-    })?;
+    let (mut send_stream, mut recv_stream) = connection.open_bi().await?;
 
     let payload = [request_info.header_hash.encode(), vec![request_info.direction], request_info.num_blocks.to_le_bytes().to_vec()].concat();
     NetworkMessage::send(BLOCK_REQUEST, payload, &mut send_stream).await?;
@@ -557,14 +497,14 @@ async fn block_request(request_info: BlockRequestInfo, connection: Connection) -
         
         let block = Block::decode(&mut reader).map_err(|e| {
             log::error!("Failed to decode block {i}: {:?}", e);
-            NetworkError::ReadError(e)
+            NetworkError::Decode(e)
         })?;
 
         //log::debug!("Slot: {:?} Block: {:x?}", block.header.unsigned.slot, block);
         blocks.push(block);
     }    
 
-    return Ok(blocks);
+    Ok(blocks)
 }
 
 async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connection) -> Result<(), NetworkError> {
@@ -598,26 +538,35 @@ async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connectio
     let time = state_handler::time::get();
     log::debug!("Time set: {time}");
 
-    let request_info = BlockRequestInfo {
-                            header_hash: imported_blocks_stored.leafs[0].header_hash,
-                            direction: 1,
-                            num_blocks: imported_blocks_stored.leafs[0].slot - imported_blocks_stored.last_finalized_block.slot
+    let leaf = match imported_blocks_stored.leafs.first() {
+        Some(l) => l,
+        None => {
+            log::error!("sync_blocks: no leafs in stored imported blocks");
+            return Ok(());
+        }
     };
 
-    log::debug!("Request blocks from slot {:?} in order to sync", imported_blocks_recv.leafs[0].slot);
+    let request_info = BlockRequestInfo {
+                            header_hash: leaf.header_hash,
+                            direction: 1,
+                            num_blocks: leaf.slot - imported_blocks_stored.last_finalized_block.slot
+    };
+
+    let recv_slot = imported_blocks_recv.leafs.first().map(|l| l.slot);
+    log::debug!("Request blocks from slot {:?} in order to sync", recv_slot);
     let mut blocks = block_request(request_info, connection.clone()).await?;
     blocks.sort_by_key(|block| block.header.unsigned.slot);
 
     for block in blocks.iter() {
         log::debug!("SYNC process block {}", hex::encode(&sp_core::blake2_256(&block.header.encode())));
         store_block(block);
-        match state_controller::stf(block) {
+        match state_ctrl::stf(block) {
             Ok(_) => { log::debug!("processed successfully"); },
             Err(e) => { log::error!("error processing block: {:?}", e); },
         }
     }
 
-    return Ok(());
+    Ok(())
 }
 
 static IMPORTED_BLOCKS: LazyLock<Mutex<ImportedBlocks>> = LazyLock::new(|| { Mutex::new(ImportedBlocks::default()) });
@@ -626,13 +575,13 @@ fn is_synced(imported_blocks: &ImportedBlocks) -> bool {
 
     let mut imported_blocks_stored = IMPORTED_BLOCKS.lock().unwrap();
 
-    if imported_blocks_stored.clone() == *imported_blocks {
+    if *imported_blocks_stored == *imported_blocks {
         return true;
     }
 
     *imported_blocks_stored = imported_blocks.clone();
 
-    return false;
+    false
 }
 
 static LAST_ANNOUNCEMENT: LazyLock<Mutex<Announcement>> = LazyLock::new(|| { Mutex::new(Announcement::default()) });
@@ -656,7 +605,7 @@ fn is_new(announcement: &Announcement) -> bool {
     
     *last_announcement_stored = announcement.clone();
 
-    return true;
+    true
 }
 
 pub async fn block_announcement(
@@ -706,10 +655,20 @@ pub async fn block_announcement(
                     num_blocks: 1
                 };
 
-                let block = block_request(request_info, connection.clone()).await.unwrap();
-                log::debug!("process block in loop {}", hex::encode(&sp_core::blake2_256(&block[0].header.encode())));
+                let blocks = match block_request(request_info, connection.clone()).await {
+                    Ok(b) => b,
+                    Err(e) => {
+                        log::error!("Failed to request block: {:?}", e);
+                        continue;
+                    }
+                };
 
-                enqueue_block(block[0].clone()).await;
+                if let Some(block) = blocks.first() {
+                    log::debug!("process block in loop {}", hex::encode(&sp_core::blake2_256(&block.header.encode())));
+                    enqueue_block(block.clone()).await;
+                } else {
+                    log::error!("Block request returned empty response");
+                }
             }
 
             Some(announcement_blob) = announcement_rx.recv() => {

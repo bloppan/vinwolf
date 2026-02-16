@@ -38,29 +38,59 @@ pub struct TicketDistributed {
     pub ticket: Ticket,
 } 
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum NetworkError {
-    ReadError(ReadError),
-    StreamError(StreamError),
-    MessageError(MessageError),
-    ConnectionError(ConnectionError),
+    Decode(ReadError),
+    Stream(StreamError),
+    Connection(ConnectionError),
 }
 
-#[derive(Debug, PartialEq)]
-pub enum MessageError {
-
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum StreamError {
-    OpenStream,
-    ReadStream,
-    WriteStream,
+    Read(String),
+    Write(String),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum ConnectionError {
-    OpenBidirectionalStream,
+    Open(String),
+    Connect(String),
+}
+
+impl From<ReadError> for NetworkError {
+    fn from(e: ReadError) -> Self {
+        NetworkError::Decode(e)
+    }
+}
+
+impl From<quinn::ConnectionError> for NetworkError {
+    fn from(e: quinn::ConnectionError) -> Self {
+        NetworkError::Connection(ConnectionError::Open(e.to_string()))
+    }
+}
+
+impl From<quinn::ConnectError> for NetworkError {
+    fn from(e: quinn::ConnectError) -> Self {
+        NetworkError::Connection(ConnectionError::Connect(e.to_string()))
+    }
+}
+
+impl From<quinn::ReadExactError> for NetworkError {
+    fn from(e: quinn::ReadExactError) -> Self {
+        NetworkError::Stream(StreamError::Read(e.to_string()))
+    }
+}
+
+impl From<quinn::WriteError> for NetworkError {
+    fn from(e: quinn::WriteError) -> Self {
+        NetworkError::Stream(StreamError::Write(e.to_string()))
+    }
+}
+
+impl From<quinn::ClosedStream> for NetworkError {
+    fn from(e: quinn::ClosedStream) -> Self {
+        NetworkError::Stream(StreamError::Write(e.to_string()))
+    }
 }
 
 impl Default for ImportedBlocks {

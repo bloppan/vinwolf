@@ -4,10 +4,10 @@ mod tests {
     use bandersnatch_vrf_spec::Verifier;
     use codec::{Decode, BytesReader};
     use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, TICKET_ENTRIES_PER_VALIDATOR, MAX_TICKETS_PER_EXTRINSIC};
-    use crate::FromProcessError;
+    use crate::FromImportError;
     use crate::codec::tests::{TestBody, encode_decode_test};
     use crate::test_types::{InputSafrole, SafroleState};
-    use jam_types::{Block, Header, Extrinsic, Safrole, OutputSafrole, DisputesRecords, ValidatorSet, ProcessError, OutputDataSafrole};
+    use jam_types::{Block, Header, Extrinsic, Safrole, OutputSafrole, DisputesRecords, ValidatorSet, ImportError, OutputDataSafrole};
     use safrole::verifier;
     use safrole::create_ring_set;
     use state_handler::{get_global_state};
@@ -27,10 +27,10 @@ mod tests {
         }
     });
 
-    impl FromProcessError for OutputSafrole {
-        fn from_process_error(error: ProcessError) -> Self {
+    impl FromImportError for OutputSafrole {
+        fn from_process_error(error: ImportError) -> Self {
             match error {
-                ProcessError::SafroleError(code) => OutputSafrole::Err(code),
+                ImportError::SafroleError(code) => OutputSafrole::Err(code),
                 _ => panic!("Unexpected error type in conversion"),
             }
         }

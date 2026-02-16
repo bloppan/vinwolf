@@ -37,7 +37,7 @@ pub fn process(
     disputes_state: &mut DisputesRecords, 
     availability_state: &mut AvailabilityAssignments,
     disputes_extrinsic: &DisputesExtrinsic
-) -> Result<OutputDataDisputes, ProcessError> {
+) -> Result<OutputDataDisputes, ImportError> {
 
     let output_data = extrinsic::disputes::process(disputes_extrinsic, disputes_state, availability_state)?;
 

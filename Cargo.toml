@@ -12,7 +12,8 @@ members = [
     "jam-utils/serialization",
     "jam-utils/shuffle",
     "jam-utils/trie",
-    "network", "node",
+    "network", 
+    "node",
     "pvm",
     "storage",
     "tests",
@@ -49,10 +50,11 @@ safrole = { path = "blockchain/state/safrole" }
 serialization = { path = "jam-utils/serialization" }
 services = { path = "blockchain/state/services" }
 shuffle = { path = "jam-utils/shuffle" }
-state-controller = { path = "blockchain/state/state-controller" }
+state-ctrl = { path = "blockchain/state/state-ctrl" }
 state-handler = { path = "blockchain/state/state-handler" }
 statistics = { path = "blockchain/state/statistics" }
 storage = { path = "storage" }
+time = { path = "blockchain/state/time" }
 tools = { path = "tools" }
 trie = { path = "jam-utils/trie" }
 validators = { path = "blockchain/state/validators" }
@@ -63,3 +65,4 @@ ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring"] }
 quinn = { version = "0.11", features = ["rustls"] }
 rocksdb = "0.24.0"
 sp-core = "34.0.0"
+tokio = { version = "1.40", features = ["full"] }

@@ -16,7 +16,7 @@ pub fn process(
     availability_state: &mut AvailabilityAssignments, 
     post_tau: &TimeSlot, 
     parent: &Hash) 
--> Result<OutputDataAssurances, ProcessError> {
+-> Result<OutputDataAssurances, ImportError> {
 
     if assurances_extrinsic.is_empty() {
         return Ok(OutputDataAssurances { reported: Vec::new() });
@@ -25,7 +25,7 @@ pub fn process(
     // The assurances extrinsic is a sequence of assurance values, at most one per validator
     if assurances_extrinsic.len() > VALIDATORS_COUNT {
         log::error!("Too many extrinsic assurances: {:?}", assurances_extrinsic.len());
-        return Err(ProcessError::AssurancesError(AssurancesErrorCode::TooManyAssurances));
+        return Err(ImportError::AssurancesError(AssurancesErrorCode::TooManyAssurances));
     }
 
     // The assurances must all ordered by validator index
@@ -37,14 +37,14 @@ pub fn process(
     for index in &validator_indexes {
         if *index as usize >= VALIDATORS_COUNT {
             log::error!("Bad validator index: {:?}", *index);
-            return Err(ProcessError::AssurancesError(AssurancesErrorCode::BadValidatorIndex));
+            return Err(ImportError::AssurancesError(AssurancesErrorCode::BadValidatorIndex));
         }
     }                       
 
     // The assurances must all be ordered by validator index
     if !is_sorted_and_unique(&validator_indexes) {
         log::error!("Not sorted or unique assurers");
-        return Err(ProcessError::AssurancesError(AssurancesErrorCode::NotSortedOrUniqueAssurers));
+        return Err(ImportError::AssurancesError(AssurancesErrorCode::NotSortedOrUniqueAssurers));
     }
     
     let current_validators = state_handler::validators::get(ValidatorSet::Current);
@@ -54,7 +54,7 @@ pub fn process(
         // The assurances must all be anchored on the parent
         if assurance.anchor != *parent {
             log::error!("Bad attestation parent: 0x{} != Block parent: 0x{}", tools::print_hash!(assurance.anchor), tools::print_hash!(*parent));
-            return Err(ProcessError::AssurancesError(AssurancesErrorCode::BadAttestationParent));
+            return Err(ImportError::AssurancesError(AssurancesErrorCode::BadAttestationParent));
         }
         // The signature must be one whose public key is that of the validator assuring and whose message is the
         // serialization of the parent hash and the aforementioned bitstring.
@@ -66,11 +66,11 @@ pub fn process(
         let validator = &current_validators.list[assurance.validator_index as usize]; 
         if !assurance.signature.verify_signature(&message, &validator.ed25519) {
             log::error!("Bad signature in validator index {:?}", assurance.validator_index);
-            return Err(ProcessError::AssurancesError(AssurancesErrorCode::BadSignature));
+            return Err(ImportError::AssurancesError(AssurancesErrorCode::BadSignature));
         }
         if assurance.bitfield.len() != AVAIL_BITFIELD_BYTES {
             log::error!("Wrong bitfield length {:?} != available bitfield bytes {:?}", assurance.bitfield.len(), AVAIL_BITFIELD_BYTES);
-            return Err(ProcessError::AssurancesError(AssurancesErrorCode::WrongBitfieldLength));
+            return Err(ImportError::AssurancesError(AssurancesErrorCode::WrongBitfieldLength));
         }
         
         for core in 0..CORES_COUNT {
@@ -79,7 +79,7 @@ pub fn process(
                 // A bit may only be set if the corresponding core has a report pending availability on it
                 if availability_state.list[core as usize].is_none() {
                     log::error!("Core {:?} not engaged", core);
-                    return Err(ProcessError::AssurancesError(AssurancesErrorCode::CoreNotEngaged));
+                    return Err(ImportError::AssurancesError(AssurancesErrorCode::CoreNotEngaged));
                 }
                 core_marks[core as usize] += 1;
             }

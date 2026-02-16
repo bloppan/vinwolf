@@ -1,15 +1,7 @@
-pub mod dev_accounts;
-pub mod message;
-pub mod net_controller;
-pub mod net_utils;
-pub mod jamnp_codec;
-pub mod jamnp_types;
-
 use block::header;
 use constants::node::*;
 use jam_types::*;
-use network::node_config;
-use state_handler::time::get_current;
+use network::{dev_accounts, jamnp_types, message, net_ctrl, net_utils, node_config, topology};
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tools::{hex, log};
@@ -59,7 +51,7 @@ async fn main() -> Result<()> {
     let mut endpoint = quinn::Endpoint::server(server_config, bind_addr)?;
     endpoint.set_default_client_config(client_config);
     
-    let net = std::sync::Arc::new(net_controller::NetworkController::new(endpoint));
+    let net = std::sync::Arc::new(net_ctrl::NetworkController::new(endpoint));
 
     let block_queue_rx = message::init_block_queue(32);
     tokio::spawn(async move {
@@ -86,7 +78,7 @@ async fn main() -> Result<()> {
             continue;
         }
 
-        if net_utils::am_i_the_preferred_initiator(&ed25519_public[validator_index as usize], ed25519_key) {
+        if topology::am_i_the_preferred_initiator(&ed25519_public[validator_index as usize], ed25519_key) {
             log::info!("Initialize connection to node {:?}", index);
             let net_for_client = net.clone();
             clients_handler.push(tokio::spawn(async move {
@@ -151,13 +143,14 @@ fn build_curr_prover(bandersnatch_public: &BandersnatchPublic) -> bandersnatch_v
     }
 }
 
-async fn node_ctrl(net: std::sync::Arc<net_controller::NetworkController>) {
+async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
 
-    use crate::jamnp_types::TicketDistributed;
+    use network::jamnp_types::TicketDistributed;
     use codec::Encode;
+    use time;
 
-    let slot = current_slot();
-    wait_until_next_slot(slot).await;
+    let slot = time::current_slot().unwrap();
+    time::wait_until_next_slot(slot).await.unwrap();
 
     let identities = dev_accounts::parse_dev_accounts();
     let this_node_index = node_config::get_account_id();
@@ -168,7 +161,7 @@ async fn node_ctrl(net: std::sync::Arc<net_controller::NetworkController>) {
 
     loop {
 
-        let slot = current_slot();
+        let slot = time::current_slot().unwrap();
         let current_epoch = slot / EPOCH_LENGTH as TimeSlot;
         log::debug!("Slot {} started (epoch {}) - checking block production", slot, current_epoch);
 
@@ -219,7 +212,7 @@ async fn node_ctrl(net: std::sync::Arc<net_controller::NetworkController>) {
             net.broadcast_announcement(announcement).await;
         }
 
-        wait_until_next_slot(slot).await;
+        time::wait_until_next_slot(slot).await.unwrap();
     }
 }
 
@@ -265,6 +258,7 @@ async fn should_produce_block(slot: TimeSlot, prover: &bandersnatch_vrf_spec::Pr
 async fn produce_block(prover: &bandersnatch_vrf_spec::Prover) -> Option<Header> {
 
     use codec::Encode;
+    use time;
 
     let entropy = {
         let state = state_handler::get_global_state().lock().unwrap();
@@ -272,12 +266,12 @@ async fn produce_block(prover: &bandersnatch_vrf_spec::Prover) -> Option<Header>
     };
 
     let mut block = Block::default();
-    block.extrinsic.tickets = message::take_tickets_for_block(current_slot());
+    block.extrinsic.tickets = message::take_tickets_for_block(time::current_slot().unwrap());
     block.header.unsigned.author_index = prover.prover_idx as ValidatorIndex;
     block.header.unsigned.extrinsic_hash = header::encode_extrinsic(&block);
     block.header.unsigned.parent = block::header::get_parent_header();
     block.header.unsigned.parent_state_root = state_handler::get_state_root().lock().unwrap().clone();
-    block.header.unsigned.slot = current_slot();
+    block.header.unsigned.slot = time::current_slot().unwrap();
 
     let safrole_state = state_handler::get_global_state()
         .lock()
@@ -417,66 +411,5 @@ fn compute_proxy_index(ticket_id: &OpaqueHash) -> usize {
     let last_4 = &ticket_id[28..32];
     let val = u32::from_be_bytes(last_4.try_into().unwrap());
     (val as usize) % constants::node::VALIDATORS_COUNT
-}
-
-async fn wait_until_next_slot(current_slot: TimeSlot) {
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
-    let era_millis = constants::node::JAM_COMMON_ERA * 1000;
-    let slot_millis = (constants::node::SLOT_PERIOD as u64) * 1000;
-
-    // Exact timestamp when the next slot starts
-    let next_slot_start = era_millis + (current_slot as u64 + 1) * slot_millis;
-
-    let now_millis = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("time went backwards")
-        .as_millis() as u64;
-
-    let millis_to_wait = next_slot_start.saturating_sub(now_millis);
-    tokio::time::sleep(Duration::from_millis(millis_to_wait)).await;
-}
-
-pub fn current_slot() -> jam_types::TimeSlot {
-    let now_secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("time went backwards")
-        .as_secs();
-
-    ((now_secs - constants::node::JAM_COMMON_ERA) as TimeSlot / constants::node::SLOT_PERIOD) as TimeSlot
-}
-
-//fn evaluate_block_production
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn node_ctrl_test() {
-        node_ctrl();
-    }
-
-    #[test]
-    fn wait_until_next_slot_test() {
-        let start = std::time::Instant::now();
-        wait_until_next_slot();
-        let slot = current_slot();
-        let elapsed = start.elapsed();
-
-        println!("Waited {:?} for slot {}", elapsed, slot);
-
-        // Verify we're at the beginning of the slot (within 50ms tolerance)
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap();
-        let era_millis = constants::node::JAM_COMMON_ERA * 1000;
-        let slot_millis = (constants::node::SLOT_PERIOD as u64) * 1000;
-        let elapsed_since_era = now.as_millis() as u64 - era_millis;
-        let millis_into_slot = elapsed_since_era % slot_millis;
-
-        println!("Milliseconds into slot: {}", millis_into_slot);
-        assert!(millis_into_slot < 50, "Should be at start of slot");
-    }
 }
 

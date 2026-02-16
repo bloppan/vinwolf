@@ -44,7 +44,7 @@ pub fn process(
     tau: &mut TimeSlot,
     block: &Block,
     offenders: &[Ed25519Public],
-) -> Result<OutputDataSafrole, ProcessError> {
+) -> Result<OutputDataSafrole, ImportError> {
 
     // tau defines de most recent block
     // post_tau defines the block being processed
@@ -53,7 +53,7 @@ pub fn process(
     // Timeslot must be strictly monotonic
     if post_tau <= *tau {
         log::error!("Bad block slot: {:?}. The previous slot is: {:?}. Timeslot must be strictly monotonic", post_tau, tau);
-        return Err(ProcessError::SafroleError(SafroleErrorCode::BadSlot));
+        return Err(ImportError::SafroleError(SafroleErrorCode::BadSlot));
     }
     
     // Calculate time parameters
@@ -68,7 +68,7 @@ pub fn process(
 
     // The epoch mark can be some only if the block is the first in a new epoch 
     if block.header.unsigned.epoch_mark.is_some() && post_epoch == epoch {
-        return Err(ProcessError::SafroleError(SafroleErrorCode::UnexpectedEpochMark));
+        return Err(ImportError::SafroleError(SafroleErrorCode::UnexpectedEpochMark));
     }
     // The winning-tickets marker is either empty or, if the block is the first after the end of the submission period for tickets and if the
     // ticket accumulator is saturated, then the final sequence of tickets identifiers.
@@ -78,7 +78,7 @@ pub fn process(
         || TICKET_SUBMISSION_ENDS as TimeSlot > post_m
         || safrole_state.ticket_accumulator.len() != EPOCH_LENGTH) 
     {
-        return Err(ProcessError::SafroleError(SafroleErrorCode::UnexpectedTicketsMark));
+        return Err(ImportError::SafroleError(SafroleErrorCode::UnexpectedTicketsMark));
     }
     // Check if we are in a new epoch (e' > e)
     if post_epoch > epoch {
@@ -103,7 +103,7 @@ pub fn process(
         // containing both Bandersnatch keys and Ed25519 keys for each validator defining the validator keys beginning in the next epoch
         if block.header.unsigned.epoch_mark.is_none() {
             log::error!("Empty epoch mark");
-            return Err(ProcessError::SafroleError(SafroleErrorCode::EmptyEpochMark));
+            return Err(ImportError::SafroleError(SafroleErrorCode::EmptyEpochMark));
         }
         block::header::epoch_mark_verify(&block.header, entropy_pool)?;
         // On an epoch transition, we therefore rotate the accumulator value into the history eta1, eta2 eta3
@@ -159,12 +159,12 @@ pub fn process(
 
     } else if post_epoch == epoch && m < TICKET_SUBMISSION_ENDS as u32 && TICKET_SUBMISSION_ENDS as u32 <= post_m && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
         if block.header.unsigned.tickets_mark.is_none() {
-            return Err(ProcessError::SafroleError(SafroleErrorCode::EmptyTicketsMark));
+            return Err(ImportError::SafroleError(SafroleErrorCode::EmptyTicketsMark));
         }
         // gamma_a is the ticket accumulator, a series of highestscoring ticket identifiers to be used for the next epoch.
         tickets_mark = Some(outside_in_sequencer(&safrole_state.ticket_accumulator));
         if tickets_mark != block.header.unsigned.tickets_mark {
-            return Err(ProcessError::SafroleError(SafroleErrorCode::WrongTicketsMark));
+            return Err(ImportError::SafroleError(SafroleErrorCode::WrongTicketsMark));
         }
     }
 
