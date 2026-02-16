@@ -1,7 +1,7 @@
 use block::header;
 use constants::node::*;
 use jam_types::*;
-use network::{dev_accounts, jamnp_types, message, net_controller, net_utils, node_config, topology};
+use network::{dev_accounts, jamnp_types, message, net_ctrl, net_utils, node_config, topology};
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tools::{hex, log};
@@ -51,7 +51,7 @@ async fn main() -> Result<()> {
     let mut endpoint = quinn::Endpoint::server(server_config, bind_addr)?;
     endpoint.set_default_client_config(client_config);
     
-    let net = std::sync::Arc::new(net_controller::NetworkController::new(endpoint));
+    let net = std::sync::Arc::new(net_ctrl::NetworkController::new(endpoint));
 
     let block_queue_rx = message::init_block_queue(32);
     tokio::spawn(async move {
@@ -143,7 +143,7 @@ fn build_curr_prover(bandersnatch_public: &BandersnatchPublic) -> bandersnatch_v
     }
 }
 
-async fn node_ctrl(net: std::sync::Arc<net_controller::NetworkController>) {
+async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
 
     use network::jamnp_types::TicketDistributed;
     use codec::Encode;

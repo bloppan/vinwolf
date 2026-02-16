@@ -2,7 +2,7 @@ pub mod dev_accounts;
 pub mod jamnp_codec;
 pub mod jamnp_types;
 pub mod message;
-pub mod net_controller;
+pub mod net_ctrl;
 pub mod net_utils;
 pub mod scheduler;
 pub mod topology;
