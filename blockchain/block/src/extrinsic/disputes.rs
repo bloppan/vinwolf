@@ -14,7 +14,7 @@ pub fn process(
     disputes_extrinsic: &DisputesExtrinsic, 
     disputes_state: &mut DisputesRecords,
     availability_state: &mut AvailabilityAssignments,
-) -> Result<OutputDataDisputes, ProcessError> {
+) -> Result<OutputDataDisputes, ImportError> {
 
     if is_empty(disputes_extrinsic) {
         return Ok(OutputDataDisputes { offenders_mark: Vec::new() });
@@ -25,7 +25,7 @@ pub fn process(
 
     if verdict_ages.len() > 1 {
         if !verdict_ages.iter().all(|x| *x == verdict_ages[0]) {
-            return Err(ProcessError::DisputesError(DisputesErrorCode::AgesNotEqual));
+            return Err(ImportError::DisputesError(DisputesErrorCode::AgesNotEqual));
         }
     }
 
@@ -67,7 +67,7 @@ pub fn process(
     Ok(OutputDataDisputes { offenders_mark: new_offenders })
 }
 
-fn check_composition(disputes_extrinsic: &DisputesExtrinsic, vote_count: &[(Hash, usize)]) -> Result<DisputesRecords, ProcessError> {
+fn check_composition(disputes_extrinsic: &DisputesExtrinsic, vote_count: &[(Hash, usize)]) -> Result<DisputesRecords, ImportError> {
 
     // We first save in this auxiliar records the new offenders
     let mut new_wr_reported = DisputesRecords::default();
@@ -80,7 +80,7 @@ fn check_composition(disputes_extrinsic: &DisputesExtrinsic, vote_count: &[(Hash
                     // Any verdict containing solely valid judgments implies the same report having at least one valid
                     // entry in the faults sequence
                     if disputes_extrinsic.faults.len() < 1 {
-                        return Err(ProcessError::DisputesError(DisputesErrorCode::NotEnoughFaults));
+                        return Err(ImportError::DisputesError(DisputesErrorCode::NotEnoughFaults));
                     }
                     new_wr_reported.good.push(*target);
             },
@@ -88,12 +88,12 @@ fn check_composition(disputes_extrinsic: &DisputesExtrinsic, vote_count: &[(Hash
                     // Any verdict containing solely invalid judgments implies the same report having at least two 
                     // valid entries in the culprits sequence
                     if disputes_extrinsic.culprits.len() < 2 {
-                        return Err(ProcessError::DisputesError(DisputesErrorCode::NotEnoughCulprits));
+                        return Err(ImportError::DisputesError(DisputesErrorCode::NotEnoughCulprits));
                     }
                     new_wr_reported.bad.push(*target);
             },
             ONE_THIRD_VALIDATORS => new_wr_reported.wonky.push(*target),
-            _ => { return Err(ProcessError::DisputesError(DisputesErrorCode::BadVoteSplit)); }
+            _ => { return Err(ImportError::DisputesError(DisputesErrorCode::BadVoteSplit)); }
         }
     }
 
@@ -112,37 +112,37 @@ pub mod verdicts {
 
     use super::*;
 
-    pub fn process(verdicts: &[Verdict], wr_reported: &[WorkReportHash], validator_set: &ValidatorsData) -> Result<Vec<(Hash, usize)>, ProcessError> {
+    pub fn process(verdicts: &[Verdict], wr_reported: &[WorkReportHash], validator_set: &ValidatorsData) -> Result<Vec<(Hash, usize)>, ImportError> {
 
         // The disputes extrinsic may contain one or more verdicts v as a compilation of judgments coming from 
         // exactly two-thirds plus one of either the active validator set or the previous epoch's validator set, 
         // i.e. the Ed25519 keys of κ or λ. s
         if verdicts.is_empty() {
-            return Err(ProcessError::DisputesError(DisputesErrorCode::NoVerdictsFound));
+            return Err(ImportError::DisputesError(DisputesErrorCode::NoVerdictsFound));
         }
 
         // Verdicts must be ordered by report hash.
         let verdict_targets: Vec<_> = verdicts.iter().map(|v| v.target).collect();
         if !is_sorted_and_unique(&verdict_targets) {
-            return Err(ProcessError::DisputesError(DisputesErrorCode::VerdictsNotSortedUnique));
+            return Err(ImportError::DisputesError(DisputesErrorCode::VerdictsNotSortedUnique));
         }
 
         // The judgments of all verdicts must be ordered by validator index and there may be no duplicates
         for verdict in verdicts.iter() {
             if !is_sorted_and_unique(&verdict.votes.iter().map(|vote| vote.index).collect::<Vec<_>>()) {
-                return Err(ProcessError::DisputesError(DisputesErrorCode::JudgementsNotSortedUnique));
+                return Err(ImportError::DisputesError(DisputesErrorCode::JudgementsNotSortedUnique));
             }
         }
 
         for verdict in verdicts.iter() {
 
             if verdict.votes.len() != VALIDATORS_SUPER_MAJORITY {
-                return Err(ProcessError::DisputesError(DisputesErrorCode::BadVotesCount));
+                return Err(ImportError::DisputesError(DisputesErrorCode::BadVotesCount));
             }
 
             for vote in verdict.votes.iter() {
                 if vote.index as usize >= VALIDATORS_COUNT {
-                    return Err(ProcessError::DisputesError(DisputesErrorCode::BadValidatorIndex));
+                    return Err(ImportError::DisputesError(DisputesErrorCode::BadValidatorIndex));
                 }
             }
         }
@@ -151,7 +151,7 @@ pub mod verdicts {
         let new_wr_reported = Vec::from([wr_reported, &verdict_targets.clone()].concat());
         // Check if there are offenders already judged
         if has_duplicates(&new_wr_reported) {
-            return Err(ProcessError::DisputesError(DisputesErrorCode::AlreadyJudged));
+            return Err(ImportError::DisputesError(DisputesErrorCode::AlreadyJudged));
         }
 
         let epoch = state_handler::time::get() / EPOCH_LENGTH as TimeSlot;
@@ -160,7 +160,7 @@ pub mod verdicts {
         for verdict in verdicts.iter() {
             
             if epoch.saturating_sub(verdict.age) > 1 {
-                return Err(ProcessError::DisputesError(DisputesErrorCode::BadJudgementAge));
+                return Err(ImportError::DisputesError(DisputesErrorCode::BadJudgementAge));
             }
 
             for vote in &verdict.votes {
@@ -173,7 +173,7 @@ pub mod verdicts {
                 verdict.target.encode_to(&mut message);
 
                 if !vote.signature.verify_signature(&message, &validator_set.list[vote.index as usize].ed25519) {
-                    return Err(ProcessError::DisputesError(DisputesErrorCode::BadSignature));
+                    return Err(ImportError::DisputesError(DisputesErrorCode::BadSignature));
                 }
             }
         }
@@ -213,25 +213,25 @@ pub mod culprits {
         bad_set: &[WorkReportHash], 
         offenders: &[Ed25519Public], 
         validators: &[Ed25519Public]) 
-    -> Result<Vec<OpaqueHash>, ProcessError> {
+    -> Result<Vec<OpaqueHash>, ImportError> {
 
         // Culprits must be ordered by Ed25519 keys.
         let culprit_keys: Vec<_> = culprits.iter().map(|c| c.key).collect();
         if !is_sorted_and_unique(&culprit_keys) {
-            return Err(ProcessError::DisputesError(DisputesErrorCode::CulpritsNotSortedUnique));
+            return Err(ImportError::DisputesError(DisputesErrorCode::CulpritsNotSortedUnique));
         }
 
         // Offender signatures must be similarly valid and reference work-reports with judgemets and may not report
         // keys which are already in the punish-set
         for culprit in culprits.iter() {
             if !bad_set.contains(&culprit.target) {
-                return Err(ProcessError::DisputesError(DisputesErrorCode::CulpritsVerdictNotBad));
+                return Err(ImportError::DisputesError(DisputesErrorCode::CulpritsVerdictNotBad));
             }
         }
 
         for culprit in culprits.iter() {
             if !offenders.contains(&culprit.key) && !validators.contains(&culprit.key) {
-                return Err(ProcessError::DisputesError(DisputesErrorCode::BadGuarantoorKey));
+                return Err(ImportError::DisputesError(DisputesErrorCode::BadGuarantoorKey));
             }
         }
 
@@ -239,7 +239,7 @@ pub mod culprits {
         for culprit in culprits.iter() {
             let message = [&b"jam_guarantee"[..], &culprit.target.encode()].concat();
             if !culprit.signature.verify_signature(&message, &culprit.key) {
-                return Err(ProcessError::DisputesError(DisputesErrorCode::BadSignature));
+                return Err(ImportError::DisputesError(DisputesErrorCode::BadSignature));
             }
         }
 
@@ -257,12 +257,12 @@ pub mod faults {
             good_set: &[WorkReportHash],
             offenders: &[Ed25519Public],
             validators: &[Ed25519Public]) 
-        -> Result<Vec<OpaqueHash>, ProcessError> {
+        -> Result<Vec<OpaqueHash>, ImportError> {
         
         // Faults must be ordered by Ed25519 keys.
         let faults_keys: Vec<_> = faults.iter().map(|f| f.key).collect();
         if !is_sorted_and_unique(&faults_keys) {
-            return Err(ProcessError::DisputesError(DisputesErrorCode::FaultsNotSortedUnique));
+            return Err(ImportError::DisputesError(DisputesErrorCode::FaultsNotSortedUnique));
         }
 
         for fault in faults.iter() {
@@ -274,18 +274,18 @@ pub mod faults {
                 if is_in_bad && !is_in_good {
                     continue;
                 }
-                return Err(ProcessError::DisputesError(DisputesErrorCode::FaultVerdictWrong));
+                return Err(ImportError::DisputesError(DisputesErrorCode::FaultVerdictWrong));
             } else {
                 if !is_in_bad && is_in_good {
                     continue;
                 }
-                return Err(ProcessError::DisputesError(DisputesErrorCode::FaultVerdictWrong));
+                return Err(ImportError::DisputesError(DisputesErrorCode::FaultVerdictWrong));
             }
         }
 
         for fault in faults.iter() {
             if !offenders.contains(&fault.key) && !validators.contains(&fault.key) {
-                return Err(ProcessError::DisputesError(DisputesErrorCode::BadAuditorKey));
+                return Err(ImportError::DisputesError(DisputesErrorCode::BadAuditorKey));
             }
         }
 
@@ -300,7 +300,7 @@ pub mod faults {
             fault.target.encode_to(&mut message);
 
             if !fault.signature.verify_signature(&message, &fault.key) {
-                return Err(ProcessError::DisputesError(DisputesErrorCode::BadSignature));
+                return Err(ImportError::DisputesError(DisputesErrorCode::BadSignature));
             }
         }
 

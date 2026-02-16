@@ -32,20 +32,20 @@ use jam_types::*;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tools::log;
 
-pub fn current_slot() -> Result<TimeSlot, ProcessError> {
+pub fn current_slot() -> Result<TimeSlot, ImportError> {
 
     let now_secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|e| {
             log::error!("Time error: {:?}", e);
-            ProcessError::TimeError(TimeErrorCode::TimeWentBackwards)
+            ImportError::TimeError(TimeErrorCode::TimeWentBackwards)
         })?
         .as_secs();
 
     Ok(((now_secs.saturating_sub(JAM_COMMON_ERA)) as TimeSlot / SLOT_PERIOD) as TimeSlot)
 }
 
-pub async fn wait_until_next_slot(current_slot: TimeSlot) -> Result<(), ProcessError> {
+pub async fn wait_until_next_slot(current_slot: TimeSlot) -> Result<(), ImportError> {
 
     let era_millis = JAM_COMMON_ERA * 1000;
     let slot_millis = (SLOT_PERIOD as u64) * 1000;
@@ -57,7 +57,7 @@ pub async fn wait_until_next_slot(current_slot: TimeSlot) -> Result<(), ProcessE
         .duration_since(UNIX_EPOCH)
         .map_err(|e| {
             log::error!("Time error: {:?}", e);
-            ProcessError::TimeError(TimeErrorCode::TimeWentBackwards)
+            ImportError::TimeError(TimeErrorCode::TimeWentBackwards)
         })?
         .as_millis() as u64;
 

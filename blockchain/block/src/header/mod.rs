@@ -42,7 +42,7 @@ pub fn seal_verify(
         entropy: &EntropyPool,
         current_validators: &ValidatorsData,
         verifier: &Verifier,
-) -> Result<OpaqueHash, ProcessError> {
+) -> Result<OpaqueHash, ImportError> {
     // The header must contain a valid seal and valid vrf output. These are two signatures both using the current slot’s 
     // seal key; the message data of the former is the header’s serialization omitting the seal component Hs, whereas the 
     // latter is used as a bias-resistant entropy source and thus its message must already have been fixed: we use the entropy
@@ -69,13 +69,13 @@ pub fn seal_verify(
                 Ok(vrf_output) => vrf_output,
                 Err(_) => {
                     log::error!("Invalid tickets seal");
-                    return Err(ProcessError::SafroleError(SafroleErrorCode::InvalidTicketSeal));
+                    return Err(ImportError::SafroleError(SafroleErrorCode::InvalidTicketSeal));
                 }
             };
 
             if tickets.tickets_mark[i as usize].id != seal_vrf_output {
                 log::error!("Ticket {i} not match: id {} != seal vrf {}", tools::print_hash!(tickets.tickets_mark[i as usize].id), tools::print_hash!(seal_vrf_output));
-                return Err(ProcessError::SafroleError(SafroleErrorCode::TicketNotMatch));
+                return Err(ImportError::SafroleError(SafroleErrorCode::TicketNotMatch));
             }
             log::debug!("Seal tickets verified successfully");
             seal_vrf_output
@@ -96,13 +96,13 @@ pub fn seal_verify(
                 Ok(vrf_output) => vrf_output,
                 Err(_) => {
                     log::error!("Invalid key seal");
-                    return Err(ProcessError::SafroleError(SafroleErrorCode::InvalidTicketSeal));
+                    return Err(ImportError::SafroleError(SafroleErrorCode::InvalidTicketSeal));
                 }
             };
             
             if keys.epoch[i as usize] != current_validators.list[block_author].bandersnatch {
                 log::error!("Key not match: Seal key {:02x?} != bandersnatch key author {block_author} {:02x?}", tools::print_hash!(keys.epoch[i as usize]), tools::print_hash!(current_validators.list[block_author].bandersnatch));
-                return Err(ProcessError::SafroleError(SafroleErrorCode::KeyNotMatch));
+                return Err(ImportError::SafroleError(SafroleErrorCode::KeyNotMatch));
             }
 
             log::debug!("Seal keys verified successfully");
@@ -110,7 +110,7 @@ pub fn seal_verify(
         },
         Seal::None => {
             log::error!("None tickets or keys");
-            return Err(ProcessError::SafroleError(SafroleErrorCode::SealNone));
+            return Err(ImportError::SafroleError(SafroleErrorCode::SealNone));
         },
     };
     
@@ -125,7 +125,7 @@ pub fn seal_verify(
         Ok(_) => entropy_source_vrf_result.unwrap(),
         Err(_) => { 
             log::error!("Invalid entropy source");
-            return Err(ProcessError::SafroleError(SafroleErrorCode::InvalidEntropySource)) 
+            return Err(ImportError::SafroleError(SafroleErrorCode::InvalidEntropySource)) 
         },
     };
 
@@ -133,16 +133,16 @@ pub fn seal_verify(
     Ok(entropy_source_vrf_output)
 }
 
-pub fn epoch_mark_verify(header: &Header, entropy_pool: &EntropyPool) -> Result<(), ProcessError> {
+pub fn epoch_mark_verify(header: &Header, entropy_pool: &EntropyPool) -> Result<(), ImportError> {
 
     if header.unsigned.epoch_mark.as_ref().unwrap().entropy != entropy_pool.buf[0] {
         log::error!("Entropy epoch mark doesn't match with η0");
-        return Err(ProcessError::SafroleError(SafroleErrorCode::WrongEpochMark));
+        return Err(ImportError::SafroleError(SafroleErrorCode::WrongEpochMark));
     }
 
     if header.unsigned.epoch_mark.as_ref().unwrap().tickets_entropy != entropy_pool.buf[1] {
         log::error!("Tickets entropy doesn't match with η1");
-        return Err(ProcessError::SafroleError(SafroleErrorCode::WrongEpochMark));
+        return Err(ImportError::SafroleError(SafroleErrorCode::WrongEpochMark));
     }
 
     let next_validators = state_handler::validators::get(ValidatorSet::Next);
@@ -152,14 +152,14 @@ pub fn epoch_mark_verify(header: &Header, entropy_pool: &EntropyPool) -> Result<
         if validator.bandersnatch != header.unsigned.epoch_mark.as_ref().unwrap().validators[i].0
         || validator.ed25519 != header.unsigned.epoch_mark.as_ref().unwrap().validators[i].1 {
             log::error!("Post pending validator index {:?} doesn't match with the one in the epoch mark", i);
-            return Err(ProcessError::SafroleError(SafroleErrorCode::WrongEpochMark));
+            return Err(ImportError::SafroleError(SafroleErrorCode::WrongEpochMark));
         } 
     }
 
     return Ok(())
 }
 
-pub fn verify(block: &Block) -> Result<(), ProcessError> {
+pub fn verify(block: &Block) -> Result<(), ImportError> {
 
     tickets_verify(&block.header)?;
     extrinsic_verify(&block)?;
@@ -172,7 +172,7 @@ pub fn verify(block: &Block) -> Result<(), ProcessError> {
     return Ok(());
 }
 
-fn tickets_verify(header: &Header) -> Result<(), ProcessError> {
+fn tickets_verify(header: &Header) -> Result<(), ImportError> {
 
     if header.unsigned.tickets_mark.is_some() {
 
@@ -180,14 +180,14 @@ fn tickets_verify(header: &Header) -> Result<(), ProcessError> {
 
             if header.unsigned.tickets_mark.as_ref().unwrap().tickets_mark[i].attempt >= TICKET_ENTRIES_PER_VALIDATOR {
                 log::error!("Ticket mark {:?} has an attempt {:?} >= Max tickets entries per validator {:?}", i, header.unsigned.tickets_mark.as_ref().unwrap().tickets_mark[i].attempt, TICKET_ENTRIES_PER_VALIDATOR);
-                return Err(ProcessError::HeaderError(HeaderErrorCode::BadTicketAttempt));
+                return Err(ImportError::HeaderError(HeaderErrorCode::BadTicketAttempt));
             }
         }
     }
     Ok(())
 }
 
-pub fn offenders_verify(block: &Block) -> Result<(), ProcessError> {
+pub fn offenders_verify(block: &Block) -> Result<(), ImportError> {
     
     let mut extrinsic_offenders: HashSet<Ed25519Public> = HashSet::new();
 
@@ -198,55 +198,55 @@ pub fn offenders_verify(block: &Block) -> Result<(), ProcessError> {
     for header_offender in &block.header.unsigned.offenders_mark {
         if !extrinsic_offenders.contains(header_offender) {
             log::error!("The offender {} is found in the header, but is not found in the extrinsic", tools::print_hash!(*header_offender));
-            return Err(ProcessError::HeaderError(HeaderErrorCode::BadOffenders));
+            return Err(ImportError::HeaderError(HeaderErrorCode::BadOffenders));
         }
     }
 
     if extrinsic_offenders.len() != block.header.unsigned.offenders_mark.len() {
         log::error!("The amount of offenders in the extrinsic {:?} not match with the amount of the offenders in the header {:?}",
                                                                 extrinsic_offenders.len(), block.header.unsigned.offenders_mark.len());
-        return Err(ProcessError::HeaderError(HeaderErrorCode::BadOffenders));
+        return Err(ImportError::HeaderError(HeaderErrorCode::BadOffenders));
     }
 
     return Ok(());
 }
 
-fn parent_header_verify(header: &Header) -> Result<(), ProcessError> {
+fn parent_header_verify(header: &Header) -> Result<(), ImportError> {
 
     let parent_header = get_parent_header();
 
     if parent_header != header.unsigned.parent {
         log::error!("Expected parent header {} != received parent header {}", tools::print_hash!(parent_header), tools::print_hash!(header.unsigned.parent));
-        return Err(ProcessError::HeaderError(HeaderErrorCode::BadParentHeader));
+        return Err(ImportError::HeaderError(HeaderErrorCode::BadParentHeader));
     }
 
     return Ok(());
 }
 
-pub fn state_root_verify(header: &Header) -> Result<(), ProcessError> {
+pub fn state_root_verify(header: &Header) -> Result<(), ImportError> {
 
     let parent_state_root = get_state_root().lock().unwrap();
 
     if header.unsigned.parent_state_root != *parent_state_root {
         log::error!("Bad parent state root: header state root {} != parent state root {}", tools::print_hash!(header.unsigned.parent_state_root), tools::print_hash!(*parent_state_root));
-        return Err(ProcessError::HeaderError(HeaderErrorCode::BadParentStateRoot));
+        return Err(ImportError::HeaderError(HeaderErrorCode::BadParentStateRoot));
     }
 
     log::debug!("The block's parent state root {} matches", tools::print_hash!(header.unsigned.parent_state_root));
     return Ok(());
 }
 
-pub fn validator_index_verify(header: &Header) -> Result<(), ProcessError> { 
+pub fn validator_index_verify(header: &Header) -> Result<(), ImportError> { 
 
     if header.unsigned.author_index >= VALIDATORS_COUNT as u16 {
         log::error!("Bad validator index: {:?}. The total number of validators is {:?}", header.unsigned.author_index, VALIDATORS_COUNT);
-        return Err(ProcessError::HeaderError(HeaderErrorCode::BadValidatorIndex));
+        return Err(ImportError::HeaderError(HeaderErrorCode::BadValidatorIndex));
     }
 
     return Ok(());
 }
 
-pub fn extrinsic_verify(block: &Block) -> Result<(), ProcessError> {
+pub fn extrinsic_verify(block: &Block) -> Result<(), ImportError> {
 
     let mut guarantees_blob: Vec<u8> = Vec::with_capacity(std::mem::size_of::<Header>() * block.extrinsic.guarantees.len());
     encode_unsigned(block.extrinsic.guarantees.len()).encode_to(&mut guarantees_blob);
@@ -271,7 +271,7 @@ pub fn extrinsic_verify(block: &Block) -> Result<(), ProcessError> {
 
     if block.header.unsigned.extrinsic_hash != sp_core::blake2_256(&a) {
         log::error!("Bad extrinsic hash: header extrinsic hash {} != calculated {}", tools::print_hash!(block.header.unsigned.extrinsic_hash), tools::print_hash!(sp_core::blake2_256(&a)));
-        return Err(ProcessError::HeaderError(HeaderErrorCode::BadExtrinsicHash));
+        return Err(ImportError::HeaderError(HeaderErrorCode::BadExtrinsicHash));
     }
 
     log::trace!("Header extrinsic expected: {:x?}", block.header.unsigned.extrinsic_hash );

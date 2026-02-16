@@ -4,9 +4,9 @@ mod test {
     use codec::{Decode, BytesReader};
     use constants::node::{VALIDATORS_COUNT, EPOCH_LENGTH, CORES_COUNT};
     use crate::codec::tests::{TestBody, encode_decode_test};
-    use crate::FromProcessError;
+    use crate::FromImportError;
     use crate::test_types::{DisputesState, OutputDisputes};
-    use jam_types::{OutputDataDisputes, ValidatorSet, DisputesExtrinsic, ProcessError};
+    use jam_types::{OutputDataDisputes, ValidatorSet, DisputesExtrinsic, ImportError};
     use state_handler::{get_global_state};
     use std::sync::LazyLock;
     use tools::log;
@@ -21,10 +21,10 @@ mod test {
         }
     });
 
-    impl FromProcessError for OutputDisputes {
-        fn from_process_error(error: ProcessError) -> Self {
+    impl FromImportError for OutputDisputes {
+        fn from_process_error(error: ImportError) -> Self {
             match error {
-                ProcessError::DisputesError(code) => OutputDisputes::Err(code),
+                ImportError::DisputesError(code) => OutputDisputes::Err(code),
                 _ => panic!("Unexpected error type in conversion"),
             }
         }

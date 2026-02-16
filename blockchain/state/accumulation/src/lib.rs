@@ -37,7 +37,7 @@ pub fn process(
     privileges: Privileges,
     post_tau: &TimeSlot,
     new_available_reports: &[WorkReport],
-) -> Result<(OpaqueHash, RecentAccOutputs, ServiceAccounts, ValidatorsData, AuthQueues, Privileges), ProcessError> {
+) -> Result<(OpaqueHash, RecentAccOutputs, ServiceAccounts, ValidatorsData, AuthQueues, Privileges), ImportError> {
   
     log::debug!("Process accumulation");
     state_handler::service_accounts::clean_disregard_lookup(); // TODO arreglar esto
@@ -110,7 +110,7 @@ fn outer_accumulation(
     partial_state: AccumulationPartialState,
     always_acc: &HashMap<ServiceId, Gas>
 
-) -> Result<(u32, AccumulationPartialState, RecentAccOutputs, Vec<(ServiceId, Gas)>), ProcessError>
+) -> Result<(u32, AccumulationPartialState, RecentAccOutputs, Vec<(ServiceId, Gas)>), ImportError>
 {
     log::debug!("Outer accumulation, gas_limit: {:?}", gas_limit);
 
@@ -217,7 +217,7 @@ fn parallelized_accumulation(
     transfers: &[DeferredTransfer],
     reports: &[WorkReport],
     always_acc: &HashMap<ServiceId, Gas>,
-) -> Result<(AccumulationPartialState, Vec<DeferredTransfer>, RecentAccOutputs, Vec<(ServiceId, Gas)>), ProcessError>
+) -> Result<(AccumulationPartialState, Vec<DeferredTransfer>, RecentAccOutputs, Vec<(ServiceId, Gas)>), ImportError>
 {
     log::debug!("Parallelized accumulation");
 
@@ -363,7 +363,7 @@ fn parallelized_accumulation(
     for key in new_services {
         if acc_result.removed_services.contains(key) {
             log::error!("Service conflict: key {:?}", *key);
-            return Err(ProcessError::AccumulateError(AccumulateErrorCode::ServiceConflict)); // Collision
+            return Err(ImportError::AccumulateError(AccumulateErrorCode::ServiceConflict)); // Collision
         }
     }
 

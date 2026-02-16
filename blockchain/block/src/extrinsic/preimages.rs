@@ -14,20 +14,20 @@ pub fn process(
     services: 
     &mut ServiceAccounts, 
     post_tau: &TimeSlot) 
--> Result<(), ProcessError> {
+-> Result<(), ImportError> {
 
     // The lookup extrinsic is a sequence of pairs of service indices and data. These pairs must be ordered and 
     // without duplicates.
     let pairs = preimages_extrinsic.iter().map(|preimage| (preimage.requester, preimage.blob.clone())).collect::<Vec<_>>();
     if has_duplicates(&pairs) {
         log::error!("Preimages has duplicates");
-        return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
+        return Err(ImportError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
     }
     let pairs = pairs.iter().map(|(requester, blob)| (*requester, blob.as_slice())).collect::<Vec<_>>();
     //println!("pairs: {:x?}", pairs);
     if !is_sorted_preimages(&pairs) {
         log::error!("Preimages not sorted");
-        return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
+        return Err(ImportError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
     }
 
     let disregarded_lookups = state_handler::service_accounts::get_disregarded_lookups();
@@ -44,7 +44,7 @@ pub fn process(
             let account = services.get_mut(&preimage.requester).unwrap();
             if account.storage.contains_key(&preimage_key) {
                 log::error!("Preimage unneeded. The key 0x{} is already contained in this account", tools::print_hash!(hash));
-                return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
+                return Err(ImportError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
             }
             if disregarded_lookups.contains(&lookup_key) {
                 continue;
@@ -53,18 +53,18 @@ pub fn process(
                 let timeslots = Vec::<TimeSlot>::decode_len(&mut BytesReader::new(&timeslots_blob)).unwrap();
                 if timeslots.len() > 0 {
                     log::error!("Preimage unneeded: timeslots len > 0: {:?}", timeslots);
-                    return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
+                    return Err(ImportError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
                 }
             } else {
                 log::error!("Preimage unneeded: Lookup key 0x{} not found", hex::encode(&lookup_key));
-                return Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
+                return Err(ImportError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
             }
             account.storage.insert(preimage_key, preimage.blob.clone());
             let timeslot_values = vec![post_tau.clone()];
             account.storage.insert(lookup_key, timeslot_values.encode_len());
         } else {
             log::error!("Requester {:?} not found", preimage.requester);
-            return Err(ProcessError::PreimagesError(PreimagesErrorCode::RequesterNotFound));
+            return Err(ImportError::PreimagesError(PreimagesErrorCode::RequesterNotFound));
         }
     }
 

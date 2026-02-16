@@ -31,7 +31,7 @@ pub fn get_block(header_hash: &OpaqueHash) -> Option<Block> {
 
 pub struct QueuedBlock {
     pub block: Block,
-    pub result_tx: Option<oneshot::Sender<Result<(), ProcessError>>>,
+    pub result_tx: Option<oneshot::Sender<Result<(), ImportError>>>,
 }
 
 static BLOCK_QUEUE_TX: OnceLock<mpsc::Sender<QueuedBlock>> = OnceLock::new();
@@ -50,17 +50,17 @@ pub async fn enqueue_block(block: Block) {
     }
 }
 
-pub async fn enqueue_block_and_wait(block: Block) -> Result<(), ProcessError> {
+pub async fn enqueue_block_and_wait(block: Block) -> Result<(), ImportError> {
     let tx = BLOCK_QUEUE_TX.get().expect("block queue not initialized");
     let (result_tx, result_rx) = oneshot::channel();
     let queued = QueuedBlock { block, result_tx: Some(result_tx) };
     tx.send(queued).await.map_err(|_| {
         log::error!("Failed to enqueue block for processing");
-        ProcessError::HeaderError(HeaderErrorCode::BadParentHeader)
+        ImportError::HeaderError(HeaderErrorCode::BadParentHeader)
     })?;
     result_rx.await.unwrap_or_else(|_| {
         log::error!("Block queue consumer dropped without sending result");
-        Err(ProcessError::HeaderError(HeaderErrorCode::BadParentHeader))
+        Err(ImportError::HeaderError(HeaderErrorCode::BadParentHeader))
     })
 }
 

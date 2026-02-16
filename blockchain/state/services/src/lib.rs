@@ -6,7 +6,7 @@ pub fn process(
     services: &mut ServiceAccounts, 
     post_tau: &TimeSlot, 
     preimages_extrinsic: &[Preimage]
-) -> Result<OutputPreimages, ProcessError> {
+) -> Result<OutputPreimages, ImportError> {
 
     log::debug!("Process the preimages extrinsic");
 

@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use jam_types::ProcessError;
+use jam_types::ImportError;
 mod codec;
 mod test_codec;
 mod test_types;
@@ -34,6 +34,6 @@ pub fn read_test_file(filename: &str) -> Vec<u8> {
 }
 
 #[allow(dead_code)]
-trait FromProcessError {
-    fn from_process_error(error: ProcessError) -> Self;
+trait FromImportError {
+    fn from_process_error(error: ImportError) -> Self;
 }

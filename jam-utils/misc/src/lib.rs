@@ -423,7 +423,7 @@ mod tests {
             Preimage { requester: 2, blob: vec![7, 8, 9] },
         ];
         let preimages_extrinsic = PreimagesExtrinsic { preimages };
-        assert_eq!(preimages_extrinsic.process(&mut services, &slot), Err(ProcessError::PreimagesError(PreimagesErrorCode::RequesterNotFound)));
+        assert_eq!(preimages_extrinsic.process(&mut services, &slot), Err(ImportError::PreimagesError(PreimagesErrorCode::RequesterNotFound)));
 
         let preimages = vec![
             Preimage { requester: 0, blob: vec![1, 2, 3] },
@@ -432,7 +432,7 @@ mod tests {
         ];
     
         let preimages_extrinsic = PreimagesExtrinsic { preimages };
-        assert_eq!(preimages_extrinsic.process(&mut services, &slot), Err(ProcessError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique)));
+        assert_eq!(preimages_extrinsic.process(&mut services, &slot), Err(ImportError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique)));
     }
 
 }*/

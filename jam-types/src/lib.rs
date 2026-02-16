@@ -976,7 +976,7 @@ pub struct GlobalState {
     pub privileges: Privileges,
 }
 #[derive(Debug, PartialEq)]
-pub enum ProcessError {
+pub enum ImportError {
     ReadError(ReadError),
     HeaderError(HeaderErrorCode),
     SafroleError(SafroleErrorCode),
