@@ -93,7 +93,7 @@ pub async fn run_block_queue(mut rx: mpsc::Receiver<QueuedBlock>) {
             for qb in blocks {
                 log::debug!("Queue: processing block slot={}", slot);
                 store_block(&qb.block);
-                let result = state_controller::stf(&qb.block);
+                let result = state_ctrl::stf(&qb.block);
                 match &result {
                     Ok(_) => log::debug!("Queue: block slot={} processed successfully", slot),
                     Err(e) => log::error!("Queue: error processing block slot={}: {:?}", slot, e),
@@ -560,7 +560,7 @@ async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connectio
     for block in blocks.iter() {
         log::debug!("SYNC process block {}", hex::encode(&sp_core::blake2_256(&block.header.encode())));
         store_block(block);
-        match state_controller::stf(block) {
+        match state_ctrl::stf(block) {
             Ok(_) => { log::debug!("processed successfully"); },
             Err(e) => { log::error!("error processing block: {:?}", e); },
         }

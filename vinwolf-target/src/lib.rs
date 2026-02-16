@@ -54,7 +54,7 @@ pub fn process_trace(path: &Path) {
         verifier::init_all(&state_handler::get_global_state().lock().unwrap());
     //}
     
-    match state_controller::stf(&block) {
+    match state_ctrl::stf(&block) {
         Ok(_) => { println!("Block {:?} processed successfully", path); },
         Err(e) => { println!("Refused block: {:?}", e) },
     };

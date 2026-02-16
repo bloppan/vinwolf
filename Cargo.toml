@@ -50,7 +50,7 @@ safrole = { path = "blockchain/state/safrole" }
 serialization = { path = "jam-utils/serialization" }
 services = { path = "blockchain/state/services" }
 shuffle = { path = "jam-utils/shuffle" }
-state-controller = { path = "blockchain/state/state-controller" }
+state-ctrl = { path = "blockchain/state/state-ctrl" }
 state-handler = { path = "blockchain/state/state-handler" }
 statistics = { path = "blockchain/state/statistics" }
 storage = { path = "storage" }

@@ -16,7 +16,7 @@ misc = { workspace = true }
 safrole = { workspace = true }
 serialization = { workspace = true }
 sp-core = { workspace = true }
-state-controller = { workspace = true }
+state-ctrl = { workspace = true }
 state-handler = { workspace = true }
 storage = { workspace = true }
 tools = { workspace = true }
