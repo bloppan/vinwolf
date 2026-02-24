@@ -1,4 +1,4 @@
-use jam_types::{BandersnatchPublic, Ed25519Public, OpaqueHash, ValidatorIndex};
+use jam_types::{BandersnatchPublic, Ed25519Public, OpaqueHash};
 use quinn::Connection;
 use std::{collections::HashMap, sync::LazyLock, sync::Mutex};
 use misc::hex_to_32;
@@ -32,6 +32,10 @@ pub fn add_dev_account(bandersnatch_public: BandersnatchPublic, connection: Conn
 
 pub fn get_dev_account_connection(bandersnatch_public: &BandersnatchPublic) -> Option<Connection> {
     DEV_ACCOUNTS.lock().unwrap().get(bandersnatch_public).cloned()
+}
+
+pub fn remove_dev_account(bandersnatch_public: &BandersnatchPublic) {
+    DEV_ACCOUNTS.lock().unwrap().remove(bandersnatch_public);
 }
 
 pub fn parse_dev_accounts() -> [Identity; 6] {

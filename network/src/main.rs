@@ -58,22 +58,22 @@ async fn main() -> Result<()> {
         message::run_block_queue(block_queue_rx).await;
     });
 
-    let net_for_server = net.clone();
     node_config::set_account_id(validator_index);
-    
+
+    let identities = dev_accounts::parse_dev_accounts();
+    let ed25519_public: Vec<_> = identities.iter().map(|key| key.ed25519_public).collect();
+
+    net.init_peers(validator_index, &ed25519_public).await;
+
+    let net_for_server = net.clone();
     let server_handler = tokio::spawn(async move {
         if let Err(e) = net_for_server.listen_network().await {
             log::error!("Server task failed: {:?}", e);
         }
     });
 
-    let identities = dev_accounts::parse_dev_accounts();
-    let ed25519_public: Vec<_> = identities.iter().map(|key| key.ed25519_public).collect();
-
-    let mut clients_handler = vec![];
-
+    // Initial connection attempts (fire-and-forget, monitor will reconnect if they fail)
     for (index, ed25519_key) in ed25519_public.iter().enumerate() {
-        
         if index == validator_index as usize {
             continue;
         }
@@ -81,31 +81,30 @@ async fn main() -> Result<()> {
         if grid::am_i_the_preferred_initiator(&ed25519_public[validator_index as usize], ed25519_key) {
             log::info!("Initialize connection to node {:?}", index);
             let net_for_client = net.clone();
-            clients_handler.push(tokio::spawn(async move {
+            tokio::spawn(async move {
                 if let Err(e) = net_for_client.connect_to_peer(index as ValidatorIndex).await {
                     log::error!("Client {} failed: {:?}", index, e);
                 }
-            }));
+            });
         }
     }
-    
+
+    let net_for_monitor = net.clone();
+    tokio::spawn(async move {
+        net_for_monitor.connection_monitor().await;
+    });
+
     let net_for_node = net.clone();
     let node_ctrl_handle = tokio::spawn(async move {
         node_ctrl(net_for_node).await;
     });
-    
+
     if let Err(e) = node_ctrl_handle.await {
         log::error!("Node ctrl join error: {:?}", e);
     }
 
     if let Err(e) = server_handler.await {
         log::error!("Server join error: {:?}", e);
-    }
-
-    for handle in clients_handler {
-        if let Err(e) = handle.await {
-            log::error!("Client join error: {:?}", e);
-        }
     }
 
     log::info!("End networking");
@@ -151,6 +150,7 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
 
     let slot = time::current_slot().unwrap();
     time::wait_until_next_slot(slot).await.unwrap();
+    time::wait_until_next_slot(slot + 2).await.unwrap();
 
     let identities = dev_accounts::parse_dev_accounts();
     let this_node_index = node_config::get_account_id();
