@@ -1,6 +1,6 @@
 use codec::generic_codec::decode_from_bytes;
 use crate::message::{BLOCK_ANNOUNCEMENT, BLOCK_REQUEST, TICKET_GENERATION, TICKET_PROXY};
-use crate::{message, message::NetworkMessage, dev_accounts, node_config, topology};
+use crate::{message, message::NetworkMessage, dev_accounts, node_config, grid};
 use crate::jamnp_types::{NetworkError, Handshake, StreamKind};
 use jam_types::ValidatorIndex;
 use quinn::{Connection, RecvStream, SendStream, Endpoint};
@@ -101,7 +101,7 @@ impl NetworkController {
         let targets: Vec<(ValidatorIndex, mpsc::Sender<Vec<u8>>)> = {
             let peers = self.peers.read().await;
             peers.iter()
-                .filter(|(&peer_index, _)| topology::is_grid_neighbour(my_index, peer_index))
+                .filter(|(&peer_index, _)| grid::is_neighbour(my_index, peer_index))
                 .filter_map(|(&peer_index, handle)| {
                     let tx = handle.announcement_tx.lock().unwrap().clone();
                     tx.map(|tx| (peer_index, tx))
