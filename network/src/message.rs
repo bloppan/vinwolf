@@ -6,6 +6,7 @@ use jam_types::{*};
 use quinn::{SendStream, RecvStream, Connection};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::{LazyLock, Mutex, OnceLock};
+use std::sync::atomic::{AtomicU32, Ordering};
 use tokio::sync::{mpsc, oneshot};
 use tools::{hex, log};
 
@@ -95,7 +96,10 @@ pub async fn run_block_queue(mut rx: mpsc::Receiver<QueuedBlock>) {
                 store_block(&qb.block);
                 let result = state_ctrl::stf(&qb.block);
                 match &result {
-                    Ok(_) => log::debug!("Queue: block slot={} processed successfully", slot),
+                    Ok(_) => {
+                        update_last_imported_slot(slot);
+                        log::debug!("Queue: block slot={} processed successfully", slot);
+                    }
                     Err(e) => log::error!("Queue: error processing block slot={}: {:?}", slot, e),
                 }
                 if let Some(tx) = qb.result_tx {
@@ -509,39 +513,44 @@ async fn block_request(request_info: BlockRequestInfo, connection: Connection) -
 
 async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connection) -> Result<(), NetworkError> {
 
-    if is_synced(&imported_blocks_recv) {
-        log::debug!("The sync from address: {:?} is already done", connection.remote_address());
+    // Quick check without lock — avoids contention
+    if is_synced() {
+        log::debug!("Already synced (quick check), skipping sync from {:?}", connection.remote_address());
+        return Ok(());
+    }
+
+    // Acquire lock — only one thread syncs at a time, others wait here
+    let _guard = SYNC_LOCK.lock().await;
+
+    // Re-check after acquiring lock — another thread may have synced already
+    if is_synced() {
+        log::debug!("Already synced (after lock), skipping sync from {:?}", connection.remote_address());
         return Ok(());
     }
 
     log::debug!("Syncing blocks from address: {:?}", connection.remote_address());
 
-    let imported_blocks_stored = 
-    {
-        IMPORTED_BLOCKS.lock().unwrap().clone()
-    };
+    let last_global_finalized_state = state_request(imported_blocks_recv.last_finalized_block.header_hash, connection.clone()).await?;
+    block::header::set_parent_header(imported_blocks_recv.last_finalized_block.header_hash);
+    log::debug!("Synced parent header: {}", hex::encode(&imported_blocks_recv.last_finalized_block.header_hash));
 
-    let last_global_finalized_state = state_request(imported_blocks_stored.last_finalized_block.header_hash, connection.clone()).await?;
-    block::header::set_parent_header(imported_blocks_stored.last_finalized_block.header_hash);
-    log::debug!("Synced parent header: {}", hex::encode(&imported_blocks_stored.last_finalized_block.header_hash));
-    
     // Calc state root
     let state_root = trie::merkle_state(&serialization::serialize(&last_global_finalized_state).map);
     state_handler::set_state_root(state_root);
     log::debug!("Synced state root: {}", hex::encode(&state_root));
-    
-    // Initialize the verifiers 
+
+    // Initialize the verifiers
     safrole::verifier::init_all(&last_global_finalized_state);
-    
+
     // Set global state
     state_handler::set_global_state(last_global_finalized_state);
     let time = state_handler::time::get();
     log::debug!("Time set: {time}");
 
-    let leaf = match imported_blocks_stored.leafs.first() {
+    let leaf = match imported_blocks_recv.leafs.first() {
         Some(l) => l,
         None => {
-            log::error!("sync_blocks: no leafs in stored imported blocks");
+            log::error!("sync_blocks: no leafs in imported blocks");
             return Ok(());
         }
     };
@@ -549,11 +558,10 @@ async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connectio
     let request_info = BlockRequestInfo {
                             header_hash: leaf.header_hash,
                             direction: 1,
-                            num_blocks: leaf.slot - imported_blocks_stored.last_finalized_block.slot
+                            num_blocks: leaf.slot - imported_blocks_recv.last_finalized_block.slot
     };
 
-    let recv_slot = imported_blocks_recv.leafs.first().map(|l| l.slot);
-    log::debug!("Request blocks from slot {:?} in order to sync", recv_slot);
+    log::debug!("Request blocks from slot {:?} in order to sync", Some(leaf.slot));
     let mut blocks = block_request(request_info, connection.clone()).await?;
     blocks.sort_by_key(|block| block.header.unsigned.slot);
 
@@ -561,7 +569,10 @@ async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connectio
         log::debug!("SYNC process block {}", hex::encode(&sp_core::blake2_256(&block.header.encode())));
         store_block(block);
         match state_ctrl::stf(block) {
-            Ok(_) => { log::debug!("processed successfully"); },
+            Ok(_) => {
+                update_last_imported_slot(block.header.unsigned.slot);
+                log::debug!("processed successfully");
+            },
             Err(e) => { log::error!("error processing block: {:?}", e); },
         }
     }
@@ -569,43 +580,36 @@ async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connectio
     Ok(())
 }
 
-static IMPORTED_BLOCKS: LazyLock<Mutex<ImportedBlocks>> = LazyLock::new(|| { Mutex::new(ImportedBlocks::default()) });
+/// Slot of the last successfully imported block
+static LAST_IMPORTED_SLOT: AtomicU32 = AtomicU32::new(0);
 
-fn is_synced(imported_blocks: &ImportedBlocks) -> bool {
+/// Lock to serialize the entire sync operation
+static SYNC_LOCK: LazyLock<tokio::sync::Mutex<()>> = LazyLock::new(|| tokio::sync::Mutex::new(()));
 
-    let mut imported_blocks_stored = IMPORTED_BLOCKS.lock().unwrap();
+const MAX_SLOTS_BEHIND: u32 = 3;
 
-    if *imported_blocks_stored == *imported_blocks {
-        return true;
+fn is_synced() -> bool {
+    let last_slot = LAST_IMPORTED_SLOT.load(Ordering::Acquire);
+    match time::current_slot() {
+        Ok(current) => current.saturating_sub(last_slot) <= MAX_SLOTS_BEHIND,
+        Err(_) => false,
     }
-
-    *imported_blocks_stored = imported_blocks.clone();
-
-    false
 }
 
-static LAST_ANNOUNCEMENT: LazyLock<Mutex<Announcement>> = LazyLock::new(|| { Mutex::new(Announcement::default()) });
+pub fn update_last_imported_slot(slot: TimeSlot) {
+    LAST_IMPORTED_SLOT.fetch_max(slot, Ordering::Release);
+}
 
-pub fn set_last_announcement(announcement: Announcement) {
-    *LAST_ANNOUNCEMENT.lock().unwrap() = announcement;
+static LAST_SEEN_SLOT: AtomicU32 = AtomicU32::new(0);
+
+pub fn mark_slot_seen(slot: TimeSlot) {
+    LAST_SEEN_SLOT.fetch_max(slot, Ordering::Release);
 }
 
 fn is_new(announcement: &Announcement) -> bool {
-
-    let mut last_announcement_stored = LAST_ANNOUNCEMENT.lock().unwrap();
-    
-    if last_announcement_stored.header.unsigned.slot > announcement.header.unsigned.slot {
-        return false;
-    } 
-    
-    if last_announcement_stored.header.unsigned.slot == announcement.header.unsigned.slot 
-    && sp_core::blake2_256(&last_announcement_stored.encode()) == sp_core::blake2_256(&announcement.encode()) {
-        return false;
-    }
-    
-    *last_announcement_stored = announcement.clone();
-
-    true
+    let slot = announcement.header.unsigned.slot;
+    let prev = LAST_SEEN_SLOT.fetch_max(slot, Ordering::AcqRel);
+    slot > prev
 }
 
 pub async fn block_announcement(

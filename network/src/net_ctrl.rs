@@ -353,7 +353,7 @@ impl PeerHandle {
     pub async fn open_stream(&self, kind: StreamKind) -> Result<(), NetworkError> {
 
         let (mut send_stream, mut recv_stream) = self.connection.open_bi().await?;
-
+        
         match kind {
             BLOCK_ANNOUNCEMENT => {
                 log::info!("Open stream {BLOCK_ANNOUNCEMENT} for address: {:?}", self.connection.remote_address());

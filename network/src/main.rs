@@ -172,39 +172,41 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
             cached_epoch = Some(current_epoch);
         }
 
-        if slot % EPOCH_LENGTH as TimeSlot == 4 {
-            log::info!("New epoch {} detected, generating tickets", current_epoch);
+        if slot % EPOCH_LENGTH as TimeSlot == 3 {
+            log::info!("New epoch {} detected, generating tickets in background", current_epoch);
 
             message::clear_ticket_pool();
-            let tickets = generate_tickets();
             let next_epoch = current_epoch + 1;
+            let node_index = this_node_index;
 
-            let next_validators = {
-                let state = state_handler::get_global_state().lock().unwrap();
-                state.next_validators.clone()
-            };
+            tokio::spawn(async move {
+                let tickets = generate_tickets();
 
-            for (ticket, ticket_id) in tickets {
-                let proxy_index = compute_proxy_index(&ticket_id);
-                log::info!("Ticket attempt={} proxy_index={}", ticket.attempt, proxy_index);
+                let next_validators = {
+                    let state = state_handler::get_global_state().lock().unwrap();
+                    state.next_validators.clone()
+                };
 
-                let distributed = TicketDistributed { epoch: next_epoch, ticket: ticket.clone() };
-                let blob = distributed.encode();
+                for (ticket, ticket_id) in tickets {
+                    let proxy_index = compute_proxy_index(&ticket_id);
+                    log::info!("Ticket attempt={} proxy_index={}", ticket.attempt, proxy_index);
 
-                if proxy_index == this_node_index as usize {
-                    // We are the proxy: store locally and broadcast to all current validators (CE 132)
-                    message::store_ticket(ticket);
-                    tokio::spawn(async move {
-                        message::broadcast_ticket_to_validators(blob).await;
-                    });
-                } else {
-                    // Send to the proxy validator via CE 131
-                    let proxy_bandersnatch = next_validators.list[proxy_index].bandersnatch;
-                    tokio::spawn(async move {
-                        message::send_ticket_to_proxy(blob, &proxy_bandersnatch).await;
-                    });
+                    let distributed = TicketDistributed { epoch: next_epoch, ticket: ticket.clone() };
+                    let blob = distributed.encode();
+
+                    if proxy_index == node_index as usize {
+                        message::store_ticket(ticket);
+                        tokio::spawn(async move {
+                            message::broadcast_ticket_to_validators(blob).await;
+                        });
+                    } else {
+                        let proxy_bandersnatch = next_validators.list[proxy_index].bandersnatch;
+                        tokio::spawn(async move {
+                            message::send_ticket_to_proxy(blob, &proxy_bandersnatch).await;
+                        });
+                    }
                 }
-            }
+            });
         }
 
         if let Some(header) = should_produce_block(slot, curr_prover.as_ref().unwrap(), &bandersnatch_public).await {
@@ -310,14 +312,7 @@ async fn produce_block(prover: &bandersnatch_vrf_spec::Prover) -> Option<Header>
 
     match message::enqueue_block_and_wait(block.clone()).await {
         Ok(_) => {
-            let announcement = jamnp_types::Announcement {
-                header: block.header.clone(),
-                last_finalized_block: jamnp_types::LastFinalizedBlock {
-                    header_hash: block.header.unsigned.parent,
-                    slot: block.header.unsigned.slot,
-                }
-            };
-            message::set_last_announcement(announcement);
+            message::mark_slot_seen(block.header.unsigned.slot);
             Some(block.header)
         }
         Err(e) => {
