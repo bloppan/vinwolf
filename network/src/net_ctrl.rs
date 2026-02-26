@@ -248,21 +248,17 @@ impl NetworkController {
     }
 
     pub async fn connection_monitor(self: Arc<Self>) {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
 
         loop {
             interval.tick().await;
 
-            let reconnect_targets: Vec<(ValidatorIndex, u32)> = {
+            let reconnect_targets: Vec<(ValidatorIndex, u32, bool)> = {
                 let peers = self.peers.read().await;
                 peers.iter()
                     .filter_map(|(&index, info)| {
                         if let PeerState::Disconnected { retry_count } = info.state {
-                            if info.we_initiate {
-                                Some((index, retry_count))
-                            } else {
-                                None
-                            }
+                            Some((index, retry_count, info.we_initiate))
                         } else {
                             None
                         }
@@ -285,8 +281,12 @@ impl NetworkController {
                 );
             }
 
-            for (peer_index, retry_count) in reconnect_targets {
-                let backoff = calculate_backoff(retry_count);
+            for (peer_index, retry_count, we_initiate) in reconnect_targets {
+                let backoff = if we_initiate {
+                    calculate_backoff(retry_count)
+                } else {
+                    std::time::Duration::from_secs(5)
+                };
                 log::info!(
                     "Reconnecting to peer {} (retry #{}, backoff {}s)",
                     peer_index, retry_count, backoff.as_secs()
