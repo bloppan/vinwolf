@@ -207,6 +207,26 @@ fn outside_in_sequencer(tickets: &[TicketBody]) -> TicketsMark {
     return new_ticket_accumulator;
 }
 
+/// Predict what the seal will be for the next epoch, using pre-rotation values.
+/// This allows a node to determine block authorship at epoch boundaries
+/// without waiting for the epoch transition to complete.
+///
+/// - `safrole_state`: current Safrole state (pre-rotation)
+/// - `entropy_pre_rotation`: entropy buf[1] (will become buf[2] after rotation)
+/// - `m`: tau % EPOCH_LENGTH (slot-in-epoch of last processed block)
+pub fn predict_next_epoch_seal(
+    safrole_state: &Safrole,
+    entropy_pre_rotation: &Entropy,
+    m: TimeSlot,
+) -> Seal {
+    if m >= TICKET_SUBMISSION_ENDS as TimeSlot && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
+        Seal::Tickets(outside_in_sequencer(&safrole_state.ticket_accumulator))
+    } else {
+        let bandersnatch_keys = validators::extract_keys(&safrole_state.pending_validators, |v| v.bandersnatch);
+        Seal::Keys(fallback(entropy_pre_rotation, bandersnatch_keys))
+    }
+}
+
 fn fallback(buf: &Entropy, current_keys: Box<[BandersnatchPublic; VALIDATORS_COUNT]>) -> BandersnatchEpoch {
     // This is the fallback key sequence function which selects an epoch's worth of validator Bandersnatch keys from the 
     // validator key set using the entropy collected on-chain

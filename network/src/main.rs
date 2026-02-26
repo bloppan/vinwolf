@@ -227,9 +227,27 @@ async fn should_produce_block(slot: TimeSlot, prover: &bandersnatch_vrf_spec::Pr
         (state.safrole.clone(), state.entropy.clone())
     };
 
+    let tau = state_handler::time::get();
+    let state_epoch = tau / EPOCH_LENGTH as TimeSlot;
+    let slot_epoch = slot / EPOCH_LENGTH as TimeSlot;
+
+    let seal = if slot_epoch == state_epoch + 1 {
+        // New epoch: predict seal from pre-rotation state
+        let m = tau % EPOCH_LENGTH as TimeSlot;
+        log::debug!("Epoch boundary: predicting seal for epoch {} (tau={}, m={})", slot_epoch, tau, m);
+        safrole::predict_next_epoch_seal(&safrole_state, &entropy.buf[1], m)
+    } else if slot_epoch == state_epoch {
+        // Same epoch: use current seal
+        safrole_state.seal.clone()
+    } else {
+        // Multiple epochs behind or ahead — don't produce
+        log::debug!("Epoch mismatch: slot_epoch={} state_epoch={}, skipping production", slot_epoch, state_epoch);
+        return None;
+    };
+
     let slot_index = (slot % EPOCH_LENGTH as TimeSlot) as usize;
 
-    match safrole_state.seal {
+    match seal {
         Seal::Tickets(ref tickets) => {
             let ticket = &tickets.tickets_mark[slot_index];
             log::info!("Seal mode: Tickets. Slot {} ticket id: {}", slot, hex::encode(&ticket.id));

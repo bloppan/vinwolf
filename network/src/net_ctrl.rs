@@ -363,10 +363,12 @@ impl PeerHandle {
                 let connection = self.connection.clone();
                 let (ann_tx, ann_rx) = mpsc::channel::<Vec<u8>>(16);
                 *self.announcement_tx.lock().unwrap() = Some(ann_tx);
+                let announcement_tx_ref = self.announcement_tx.clone();
                 tokio::spawn(async move {
                     if let Err(e) = message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await {
                         log::error!("Block announcement stream ended: {:?}", e);
                     }
+                    *announcement_tx_ref.lock().unwrap() = None;
                 });
             },
             _ => {
@@ -394,10 +396,12 @@ impl PeerHandle {
                 let handshake = decode_from_bytes::<Handshake>(&NetworkMessage::recv(&mut recv_stream).await?)?;
                 let (ann_tx, ann_rx) = mpsc::channel::<Vec<u8>>(16);
                 *self.announcement_tx.lock().unwrap() = Some(ann_tx);
+                let announcement_tx_ref = self.announcement_tx.clone();
                 tokio::spawn(async move {
                     if let Err(e) = message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await {
                         log::error!("Block announcement stream ended: {:?}", e);
                     }
+                    *announcement_tx_ref.lock().unwrap() = None;
                 });
             },
             BLOCK_REQUEST => {
