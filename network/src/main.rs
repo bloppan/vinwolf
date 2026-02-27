@@ -180,7 +180,9 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
             let node_index = this_node_index;
 
             tokio::spawn(async move {
-                let tickets = generate_tickets();
+                let tickets = tokio::task::spawn_blocking(generate_tickets)
+                    .await
+                    .expect("ticket generation task panicked");
 
                 let next_validators = {
                     let state = state_handler::get_global_state().lock().unwrap();
