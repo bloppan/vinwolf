@@ -112,36 +112,6 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-
-fn build_curr_prover(bandersnatch_public: &BandersnatchPublic) -> bandersnatch_vrf_spec::Prover {
-    use ark_vrf::reexports::ark_serialize::CanonicalDeserialize;
-    use ark_vrf::suites::bandersnatch::{Public, Secret, RingProofParams};
-
-    let this_node_index = node_config::get_account_id();
-    let identities = dev_accounts::parse_dev_accounts();
-    let bandersnatch_secret_seed = identities[this_node_index as usize].bandersnatch_secret_seed;
-
-    let curr_validators = {
-        let state = state_handler::get_global_state().lock().unwrap();
-        state.curr_validators.clone()
-    };
-
-    let ring: Vec<Public> = curr_validators.list.iter()
-        .map(|v| Public::deserialize_compressed_unchecked(&v.bandersnatch[..])
-            .unwrap_or_else(|_| Public::from(RingProofParams::padding_point())))
-        .collect();
-
-    let prover_idx = curr_validators.list.iter()
-        .position(|v| v.bandersnatch == *bandersnatch_public)
-        .expect("This validator must be present in curr_validators");
-
-    bandersnatch_vrf_spec::Prover {
-        prover_idx,
-        secret: Secret::from_seed(&bandersnatch_secret_seed),
-        ring,
-    }
-}
-
 async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
 
     use network::jamnp_types::TicketDistributed;
@@ -149,12 +119,17 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
     use time;
 
     let slot = time::current_slot().unwrap();
-    time::wait_until_next_slot(slot).await.unwrap();
     time::wait_until_next_slot(slot + 2).await.unwrap();
 
     let identities = dev_accounts::parse_dev_accounts();
     let this_node_index = node_config::get_account_id();
     let bandersnatch_public = identities[this_node_index as usize].bandersnatch_public;
+    let bandersnatch_secret_seed = identities[this_node_index as usize].bandersnatch_secret_seed;
+    
+    let curr_validators = {
+        let state = state_handler::get_global_state().lock().unwrap();
+        state.curr_validators.clone()
+    };
 
     let mut cached_epoch: Option<TimeSlot> = None;
     let mut curr_prover: Option<bandersnatch_vrf_spec::Prover> = None;
@@ -168,21 +143,27 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
         // Rebuild prover only when epoch changes
         if cached_epoch != Some(current_epoch) {
             log::info!("Building prover for epoch {}", current_epoch);
-            curr_prover = Some(build_curr_prover(&bandersnatch_public));
+            curr_prover = Some(safrole::build_curr_prover(&curr_validators, &bandersnatch_public, bandersnatch_secret_seed));
             cached_epoch = Some(current_epoch);
         }
 
         if slot % EPOCH_LENGTH as TimeSlot == 3 {
             log::info!("New epoch {} detected, generating tickets in background", current_epoch);
 
-            message::clear_ticket_pool();
             let next_epoch = current_epoch + 1;
             let node_index = this_node_index;
 
             tokio::spawn(async move {
-                let tickets = tokio::task::spawn_blocking(generate_tickets)
-                    .await
-                    .expect("ticket generation task panicked");
+
+                let this_node_index = node_config::get_account_id();
+                let identities = dev_accounts::parse_dev_accounts();
+                let bandersnatch_secret_key = identities[this_node_index as usize].bandersnatch_secret_seed;
+                let bandersnatch_public = identities[this_node_index as usize].bandersnatch_public;
+                
+                let tickets = tokio::task::spawn_blocking(move || 
+                    block::extrinsic::tickets::generate(bandersnatch_secret_key, bandersnatch_public))
+                        .await
+                        .expect("ticket generation task panicked");
 
                 let next_validators = {
                     let state = state_handler::get_global_state().lock().unwrap();
@@ -197,7 +178,7 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
                     let blob = distributed.encode();
 
                     if proxy_index == node_index as usize {
-                        message::store_ticket(ticket);
+                        block::extrinsic::tickets::store(ticket);
                         tokio::spawn(async move {
                             message::broadcast_ticket_to_validators(blob).await;
                         });
@@ -234,6 +215,8 @@ async fn should_produce_block(slot: TimeSlot, prover: &bandersnatch_vrf_spec::Pr
     let slot_epoch = slot / EPOCH_LENGTH as TimeSlot;
 
     let seal = if slot_epoch == state_epoch + 1 {
+        // Clear the ticket pool
+        block::extrinsic::tickets::clear_pool();
         // New epoch: predict seal from pre-rotation state
         let m = tau % EPOCH_LENGTH as TimeSlot;
         log::debug!("Epoch boundary: predicting seal for epoch {} (tau={}, m={})", slot_epoch, tau, m);
@@ -282,30 +265,38 @@ async fn produce_block(prover: &bandersnatch_vrf_spec::Prover) -> Option<Header>
     use codec::Encode;
     use time;
 
-    let entropy = {
+    let current_slot = time::current_slot().unwrap();
+
+    let state = {
         let state = state_handler::get_global_state().lock().unwrap();
-        state.entropy.clone()
+        state.clone()
     };
 
+    let verifier = safrole::verifier::get(ValidatorSet::Next);
+
     let mut block = Block::default();
-    block.extrinsic.tickets = message::take_tickets_for_block(time::current_slot().unwrap());
+
+    if (current_slot % EPOCH_LENGTH as TimeSlot) < TICKET_SUBMISSION_ENDS as TimeSlot {
+        block.extrinsic.tickets = block::extrinsic::tickets::select_for_block_inclusion(current_slot, verifier, &state.safrole, &state.entropy);
+    }
+
     block.header.unsigned.author_index = prover.prover_idx as ValidatorIndex;
     block.header.unsigned.extrinsic_hash = header::encode_extrinsic(&block);
     block.header.unsigned.parent = block::header::get_parent_header();
     block.header.unsigned.parent_state_root = state_handler::get_state_root().lock().unwrap().clone();
-    block.header.unsigned.slot = time::current_slot().unwrap();
+    block.header.unsigned.slot = current_slot;
 
-    let safrole_state = state_handler::get_global_state()
+    /*let safrole_state = state_handler::get_global_state()
         .lock()
         .unwrap()
-        .safrole.clone();
+        .safrole.clone();*/
 
     // Seal
-    match safrole_state.seal {
+    match state.safrole.seal {
         Seal::Tickets(tickets) => {
             // The context is "jam_fallback_seal" + entropy[3] + ticket_attempt
             let slot_index = (block.header.unsigned.slot % EPOCH_LENGTH as TimeSlot) as usize;
-            let c = [&b"jam_ticket_seal"[..], &entropy.buf[3].encode(), &tickets.tickets_mark[slot_index].attempt.encode()].concat();
+            let c = [&b"jam_ticket_seal"[..], &state.entropy.buf[3].encode(), &tickets.tickets_mark[slot_index].attempt.encode()].concat();
             let vrf_output = prover.vrf_output(&c);
             // Step 2
             let context = [&b"jam_entropy"[..], &vrf_output.encode()].concat();
@@ -315,7 +306,7 @@ async fn produce_block(prover: &bandersnatch_vrf_spec::Prover) -> Option<Header>
         },
         Seal::Keys(keys) => {
             // Step 1
-            let c = [&b"jam_fallback_seal"[..], &entropy.buf[3].encode()].concat();
+            let c = [&b"jam_fallback_seal"[..], &state.entropy.buf[3].encode()].concat();
             let vrf_output = prover.vrf_output(&c);
             // Step 2
             let context = [&b"jam_entropy"[..], &vrf_output.encode()].concat();
@@ -358,65 +349,6 @@ fn build_announcement(header: Header) -> Vec<u8> {
     };
 
     announcement.encode()
-}
-
-fn generate_tickets() -> Vec<(Ticket, OpaqueHash)> {
-    use bandersnatch_vrf_spec::Prover;
-    use ark_vrf::reexports::ark_serialize::CanonicalDeserialize;
-    use ark_vrf::suites::bandersnatch::{Public, RingProofParams};
-    use ark_vrf::suites::bandersnatch::Secret;
-    use codec::Encode;
-
-    let this_node_index = node_config::get_account_id();
-    let identities = dev_accounts::parse_dev_accounts();
-    let bandersnatch_secret_key = identities[this_node_index as usize].bandersnatch_secret_seed;
-    let bandersnatch_public = identities[this_node_index as usize].bandersnatch_public;
-
-    // Build the ring from next_validators (matching the verifier used for verification)
-    let next_validators = {
-        let state = state_handler::get_global_state().lock().unwrap();
-        state.next_validators.clone()
-    };
-
-    let ring: Vec<Public> = next_validators.list.iter()
-        .map(|v| Public::deserialize_compressed_unchecked(&v.bandersnatch[..])
-            .unwrap_or_else(|_| Public::from(RingProofParams::padding_point())))
-        .collect();
-
-    // Find our index within next_validators
-    let prover_idx = next_validators.list.iter()
-        .position(|v| v.bandersnatch == bandersnatch_public)
-        .expect("This validator must be present in next_validators");
-
-    let prover = Prover {
-        prover_idx,
-        secret: Secret::from_seed(&bandersnatch_secret_key),
-        ring,
-    };
-
-    let entropy = state_handler::get_global_state()
-        .lock()
-        .unwrap()
-        .entropy
-        .clone();
-
-    let fixed_input = [&b"jam_ticket_seal"[..], &entropy.buf[2].encode()].concat();
-
-    let mut tickets = Vec::with_capacity(TICKET_ENTRIES_PER_VALIDATOR as usize);
-
-    for attempt in 0..TICKET_ENTRIES_PER_VALIDATOR {
-        let vrf_input = [&fixed_input[..], &attempt.encode()].concat();
-        let ticket_id: OpaqueHash = prover.vrf_output(&vrf_input).try_into()
-            .expect("vrf_output should be 32 bytes");
-        let signature_bytes = prover.ring_vrf_sign(&vrf_input, &[]);
-        let signature: BandersnatchRingVrfSignature = signature_bytes.try_into()
-            .expect("ring_vrf_sign output should be 784 bytes");
-
-        tickets.push((Ticket { attempt, signature }, ticket_id));
-        log::info!("Generated ticket attempt={} id={}", attempt, hex::encode(&ticket_id));
-    }
-
-    tickets
 }
 
 /// Compute the proxy validator index for a ticket.

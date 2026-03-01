@@ -66,6 +66,7 @@ pub async fn enqueue_block_and_wait(block: Block) -> Result<(), ImportError> {
 }
 
 pub async fn run_block_queue(mut rx: mpsc::Receiver<QueuedBlock>) {
+    
     loop {
         // Wait for at least one block
         let first = match rx.recv().await {
@@ -108,86 +109,6 @@ pub async fn run_block_queue(mut rx: mpsc::Receiver<QueuedBlock>) {
             }
         }
     }
-}
-
-static TICKET_POOL: LazyLock<Mutex<Vec<Ticket>>> = LazyLock::new(|| Mutex::new(Vec::new()));
-
-pub fn clear_ticket_pool() {
-    TICKET_POOL.lock().unwrap().clear();
-}
-
-pub fn store_ticket(ticket: Ticket) {
-    log::debug!("Storing ticket attempt={}", ticket.attempt);
-    TICKET_POOL.lock().unwrap().push(ticket);
-}
-
-pub fn take_tickets_for_block(slot: TimeSlot) -> Vec<Ticket> {
-    use constants::node::{EPOCH_LENGTH, MAX_TICKETS_PER_EXTRINSIC, TICKET_SUBMISSION_ENDS};
-
-    let slot_in_epoch = slot % EPOCH_LENGTH as TimeSlot;
-    if slot_in_epoch >= TICKET_SUBMISSION_ENDS as TimeSlot {
-        return vec![];
-    }
-
-    let (safrole_state, entropy_state) = {
-        let state = state_handler::get_global_state().lock().unwrap();
-        (state.safrole.clone(), state.entropy.clone())
-    };
-
-    let existing_ids: Vec<OpaqueHash> = safrole_state.ticket_accumulator.iter().map(|t| t.id).collect();
-
-    let verifier = safrole::verifier::get(ValidatorSet::Next);
-    let fixed_input_data: Vec<u8> = [&b"jam_ticket_seal"[..], &entropy_state.buf[2].encode()].concat();
-
-    let mut pool = TICKET_POOL.lock().unwrap();
-
-    let mut valid_tickets: Vec<(Ticket, OpaqueHash)> = Vec::new();
-
-    pool.retain(|ticket| {
-        let vrf_input = [&fixed_input_data[..], &ticket.attempt.encode()].concat();
-        match verifier.ring_vrf_verify(&vrf_input, &[], &ticket.signature) {
-            Ok(id) => {
-                if existing_ids.contains(&id) {
-                    log::debug!("Ticket already in accumulator, discarding");
-                    false
-                } else {
-                    valid_tickets.push((ticket.clone(), id));
-                    false
-                }
-            }
-            Err(_) => {
-                log::error!("Invalid ticket proof, discarding");
-                false
-            }
-        }
-    });
-
-    valid_tickets.sort_by(|a, b| a.1.cmp(&b.1));
-    let candidates: Vec<(Ticket, OpaqueHash)> = valid_tickets.into_iter()
-        .take(MAX_TICKETS_PER_EXTRINSIC)
-        .collect();
-
-    // Simulate insertion into the accumulator to discard tickets that would be dropped
-    let candidate_ids: Vec<OpaqueHash> = candidates.iter().map(|(_, id)| *id).collect();
-    let mut simulated_acc: Vec<OpaqueHash> = existing_ids;
-    simulated_acc.extend(&candidate_ids);
-    simulated_acc.sort();
-
-    let selected: Vec<Ticket> = if simulated_acc.len() > EPOCH_LENGTH {
-        let survivors: HashSet<OpaqueHash> = simulated_acc[..EPOCH_LENGTH].iter().cloned().collect();
-        candidates.into_iter()
-            .filter(|(_, id)| survivors.contains(id))
-            .map(|(ticket, _)| ticket)
-            .collect()
-    } else {
-        candidates.into_iter()
-            .map(|(ticket, _)| ticket)
-            .collect()
-    };
-
-    log::debug!("Selected {} tickets for block at slot {}", selected.len(), slot);
-
-    selected
 }
 
 pub struct TicketDistribution {
@@ -336,7 +257,7 @@ pub async fn recv_ticket_from_generator(mut recv_stream: RecvStream) -> Result<(
     log::info!("We are the correct proxy for ticket attempt={}, forwarding to all validators (CE 132)",
         distributed_ticket.ticket.attempt);
 
-    store_ticket(distributed_ticket.ticket);
+    block::extrinsic::tickets::store(distributed_ticket.ticket);
 
     tokio::spawn(async move {
         broadcast_ticket_to_validators(distributed_ticket_blob).await;
@@ -393,7 +314,7 @@ pub async fn recv_ticket_distribution(mut recv_stream: RecvStream) -> Result<(),
     })?;
 
     log::info!("Ticket distribution received: epoch={} attempt={}", distributed_ticket.epoch, distributed_ticket.ticket.attempt);
-    store_ticket(distributed_ticket.ticket);
+    block::extrinsic::tickets::store(distributed_ticket.ticket);
 
     Ok(())
 }

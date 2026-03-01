@@ -207,13 +207,8 @@ fn outside_in_sequencer(tickets: &[TicketBody]) -> TicketsMark {
     return new_ticket_accumulator;
 }
 
-/// Predict what the seal will be for the next epoch, using pre-rotation values.
-/// This allows a node to determine block authorship at epoch boundaries
-/// without waiting for the epoch transition to complete.
-///
-/// - `safrole_state`: current Safrole state (pre-rotation)
-/// - `entropy_pre_rotation`: entropy buf[1] (will become buf[2] after rotation)
-/// - `m`: tau % EPOCH_LENGTH (slot-in-epoch of last processed block)
+// Predict what the seal will be for the next epoch, using pre-rotation values. This allows a node to determine block authorship 
+// at epoch boundaries without waiting for the epoch transition to complete.
 pub fn predict_next_epoch_seal(
     safrole_state: &Safrole,
     entropy_pre_rotation: &Entropy,
@@ -290,5 +285,35 @@ pub mod verifier {
         verifiers.push_back(Verifier::new(create_ring_set(&state.safrole.pending_validators)));
         verifiers.push_back(Verifier::new(create_ring_set(&state.next_validators)));
         set_all(verifiers);
+    }
+}
+
+pub fn build_curr_prover(
+    curr_validators: &ValidatorsData,
+    bandersnatch_public: &BandersnatchPublic,
+    bandersnatch_secret_seed: BandersnatchSecret,
+) -> bandersnatch_vrf_spec::Prover {
+
+    use ark_vrf::reexports::ark_serialize::CanonicalDeserialize;
+    use ark_vrf::suites::bandersnatch::{Public, Secret, RingProofParams};
+
+    /*let curr_validators = {
+        let state = state_handler::get_global_state().lock().unwrap();
+        state.curr_validators.clone()
+    };*/
+
+    let ring: Vec<Public> = curr_validators.list.iter()
+        .map(|v| Public::deserialize_compressed_unchecked(&v.bandersnatch[..])
+            .unwrap_or_else(|_| Public::from(RingProofParams::padding_point())))
+        .collect();
+
+    let prover_idx = curr_validators.list.iter()
+        .position(|v| v.bandersnatch == *bandersnatch_public)
+        .expect("This validator must be present in curr_validators");
+
+    bandersnatch_vrf_spec::Prover {
+        prover_idx,
+        secret: Secret::from_seed(&bandersnatch_secret_seed),
+        ring,
     }
 }

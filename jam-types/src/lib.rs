@@ -8,6 +8,7 @@ use std::collections::{HashMap, VecDeque};
 pub type Ed25519Public = [u8; 32];
 pub type BlsPublic = [u8; 144];
 pub type BandersnatchPublic = [u8; 32];
+pub type BandersnatchSecret = [u8; 32];
 
 pub type BandersnatchRingVrfSignature = [u8; 784];
 pub type BandersnatchVrfSignature = [u8; 96];
