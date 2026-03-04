@@ -21,6 +21,34 @@ pub fn dict_subtract<K: Eq + std::hash::Hash + Clone, V: Clone>(
         .collect()
 }
 
+pub fn outside_in_sequencer(tickets: &[TicketBody]) -> TicketsMark {
+
+    let mut new_ticket_accumulator = TicketsMark::default();
+
+    for i in 0..EPOCH_LENGTH / 2 {
+        new_ticket_accumulator.tickets_mark[2 * i] = tickets[i].clone();
+        new_ticket_accumulator.tickets_mark[2 * i + 1] = tickets[EPOCH_LENGTH - 1 - i].clone();
+    }
+
+    return new_ticket_accumulator;
+}
+
+pub fn fallback(buf: &Entropy, current_keys: Box<[BandersnatchPublic; VALIDATORS_COUNT]>) -> BandersnatchEpoch {
+    // This is the fallback key sequence function which selects an epoch's worth of validator Bandersnatch keys from the 
+    // validator key set using the entropy collected on-chain
+    let epoch_array = std::array::from_fn(|i| {
+        let index_le = (i as u32).to_le_bytes();
+        let hash = sp_core::blake2_256(&[&buf.entropy[..], &index_le].concat());
+        let hash_4 = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
+        let id = (hash_4 % VALIDATORS_COUNT as u32) as usize;
+        current_keys[id]
+    });
+
+    BandersnatchEpoch {
+        epoch: Box::new(epoch_array),
+    }
+}
+
 /*pub fn get_footprint_and_threshold(account: &Account) -> (u32, u64, Balance) {
 
     let items: u32 = 2 * account.lookup.len() as u32 + account.storage.len() as u32;

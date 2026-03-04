@@ -31,6 +31,7 @@ use ark_vrf::suites::bandersnatch::{Public, RingProofParams};
 use bandersnatch_vrf_spec::Verifier;
 use constants::node::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, VALIDATORS_COUNT};
 use jam_types::*;
+use misc::{fallback, outside_in_sequencer};
 use sp_core::blake2_256;
 use std::{collections::VecDeque, sync::{LazyLock, Mutex}};
 use tools::{log, print_hash};
@@ -193,34 +194,6 @@ pub fn create_root_epoch(verifier: &Verifier) -> BandersnatchRingCommitment {
     verifier.commitment.serialize_compressed(&mut proof[..]).unwrap();
     log::debug!("Create root epoch: 0x{}", print_hash!(proof));
     return proof;
-}
-
-fn outside_in_sequencer(tickets: &[TicketBody]) -> TicketsMark {
-
-    let mut new_ticket_accumulator = TicketsMark::default();
-
-    for i in 0..EPOCH_LENGTH / 2 {
-        new_ticket_accumulator.tickets_mark[2 * i] = tickets[i].clone();
-        new_ticket_accumulator.tickets_mark[2 * i + 1] = tickets[EPOCH_LENGTH - 1 - i].clone();
-    }
-
-    return new_ticket_accumulator;
-}
-
-fn fallback(buf: &Entropy, current_keys: Box<[BandersnatchPublic; VALIDATORS_COUNT]>) -> BandersnatchEpoch {
-    // This is the fallback key sequence function which selects an epoch's worth of validator Bandersnatch keys from the 
-    // validator key set using the entropy collected on-chain
-    let epoch_array = std::array::from_fn(|i| {
-        let index_le = (i as u32).to_le_bytes();
-        let hash = blake2_256(&[&buf.entropy[..], &index_le].concat());
-        let hash_4 = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
-        let id = (hash_4 % VALIDATORS_COUNT as u32) as usize;
-        current_keys[id]
-    });
-
-    BandersnatchEpoch {
-        epoch: Box::new(epoch_array),
-    }
 }
 
 static VERIFIERS: LazyLock<Mutex<VecDeque<Verifier>>> = LazyLock::new(|| { Mutex::new(VecDeque::new()) });
