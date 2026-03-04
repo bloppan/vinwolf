@@ -1,10 +1,9 @@
-use block::header;
 use constants::node::*;
 use jam_types::*;
 use network::{dev_accounts, jamnp_types, message, net_ctrl, net_utils, node_config, grid};
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use tools::{hex, log};
+use tools::log;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
@@ -201,20 +200,20 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
     }
 }
 
-async fn should_produce_block(slot: TimeSlot, prover: &bandersnatch_vrf_spec::Prover, bandersnatch_public: &BandersnatchPublic) -> Option<Header> {
-
-    use codec::Encode;
+async fn should_produce_block(
+    current_slot: TimeSlot, 
+    prover: &bandersnatch_vrf_spec::Prover, 
+    our_bandersnatch_public: &BandersnatchPublic
+) -> Option<Header> {
 
     let state: GlobalState = {
         let state = state_handler::get_global_state().lock().unwrap().clone();
         state
     };
 
-    let Some(seal) = block::header::get_seal(&state, slot) else {
+    let Some(seal) = block::header::get_seal(&state, current_slot) else {
         return None;
     };
-
-    let m = (slot % EPOCH_LENGTH as TimeSlot) as usize;
 
     if block::header::seal_winning_verify(&state, seal, current_slot, prover, our_bandersnatch_public) {
         produce_block(prover).await;

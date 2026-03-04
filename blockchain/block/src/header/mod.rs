@@ -16,7 +16,7 @@ use bandersnatch_vrf_spec::{Prover, Verifier};
 use codec::{generic_codec::encode_unsigned, {Encode, EncodeLen, EncodeSize}};
 use constants::node::{EPOCH_LENGTH, TICKET_ENTRIES_PER_VALIDATOR, VALIDATORS_COUNT, TICKET_SUBMISSION_ENDS};
 use jam_types::*;
-use misc::{fallback, outside_in_sequencer};
+use misc::{extract_keys, fallback, outside_in_sequencer};
 use state_handler::get_state_root;
 use std::collections::HashSet;
 use std::sync::{LazyLock, Mutex};
@@ -317,7 +317,7 @@ pub fn predict_next_epoch_seal(
     if m >= TICKET_SUBMISSION_ENDS as TimeSlot && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
         Seal::Tickets(outside_in_sequencer(&safrole_state.ticket_accumulator))
     } else {
-        let bandersnatch_keys = validators::extract_keys(&safrole_state.pending_validators, |v| v.bandersnatch);
+        let bandersnatch_keys = extract_keys(&safrole_state.pending_validators, |v| v.bandersnatch);
         Seal::Keys(fallback(entropy_pre_rotation, bandersnatch_keys))
     }
 }

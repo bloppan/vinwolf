@@ -49,6 +49,10 @@ pub fn fallback(buf: &Entropy, current_keys: Box<[BandersnatchPublic; VALIDATORS
     }
 }
 
+pub fn extract_keys<T: Clone, F: Fn(&ValidatorData) -> T>(validators: &ValidatorsData, selector: F) -> Box<[T; VALIDATORS_COUNT]> {
+    Box::new(std::array::from_fn(|i| selector(&validators.list[i])))
+}
+
 /*pub fn get_footprint_and_threshold(account: &Account) -> (u32, u64, Balance) {
 
     let items: u32 = 2 * account.lookup.len() as u32 + account.storage.len() as u32;

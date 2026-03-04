@@ -31,8 +31,7 @@ use ark_vrf::suites::bandersnatch::{Public, RingProofParams};
 use bandersnatch_vrf_spec::Verifier;
 use constants::node::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, VALIDATORS_COUNT};
 use jam_types::*;
-use misc::{fallback, outside_in_sequencer};
-use sp_core::blake2_256;
+use misc::{extract_keys, fallback, outside_in_sequencer};
 use std::{collections::VecDeque, sync::{LazyLock, Mutex}};
 use tools::{log, print_hash};
 
@@ -137,8 +136,8 @@ pub fn process(
             tickets_entropy: entropy_pool.buf[2].clone(),
             validators: {
 
-                let bandersnatch_keys = validators::extract_keys(&safrole_state.pending_validators, |v| v.bandersnatch);
-                let ed25519_keys = validators::extract_keys(&safrole_state.pending_validators, |v| v.ed25519);
+                let bandersnatch_keys = extract_keys(&safrole_state.pending_validators, |v| v.bandersnatch);
+                let ed25519_keys = extract_keys(&safrole_state.pending_validators, |v| v.ed25519);
 
                 let validator_keys: [(BandersnatchPublic, Ed25519Public); VALIDATORS_COUNT] =
                     std::array::from_fn(|i| {
@@ -152,7 +151,7 @@ pub fn process(
         });
 
         if fallback_mode {
-            let bandersnatch_keys = validators::extract_keys(curr_validators,|v| v.bandersnatch);
+            let bandersnatch_keys = extract_keys(curr_validators,|v| v.bandersnatch);
             safrole_state.seal = Seal::Keys(fallback(&entropy_pool.buf[2], bandersnatch_keys));
         }
 
