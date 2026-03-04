@@ -118,8 +118,8 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
     use codec::Encode;
     use time;
 
-    let slot = time::current_slot().unwrap();
-    time::wait_until_next_slot(slot + 2).await.unwrap();
+    let current_slot = time::current_slot().unwrap();
+    time::wait_until_next_slot(current_slot + 2).await.unwrap();
 
     let identities = dev_accounts::parse_dev_accounts();
     let this_node_index = node_config::get_account_id();
@@ -136,9 +136,9 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
 
     loop {
 
-        let slot = time::current_slot().unwrap();
-        let current_epoch = slot / EPOCH_LENGTH as TimeSlot;
-        log::debug!("Slot {} started (epoch {}) - checking block production", slot, current_epoch);
+        let current_slot = time::current_slot().unwrap();
+        let current_epoch = current_slot / EPOCH_LENGTH as TimeSlot;
+        log::debug!("Slot {} started (epoch {}) - checking block production", current_slot, current_epoch);
 
         // Rebuild prover only when epoch changes
         if cached_epoch != Some(current_epoch) {
@@ -147,7 +147,7 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
             cached_epoch = Some(current_epoch);
         }
 
-        if slot % EPOCH_LENGTH as TimeSlot == 3 {
+        if current_slot % EPOCH_LENGTH as TimeSlot == 3 {
             log::info!("New epoch {} detected, generating tickets in background", current_epoch);
 
             let next_epoch = current_epoch + 1;
@@ -192,12 +192,12 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
             });
         }
 
-        if let Some(header) = should_produce_block(slot, curr_prover.as_ref().unwrap(), &bandersnatch_public).await {
+        if let Some(header) = should_produce_block(current_slot, curr_prover.as_ref().unwrap(), &bandersnatch_public).await {
             let announcement = build_announcement(header);
             net.broadcast_announcement(announcement).await;
         }
 
-        time::wait_until_next_slot(slot).await.unwrap();
+        time::wait_until_next_slot(current_slot).await.unwrap();
     }
 }
 
@@ -210,23 +210,23 @@ async fn should_produce_block(slot: TimeSlot, prover: &bandersnatch_vrf_spec::Pr
         (state.safrole.clone(), state.entropy.clone())
     };
 
-    let tau = state_handler::time::get();
-    let state_epoch = tau / EPOCH_LENGTH as TimeSlot;
-    let slot_epoch = slot / EPOCH_LENGTH as TimeSlot;
+    let prev_slot = state_handler::time::get();
+    let prev_epoch = prev_slot / EPOCH_LENGTH as TimeSlot;
+    let epoch = slot / EPOCH_LENGTH as TimeSlot;
 
-    let seal = if slot_epoch == state_epoch + 1 {
+    let seal = if epoch == prev_epoch + 1 {
         // Clear the ticket pool
         block::extrinsic::tickets::clear_pool();
         // New epoch: predict seal from pre-rotation state
-        let m = tau % EPOCH_LENGTH as TimeSlot;
-        log::debug!("Epoch boundary: predicting seal for epoch {} (tau={}, m={})", slot_epoch, tau, m);
+        let m = prev_slot % EPOCH_LENGTH as TimeSlot;
+        log::debug!("Epoch boundary: predicting seal for epoch {} (tau={}, m={})", epoch, prev_slot, m);
         safrole::predict_next_epoch_seal(&safrole_state, &entropy.buf[1], m)
-    } else if slot_epoch == state_epoch {
+    } else if epoch == prev_epoch {
         // Same epoch: use current seal
         safrole_state.seal.clone()
     } else {
-        // Multiple epochs behind or ahead — don't produce
-        log::debug!("Epoch mismatch: slot_epoch={} state_epoch={}, skipping production", slot_epoch, state_epoch);
+        // Multiple epochs behind or ahead — don't produce // TODO solicit state update
+        log::debug!("Multiple epochs behind or ahead: current epoch={} prev epoch={}, skipping production", epoch, prev_epoch);
         return None;
     };
 
@@ -262,7 +262,6 @@ async fn should_produce_block(slot: TimeSlot, prover: &bandersnatch_vrf_spec::Pr
 
 async fn produce_block(prover: &bandersnatch_vrf_spec::Prover) -> Option<Header> {
 
-    use codec::Encode;
     use time;
 
     let current_slot = time::current_slot().unwrap();
@@ -274,50 +273,7 @@ async fn produce_block(prover: &bandersnatch_vrf_spec::Prover) -> Option<Header>
 
     let verifier = safrole::verifier::get(ValidatorSet::Next);
 
-    let mut block = Block::default();
-
-    if (current_slot % EPOCH_LENGTH as TimeSlot) < TICKET_SUBMISSION_ENDS as TimeSlot {
-        block.extrinsic.tickets = block::extrinsic::tickets::select_for_block_inclusion(current_slot, verifier, &state.safrole, &state.entropy);
-    }
-
-    block.header.unsigned.author_index = prover.prover_idx as ValidatorIndex;
-    block.header.unsigned.extrinsic_hash = header::encode_extrinsic(&block);
-    block.header.unsigned.parent = block::header::get_parent_header();
-    block.header.unsigned.parent_state_root = state_handler::get_state_root().lock().unwrap().clone();
-    block.header.unsigned.slot = current_slot;
-
-    /*let safrole_state = state_handler::get_global_state()
-        .lock()
-        .unwrap()
-        .safrole.clone();*/
-
-    // Seal
-    match state.safrole.seal {
-        Seal::Tickets(tickets) => {
-            // The context is "jam_fallback_seal" + entropy[3] + ticket_attempt
-            let slot_index = (block.header.unsigned.slot % EPOCH_LENGTH as TimeSlot) as usize;
-            let c = [&b"jam_ticket_seal"[..], &state.entropy.buf[3].encode(), &tickets.tickets_mark[slot_index].attempt.encode()].concat();
-            let vrf_output = prover.vrf_output(&c);
-            // Step 2
-            let context = [&b"jam_entropy"[..], &vrf_output.encode()].concat();
-            block.header.unsigned.entropy_source = prover.ietf_vrf_sign(&context, &[]).try_into().unwrap();
-            // Step 3
-            block.header.seal = prover.ietf_vrf_sign(&c, &block.header.unsigned.encode()).try_into().unwrap();
-        },
-        Seal::Keys(keys) => {
-            // Step 1
-            let c = [&b"jam_fallback_seal"[..], &state.entropy.buf[3].encode()].concat();
-            let vrf_output = prover.vrf_output(&c);
-            // Step 2
-            let context = [&b"jam_entropy"[..], &vrf_output.encode()].concat();
-            block.header.unsigned.entropy_source = prover.ietf_vrf_sign(&context, &[]).try_into().unwrap();
-            // Step 3
-            block.header.seal = prover.ietf_vrf_sign(&c, &block.header.unsigned.encode()).try_into().unwrap();
-        },
-        Seal::None => {
-            { };
-        },
-    }
+    let block = block::build(&state, current_slot, verifier, prover);
 
     log::info!("PRODUCING BLOCK...");
 
