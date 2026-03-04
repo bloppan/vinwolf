@@ -205,59 +205,22 @@ async fn should_produce_block(slot: TimeSlot, prover: &bandersnatch_vrf_spec::Pr
 
     use codec::Encode;
 
-    let (safrole_state, entropy) = {
-        let state = state_handler::get_global_state().lock().unwrap();
-        (state.safrole.clone(), state.entropy.clone())
+    let state: GlobalState = {
+        let state = state_handler::get_global_state().lock().unwrap().clone();
+        state
     };
 
-    let prev_slot = state_handler::time::get();
-    let prev_epoch = prev_slot / EPOCH_LENGTH as TimeSlot;
-    let epoch = slot / EPOCH_LENGTH as TimeSlot;
-
-    let seal = if epoch == prev_epoch + 1 {
-        // Clear the ticket pool
-        block::extrinsic::tickets::clear_pool();
-        // New epoch: predict seal from pre-rotation state
-        let m = prev_slot % EPOCH_LENGTH as TimeSlot;
-        log::debug!("Epoch boundary: predicting seal for epoch {} (tau={}, m={})", epoch, prev_slot, m);
-        safrole::predict_next_epoch_seal(&safrole_state, &entropy.buf[1], m)
-    } else if epoch == prev_epoch {
-        // Same epoch: use current seal
-        safrole_state.seal.clone()
-    } else {
-        // Multiple epochs behind or ahead — don't produce // TODO solicit state update
-        log::debug!("Multiple epochs behind or ahead: current epoch={} prev epoch={}, skipping production", epoch, prev_epoch);
+    let Some(seal) = block::header::get_seal(&state, slot) else {
         return None;
     };
 
-    let slot_index = (slot % EPOCH_LENGTH as TimeSlot) as usize;
+    let m = (slot % EPOCH_LENGTH as TimeSlot) as usize;
 
-    match seal {
-        Seal::Tickets(ref tickets) => {
-            let ticket = &tickets.tickets_mark[slot_index];
-            log::info!("Seal mode: Tickets. Slot {} ticket id: {}", slot, hex::encode(&ticket.id));
-
-            let context = [&b"jam_ticket_seal"[..], &entropy.buf[3].encode(), &ticket.attempt.encode()].concat();
-            let our_vrf_output: Vec<u8> = prover.vrf_output(&context);
-
-            if our_vrf_output == ticket.id {
-                log::info!("Block production: ticket matches! Slot {}", slot);
-                return produce_block(prover).await;
-            }
-        },
-        Seal::Keys(ref keys) => {
-            let key = &keys.epoch[slot_index];
-            log::info!("Seal mode: Keys (fallback). Slot {} key: {}", slot, hex::encode(key));
-
-            if *key == *bandersnatch_public {
-                log::info!("Block production: key matches! Slot {}", slot);
-                return produce_block(prover).await;
-            }
-        },
-        Seal::None => {},
+    if block::header::seal_winning_verify(&state, seal, current_slot, prover, our_bandersnatch_public) {
+        produce_block(prover).await;
     }
 
-    None
+    return None;
 }
 
 async fn produce_block(prover: &bandersnatch_vrf_spec::Prover) -> Option<Header> {
@@ -271,7 +234,7 @@ async fn produce_block(prover: &bandersnatch_vrf_spec::Prover) -> Option<Header>
         state.clone()
     };
 
-    let verifier = safrole::verifier::get(ValidatorSet::Next);
+    let verifier = safrole::verifier::get(ValidatorSet::Pending);
 
     let block = block::build(&state, current_slot, verifier, prover);
 
