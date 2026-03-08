@@ -216,7 +216,7 @@ async fn should_produce_block(
     };
 
     if block::header::seal_winning_verify(&state, seal, current_slot, prover, our_bandersnatch_public) {
-        produce_block(prover).await;
+        return produce_block(prover).await;
     }
 
     return None;
