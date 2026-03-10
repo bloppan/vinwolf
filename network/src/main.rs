@@ -1,3 +1,4 @@
+use codec::Encode;
 use constants::node::*;
 use jam_types::*;
 use network::{dev_accounts, jamnp_types, message, net_ctrl, net_utils, node_config, grid};
@@ -112,29 +113,20 @@ async fn main() -> Result<()> {
 }
 
 async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
-
-    use network::jamnp_types::TicketDistributed;
-    use codec::Encode;
-    use time;
-
     let current_slot = time::current_slot().unwrap();
     time::wait_until_next_slot(current_slot + 2).await.unwrap();
 
-    let identities = dev_accounts::parse_dev_accounts();
     let this_node_index = node_config::get_account_id();
+    let identities = dev_accounts::parse_dev_accounts();
     let bandersnatch_public = identities[this_node_index as usize].bandersnatch_public;
     let bandersnatch_secret_seed = identities[this_node_index as usize].bandersnatch_secret_seed;
-    
-    let curr_validators = {
-        let state = state_handler::get_global_state().lock().unwrap();
-        state.curr_validators.clone()
-    };
+
+    let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
 
     let mut cached_epoch: Option<TimeSlot> = None;
     let mut curr_prover: Option<bandersnatch_vrf_spec::Prover> = None;
 
     loop {
-
         let current_slot = time::current_slot().unwrap();
         let current_epoch = current_slot / EPOCH_LENGTH as TimeSlot;
         log::debug!("Slot {} started (epoch {}) - checking block production", current_slot, current_epoch);
@@ -147,114 +139,77 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
         }
 
         if current_slot % EPOCH_LENGTH as TimeSlot == 3 {
-            log::info!("New epoch {} detected, generating tickets in background", current_epoch);
-
-            let next_epoch = current_epoch + 1;
-            let node_index = this_node_index;
-
-            tokio::spawn(async move {
-
-                let this_node_index = node_config::get_account_id();
-                let identities = dev_accounts::parse_dev_accounts();
-                let bandersnatch_secret_key = identities[this_node_index as usize].bandersnatch_secret_seed;
-                let bandersnatch_public = identities[this_node_index as usize].bandersnatch_public;
-                
-                let tickets = tokio::task::spawn_blocking(move || 
-                    block::extrinsic::tickets::generate(bandersnatch_secret_key, bandersnatch_public))
-                        .await
-                        .expect("ticket generation task panicked");
-
-                let next_validators = {
-                    let state = state_handler::get_global_state().lock().unwrap();
-                    state.next_validators.clone()
-                };
-
-                for (ticket, ticket_id) in tickets {
-                    let proxy_index = compute_proxy_index(&ticket_id);
-                    log::info!("Ticket attempt={} proxy_index={}", ticket.attempt, proxy_index);
-
-                    let distributed = TicketDistributed { epoch: next_epoch, ticket: ticket.clone() };
-                    let blob = distributed.encode();
-
-                    if proxy_index == node_index as usize {
-                        block::extrinsic::tickets::store(ticket);
-                        tokio::spawn(async move {
-                            message::broadcast_ticket_to_validators(blob).await;
-                        });
-                    } else {
-                        let proxy_bandersnatch = next_validators.list[proxy_index].bandersnatch;
-                        tokio::spawn(async move {
-                            message::send_ticket_to_proxy(blob, &proxy_bandersnatch).await;
-                        });
-                    }
-                }
-            });
+            spawn_ticket_generation(current_epoch, this_node_index, bandersnatch_secret_seed, bandersnatch_public);
         }
 
-        if let Some(header) = should_produce_block(current_slot, curr_prover.as_ref().unwrap(), &bandersnatch_public).await {
-            let announcement = build_announcement(header);
-            net.broadcast_announcement(announcement).await;
+        let state = state_handler::get_global_state().lock().unwrap().clone();
+        let prover = curr_prover.as_ref().unwrap();
+
+        if let Some(seal) = block::header::get_seal(&state, current_slot) {
+            if block::header::seal_winning_verify(&state, seal, current_slot, prover, &bandersnatch_public) {
+                let verifier = safrole::verifier::get(ValidatorSet::Pending);
+
+                log::info!("PRODUCING BLOCK...");
+                let block = block::build(&state, current_slot, verifier, prover);
+
+                match message::enqueue_block_and_wait(block.clone()).await {
+                    Ok(_) => {
+                        message::mark_slot_seen(block.header.unsigned.slot);
+                        let announcement = build_announcement(block.header);
+                        net.broadcast_announcement(announcement).await;
+                    }
+                    Err(e) => {
+                        log::error!("STF failed for own block: {:?}", e);
+                    }
+                }
+            }
         }
 
         time::wait_until_next_slot(current_slot).await.unwrap();
     }
 }
 
-async fn should_produce_block(
-    current_slot: TimeSlot, 
-    prover: &bandersnatch_vrf_spec::Prover, 
-    our_bandersnatch_public: &BandersnatchPublic
-) -> Option<Header> {
+fn spawn_ticket_generation(
+    current_epoch: TimeSlot,
+    node_index: ValidatorIndex,
+    bandersnatch_secret_seed: BandersnatchSecret,
+    bandersnatch_public: BandersnatchPublic,
+) {
+    let next_epoch = current_epoch + 1;
+    log::info!("New epoch {} detected, generating tickets in background", current_epoch);
 
-    let state: GlobalState = {
-        let state = state_handler::get_global_state().lock().unwrap().clone();
-        state
-    };
+    tokio::spawn(async move {
+        let tickets = tokio::task::spawn_blocking(move ||
+            block::extrinsic::tickets::generate(bandersnatch_secret_seed, bandersnatch_public))
+                .await
+                .expect("ticket generation task panicked");
 
-    let Some(seal) = block::header::get_seal(&state, current_slot) else {
-        return None;
-    };
+        let next_validators = state_handler::get_global_state().lock().unwrap().next_validators.clone();
 
-    if block::header::seal_winning_verify(&state, seal, current_slot, prover, our_bandersnatch_public) {
-        return produce_block(prover).await;
-    }
+        for (ticket, ticket_id) in tickets {
+            let proxy_index = compute_proxy_index(&ticket_id);
+            log::info!("Ticket attempt={} proxy_index={}", ticket.attempt, proxy_index);
 
-    return None;
+            let distributed = jamnp_types::TicketDistributed { epoch: next_epoch, ticket: ticket.clone() };
+            let blob = distributed.encode();
+
+            if proxy_index == node_index as usize {
+                block::extrinsic::tickets::store(ticket);
+                tokio::spawn(async move {
+                    message::broadcast_ticket_to_validators(blob).await;
+                });
+            } else {
+                let proxy_bandersnatch = next_validators.list[proxy_index].bandersnatch;
+                tokio::spawn(async move {
+                    message::send_ticket_to_proxy(blob, &proxy_bandersnatch).await;
+                });
+            }
+        }
+    });
 }
 
-async fn produce_block(prover: &bandersnatch_vrf_spec::Prover) -> Option<Header> {
-
-    use time;
-
-    let current_slot = time::current_slot().unwrap();
-
-    let state = {
-        let state = state_handler::get_global_state().lock().unwrap();
-        state.clone()
-    };
-
-    let verifier = safrole::verifier::get(ValidatorSet::Pending);
-
-    let block = block::build(&state, current_slot, verifier, prover);
-
-    log::info!("PRODUCING BLOCK...");
-
-    match message::enqueue_block_and_wait(block.clone()).await {
-        Ok(_) => {
-            message::mark_slot_seen(block.header.unsigned.slot);
-            Some(block.header)
-        }
-        Err(e) => {
-            log::error!("STF failed for own block: {:?}", e);
-            None
-        }
-    }
-}
 
 fn build_announcement(header: Header) -> Vec<u8> {
-    
-    use codec::Encode;
-
     let parent_hash = block::header::get_parent_header();
     let time = state_handler::time::get();
 
