@@ -187,7 +187,7 @@ fn spawn_ticket_generation(
         let next_validators = state_handler::get_global_state().lock().unwrap().next_validators.clone();
 
         for (ticket, ticket_id) in tickets {
-            let proxy_index = compute_proxy_index(&ticket_id);
+            let proxy_index = grid::compute_proxy_index(&ticket_id);
             log::info!("Ticket attempt={} proxy_index={}", ticket.attempt, proxy_index);
 
             let distributed = jamnp_types::TicketDistributed { epoch: next_epoch, ticket: ticket.clone() };
@@ -222,14 +222,5 @@ fn build_announcement(header: Header) -> Vec<u8> {
     };
 
     announcement.encode()
-}
-
-/// Compute the proxy validator index for a ticket.
-/// The proxy is determined by interpreting the last 4 bytes of the ticket's VRF output
-/// as a big-endian unsigned integer, modulo the number of validators.
-fn compute_proxy_index(ticket_id: &OpaqueHash) -> usize {
-    let last_4 = &ticket_id[28..32];
-    let val = u32::from_be_bytes(last_4.try_into().unwrap());
-    (val as usize) % constants::node::VALIDATORS_COUNT
 }
 

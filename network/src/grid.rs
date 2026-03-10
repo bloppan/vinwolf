@@ -1,12 +1,12 @@
 use constants::node::VALIDATORS_COUNT;
-use jam_types::{ValidatorIndex, Ed25519Public};
+use jam_types::*;
 
 pub fn am_i_the_preferred_initiator(my_key: &Ed25519Public, peer_key: &Ed25519Public) -> bool {
     let cond = ((my_key[31] > 127) ^ (peer_key[31] > 127)) ^ (my_key < peer_key);
     cond
 }
 
-/// Grid width W = floor(sqrt(V)) as defined in JAMNP-S.
+// Grid width W = floor(sqrt(V)) as defined in JAMNP-S.
 pub const fn width() -> usize {
     // largest w such that w*w <= V
     let mut w = 1;
@@ -16,8 +16,8 @@ pub const fn width() -> usize {
     w
 }
 
-/// Two validators in the same epoch are grid neighbours if they share
-/// the same row (index / W) or the same column (index % W).
+// Two validators in the same epoch are grid neighbours if they share
+// the same row (index / W) or the same column (index % W).
 pub fn is_neighbour(my_index: ValidatorIndex, other_index: ValidatorIndex) -> bool {
     if my_index == other_index {
         return false;
@@ -26,6 +26,15 @@ pub fn is_neighbour(my_index: ValidatorIndex, other_index: ValidatorIndex) -> bo
     let same_row = (my_index as usize / w) == (other_index as usize / w);
     let same_col = (my_index as usize % w) == (other_index as usize % w);
     same_row || same_col
+}
+
+// Compute the proxy validator index for a ticket.
+// The proxy is determined by interpreting the last 4 bytes of the ticket's VRF output
+// as a big-endian unsigned integer, modulo the number of validators.
+pub fn compute_proxy_index(ticket_id: &OpaqueHash) -> usize {
+    let last_4 = &ticket_id[28..32];
+    let val = u32::from_be_bytes(last_4.try_into().unwrap());
+    (val as usize) % constants::node::VALIDATORS_COUNT
 }
 
 #[cfg(test)]
