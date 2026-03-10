@@ -1,5 +1,5 @@
 use crate::{dev_accounts, node_config};
-use crate::jamnp_types::{StreamKind, Announcement, Handshake, ImportedBlocks, NetworkError, TicketDistributed};
+use crate::jamnp_types::*;
 use codec::{BytesReader, Decode, Encode};
 use codec::generic_codec::decode_from_bytes;
 use jam_types::{*};
@@ -531,6 +531,21 @@ fn is_new(announcement: &Announcement) -> bool {
     let slot = announcement.header.unsigned.slot;
     let prev = LAST_SEEN_SLOT.fetch_max(slot, Ordering::AcqRel);
     slot > prev
+}
+
+pub fn build_announcement(header: Header) -> Vec<u8> {
+    let parent_hash = block::header::get_parent_header();
+    let time = state_handler::time::get();
+
+    let announcement = Announcement {
+        header,
+        last_finalized_block: LastFinalizedBlock {
+            header_hash: parent_hash,
+            slot: time,
+        },
+    };
+
+    announcement.encode()
 }
 
 pub async fn block_announcement(

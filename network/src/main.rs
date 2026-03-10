@@ -155,7 +155,7 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
                 match message::enqueue_block_and_wait(block.clone()).await {
                     Ok(_) => {
                         message::mark_slot_seen(block.header.unsigned.slot);
-                        let announcement = build_announcement(block.header);
+                        let announcement = message::build_announcement(block.header);
                         net.broadcast_announcement(announcement).await;
                     }
                     Err(e) => {
@@ -207,20 +207,3 @@ fn spawn_ticket_generation(
         }
     });
 }
-
-
-fn build_announcement(header: Header) -> Vec<u8> {
-    let parent_hash = block::header::get_parent_header();
-    let time = state_handler::time::get();
-
-    let announcement = jamnp_types::Announcement {
-        header,
-        last_finalized_block: jamnp_types::LastFinalizedBlock {
-            header_hash: parent_hash,
-            slot: time,
-        },
-    };
-
-    announcement.encode()
-}
-
