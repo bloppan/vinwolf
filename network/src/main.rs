@@ -53,9 +53,9 @@ async fn main() -> Result<()> {
     
     let net = std::sync::Arc::new(net_ctrl::NetworkController::new(endpoint));
 
-    let block_queue_rx = message::init_block_queue(32);
+    let block_queue_rx = message::block::init_queue(32);
     tokio::spawn(async move {
-        message::run_block_queue(block_queue_rx).await;
+        message::block::run_queue(block_queue_rx).await;
     });
 
     node_config::set_account_id(validator_index);
@@ -152,10 +152,10 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
                 log::info!("PRODUCING BLOCK...");
                 let block = block::build(&state, current_slot, verifier, prover);
 
-                match message::enqueue_block_and_wait(block.clone()).await {
+                match message::block::enqueue_and_wait(block.clone()).await {
                     Ok(_) => {
-                        message::mark_slot_seen(block.header.unsigned.slot);
-                        let announcement = message::build_announcement(block.header);
+                        message::block::mark_slot_seen(block.header.unsigned.slot);
+                        let announcement = message::block::build_announcement(block.header);
                         net.broadcast_announcement(announcement).await;
                     }
                     Err(e) => {
@@ -196,12 +196,12 @@ fn spawn_ticket_generation(
             if proxy_index == node_index as usize {
                 block::extrinsic::tickets::store(ticket);
                 tokio::spawn(async move {
-                    message::broadcast_ticket_to_validators(blob).await;
+                    message::ticket::broadcast_to_validators(blob).await;
                 });
             } else {
                 let proxy_bandersnatch = next_validators.list[proxy_index].bandersnatch;
                 tokio::spawn(async move {
-                    message::send_ticket_to_proxy(blob, &proxy_bandersnatch).await;
+                    message::ticket::send_to_proxy(blob, &proxy_bandersnatch).await;
                 });
             }
         }

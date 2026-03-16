@@ -365,7 +365,7 @@ impl PeerHandle {
                 *self.announcement_tx.lock().unwrap() = Some(ann_tx);
                 let announcement_tx_ref = self.announcement_tx.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await {
+                    if let Err(e) = message::block::announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await {
                         log::error!("Block announcement stream ended: {:?}", e);
                     }
                     *announcement_tx_ref.lock().unwrap() = None;
@@ -398,7 +398,7 @@ impl PeerHandle {
                 *self.announcement_tx.lock().unwrap() = Some(ann_tx);
                 let announcement_tx_ref = self.announcement_tx.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await {
+                    if let Err(e) = message::block::announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await {
                         log::error!("Block announcement stream ended: {:?}", e);
                     }
                     *announcement_tx_ref.lock().unwrap() = None;
@@ -407,7 +407,7 @@ impl PeerHandle {
             BLOCK_REQUEST => {
                 log::debug!("Block request received from {}", self.connection.remote_address());
                 tokio::spawn(async move {
-                    if let Err(e) = message::handle_block_request(send_stream, recv_stream).await {
+                    if let Err(e) = message::block::handle_request(send_stream, recv_stream).await {
                         log::error!("Failed to handle block request: {:?}", e);
                     }
                 });
@@ -415,7 +415,7 @@ impl PeerHandle {
             TICKET_GENERATION => {
                 log::debug!("Generated ticket received -> Send to all current validators");
                 tokio::spawn(async move {
-                    if let Err(e) = message::recv_ticket_from_generator(recv_stream).await {
+                    if let Err(e) = message::ticket::recv_from_generator(recv_stream).await {
                         log::error!("Failed to handle ticket from generator: {:?}", e);
                     }
                 });
@@ -423,7 +423,7 @@ impl PeerHandle {
             TICKET_PROXY => {
                 log::debug!("Received ticket from proxy -> Include in a block");
                 tokio::spawn(async move {
-                    if let Err(e) = message::recv_ticket_distribution(recv_stream).await {
+                    if let Err(e) = message::ticket::recv_distribution(recv_stream).await {
                         log::error!("Failed to handle ticket distribution: {:?}", e);
                     }
                 });
