@@ -3,7 +3,7 @@ use constants::node::VALIDATORS_COUNT;
 use crate::message::{BLOCK_ANNOUNCEMENT, BLOCK_REQUEST, TICKET_GENERATION, TICKET_PROXY};
 use crate::{message, message::NetworkMessage, dev_accounts, node_config, grid};
 use crate::jamnp_types::{NetworkError, Handshake, StreamKind};
-use jam_types::ValidatorIndex;
+use jam_types::*;
 use quinn::{Connection, RecvStream, SendStream, Endpoint};
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -39,7 +39,7 @@ impl NetworkController {
         }
     }
 
-    pub async fn init_peers(&self, my_index: ValidatorIndex, ed25519_keys: &[jam_types::Ed25519Public]) {
+    pub async fn init_peers(&self, my_index: ValidatorIndex, ed25519_keys: &[Ed25519Public]) {
         let my_key = &ed25519_keys[my_index as usize];
         let mut peers = self.peers.write().await;
 

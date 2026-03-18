@@ -326,7 +326,7 @@ static LAST_IMPORTED_SLOT: AtomicU32 = AtomicU32::new(0);
 /// Lock to serialize the entire sync operation
 static SYNC_LOCK: LazyLock<tokio::sync::Mutex<()>> = LazyLock::new(|| tokio::sync::Mutex::new(()));
 
-const MAX_SLOTS_BEHIND: u32 = 3;
+const MAX_SLOTS_BEHIND: u32 = 10;
 
 fn is_synced() -> bool {
     let last_slot = LAST_IMPORTED_SLOT.load(Ordering::Acquire);

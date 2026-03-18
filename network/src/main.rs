@@ -18,6 +18,7 @@ fn print_help() {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    
     log::Builder::from_env(log::Env::default().default_filter_or("debug"))
         .with_dotenv(true)
         .init();
@@ -74,6 +75,7 @@ async fn main() -> Result<()> {
 
     // Initial connection attempts (fire-and-forget, monitor will reconnect if they fail)
     for (index, ed25519_key) in ed25519_public.iter().enumerate() {
+        
         if index == validator_index as usize {
             continue;
         }
