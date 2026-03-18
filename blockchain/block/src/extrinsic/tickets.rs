@@ -13,6 +13,7 @@ use ark_vrf::suites::bandersnatch::{Public, RingProofParams};
 use ark_vrf::suites::bandersnatch::Secret;
 use bandersnatch_vrf_spec::{Prover, Verifier};
 use codec::Encode;
+use codec::generic_codec::encode_unsigned;
 use constants::node::{EPOCH_LENGTH, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR, TICKET_SUBMISSION_ENDS};
 use jam_types::*;
 use misc::{bad_order, has_duplicates};
@@ -125,7 +126,7 @@ pub fn process(
 
 fn ticket_seal_verify(verifier: &Verifier, ticket: &Ticket, fixed_input_data: &[u8]) -> Result<TicketBody, ImportError> {
 
-    let vrf_input_data = [fixed_input_data, &ticket.attempt.encode()].concat();
+    let vrf_input_data = [fixed_input_data, &encode_unsigned(ticket.attempt as usize)].concat();
     let aux_data = vec![];
     // Verify ticket validity
     match verifier.ring_vrf_verify(&vrf_input_data, &aux_data, &ticket.signature) {

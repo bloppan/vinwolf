@@ -56,7 +56,7 @@ pub fn process_trace(path: &Path) {
     
     match state_ctrl::stf(&block) {
         Ok(_) => { println!("Block {:?} processed successfully", path); },
-        Err(e) => { println!("Refused block: {:?}", e) },
+        Err(e) => { println!("Refused block {:?}: {:?}", path, e) },
     };
 
     let result_state = state_handler::get_global_state().lock().unwrap().clone();        

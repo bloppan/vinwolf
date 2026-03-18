@@ -1,7 +1,7 @@
 use constants::node::{EPOCH_LENGTH, VALIDATORS_COUNT};
 use jam_types::{*};
 use crate::{Encode, EncodeLen, EncodeSize, Decode, DecodeLen, BytesReader};
-use crate::generic_codec::decode_unsigned;
+use crate::generic_codec::{encode_unsigned, decode_unsigned};
 
 impl Encode for Block {
 
@@ -266,7 +266,7 @@ impl Decode for TicketBody {
         
         Ok( TicketBody {
             id: OpaqueHash::decode(body_blob)?,
-            attempt: u8::decode(body_blob)?,
+            attempt: decode_unsigned(body_blob)? as TicketAttempt,
         })
     }
 }
@@ -278,7 +278,7 @@ impl Encode for TicketBody {
         let mut body_blob = Vec::with_capacity(std::mem::size_of::<TicketBody>());
 
         self.id.encode_to(&mut body_blob);
-        self.attempt.encode_to(&mut body_blob);
+        encode_unsigned(self.attempt as usize).encode_to(&mut body_blob);
 
         return body_blob;
     }

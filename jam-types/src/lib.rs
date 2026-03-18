@@ -565,7 +565,7 @@ pub struct Ticket {
 #[derive(Debug, Clone, PartialEq, Ord, PartialOrd, Eq)]
 pub struct TicketBody {
     pub id: OpaqueHash,
-    pub attempt: u8,
+    pub attempt: TicketAttempt,
 }
 
 #[derive(Debug, Clone, PartialEq)]
