@@ -554,7 +554,7 @@ pub struct Statistics {
 // We define the extrinsic as a sequence of proofs of valid tickets, each of which is a tuple of an entry index 
 // (a natural number less than N) and a proof of ticket validity.
 pub type TicketId = OpaqueHash;
-pub type TicketAttempt = u8;
+pub type TicketAttempt = usize;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Ticket {

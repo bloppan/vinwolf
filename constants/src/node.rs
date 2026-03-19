@@ -18,7 +18,7 @@ pub const ROTATION_PERIOD: u32 = 4;
 pub const TICKET_SUBMISSION_ENDS: usize = 10;
 // The number of ticket entries per validator.
 #[cfg(all(feature = "tiny", not(feature = "full")))]
-pub const TICKET_ENTRIES_PER_VALIDATOR: u8 = 3;
+pub const TICKET_ENTRIES_PER_VALIDATOR: usize = 3;
 // The maximum number of tickets which may be submitted in a single extrinsic.
 #[cfg(all(feature = "tiny", not(feature = "full")))]
 pub const MAX_TICKETS_PER_EXTRINSIC: usize = 3;
@@ -55,7 +55,7 @@ pub const ROTATION_PERIOD: u32 = 10;
 #[cfg(feature = "full")]
 pub const TICKET_SUBMISSION_ENDS: usize = 500;
 #[cfg(feature = "full")]
-pub const TICKET_ENTRIES_PER_VALIDATOR: u8 = 2;
+pub const TICKET_ENTRIES_PER_VALIDATOR: usize = 2;
 #[cfg(feature = "full")]
 pub const MAX_TICKETS_PER_EXTRINSIC: usize = 16;
 #[cfg(feature = "full")]

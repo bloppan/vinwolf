@@ -278,7 +278,7 @@ impl Encode for TicketBody {
         let mut body_blob = Vec::with_capacity(std::mem::size_of::<TicketBody>());
 
         self.id.encode_to(&mut body_blob);
-        encode_unsigned(self.attempt as usize).encode_to(&mut body_blob);
+        encode_unsigned(self.attempt).encode_to(&mut body_blob);
 
         return body_blob;
     }
