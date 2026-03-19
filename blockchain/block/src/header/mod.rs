@@ -57,7 +57,7 @@ pub fn seal_verify(
         Seal::Tickets(tickets) => {
             log::debug!("Verify tickets seal");
             // The context is "jam_fallback_seal" + entropy[3] + ticket_attempt
-            let context = [&b"jam_ticket_seal"[..], &entropy.buf[3].encode(), &tickets.tickets_mark[i as usize].attempt.encode()].concat();
+            let context = [&b"jam_ticket_seal"[..], &entropy.buf[3].encode(), &encode_unsigned(tickets.tickets_mark[i as usize].attempt)].concat();
             // Verify the seal
             let seal_vrf_output_result = verifier.ietf_vrf_verify(
                                                     &context,
@@ -361,7 +361,7 @@ pub fn seal_winning_verify(
             let ticket = &tickets.tickets_mark[m];
             log::info!("Seal mode: Tickets. Slot {} ticket id: {}", current_slot, hex::encode(&ticket.id));
 
-            let context = [&b"jam_ticket_seal"[..], &state.entropy.buf[3].encode(), &ticket.attempt.encode()].concat();
+            let context = [&b"jam_ticket_seal"[..], &state.entropy.buf[3].encode(), &encode_unsigned(ticket.attempt)].concat();
             let our_vrf_output: Vec<u8> = prover.vrf_output(&context);
 
             if our_vrf_output == ticket.id {
