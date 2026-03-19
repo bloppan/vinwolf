@@ -1,8 +1,9 @@
 use codec::generic_codec::decode_from_bytes;
+use constants::node::VALIDATORS_COUNT;
 use crate::message::{BLOCK_ANNOUNCEMENT, BLOCK_REQUEST, TICKET_GENERATION, TICKET_PROXY};
-use crate::{message, message::NetworkMessage, dev_accounts, node_config, topology};
+use crate::{message, message::NetworkMessage, dev_accounts, node_config, grid};
 use crate::jamnp_types::{NetworkError, Handshake, StreamKind};
-use jam_types::ValidatorIndex;
+use jam_types::*;
 use quinn::{Connection, RecvStream, SendStream, Endpoint};
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -11,9 +12,23 @@ use tokio::sync::{mpsc, RwLock};
 use tokio::select;
 use tools::{hex, log};
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum PeerState {
+    Connected,
+    Disconnected { retry_count: u32 },
+    Reconnecting,
+}
+
+pub struct PeerInfo {
+    pub handle: Option<PeerHandle>,
+    pub state: PeerState,
+    pub we_initiate: bool,
+    pub is_neighbour: bool,
+}
+
 pub struct NetworkController {
     endpoint: Endpoint,
-    peers: RwLock<HashMap<ValidatorIndex, PeerHandle>>,
+    peers: RwLock<HashMap<ValidatorIndex, PeerInfo>>,
 }
 
 impl NetworkController {
@@ -24,26 +39,40 @@ impl NetworkController {
         }
     }
 
-    pub async fn listen_network(self: Arc<Self>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        
-        while let Some(conn) = self.endpoint.accept().await {
-            
-            log::info!("Incoming connection attempt from {}", conn.remote_address());
+    pub async fn init_peers(&self, my_index: ValidatorIndex, ed25519_keys: &[Ed25519Public]) {
+        let my_key = &ed25519_keys[my_index as usize];
+        let mut peers = self.peers.write().await;
 
-            /*if conn.remote_address().port() != 40004 {
+        for index in 0..VALIDATORS_COUNT as ValidatorIndex {
+            if index == my_index {
                 continue;
-            }*/
+            }
+            let peer_key = &ed25519_keys[index as usize];
+            peers.insert(index, PeerInfo {
+                handle: None,
+                state: PeerState::Disconnected { retry_count: 0 },
+                we_initiate: grid::am_i_the_preferred_initiator(my_key, peer_key),
+                is_neighbour: grid::is_neighbour(my_index, index),
+            });
+        }
+    }
+
+    pub async fn listen_network(self: Arc<Self>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+
+        while let Some(conn) = self.endpoint.accept().await {
+
+            log::info!("Incoming connection attempt from {}", conn.remote_address());
 
             let this = self.clone();
 
             tokio::spawn(async move {
                 match conn.await {
                     Ok(connection) => {
-                        
-                        let id_account = connection.remote_address().port().saturating_sub(40000);
-                        let dev_accounts = dev_accounts::parse_dev_accounts();
 
-                        if id_account as usize >= dev_accounts.len() {
+                        let id_account = connection.remote_address().port().saturating_sub(40000);
+                        let identities = dev_accounts::parse_dev_accounts();
+
+                        if id_account as usize >= identities.len() {
                             log::error!(
                                 "Invalid peer index {} from port {}, ignoring connection",
                                 id_account, connection.remote_address().port()
@@ -51,14 +80,16 @@ impl NetworkController {
                             return;
                         }
 
+                        let peer_index = id_account as ValidatorIndex;
+
                         log::info!(
                             "New connection established from {} bandersnatch public: {}",
                             connection.remote_address(),
-                            hex::encode(&dev_accounts[id_account as usize].bandersnatch_public)
+                            hex::encode(&identities[id_account as usize].bandersnatch_public)
                         );
 
                         dev_accounts::add_dev_account(
-                            dev_accounts[id_account as usize].bandersnatch_public,
+                            identities[id_account as usize].bandersnatch_public,
                             connection.clone(),
                         );
 
@@ -71,15 +102,32 @@ impl NetworkController {
 
                         {
                             let mut peers = this.peers.write().await;
-                            peers.insert(id_account as ValidatorIndex, handle.clone());
+                            if let Some(info) = peers.get_mut(&peer_index) {
+                                info.handle = Some(handle.clone());
+                                info.state = PeerState::Connected;
+                            } else {
+                                peers.insert(peer_index, PeerInfo {
+                                    handle: Some(handle.clone()),
+                                    state: PeerState::Connected,
+                                    we_initiate: false,
+                                    is_neighbour: grid::is_neighbour(node_config::get_account_id(), peer_index),
+                                });
+                            }
                         }
 
                         handle.peer_task(rx).await;
 
                         {
                             let mut peers = this.peers.write().await;
-                            peers.remove(&(id_account as ValidatorIndex));
+                            if let Some(info) = peers.get_mut(&peer_index) {
+                                info.handle = None;
+                                info.state = PeerState::Disconnected { retry_count: 0 };
+                            }
                         }
+
+                        dev_accounts::remove_dev_account(
+                            &identities[id_account as usize].bandersnatch_public,
+                        );
 
                         log::info!("Server connection task finished for {}", id_account);
                     }
@@ -95,16 +143,15 @@ impl NetworkController {
     }
 
     pub async fn broadcast_announcement(&self, announcement_blob: Vec<u8>) {
-        let my_index = node_config::get_account_id();
-
-        // Collect senders while holding the read lock, then release it before awaiting
         let targets: Vec<(ValidatorIndex, mpsc::Sender<Vec<u8>>)> = {
             let peers = self.peers.read().await;
             peers.iter()
-                .filter(|(&peer_index, _)| topology::is_grid_neighbour(my_index, peer_index))
-                .filter_map(|(&peer_index, handle)| {
-                    let tx = handle.announcement_tx.lock().unwrap().clone();
-                    tx.map(|tx| (peer_index, tx))
+                .filter(|(_, info)| info.state == PeerState::Connected && info.is_neighbour)
+                .filter_map(|(&peer_index, info)| {
+                    info.handle.as_ref().and_then(|handle| {
+                        let tx = handle.announcement_tx.lock().unwrap().clone();
+                        tx.map(|tx| (peer_index, tx))
+                    })
                 })
                 .collect()
         };
@@ -124,25 +171,32 @@ impl NetworkController {
 
         {
             let peers = self.peers.read().await;
-            if let Some(_handle) = peers.get(&peer_index) {
-                return Ok(());
+            if let Some(info) = peers.get(&peer_index) {
+                if info.state == PeerState::Connected {
+                    return Ok(());
+                }
             }
         }
 
-        let dev_accounts = dev_accounts::parse_dev_accounts();
-        let node_alt_name = dev_accounts[peer_index as usize].dns_alt_name.clone();
+        let identities = dev_accounts::parse_dev_accounts();
+        let node_alt_name = identities[peer_index as usize].dns_alt_name.clone();
         let node_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 40000 + peer_index);
 
         log::info!(
             "Attempt connection to {} bandersnatch public: {}",
             node_addr,
-            hex::encode(&dev_accounts[peer_index as usize].bandersnatch_public)
+            hex::encode(&identities[peer_index as usize].bandersnatch_public)
         );
 
         let connecting = self.endpoint.connect(node_addr, &node_alt_name)?;
         let connection = connecting.await?;
 
         log::info!("Connected to {}", node_addr);
+
+        dev_accounts::add_dev_account(
+            identities[peer_index as usize].bandersnatch_public,
+            connection.clone(),
+        );
 
         let (tx, rx) = mpsc::channel(32);
         let handle = PeerHandle {
@@ -153,7 +207,17 @@ impl NetworkController {
 
         {
             let mut peers = self.peers.write().await;
-            peers.insert(peer_index, handle.clone());
+            if let Some(info) = peers.get_mut(&peer_index) {
+                info.handle = Some(handle.clone());
+                info.state = PeerState::Connected;
+            } else {
+                peers.insert(peer_index, PeerInfo {
+                    handle: Some(handle.clone()),
+                    state: PeerState::Connected,
+                    we_initiate: true,
+                    is_neighbour: grid::is_neighbour(node_config::get_account_id(), peer_index),
+                });
+            }
         }
 
         let peer_handle = handle.clone();
@@ -165,17 +229,110 @@ impl NetworkController {
         });
 
         peer_handle.peer_task(rx).await;
-        
+
         {
             let mut peers = self.peers.write().await;
-            peers.remove(&(peer_index as ValidatorIndex));
+            if let Some(info) = peers.get_mut(&peer_index) {
+                info.handle = None;
+                info.state = PeerState::Disconnected { retry_count: 0 };
+            }
         }
+
+        dev_accounts::remove_dev_account(
+            &identities[peer_index as usize].bandersnatch_public,
+        );
 
         log::info!("Peer connection task finished for {}", node_addr);
 
         Ok(())
     }
 
+    pub async fn connection_monitor(self: Arc<Self>) {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
+
+        loop {
+            interval.tick().await;
+
+            let reconnect_targets: Vec<(ValidatorIndex, u32, bool)> = {
+                let peers = self.peers.read().await;
+                peers.iter()
+                    .filter_map(|(&index, info)| {
+                        if let PeerState::Disconnected { retry_count } = info.state {
+                            Some((index, retry_count, info.we_initiate))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            };
+
+            // Log network status summary
+            {
+                let peers = self.peers.read().await;
+                let total = peers.len();
+                let connected = peers.values().filter(|i| i.state == PeerState::Connected).count();
+                let neighbours_connected = peers.values()
+                    .filter(|i| i.state == PeerState::Connected && i.is_neighbour)
+                    .count();
+                let neighbours_total = peers.values().filter(|i| i.is_neighbour).count();
+                log::info!(
+                    "Network status: {}/{} peers connected, neighbours {}/{}",
+                    connected, total, neighbours_connected, neighbours_total
+                );
+            }
+
+            for (peer_index, retry_count, we_initiate) in reconnect_targets {
+                let backoff = if we_initiate {
+                    calculate_backoff(retry_count)
+                } else {
+                    std::time::Duration::from_secs(5)
+                };
+                log::info!(
+                    "Reconnecting to peer {} (retry #{}, backoff {}s)",
+                    peer_index, retry_count, backoff.as_secs()
+                );
+
+                // Mark as Reconnecting and increment retry_count for next round
+                {
+                    let mut peers = self.peers.write().await;
+                    if let Some(info) = peers.get_mut(&peer_index) {
+                        info.state = PeerState::Reconnecting;
+                    }
+                }
+
+                let this = self.clone();
+                let next_retry = retry_count + 1;
+
+                tokio::spawn(async move {
+                    tokio::time::sleep(backoff).await;
+                    if let Err(e) = this.clone().connect_to_peer(peer_index).await {
+                        log::error!("Reconnection to peer {} failed: {:?}", peer_index, e);
+                        // connect_to_peer sets Disconnected(retry=0) on disconnect,
+                        // but if it fails before connecting, we need to set the incremented retry_count
+                        let mut peers = this.peers.write().await;
+                        if let Some(info) = peers.get_mut(&peer_index) {
+                            if info.state != PeerState::Connected {
+                                info.state = PeerState::Disconnected { retry_count: next_retry };
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    }
+}
+
+pub fn calculate_backoff(retry_count: u32) -> std::time::Duration {
+    let secs = match retry_count {
+        0 => 1,
+        1 => 2,
+        2 => 4,
+        3 => 8,
+        4 => 16,
+        5 => 32,
+        _ => 60,
+    };
+    std::time::Duration::from_secs(secs)
 }
 
 #[derive(Clone, Debug)]
@@ -196,7 +353,7 @@ impl PeerHandle {
     pub async fn open_stream(&self, kind: StreamKind) -> Result<(), NetworkError> {
 
         let (mut send_stream, mut recv_stream) = self.connection.open_bi().await?;
-
+        
         match kind {
             BLOCK_ANNOUNCEMENT => {
                 log::info!("Open stream {BLOCK_ANNOUNCEMENT} for address: {:?}", self.connection.remote_address());
@@ -206,10 +363,12 @@ impl PeerHandle {
                 let connection = self.connection.clone();
                 let (ann_tx, ann_rx) = mpsc::channel::<Vec<u8>>(16);
                 *self.announcement_tx.lock().unwrap() = Some(ann_tx);
+                let announcement_tx_ref = self.announcement_tx.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await {
+                    if let Err(e) = message::block::announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await {
                         log::error!("Block announcement stream ended: {:?}", e);
                     }
+                    *announcement_tx_ref.lock().unwrap() = None;
                 });
             },
             _ => {
@@ -226,7 +385,7 @@ impl PeerHandle {
         recv_stream.read_exact(&mut stream_kind_buf).await?;
 
         let kind = u8::from_le_bytes(stream_kind_buf);
-        
+
         match kind {
 
             BLOCK_ANNOUNCEMENT => {
@@ -237,16 +396,18 @@ impl PeerHandle {
                 let handshake = decode_from_bytes::<Handshake>(&NetworkMessage::recv(&mut recv_stream).await?)?;
                 let (ann_tx, ann_rx) = mpsc::channel::<Vec<u8>>(16);
                 *self.announcement_tx.lock().unwrap() = Some(ann_tx);
+                let announcement_tx_ref = self.announcement_tx.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = message::block_announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await {
+                    if let Err(e) = message::block::announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await {
                         log::error!("Block announcement stream ended: {:?}", e);
                     }
+                    *announcement_tx_ref.lock().unwrap() = None;
                 });
             },
             BLOCK_REQUEST => {
                 log::debug!("Block request received from {}", self.connection.remote_address());
                 tokio::spawn(async move {
-                    if let Err(e) = message::handle_block_request(send_stream, recv_stream).await {
+                    if let Err(e) = message::block::handle_request(send_stream, recv_stream).await {
                         log::error!("Failed to handle block request: {:?}", e);
                     }
                 });
@@ -254,7 +415,7 @@ impl PeerHandle {
             TICKET_GENERATION => {
                 log::debug!("Generated ticket received -> Send to all current validators");
                 tokio::spawn(async move {
-                    if let Err(e) = message::recv_ticket_from_generator(recv_stream).await {
+                    if let Err(e) = message::ticket::recv_from_generator(recv_stream).await {
                         log::error!("Failed to handle ticket from generator: {:?}", e);
                     }
                 });
@@ -262,7 +423,7 @@ impl PeerHandle {
             TICKET_PROXY => {
                 log::debug!("Received ticket from proxy -> Include in a block");
                 tokio::spawn(async move {
-                    if let Err(e) = message::recv_ticket_distribution(recv_stream).await {
+                    if let Err(e) = message::ticket::recv_distribution(recv_stream).await {
                         log::error!("Failed to handle ticket distribution: {:?}", e);
                     }
                 });
@@ -299,7 +460,7 @@ impl PeerHandle {
                     match cmd {
                         Some(PeerCommand::BlockAnnouncement) => {
                             log::info!("Sending block announcement to {}", self.connection.remote_address());
-                            
+
                         }
                         Some(PeerCommand::CloseConnection) => {
                             log::info!("Closing connection to {}", self.connection.remote_address());
@@ -318,5 +479,22 @@ impl PeerHandle {
         //self.connection.close(0, b"Task finalized");
 
         log::info!("peer_task: connection loop finished for {}", self.connection.remote_address());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn calculate_backoff_test() {
+        assert_eq!(calculate_backoff(0), std::time::Duration::from_secs(1));
+        assert_eq!(calculate_backoff(1), std::time::Duration::from_secs(2));
+        assert_eq!(calculate_backoff(2), std::time::Duration::from_secs(4));
+        assert_eq!(calculate_backoff(3), std::time::Duration::from_secs(8));
+        assert_eq!(calculate_backoff(4), std::time::Duration::from_secs(16));
+        assert_eq!(calculate_backoff(5), std::time::Duration::from_secs(32));
+        assert_eq!(calculate_backoff(6), std::time::Duration::from_secs(60));
+        assert_eq!(calculate_backoff(100), std::time::Duration::from_secs(60));
     }
 }

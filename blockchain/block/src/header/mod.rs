@@ -12,10 +12,11 @@
 // (a very much unexpected eventuality).The epoch marker is either empty or, if the block is the first in a new epoch, then a tuple of
 // the epoch randomness and a sequence of Bandersnatch keys defining the Bandersnatch validator keys (kb) beginning in the next epoch.
 
-use bandersnatch_vrf_spec::Verifier;
+use bandersnatch_vrf_spec::{Prover, Verifier};
 use codec::{generic_codec::encode_unsigned, {Encode, EncodeLen, EncodeSize}};
-use constants::node::{EPOCH_LENGTH, TICKET_ENTRIES_PER_VALIDATOR, VALIDATORS_COUNT};
+use constants::node::{EPOCH_LENGTH, TICKET_ENTRIES_PER_VALIDATOR, VALIDATORS_COUNT, TICKET_SUBMISSION_ENDS};
 use jam_types::*;
+use misc::{extract_keys, fallback, outside_in_sequencer};
 use state_handler::get_state_root;
 use std::collections::HashSet;
 use std::sync::{LazyLock, Mutex};
@@ -56,7 +57,7 @@ pub fn seal_verify(
         Seal::Tickets(tickets) => {
             log::debug!("Verify tickets seal");
             // The context is "jam_fallback_seal" + entropy[3] + ticket_attempt
-            let context = [&b"jam_ticket_seal"[..], &entropy.buf[3].encode(), &tickets.tickets_mark[i as usize].attempt.encode()].concat();
+            let context = [&b"jam_ticket_seal"[..], &entropy.buf[3].encode(), &encode_unsigned(tickets.tickets_mark[i as usize].attempt)].concat();
             // Verify the seal
             let seal_vrf_output_result = verifier.ietf_vrf_verify(
                                                     &context,
@@ -304,4 +305,81 @@ pub fn encode_extrinsic(block: &Block) -> OpaqueHash {
                             sp_core::blake2_256(&block.extrinsic.disputes.encode())].concat();
     
     sp_core::blake2_256(&a)
+}
+
+// Predict what the seal will be for the next epoch, using pre-rotation values. This allows a node to determine block authorship 
+// at epoch boundaries without waiting for the epoch transition to complete.
+pub fn predict_next_epoch_seal(
+    safrole_state: &Safrole,
+    entropy_pre_rotation: &Entropy,
+    m: TimeSlot,
+) -> Seal {
+    if m >= TICKET_SUBMISSION_ENDS as TimeSlot && safrole_state.ticket_accumulator.len() == EPOCH_LENGTH {
+        Seal::Tickets(outside_in_sequencer(&safrole_state.ticket_accumulator))
+    } else {
+        let bandersnatch_keys = extract_keys(&safrole_state.pending_validators, |v| v.bandersnatch);
+        Seal::Keys(fallback(entropy_pre_rotation, bandersnatch_keys))
+    }
+}
+
+pub fn get_seal(state: &GlobalState, current_slot: TimeSlot) -> Option<Seal> {
+
+    let prev_slot = state_handler::time::get();
+    let prev_epoch = prev_slot / EPOCH_LENGTH as TimeSlot;
+    let epoch = current_slot / EPOCH_LENGTH as TimeSlot;
+
+    if epoch == prev_epoch + 1 {
+        // Clear the ticket pool
+        crate::extrinsic::tickets::clear_pool();
+        // New epoch: predict seal from pre-rotation state
+        let m = prev_slot % EPOCH_LENGTH as TimeSlot;
+        log::debug!("Epoch boundary: predicting seal for epoch {} (tau={}, m={})", epoch, prev_slot, m);
+        Some(predict_next_epoch_seal(&state.safrole, &state.entropy.buf[1], m))
+    } else if epoch == prev_epoch {
+        // Same epoch: use current seal
+        Some(state.safrole.seal.clone())
+    } else {
+        // Multiple epochs behind or ahead — don't produce // TODO solicit state update
+        crate::extrinsic::tickets::clear_pool();
+        log::debug!("Multiple epochs behind or ahead: current epoch={} prev epoch={}, skipping production", epoch, prev_epoch);
+        return None;
+    }
+}
+
+pub fn seal_winning_verify(
+    state: &GlobalState,
+    seal: Seal,
+    current_slot: TimeSlot,
+    prover: &Prover,
+    our_bandersnatch_public: &BandersnatchPublic,
+) -> bool 
+{
+    let m = (current_slot % EPOCH_LENGTH as TimeSlot) as usize;
+
+     match seal {
+        Seal::Tickets(ref tickets) => {
+            let ticket = &tickets.tickets_mark[m];
+            log::info!("Seal mode: Tickets. Slot {} ticket id: {}", current_slot, hex::encode(&ticket.id));
+
+            let context = [&b"jam_ticket_seal"[..], &state.entropy.buf[3].encode(), &encode_unsigned(ticket.attempt)].concat();
+            let our_vrf_output: Vec<u8> = prover.vrf_output(&context);
+
+            if our_vrf_output == ticket.id {
+                log::info!("Block production: ticket matches! Slot {}", current_slot);
+                return true;
+            }
+        },
+        Seal::Keys(ref keys) => {
+            let key = &keys.epoch[m];
+            log::info!("Seal mode: Keys (fallback). Slot {} key: {}", current_slot, hex::encode(key));
+
+            if *key == *our_bandersnatch_public {
+                log::info!("Block production: key matches! Slot {}", current_slot);
+                return true;
+            }
+        },
+        Seal::None => { },
+    }
+
+    return false;
 }

@@ -8,12 +8,17 @@
     of valid tickets, each of which is a tuple of an entry index (a natural number less than N) and a proof of ticket validity.
 */
 
-use bandersnatch_vrf_spec::Verifier;
+use ark_vrf::reexports::ark_serialize::CanonicalDeserialize;
+use ark_vrf::suites::bandersnatch::{Public, RingProofParams};
+use ark_vrf::suites::bandersnatch::Secret;
+use bandersnatch_vrf_spec::{Prover, Verifier};
 use codec::Encode;
+use codec::generic_codec::encode_unsigned;
 use constants::node::{EPOCH_LENGTH, MAX_TICKETS_PER_EXTRINSIC, TICKET_ENTRIES_PER_VALIDATOR, TICKET_SUBMISSION_ENDS};
 use jam_types::*;
 use misc::{bad_order, has_duplicates};
-use std::{thread, {sync::mpsc}};
+use std::collections::HashSet;
+use std::{thread, {sync::{mpsc, Mutex, LazyLock}}};
 use tools::log;
 
 pub fn process(
@@ -121,7 +126,7 @@ pub fn process(
 
 fn ticket_seal_verify(verifier: &Verifier, ticket: &Ticket, fixed_input_data: &[u8]) -> Result<TicketBody, ImportError> {
 
-    let vrf_input_data = [fixed_input_data, &ticket.attempt.encode()].concat();
+    let vrf_input_data = [fixed_input_data, &encode_unsigned(ticket.attempt as usize)].concat();
     let aux_data = vec![];
     // Verify ticket validity
     match verifier.ring_vrf_verify(&vrf_input_data, &aux_data, &ticket.signature) {
@@ -133,4 +138,131 @@ fn ticket_seal_verify(verifier: &Verifier, ticket: &Ticket, fixed_input_data: &[
             return Err(ImportError::SafroleError(SafroleErrorCode::BadTicketProof)); 
         }
     }
+}
+
+static TICKET_POOL: LazyLock<Mutex<Vec<Ticket>>> = LazyLock::new(|| Mutex::new(Vec::new()));
+
+pub fn clear_pool() {
+    TICKET_POOL.lock().unwrap().clear();
+}
+
+pub fn store(ticket: Ticket) {
+    log::debug!("Storing ticket {} attempt={}", tools::print_hash!(ticket.signature), ticket.attempt);
+    TICKET_POOL.lock().unwrap().push(ticket);
+}
+
+pub fn select_for_block_inclusion(
+    slot: TimeSlot, 
+    verifier: Verifier,
+    safrole_state: &Safrole,
+    entropy_state: &EntropyPool,
+) -> Vec<Ticket> {
+
+    use constants::node::{EPOCH_LENGTH, MAX_TICKETS_PER_EXTRINSIC};
+
+    let existing_ids: Vec<OpaqueHash> = safrole_state.ticket_accumulator.iter().map(|t| t.id).collect();
+
+    let fixed_input_data: Vec<u8> = [&b"jam_ticket_seal"[..], &entropy_state.buf[2].encode()].concat();
+
+    let mut pool = TICKET_POOL.lock().unwrap();
+
+    let mut valid_tickets: Vec<(Ticket, OpaqueHash)> = Vec::new();
+
+    pool.retain(|ticket| {
+        let vrf_input = [&fixed_input_data[..], &ticket.attempt.encode()].concat();
+        match verifier.ring_vrf_verify(&vrf_input, &[], &ticket.signature) {
+            Ok(id) => {
+                if existing_ids.contains(&id) {
+                    log::debug!("Ticket already in accumulator, discarding");
+                    false
+                } else {
+                    valid_tickets.push((ticket.clone(), id));
+                    false
+                }
+            }
+            Err(_) => {
+                log::error!("Invalid ticket proof, discarding");
+                false
+            }
+        }
+    });
+
+    valid_tickets.sort_by(|a, b| a.1.cmp(&b.1));
+    let candidates: Vec<(Ticket, OpaqueHash)> = valid_tickets.into_iter()
+        .take(MAX_TICKETS_PER_EXTRINSIC)
+        .collect();
+
+    // Simulate insertion into the accumulator to discard tickets that would be dropped
+    let candidate_ids: Vec<OpaqueHash> = candidates.iter().map(|(_, id)| *id).collect();
+    let mut simulated_acc: Vec<OpaqueHash> = existing_ids;
+    simulated_acc.extend(&candidate_ids);
+    simulated_acc.sort();
+
+    let selected: Vec<Ticket> = if simulated_acc.len() > EPOCH_LENGTH {
+        let survivors: HashSet<OpaqueHash> = simulated_acc[..EPOCH_LENGTH].iter().cloned().collect();
+        candidates.into_iter()
+            .filter(|(_, id)| survivors.contains(id))
+            .map(|(ticket, _)| ticket)
+            .collect()
+    } else {
+        candidates.into_iter()
+            .map(|(ticket, _)| ticket)
+            .collect()
+    };
+
+    log::debug!("Selected {} tickets for block at slot {}", selected.len(), slot);
+
+    selected
+}
+
+pub fn generate(
+    bandersnatch_secret_key: BandersnatchSecret,
+    bandersnatch_public: BandersnatchPublic,
+) -> Vec<(Ticket, OpaqueHash)> {
+
+    // Build the ring from next_validators (matching the verifier used for verification)
+    let next_validators = {
+        let state = state_handler::get_global_state().lock().unwrap();
+        state.next_validators.clone()
+    };
+
+    let ring: Vec<Public> = next_validators.list.iter()
+        .map(|v| Public::deserialize_compressed_unchecked(&v.bandersnatch[..])
+            .unwrap_or_else(|_| Public::from(RingProofParams::padding_point())))
+        .collect();
+
+    // Find our index within next_validators
+    let prover_idx = next_validators.list.iter()
+        .position(|v| v.bandersnatch == bandersnatch_public)
+        .expect("This validator must be present in next_validators");
+
+    let prover = Prover {
+        prover_idx,
+        secret: Secret::from_seed(&bandersnatch_secret_key),
+        ring,
+    };
+
+    let entropy = state_handler::get_global_state()
+        .lock()
+        .unwrap()
+        .entropy
+        .clone();
+
+    let fixed_input = [&b"jam_ticket_seal"[..], &entropy.buf[2].encode()].concat();
+
+    let mut tickets = Vec::with_capacity(TICKET_ENTRIES_PER_VALIDATOR as usize);
+
+    for attempt in 0..TICKET_ENTRIES_PER_VALIDATOR {
+        let vrf_input = [&fixed_input[..], &attempt.encode()].concat();
+        let ticket_id: OpaqueHash = prover.vrf_output(&vrf_input).try_into()
+            .expect("vrf_output should be 32 bytes");
+        let signature_bytes = prover.ring_vrf_sign(&vrf_input, &[]);
+        let signature: BandersnatchRingVrfSignature = signature_bytes.try_into()
+            .expect("ring_vrf_sign output should be 784 bytes");
+
+        tickets.push((Ticket { attempt, signature }, ticket_id));
+        log::info!("Generated ticket attempt={} id={}", attempt, tools::hex::encode(&ticket_id));
+    }
+
+    tickets
 }

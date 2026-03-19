@@ -1,4 +1,5 @@
 use crate::{Encode, Decode, BytesReader, ReadError};
+use crate::generic_codec::{encode_unsigned, decode_unsigned};
 use jam_types::{BandersnatchPublic, BandersnatchRingVrfSignature, TicketAttempt, TicketBody, Ticket, TicketsMark, Seal, BandersnatchEpoch};
 
 impl Encode for Ticket {
@@ -7,7 +8,7 @@ impl Encode for Ticket {
         
         let mut blob = Vec::new();
 
-        self.attempt.encode_to(&mut blob);
+        encode_unsigned(self.attempt as usize).encode_to(&mut blob);
         self.signature.encode_to(&mut blob);
 
         return blob;
@@ -23,7 +24,7 @@ impl Decode for Ticket {
     fn decode(blob: &mut BytesReader) -> Result<Self, ReadError> {
             
         Ok(Ticket{
-            attempt: TicketAttempt::decode(blob)?,
+            attempt: decode_unsigned(blob)? as TicketAttempt,
             signature: BandersnatchRingVrfSignature::decode(blob)?,
         })
     }

@@ -8,6 +8,7 @@ use std::collections::{HashMap, VecDeque};
 pub type Ed25519Public = [u8; 32];
 pub type BlsPublic = [u8; 144];
 pub type BandersnatchPublic = [u8; 32];
+pub type BandersnatchSecret = [u8; 32];
 
 pub type BandersnatchRingVrfSignature = [u8; 784];
 pub type BandersnatchVrfSignature = [u8; 96];
@@ -553,7 +554,7 @@ pub struct Statistics {
 // We define the extrinsic as a sequence of proofs of valid tickets, each of which is a tuple of an entry index 
 // (a natural number less than N) and a proof of ticket validity.
 pub type TicketId = OpaqueHash;
-pub type TicketAttempt = u8;
+pub type TicketAttempt = usize;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Ticket {
@@ -564,7 +565,7 @@ pub struct Ticket {
 #[derive(Debug, Clone, PartialEq, Ord, PartialOrd, Eq)]
 pub struct TicketBody {
     pub id: OpaqueHash,
-    pub attempt: u8,
+    pub attempt: TicketAttempt,
 }
 
 #[derive(Debug, Clone, PartialEq)]
