@@ -238,13 +238,18 @@ pub mod verifier {
     }
 
     pub fn init_all(state: &GlobalState) {
+        let rs_curr    = create_ring_set(&state.curr_validators);
+        let rs_pending = create_ring_set(&state.safrole.pending_validators);
+        let rs_next    = create_ring_set(&state.next_validators);
+
+        let h0 = { let rs = rs_curr.clone();    std::thread::spawn(move || (rs.clone(), Verifier::new(rs))) };
+        let h1 = { let rs = rs_pending.clone(); std::thread::spawn(move || (rs.clone(), Verifier::new(rs))) };
+        let h2 = { let rs = rs_next.clone();    std::thread::spawn(move || (rs.clone(), Verifier::new(rs))) };
+
         let mut verifiers = VecDeque::new();
-        let ring_set = create_ring_set(&state.curr_validators);
-        verifiers.push_back((ring_set.clone(), Verifier::new(ring_set)));
-        let ring_set = create_ring_set(&state.safrole.pending_validators);
-        verifiers.push_back((ring_set.clone(), Verifier::new(ring_set)));
-        let ring_set = create_ring_set(&state.next_validators);
-        verifiers.push_back((ring_set.clone(), Verifier::new(ring_set)));
+        verifiers.push_back(h0.join().unwrap());
+        verifiers.push_back(h1.join().unwrap());
+        verifiers.push_back(h2.join().unwrap());
         set_all(verifiers);
     }
 }
