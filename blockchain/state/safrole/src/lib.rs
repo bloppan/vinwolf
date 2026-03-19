@@ -31,7 +31,7 @@ use ark_vrf::suites::bandersnatch::{Public, RingProofParams};
 use bandersnatch_vrf_spec::Verifier;
 use constants::node::{EPOCH_LENGTH, TICKET_SUBMISSION_ENDS, VALIDATORS_COUNT};
 use jam_types::*;
-use sp_core::blake2_256;
+use misc::{extract_keys, fallback, outside_in_sequencer};
 use std::{collections::VecDeque, sync::{LazyLock, Mutex}};
 use tools::{log, print_hash};
 
@@ -112,22 +112,20 @@ pub fn process(
         validators::key_rotation(safrole_state, curr_validators, prev_validators);
         // The posterior queued validator key set "pending_validators" is defined such that incoming keys belonging to the offenders 
         // are replaced with a null key containing only zeroes.
-        let there_are_offenders = misc::set_offenders_null(&mut safrole_state.pending_validators, offenders); 
+        let _there_are_offenders = misc::set_offenders_null(&mut safrole_state.pending_validators, offenders); 
         // Create the epoch root from next pending validators and update the safrole state
-        let new_verifier = if !fallback_mode {
+        let (new_ring_set, new_verifier) = {
             let new_ring_set = create_ring_set(&safrole_state.pending_validators);
-            Verifier::new(new_ring_set)
-        } else {
-            if there_are_offenders {
-                let new_ring_set = create_ring_set(&safrole_state.pending_validators);
-                Verifier::new(new_ring_set)
+            let stored_ring_set = verifier::get_ring_set(ValidatorSet::Next);
+            if new_ring_set == stored_ring_set {
+                (stored_ring_set, verifier::get(ValidatorSet::Next))
             } else {
-                verifier::get(ValidatorSet::Next)
-            }            
+                (new_ring_set.clone(), Verifier::new(new_ring_set))
+            }
         };
         safrole_state.epoch_root = create_root_epoch(&new_verifier);
         // Update the verifiers
-        verifier::update(new_verifier, curr_validators, &(post_epoch - epoch));
+        verifier::update((new_ring_set, new_verifier));
         // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
         // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
         log::debug!("New epoch mark");
@@ -136,8 +134,8 @@ pub fn process(
             tickets_entropy: entropy_pool.buf[2].clone(),
             validators: {
 
-                let bandersnatch_keys = validators::extract_keys(&safrole_state.pending_validators, |v| v.bandersnatch);
-                let ed25519_keys = validators::extract_keys(&safrole_state.pending_validators, |v| v.ed25519);
+                let bandersnatch_keys = extract_keys(&safrole_state.pending_validators, |v| v.bandersnatch);
+                let ed25519_keys = extract_keys(&safrole_state.pending_validators, |v| v.ed25519);
 
                 let validator_keys: [(BandersnatchPublic, Ed25519Public); VALIDATORS_COUNT] =
                     std::array::from_fn(|i| {
@@ -151,7 +149,7 @@ pub fn process(
         });
 
         if fallback_mode {
-            let bandersnatch_keys = validators::extract_keys(curr_validators,|v| v.bandersnatch);
+            let bandersnatch_keys = extract_keys(curr_validators,|v| v.bandersnatch);
             safrole_state.seal = Seal::Keys(fallback(&entropy_pool.buf[2], bandersnatch_keys));
         }
 
@@ -195,80 +193,93 @@ pub fn create_root_epoch(verifier: &Verifier) -> BandersnatchRingCommitment {
     return proof;
 }
 
-fn outside_in_sequencer(tickets: &[TicketBody]) -> TicketsMark {
 
-    let mut new_ticket_accumulator = TicketsMark::default();
+pub type VerifiersRecord = VecDeque<(Vec<Public>, Verifier)>;
 
-    for i in 0..EPOCH_LENGTH / 2 {
-        new_ticket_accumulator.tickets_mark[2 * i] = tickets[i].clone();
-        new_ticket_accumulator.tickets_mark[2 * i + 1] = tickets[EPOCH_LENGTH - 1 - i].clone();
-    }
-
-    return new_ticket_accumulator;
-}
-
-fn fallback(buf: &Entropy, current_keys: Box<[BandersnatchPublic; VALIDATORS_COUNT]>) -> BandersnatchEpoch {
-    // This is the fallback key sequence function which selects an epoch's worth of validator Bandersnatch keys from the 
-    // validator key set using the entropy collected on-chain
-    let epoch_array = std::array::from_fn(|i| {
-        let index_le = (i as u32).to_le_bytes();
-        let hash = blake2_256(&[&buf.entropy[..], &index_le].concat());
-        let hash_4 = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
-        let id = (hash_4 % VALIDATORS_COUNT as u32) as usize;
-        current_keys[id]
-    });
-
-    BandersnatchEpoch {
-        epoch: Box::new(epoch_array),
-    }
-}
-
-static VERIFIERS: LazyLock<Mutex<VecDeque<Verifier>>> = LazyLock::new(|| { Mutex::new(VecDeque::new()) });
+static VERIFIERS: LazyLock<Mutex<VerifiersRecord>> = LazyLock::new(|| { Mutex::new(VecDeque::new()) });
 
 pub mod verifier {
 
     use super::*;
 
-    pub fn update(
-        new_verifier: Verifier, 
-        curr_validators: &ValidatorsData, 
-        epoch_diff: &TimeSlot
-    ) {
+    pub fn update(new_verifier: (Vec<Public>, Verifier)) {
 
         let mut verifiers = VERIFIERS.lock().unwrap().clone();
         verifiers.push_back(new_verifier.clone());
         verifiers.pop_front();
         
-        if *epoch_diff > 1 {
-            verifiers[0] = Verifier::new(create_ring_set(curr_validators));
-            verifiers[1] = new_verifier; // TODO revisar esto luego, quiza sea mejor pedir el estado completo cuando estamos offline durante un tiempo
-        }
-        
         set_all(verifiers);
     }
 
-    pub fn set_all(verifiers: VecDeque<Verifier>) {
+    pub fn set_all(verifiers: VerifiersRecord) {
         *VERIFIERS.lock().unwrap() = verifiers;
     }
 
-    pub fn get_all() -> VecDeque<Verifier> {
+    pub fn get_all() -> VerifiersRecord {
         VERIFIERS.lock().unwrap().clone()
     }
 
-    pub fn get(validators: ValidatorSet) -> Verifier {
-        match validators {
-            ValidatorSet::Current => VERIFIERS.lock().unwrap().get(0).unwrap().clone(),
-            ValidatorSet::Pending => VERIFIERS.lock().unwrap().get(1).unwrap().clone(),
-            ValidatorSet::Next => VERIFIERS.lock().unwrap().get(2).unwrap().clone(),
-            _ => VERIFIERS.lock().unwrap().get(0).unwrap().clone(), // TODO arreglar esto
+    pub fn get(set: ValidatorSet) -> Verifier {
+        match set {
+            ValidatorSet::Current => VERIFIERS.lock().unwrap().get(0).unwrap().1.clone(),
+            ValidatorSet::Pending => VERIFIERS.lock().unwrap().get(1).unwrap().1.clone(),
+            ValidatorSet::Next => VERIFIERS.lock().unwrap().get(2).unwrap().1.clone(),
+            _ => VERIFIERS.lock().unwrap().get(0).unwrap().1.clone(), // TODO arreglar esto
         }
     } 
 
+    pub fn get_ring_set(set: ValidatorSet) -> Vec<Public> {
+        match set {
+            ValidatorSet::Current => VERIFIERS.lock().unwrap().get(0).unwrap().0.clone(),
+            ValidatorSet::Pending => VERIFIERS.lock().unwrap().get(1).unwrap().0.clone(),
+            ValidatorSet::Next => VERIFIERS.lock().unwrap().get(2).unwrap().0.clone(),
+            _ => VERIFIERS.lock().unwrap().get(0).unwrap().0.clone(), // TODO arreglar esto
+        }
+    }
+
     pub fn init_all(state: &GlobalState) {
+        let rs_curr    = create_ring_set(&state.curr_validators);
+        let rs_pending = create_ring_set(&state.safrole.pending_validators);
+        let rs_next    = create_ring_set(&state.next_validators);
+
+        let h0 = { let rs = rs_curr.clone();    std::thread::spawn(move || (rs.clone(), Verifier::new(rs))) };
+        let h1 = { let rs = rs_pending.clone(); std::thread::spawn(move || (rs.clone(), Verifier::new(rs))) };
+        let h2 = { let rs = rs_next.clone();    std::thread::spawn(move || (rs.clone(), Verifier::new(rs))) };
+
         let mut verifiers = VecDeque::new();
-        verifiers.push_back(Verifier::new(create_ring_set(&state.curr_validators)));
-        verifiers.push_back(Verifier::new(create_ring_set(&state.safrole.pending_validators)));
-        verifiers.push_back(Verifier::new(create_ring_set(&state.next_validators)));
+        verifiers.push_back(h0.join().unwrap());
+        verifiers.push_back(h1.join().unwrap());
+        verifiers.push_back(h2.join().unwrap());
         set_all(verifiers);
+    }
+}
+
+pub fn build_curr_prover(
+    curr_validators: &ValidatorsData,
+    bandersnatch_public: &BandersnatchPublic,
+    bandersnatch_secret_seed: BandersnatchSecret,
+) -> bandersnatch_vrf_spec::Prover {
+
+    use ark_vrf::reexports::ark_serialize::CanonicalDeserialize;
+    use ark_vrf::suites::bandersnatch::{Public, Secret, RingProofParams};
+
+    /*let curr_validators = {
+        let state = state_handler::get_global_state().lock().unwrap();
+        state.curr_validators.clone()
+    };*/
+
+    let ring: Vec<Public> = curr_validators.list.iter()
+        .map(|v| Public::deserialize_compressed_unchecked(&v.bandersnatch[..])
+            .unwrap_or_else(|_| Public::from(RingProofParams::padding_point())))
+        .collect();
+
+    let prover_idx = curr_validators.list.iter()
+        .position(|v| v.bandersnatch == *bandersnatch_public)
+        .expect("This validator must be present in curr_validators");
+
+    bandersnatch_vrf_spec::Prover {
+        prover_idx,
+        secret: Secret::from_seed(&bandersnatch_secret_seed),
+        ring,
     }
 }

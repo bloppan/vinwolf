@@ -31,7 +31,7 @@ mod tests {
     
     // bien -> 1766244251_2939, 1766243861_2612, 
     // medio -> 1766244251_2939
-    const FUZZ_REPORT: &str = "/home/bernar/workspace/spacejam-reports/jam-conformance/fuzz-reports/0.7.2/traces/1767872928_2550/";
+    const FUZZ_REPORT: &str = "/home/bernar/workspace/spacejam-reports/jam-conformance/fuzz-reports/0.7.2/traces/1768066437_9255/";
     //const FUZZ_REPORT: &str = "/home/bernar/workspace/vinwolf/tests/jam-conformance/fuzz-reports/0.7.2/traces/1767889897_6429/";
     
     #[test]

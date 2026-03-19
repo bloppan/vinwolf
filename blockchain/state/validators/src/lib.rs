@@ -16,7 +16,3 @@ pub fn key_rotation(safrole_state: &mut Safrole,
     // which authorizes tickets into the sealing-key contest for the next epoch.
     safrole_state.pending_validators = state_handler::validators::get(ValidatorSet::Next);   
 }
-
-pub fn extract_keys<T: Clone, F: Fn(&ValidatorData) -> T>(validators: &ValidatorsData, selector: F) -> Box<[T; VALIDATORS_COUNT]> {
-    Box::new(std::array::from_fn(|i| selector(&validators.list[i])))
-}

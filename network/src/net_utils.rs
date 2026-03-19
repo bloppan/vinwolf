@@ -9,6 +9,7 @@ use rustls::crypto::ring::default_provider;
 use rustls::crypto::CryptoProvider;
 use std::sync::Arc;
 use std::error::Error;
+use std::time::Duration;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
@@ -129,6 +130,7 @@ pub fn load_server_config(certs: Vec<CertificateDer<'static>>, key_der: PrivateK
     ));
     let mut transport_config = TransportConfig::default();
     transport_config.max_concurrent_bidi_streams(100u32.into());
+    transport_config.keep_alive_interval(Some(Duration::from_secs(5)));
     server_config.transport = Arc::new(transport_config);
 
     return Ok(server_config);
@@ -148,6 +150,7 @@ pub fn load_client_config(certs: Vec<CertificateDer<'static>>, key_der: PrivateK
     ));
     let mut transport_config = TransportConfig::default();
     transport_config.max_concurrent_bidi_streams(100u32.into());
+    transport_config.keep_alive_interval(Some(Duration::from_secs(5)));
     client_config.transport_config(Arc::new(transport_config));
 
     return Ok(client_config);

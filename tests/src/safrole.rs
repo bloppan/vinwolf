@@ -76,14 +76,15 @@ mod tests {
 
         let mut state = get_global_state().lock().unwrap().clone();
 
-        let mut verifiers = VecDeque::new();
+        /*let mut verifiers = VecDeque::new();
         let next_validators = state_handler::get_global_state().lock().unwrap().next_validators.clone();
         let pending_validators = state_handler::get_global_state().lock().unwrap().safrole.pending_validators.clone();
         let curr_validators = state_handler::get_global_state().lock().unwrap().curr_validators.clone();
         verifiers.push_back(Verifier::new(create_ring_set(&curr_validators)));
         verifiers.push_back(Verifier::new(create_ring_set(&pending_validators)));
         verifiers.push_back(Verifier::new(create_ring_set(&next_validators)));
-        verifier::set_all(verifiers);
+        verifier::set_all(verifiers);*/
+        verifier::init_all(&state);
 
         let mut header = Header::default();
         header.unsigned.slot = input.slot;
