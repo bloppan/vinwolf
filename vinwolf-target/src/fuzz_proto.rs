@@ -3,7 +3,7 @@ use block::header;
 use codec::{Encode, EncodeLen, Decode, DecodeLen, BytesReader};
 use jam_types::{Block, Header, GlobalState, KeyValue, OpaqueHash};
 use misc::parse_state_keyvals;
-use safrole::verifier;
+use safrole::{verifier, VerifiersRecord};
 use state_handler::{get_global_state, get_state_root, set_global_state};
 use std::collections::VecDeque;
 use std::io;
@@ -36,13 +36,13 @@ pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
     }
 });
 
-static STATE_RECORD: LazyLock<Mutex<VecDeque<(OpaqueHash, GlobalState, VecDeque<Verifier>, OpaqueHash)>>> = LazyLock::new(|| { Mutex::new(VecDeque::new())});
+static STATE_RECORD: LazyLock<Mutex<VecDeque<(OpaqueHash, GlobalState, VerifiersRecord, OpaqueHash)>>> = LazyLock::new(|| { Mutex::new(VecDeque::new())});
 
 fn update_state_record(
     pre_state_root: &OpaqueHash, 
     post_state_root: &OpaqueHash, 
     state: GlobalState, 
-    verifiers_record: VecDeque<Verifier>,
+    verifiers_record: VerifiersRecord,
     parent_header: &OpaqueHash
 ) {
 
@@ -61,7 +61,7 @@ fn update_state_record(
     set_state_record(state_record);
 }
 
-fn simple_fork(state_root: &OpaqueHash) -> (OpaqueHash, GlobalState, VecDeque<Verifier>, OpaqueHash) {
+fn simple_fork(state_root: &OpaqueHash) -> (OpaqueHash, GlobalState, VerifiersRecord, OpaqueHash) {
 
     let state_record = get_state_record();
 
@@ -76,11 +76,11 @@ fn simple_fork(state_root: &OpaqueHash) -> (OpaqueHash, GlobalState, VecDeque<Ve
     return state;
 }
 
-fn set_state_record(state_record: VecDeque<(OpaqueHash, GlobalState, VecDeque<Verifier>, OpaqueHash)>) {
+fn set_state_record(state_record: VecDeque<(OpaqueHash, GlobalState, VerifiersRecord, OpaqueHash)>) {
     *STATE_RECORD.lock().unwrap() = state_record;
 }
 
-fn get_state_record() -> VecDeque<(OpaqueHash, GlobalState, VecDeque<Verifier>, OpaqueHash)> {
+fn get_state_record() -> VecDeque<(OpaqueHash, GlobalState, VerifiersRecord, OpaqueHash)> {
     STATE_RECORD.lock().unwrap().clone()
 }
 
@@ -283,13 +283,13 @@ fn handle_connection(socket: &mut UnixStream) {
                     parent_header) = simple_fork(&block.header.unsigned.parent_state_root);
 
                 verifier::set_all(verifiers);
-                set_global_state(pre_state.clone());
-                state_handler::set_state_root(pre_state_root.clone());
+                set_global_state(pre_state);
+                state_handler::set_state_root(pre_state_root);
                 header::set_parent_header(parent_header);
 
                 match state_ctrl::stf(&block) {
                     Ok(_) => {
-                        //println!("Block {} processed successfully", tools::print_hash!(header_hash));
+                        //println!("Block {} processed successfully", tools::print_hash!(block.header.unsigned.parent_state_root));
                         tools::log::info!("Block proccessed successfully");
                         let post_state_root = get_state_root().lock().unwrap().clone();
                         update_state_record(
@@ -297,19 +297,20 @@ fn handle_connection(socket: &mut UnixStream) {
                             &post_state_root, get_global_state().lock().unwrap().clone(), 
                             verifier::get_all(), 
                             &header::get_parent_header());
+                        
                         if send_to_peer(&fuzz_msg(Message::StateRoot, &post_state_root), socket).is_err() {
                             break;
                         }
                     },
                     Err(error) => {
-                        //println!("Refused block {}", tools::print_hash!(header_hash));
+                        //println!("Refused block {}", tools::print_hash!(block.header.unsigned.parent_state_root));
                         tools::log::error!("Block execution failure: {:?}", error);
                         if send_to_peer(&fuzz_msg(Message::Error, &format!("Block execution failure: {:?}", error).as_bytes().to_vec().encode_len()), socket).is_err() {
                             break;
                         }
                     },
                 }
-                
+
                 {
                     let blocks = *BLOCKS.lock().unwrap();
                     *BLOCKS.lock().unwrap() = blocks.wrapping_add(1);
