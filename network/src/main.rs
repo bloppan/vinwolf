@@ -144,7 +144,10 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
             spawn_ticket_generation(current_epoch, this_node_index, bandersnatch_secret_seed, bandersnatch_public);
         }
 
-        let state = state_handler::get_global_state().lock().unwrap().clone();
+        let state = {
+            state_handler::get_global_state().lock().unwrap().clone()
+        };
+
         let prover = curr_prover.as_ref().unwrap();
 
         if let Some(seal) = block::header::get_seal(&state, current_slot) {
@@ -186,7 +189,9 @@ fn spawn_ticket_generation(
                 .await
                 .expect("ticket generation task panicked");
 
-        let next_validators = state_handler::get_global_state().lock().unwrap().next_validators.clone();
+        let next_validators = {
+            state_handler::get_global_state().lock().unwrap().next_validators.clone()
+        };
 
         for (ticket, ticket_id) in tickets {
             let proxy_index = grid::compute_proxy_index(&ticket_id);

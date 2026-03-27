@@ -320,10 +320,10 @@ async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connectio
     Ok(())
 }
 
-/// Slot of the last successfully imported block
+// Slot of the last successfully imported block
 static LAST_IMPORTED_SLOT: AtomicU32 = AtomicU32::new(0);
 
-/// Lock to serialize the entire sync operation
+// Lock to serialize the entire sync operation
 static SYNC_LOCK: LazyLock<tokio::sync::Mutex<()>> = LazyLock::new(|| tokio::sync::Mutex::new(()));
 
 const MAX_SLOTS_BEHIND: u32 = 10;

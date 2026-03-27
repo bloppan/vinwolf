@@ -163,7 +163,7 @@ pub fn stf(block: &Block) -> Result<(), ImportError> {
     header::set_parent_header(header_hash);
     state_handler::set_global_state(new_state);
 
-    log::debug!("Block 0x{} processed succesfully", tools::print_hash!(header_hash));
+    log::debug!("Block 0x{} processed succesfully at slot {:?}", tools::print_hash!(header_hash), block.header.unsigned.slot);
 
     Ok(())
 }

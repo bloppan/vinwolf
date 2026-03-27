@@ -30,6 +30,7 @@ pub struct NetworkMessage {
 }
 
 impl NetworkMessage {
+    
     pub fn new(kind: u8, payload: Vec<u8>) -> Vec<u8> {
         let len = payload.len() as u32;
         let len_bytes = len.to_le_bytes();
