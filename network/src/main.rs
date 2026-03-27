@@ -8,35 +8,73 @@ use tools::log;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
-fn print_help() {    
+fn print_help() {
     println!("vinwolf network");
     println!();
     println!("\x1b[1mUsage example:\x1b[0m\n");
-    println!("cargo run --dev-validator N");
+    println!("cargo run --dev-validator N [--rpc-port PORT]");
+    println!();
+    println!("  --dev-validator N   validator index (required)");
+    println!("  --rpc-port PORT     RPC server port to connect to (default: 19800)");
     println!();
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    
+
     log::Builder::from_env(log::Env::default().default_filter_or("debug"))
         .with_dotenv(true)
         .init();
 
     let args = std::env::args().collect::<Vec<_>>();
-    let mut validator_index = 0;
+    let mut validator_index: u16 = 0;
+    let mut rpc_port: u16 = 19800;
 
-    match args[1].as_ref() { 
-        "--dev-validator" => {
-            validator_index = args[2].parse().expect("Error parsing --dev-validator index");
-            println!("Validator index: {validator_index}");
-        },
-        _ => {
-            println!("Error: Unknown argument '{}'", args[1]);
-            print_help();
-            return Ok(());
-        },
-    };
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--dev-validator" => {
+                i += 1;
+                validator_index = args.get(i)
+                    .expect("--dev-validator requires a value")
+                    .parse()
+                    .expect("Error parsing --dev-validator index");
+                log::debug!("Validator index: {}", validator_index);
+            }
+            "--rpc-port" => {
+                i += 1;
+                rpc_port = args.get(i)
+                    .expect("--rpc-port requires a value")
+                    .parse()
+                    .expect("Error parsing --rpc-port");
+            }
+            arg => {
+                println!("Error: Unknown argument '{}'", arg);
+                print_help();
+                return Ok(());
+            }
+        }
+        i += 1;
+    }
+
+    let rpc_server = tools::rpc::RpcServer::bind(rpc_port)
+        .map_err(|e| format!("Failed to bind RPC server: {}", e))?;
+    log::info!("RPC server listening on port {}", rpc_port);
+
+    std::thread::spawn(move || {
+        rpc_server.run(|method, _params| {
+            match method {
+                "bestBlock" => {
+                    let state = state_handler::get_global_state().lock().unwrap();
+                    let mut m = std::collections::HashMap::new();
+                    m.insert("slot".into(), tools::serde::Value::Number(state.time.to_string()));
+                    m.insert("header_hash".into(), tools::serde::Value::String("hardcoded".into()));
+                    Ok(tools::serde::Value::Object(m))
+                }
+                _ => Err((tools::rpc::codes::CODE_METHOD_NOT_FOUND, format!("method not found: {}", method))),
+            }
+        });
+    });
 
     rustls::crypto::ring::default_provider()
         .install_default()
