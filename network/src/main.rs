@@ -2,6 +2,7 @@ use codec::Encode;
 use constants::node::*;
 use jam_types::*;
 use network::{dev_accounts, jamnp_types, message, net_ctrl, net_utils, node_config, grid};
+use tools::rpc::RpcServer;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tools::log;
@@ -61,19 +62,8 @@ async fn main() -> Result<()> {
         .map_err(|e| format!("Failed to bind RPC server: {}", e))?;
     log::info!("RPC server listening on port {}", rpc_port);
 
-    std::thread::spawn(move || {
-        rpc_server.run(|method, _params| {
-            match method {
-                "bestBlock" => {
-                    let state = state_handler::get_global_state().lock().unwrap();
-                    let mut m = std::collections::HashMap::new();
-                    m.insert("slot".into(), tools::serde::Value::Number(state.time.to_string()));
-                    m.insert("header_hash".into(), tools::serde::Value::String("hardcoded".into()));
-                    Ok(tools::serde::Value::Object(m))
-                }
-                _ => Err((tools::rpc::codes::CODE_METHOD_NOT_FOUND, format!("method not found: {}", method))),
-            }
-        });
+    std::thread::spawn(move || { 
+        listen_rpc(rpc_server); 
     });
 
     rustls::crypto::ring::default_provider()
@@ -249,6 +239,23 @@ fn spawn_ticket_generation(
                     message::ticket::send_to_proxy(blob, &proxy_bandersnatch).await;
                 });
             }
+        }
+    });
+}
+
+fn listen_rpc(rpc_server: RpcServer) {
+
+    rpc_server.run(|method, _params| {
+        match method {
+            "bestBlock" => {
+                let state = state_handler::get_global_state().lock().unwrap();
+                let header_hash = block::header::get_parent_header();
+                let mut m = std::collections::HashMap::new();
+                m.insert("slot".into(), tools::serde::Value::Number(state.time.to_string()));
+                m.insert("header_hash".into(), tools::serde::Value::String(tools::hex::encode(header_hash)));
+                Ok(tools::serde::Value::Object(m))
+            }
+            _ => Err((tools::rpc::codes::CODE_METHOD_NOT_FOUND, format!("method not found: {}", method))),
         }
     });
 }
