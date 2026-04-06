@@ -27,8 +27,8 @@ pub struct PeerInfo {
 }
 
 pub struct NetworkController {
-    endpoint: Endpoint,
-    peers: RwLock<HashMap<ValidatorIndex, PeerInfo>>,
+    pub endpoint: Endpoint,
+    pub peers: RwLock<HashMap<ValidatorIndex, PeerInfo>>,
 }
 
 impl NetworkController {
@@ -140,28 +140,6 @@ impl NetworkController {
 
         self.endpoint.wait_idle().await;
         Ok(())
-    }
-
-    pub async fn broadcast_announcement(&self, announcement_blob: Vec<u8>) {
-        let targets: Vec<(ValidatorIndex, mpsc::Sender<Vec<u8>>)> = {
-            let peers = self.peers.read().await;
-            peers.iter()
-                .filter(|(_, info)| info.state == PeerState::Connected && info.is_neighbour)
-                .filter_map(|(&peer_index, info)| {
-                    info.handle.as_ref().and_then(|handle| {
-                        let tx = handle.announcement_tx.lock().unwrap().clone();
-                        tx.map(|tx| (peer_index, tx))
-                    })
-                })
-                .collect()
-        };
-
-        for (peer_index, tx) in targets {
-            if let Err(e) = tx.send(announcement_blob.clone()).await {
-                log::error!("Failed to send announcement to peer {}: {:?}", peer_index, e);
-            }
-            log::info!("Broadcast announcement to peer {peer_index}");
-        }
     }
 
     pub async fn connect_to_peer(
@@ -364,7 +342,7 @@ impl PeerHandle {
                 *self.announcement_tx.lock().unwrap() = Some(ann_tx);
                 let announcement_tx_ref = self.announcement_tx.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = message::block::announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await {
+                    if let Err(e) = message::block::announcement::run(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await {
                         log::error!("Block announcement stream ended: {:?}", e);
                     }
                     *announcement_tx_ref.lock().unwrap() = None;
@@ -397,7 +375,7 @@ impl PeerHandle {
                 *self.announcement_tx.lock().unwrap() = Some(ann_tx);
                 let announcement_tx_ref = self.announcement_tx.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = message::block::announcement(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await {
+                    if let Err(e) = message::block::announcement::run(connection, &mut send_stream, &mut recv_stream, handshake, ann_rx).await {
                         log::error!("Block announcement stream ended: {:?}", e);
                     }
                     *announcement_tx_ref.lock().unwrap() = None;
