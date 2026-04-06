@@ -91,6 +91,7 @@ Vinwolf is organized as a Cargo workspace with modular components:
 - **blockchain/** - Block and state transition logic
   - **block/** - Block structure and header verification
   - **state/** - State management modules (accumulation, authorization, disputes, entropy, recent-history, reports, safrole, services, statistics, validators, state-controller, state-handler)
+- **fuzz/** - Fuzz protocol for conformance testing
 - **jam-types/** - Core JAM protocol types and data structures
 - **jam-utils/** - Shared utilities (codec, bandersnatch-vrf-spec, grandpa, misc, serialization, shuffle, trie)
 - **pvm/** - PVM implementation with instruction execution, host calls, and memory management
@@ -98,7 +99,6 @@ Vinwolf is organized as a Cargo workspace with modular components:
 - **constants/** - Protocol constants (configurable via features)
 - **tools/** - Development and utility tools
 - **tests/** - Test suite using external test vectors
-- **vinwolf-target/** - Conformance testing binary
 - **network/** - Network layer implementation
 - **experiments/** - Proof-of-concepts for various technologies
 
