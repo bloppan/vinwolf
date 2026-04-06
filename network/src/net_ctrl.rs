@@ -337,7 +337,6 @@ pub fn calculate_backoff(retry_count: u32) -> std::time::Duration {
 
 #[derive(Clone, Debug)]
 pub enum PeerCommand {
-    BlockAnnouncement,
     CloseConnection,
 }
 
@@ -458,10 +457,6 @@ impl PeerHandle {
 
                 cmd = cmd_rx.recv() => {
                     match cmd {
-                        Some(PeerCommand::BlockAnnouncement) => {
-                            log::info!("Sending block announcement to {}", self.connection.remote_address());
-
-                        }
                         Some(PeerCommand::CloseConnection) => {
                             log::info!("Closing connection to {}", self.connection.remote_address());
                             let _ = self.connection.close(0u32.into(), b"close");
