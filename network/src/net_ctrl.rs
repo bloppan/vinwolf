@@ -335,7 +335,7 @@ impl PeerHandle {
             BLOCK_ANNOUNCEMENT => {
                 log::info!("Open stream {BLOCK_ANNOUNCEMENT} for address: {:?}", self.connection.remote_address());
                 let handshake: Vec<u8> = vec![15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0, 1, 15, 140, 101, 194, 104, 174, 233, 240, 82, 49, 141, 19, 229, 55, 117, 252, 165, 108, 150, 250, 80, 25, 40, 178, 168, 52, 196, 232, 108, 37, 140, 85, 138, 102, 59, 0];
-                NetworkMessage::send_up(BLOCK_ANNOUNCEMENT, handshake, &mut send_stream).await?;
+                NetworkMessage::up_init(BLOCK_ANNOUNCEMENT, handshake, &mut send_stream).await?;
                 let handshake = decode_from_bytes::<Handshake>(&NetworkMessage::recv(&mut recv_stream).await?)?;
                 let connection = self.connection.clone();
                 let (ann_tx, ann_rx) = mpsc::channel::<Vec<u8>>(16);

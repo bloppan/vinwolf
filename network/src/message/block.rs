@@ -48,7 +48,7 @@ pub async fn handle_request(mut send_stream: SendStream, mut recv_stream: RecvSt
         }
     }
 
-    NetworkMessage::reply(response, &mut send_stream).await
+    NetworkMessage::ce_reply(response, &mut send_stream).await
 }
 
 pub async fn request(request_info: BlockRequestInfo, connection: Connection) -> Result<Vec<Block>, NetworkError> {
@@ -56,7 +56,7 @@ pub async fn request(request_info: BlockRequestInfo, connection: Connection) -> 
     let (mut send_stream, mut recv_stream) = connection.open_bi().await?;
 
     let payload = [request_info.header_hash.encode(), vec![request_info.direction], request_info.num_blocks.to_le_bytes().to_vec()].concat();
-    NetworkMessage::send(BLOCK_REQUEST, payload, &mut send_stream).await?;
+    NetworkMessage::ce_send(BLOCK_REQUEST, payload, &mut send_stream).await?;
     log::debug!("Block request sent from block {} num_blocks: {:?}", hex::encode(&request_info.header_hash), request_info.num_blocks);
 
     let blocks_blob = NetworkMessage::recv(&mut recv_stream).await?;
@@ -139,6 +139,7 @@ pub mod announcement {
 
         loop {
             tokio::select! {
+                // Receive announcement from peers
                 result = NetworkMessage::recv(recv_stream) => {
                     let announcement_blob = result?;
 
@@ -178,14 +179,10 @@ pub mod announcement {
                     }
                 }
 
+                // Send announcement to peers 
                 Some(announcement_blob) = announcement_rx.recv() => {
-                    let len_bytes = (announcement_blob.len() as u32).to_le_bytes();
-                    if let Err(e) = send_stream.write_all(&len_bytes).await {
-                        log::error!("Failed to send announcement length to {}: {:?}", connection.remote_address(), e);
-                        continue;
-                    }
-                    if let Err(e) = send_stream.write_all(&announcement_blob).await {
-                        log::error!("Failed to send announcement payload to {}: {:?}", connection.remote_address(), e);
+                    if let Err(e) = NetworkMessage::up_send(announcement_blob, send_stream).await {
+                        log::error!("Failed to send announcement to {}: {:?}", connection.remote_address(), e);
                     }
                 }
             }
