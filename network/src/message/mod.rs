@@ -30,6 +30,7 @@ pub struct NetworkMessage {
 }
 
 impl NetworkMessage {
+    
     pub fn new(kind: u8, payload: Vec<u8>) -> Vec<u8> {
         let len = payload.len() as u32;
         let len_bytes = len.to_le_bytes();
@@ -48,23 +49,30 @@ impl NetworkMessage {
         recv_stream.read_exact(&mut buffer).await?;
         Ok(buffer)
     }
+    
+    pub async fn up_init(msg_kind: u8, payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
+        let message = NetworkMessage::new(msg_kind, payload);
+        send_stream.write_all(&message).await?;
+        Ok(())
+    }
+        
+    pub async fn up_send(payload: &[u8], send_stream: &mut SendStream) -> Result<(), NetworkError> {
+        let len_bytes = (payload.len() as u32).to_le_bytes();
+        send_stream.write_all(&len_bytes).await?;
+        send_stream.write_all(payload).await?;
+        Ok(())
+    }
 
-    pub async fn send(msg_kind: u8, payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
+    pub async fn ce_send(msg_kind: u8, payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
         let message = NetworkMessage::new(msg_kind, payload);
         send_stream.write_all(&message).await?;
         send_stream.finish()?;
         Ok(())
     }
 
-    pub async fn send_up(msg_kind: u8, payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
-        let message = NetworkMessage::new(msg_kind, payload);
-        send_stream.write_all(&message).await?;
-        Ok(())
-    }
-
     // Sends a length-prefixed message without kind byte, then finishes the stream.
     // Use for CE stream responses where the kind byte was already sent at stream open.
-    pub async fn reply(payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
+    pub async fn ce_reply(payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
         let len_bytes = (payload.len() as u32).to_le_bytes();
         send_stream.write_all(&len_bytes).await?;
         send_stream.write_all(&payload).await?;
@@ -72,4 +80,3 @@ impl NetworkMessage {
         Ok(())
     }
 } 
-

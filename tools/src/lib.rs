@@ -1,5 +1,6 @@
 pub mod hex;
 pub mod log;
+pub mod rpc;
 pub mod serde;
 
 #[macro_export] macro_rules! print_hash {

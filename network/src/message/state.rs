@@ -21,7 +21,7 @@ pub async fn request(header_hash: OpaqueHash, connection: Connection) -> Result<
     
     let payload = [header_hash.encode(), key_start.encode(), key_end.encode(), max_size.encode()].concat();
 
-    NetworkMessage::send(STATE_REQUEST, payload, &mut send_stream).await?;
+    NetworkMessage::ce_send(STATE_REQUEST, payload, &mut send_stream).await?;
     log::debug!("State request sent to address: {:?} for header: {}", connection.remote_address(), hex::encode(&header_hash));
     
     let _boundary_nodes = NetworkMessage::recv(&mut recv_stream).await?;

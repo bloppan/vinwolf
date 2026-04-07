@@ -1,5 +1,6 @@
 use crate::message::*;
 use jam_types::*;
+use std::sync::Arc;
 
 pub struct BlockRequestInfo {
     pub header_hash: OpaqueHash,
@@ -48,7 +49,7 @@ pub async fn handle_request(mut send_stream: SendStream, mut recv_stream: RecvSt
         }
     }
 
-    NetworkMessage::reply(response, &mut send_stream).await
+    NetworkMessage::ce_reply(response, &mut send_stream).await
 }
 
 pub async fn request(request_info: BlockRequestInfo, connection: Connection) -> Result<Vec<Block>, NetworkError> {
@@ -56,7 +57,7 @@ pub async fn request(request_info: BlockRequestInfo, connection: Connection) -> 
     let (mut send_stream, mut recv_stream) = connection.open_bi().await?;
 
     let payload = [request_info.header_hash.encode(), vec![request_info.direction], request_info.num_blocks.to_le_bytes().to_vec()].concat();
-    NetworkMessage::send(BLOCK_REQUEST, payload, &mut send_stream).await?;
+    NetworkMessage::ce_send(BLOCK_REQUEST, payload, &mut send_stream).await?;
     log::debug!("Block request sent from block {} num_blocks: {:?}", hex::encode(&request_info.header_hash), request_info.num_blocks);
 
     let blocks_blob = NetworkMessage::recv(&mut recv_stream).await?;
@@ -79,77 +80,139 @@ pub async fn request(request_info: BlockRequestInfo, connection: Connection) -> 
     Ok(blocks)
 }
 
-pub async fn announcement(
-    connection: Connection,
-    send_stream: &mut SendStream,
-    recv_stream: &mut RecvStream,
-    handshake: Handshake,
-    mut announcement_rx: mpsc::Receiver<Vec<u8>>,
-) -> Result<(), NetworkError> {
+pub mod announcement {
+    use super::*;
+    use crate::net_ctrl::{NetworkController, PeerState};
 
-    log::debug!("Last finalized block: {} slot: {:?}", hex::encode(&handshake.last_finalized_block.header_hash), handshake.last_finalized_block.slot);
-    log::debug!("Leafs: {} Slots: {:?}"
-    , handshake.leafs.iter().map(|leaf| hex::encode(&leaf.header_hash)).collect::<Vec<_>>().join(", "),  handshake.leafs.iter().map(|leaf| leaf.slot).collect::<Vec<TimeSlot>>());
-
-    let imported_blocks = ImportedBlocks {
-        last_finalized_block: handshake.last_finalized_block,
-        leafs: handshake.leafs
-    };
-
-    if let Err(e) = sync_blocks(imported_blocks, connection.clone()).await {
-        log::error!("Failed to sync blocks: {:?}", e);
-        return Err(e);
+    fn is_new(announcement: &Announcement) -> bool {
+        let slot: TimeSlot = announcement.header.unsigned.slot;
+        let prev: u32 = LAST_SEEN_SLOT.fetch_max(slot, Ordering::AcqRel);
+        slot > prev
     }
 
-    loop {
-        tokio::select! {
-            result = NetworkMessage::recv(recv_stream) => {
-                let announcement_blob = result?;
+    pub fn build(header: Header) -> Vec<u8> {
+        let parent_hash: OpaqueHash = ::block::header::get_parent_header();
+        let time: TimeSlot = state_handler::time::get();
 
-                let announcement = match decode_from_bytes::<Announcement>(&announcement_blob) {
-                    Ok(a) => a,
-                    Err(e) => {
-                        log::error!("Failed to decode announcement: {:?}", e);
+        let announcement = Announcement {
+            header,
+            last_finalized_block: LastFinalizedBlock {
+                header_hash: parent_hash,
+                slot: time,
+            },
+        };
+
+        announcement.encode()
+    }
+
+    pub async fn run(
+        connection: Connection,
+        send_stream: &mut SendStream,
+        recv_stream: &mut RecvStream,
+        handshake: Handshake,
+        mut announcement_rx: mpsc::Receiver<Arc<[u8]>>,
+    ) -> Result<(), NetworkError> {
+        log::debug!(
+            "Last finalized block: {} slot: {:?}",
+            hex::encode(&handshake.last_finalized_block.header_hash),
+            handshake.last_finalized_block.slot
+        );
+        log::debug!(
+            "Leafs: {} Slots: {:?}",
+            handshake
+                .leafs
+                .iter()
+                .map(|leaf| hex::encode(&leaf.header_hash))
+                .collect::<Vec<_>>()
+                .join(", "),
+            handshake.leafs.iter().map(|leaf| leaf.slot).collect::<Vec<TimeSlot>>()
+        );
+
+        let imported_blocks = ImportedBlocks {
+            last_finalized_block: handshake.last_finalized_block,
+            leafs: handshake.leafs,
+        };
+
+        if let Err(e) = sync_blocks(imported_blocks, connection.clone()).await {
+            log::error!("Failed to sync blocks: {:?}", e);
+            return Err(e);
+        }
+
+        loop {
+            tokio::select! {
+                // Receive announcement from peers
+                result = NetworkMessage::recv(recv_stream) => {
+                    let announcement_blob = result?;
+
+                    let announcement = match decode_from_bytes::<Announcement>(&announcement_blob) {
+                        Ok(a) => a,
+                        Err(e) => {
+                            log::error!("Failed to decode announcement: {:?}", e);
+                            continue;
+                        }
+                    };
+
+                    if !is_new(&announcement) {
                         continue;
                     }
-                };
 
-                if !is_new(&announcement) {
-                    continue;
+                    let header_hash = sp_core::blake2_256(&announcement.header.encode());
+                    log::debug!("Import block {} parent {}", hex::encode(&header_hash), hex::encode(&announcement.header.unsigned.parent));
+                    let request_info = BlockRequestInfo {
+                        header_hash,
+                        direction: 1,
+                        num_blocks: 1
+                    };
+
+                    let blocks = match block::request(request_info, connection.clone()).await {
+                        Ok(b) => b,
+                        Err(e) => {
+                            log::error!("Failed to request block: {:?}", e);
+                            continue;
+                        }
+                    };
+
+                    if let Some(block) = blocks.first() {
+                        log::debug!("process block in loop {}", hex::encode(&sp_core::blake2_256(&block.header.encode())));
+                        enqueue(block.clone()).await;
+                    } else {
+                        log::error!("Block request returned empty response");
+                    }
                 }
 
-                let header_hash = sp_core::blake2_256(&announcement.header.encode());
-                log::debug!("Import block {} parent {}", hex::encode(&header_hash), hex::encode(&announcement.header.unsigned.parent));
-                let request_info = BlockRequestInfo {
-                    header_hash,
-                    direction: 1,
-                    num_blocks: 1
-                };
-
-                let blocks = match block::request(request_info, connection.clone()).await {
-                    Ok(b) => b,
-                    Err(e) => {
-                        log::error!("Failed to request block: {:?}", e);
-                        continue;
+                // Send announcement to peers 
+                Some(announcement_blob) = announcement_rx.recv() => {
+                    if let Err(e) = NetworkMessage::up_send(announcement_blob.as_ref(), send_stream).await {
+                        log::error!("Failed to send announcement to {}: {:?}", connection.remote_address(), e);
                     }
-                };
-
-                if let Some(block) = blocks.first() {
-                    log::debug!("process block in loop {}", hex::encode(&sp_core::blake2_256(&block.header.encode())));
-                    enqueue(block.clone()).await;
-                } else {
-                    log::error!("Block request returned empty response");
                 }
             }
+        }
+    }
 
-            Some(announcement_blob) = announcement_rx.recv() => {
-                let len_bytes = (announcement_blob.len() as u32).to_le_bytes();
-                if let Err(e) = send_stream.write_all(&len_bytes).await {
-                    log::error!("Failed to send announcement length to {}: {:?}", connection.remote_address(), e);
-                    continue;
+    pub async fn broadcast(network: &NetworkController, announcement_blob: Arc<[u8]>) {
+
+        let peers = network.peers.read().await;
+        let targets = peers
+            .iter()
+            .filter(|(_, info)| info.state == PeerState::Connected && info.is_neighbour)
+            .filter_map(|(&peer_index, info)| {
+                info.handle.as_ref().and_then(|handle| {
+                    let tx = handle.announcement_tx.lock().unwrap().clone();
+                    tx.map(|tx| (peer_index, tx))
+                })
+            });
+
+        for (peer_index, tx) in targets {
+            match tx.try_send(Arc::clone(&announcement_blob)) {
+                Ok(()) => {
+                    log::info!("Broadcast announcement to peer {peer_index}");
                 }
-                if let Err(e) = send_stream.write_all(&announcement_blob).await {
-                    log::error!("Failed to send announcement payload to {}: {:?}", connection.remote_address(), e);
+                Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+                    log::warn!("Announcement channel full for peer {}", peer_index);
+                }
+                Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
+                    log::warn!("Announcement channel closed for peer {}", peer_index);
                 }
             }
         }
@@ -320,10 +383,10 @@ async fn sync_blocks(imported_blocks_recv: ImportedBlocks, connection: Connectio
     Ok(())
 }
 
-/// Slot of the last successfully imported block
+// Slot of the last successfully imported block
 static LAST_IMPORTED_SLOT: AtomicU32 = AtomicU32::new(0);
 
-/// Lock to serialize the entire sync operation
+// Lock to serialize the entire sync operation
 static SYNC_LOCK: LazyLock<tokio::sync::Mutex<()>> = LazyLock::new(|| tokio::sync::Mutex::new(()));
 
 const MAX_SLOTS_BEHIND: u32 = 10;
@@ -344,25 +407,4 @@ static LAST_SEEN_SLOT: AtomicU32 = AtomicU32::new(0);
 
 pub fn mark_slot_seen(slot: TimeSlot) {
     LAST_SEEN_SLOT.fetch_max(slot, Ordering::Release);
-}
-
-fn is_new(announcement: &Announcement) -> bool {
-    let slot = announcement.header.unsigned.slot;
-    let prev = LAST_SEEN_SLOT.fetch_max(slot, Ordering::AcqRel);
-    slot > prev
-}
-
-pub fn build_announcement(header: Header) -> Vec<u8> {
-    let parent_hash = ::block::header::get_parent_header();
-    let time = state_handler::time::get();
-
-    let announcement = Announcement {
-        header,
-        last_finalized_block: LastFinalizedBlock {
-            header_hash: parent_hash,
-            slot: time,
-        },
-    };
-
-    announcement.encode()
 }
