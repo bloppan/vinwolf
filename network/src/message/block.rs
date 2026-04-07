@@ -191,19 +191,17 @@ pub mod announcement {
     }
 
     pub async fn broadcast(network: &NetworkController, announcement_blob: Arc<[u8]>) {
-        let targets: Vec<(ValidatorIndex, mpsc::Sender<Arc<[u8]>>)> = {
-            let peers = network.peers.read().await;
-            peers
-                .iter()
-                .filter(|(_, info)| info.state == PeerState::Connected && info.is_neighbour)
-                .filter_map(|(&peer_index, info)| {
-                    info.handle.as_ref().and_then(|handle| {
-                        let tx = handle.announcement_tx.lock().unwrap().clone();
-                        tx.map(|tx| (peer_index, tx))
-                    })
+
+        let peers = network.peers.read().await;
+        let targets = peers
+            .iter()
+            .filter(|(_, info)| info.state == PeerState::Connected && info.is_neighbour)
+            .filter_map(|(&peer_index, info)| {
+                info.handle.as_ref().and_then(|handle| {
+                    let tx = handle.announcement_tx.lock().unwrap().clone();
+                    tx.map(|tx| (peer_index, tx))
                 })
-                .collect()
-        };
+            });
 
         for (peer_index, tx) in targets {
             match tx.try_send(Arc::clone(&announcement_blob)) {
