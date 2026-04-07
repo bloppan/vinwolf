@@ -2,41 +2,70 @@ use codec::Encode;
 use constants::node::*;
 use jam_types::*;
 use network::{dev_accounts, jamnp_types, message, net_ctrl, net_utils, node_config, grid};
+use std::sync::Arc;
+use tools::rpc::RpcServer;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tools::log;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
-fn print_help() {    
+fn print_help() {
     println!("vinwolf network");
     println!();
     println!("\x1b[1mUsage example:\x1b[0m\n");
-    println!("cargo run --dev-validator N");
+    println!("cargo run --dev-validator N [--rpc-port PORT]");
+    println!();
+    println!("  --dev-validator N   validator index (required)");
+    println!("  --rpc-port PORT     RPC server port to connect to (default: 19800)");
     println!();
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    
+
     log::Builder::from_env(log::Env::default().default_filter_or("debug"))
         .with_dotenv(true)
         .init();
 
     let args = std::env::args().collect::<Vec<_>>();
-    let mut validator_index = 0;
+    let mut validator_index: u16 = 0;
+    let mut rpc_port: u16 = 19800;
 
-    match args[1].as_ref() { 
-        "--dev-validator" => {
-            validator_index = args[2].parse().expect("Error parsing --dev-validator index");
-            println!("Validator index: {validator_index}");
-        },
-        _ => {
-            println!("Error: Unknown argument '{}'", args[1]);
-            print_help();
-            return Ok(());
-        },
-    };
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--dev-validator" => {
+                i += 1;
+                validator_index = args.get(i)
+                    .expect("--dev-validator requires a value")
+                    .parse()
+                    .expect("Error parsing --dev-validator index");
+                log::debug!("Validator index: {}", validator_index);
+            }
+            "--rpc-port" => {
+                i += 1;
+                rpc_port = args.get(i)
+                    .expect("--rpc-port requires a value")
+                    .parse()
+                    .expect("Error parsing --rpc-port");
+            }
+            arg => {
+                println!("Error: Unknown argument '{}'", arg);
+                print_help();
+                return Ok(());
+            }
+        }
+        i += 1;
+    }
+
+    let rpc_server = tools::rpc::RpcServer::bind(rpc_port)
+        .map_err(|e| format!("Failed to bind RPC server: {}", e))?;
+    log::info!("RPC server listening on port {}", rpc_port);
+
+    std::thread::spawn(move || { 
+        listen_rpc(rpc_server); 
+    });
 
     rustls::crypto::ring::default_provider()
         .install_default()
@@ -144,7 +173,10 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
             spawn_ticket_generation(current_epoch, this_node_index, bandersnatch_secret_seed, bandersnatch_public);
         }
 
-        let state = state_handler::get_global_state().lock().unwrap().clone();
+        let state = {
+            state_handler::get_global_state().lock().unwrap().clone()
+        };
+
         let prover = curr_prover.as_ref().unwrap();
 
         if let Some(seal) = block::header::get_seal(&state, current_slot) {
@@ -157,8 +189,8 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
                 match message::block::enqueue_and_wait(block.clone()).await {
                     Ok(_) => {
                         message::block::mark_slot_seen(block.header.unsigned.slot);
-                        let announcement = message::block::build_announcement(block.header);
-                        net.broadcast_announcement(announcement).await;
+                        let announcement = Arc::<[u8]>::from(message::block::announcement::build(block.header));
+                        message::block::announcement::broadcast(net.as_ref(), announcement).await;
                     }
                     Err(e) => {
                         log::error!("STF failed for own block: {:?}", e);
@@ -186,7 +218,9 @@ fn spawn_ticket_generation(
                 .await
                 .expect("ticket generation task panicked");
 
-        let next_validators = state_handler::get_global_state().lock().unwrap().next_validators.clone();
+        let next_validators = {
+            state_handler::get_global_state().lock().unwrap().next_validators.clone()
+        };
 
         for (ticket, ticket_id) in tickets {
             let proxy_index = grid::compute_proxy_index(&ticket_id);
@@ -206,6 +240,23 @@ fn spawn_ticket_generation(
                     message::ticket::send_to_proxy(blob, &proxy_bandersnatch).await;
                 });
             }
+        }
+    });
+}
+
+fn listen_rpc(rpc_server: RpcServer) {
+
+    rpc_server.run(|method, _params| {
+        match method {
+            "bestBlock" => {
+                let state = state_handler::get_global_state().lock().unwrap();
+                let header_hash = block::header::get_parent_header();
+                let mut m = std::collections::HashMap::new();
+                m.insert("slot".into(), tools::serde::Value::Number(state.time.to_string()));
+                m.insert("header_hash".into(), tools::serde::Value::String(tools::hex::encode(header_hash)));
+                Ok(tools::serde::Value::Object(m))
+            }
+            _ => Err((tools::rpc::codes::CODE_METHOD_NOT_FOUND, format!("method not found: {}", method))),
         }
     });
 }

@@ -4,6 +4,7 @@ members = [
     "blockchain/state/*",
     "constants",
     "experiments/*",
+    "fuzz",
     "jam-types",
     "jam-utils/bandersnatch-vrf-spec/vinwolf/",
     "jam-utils/codec",
@@ -18,7 +19,6 @@ members = [
     "storage",
     "tests",
     "tools",
-    "vinwolf-target",
 ]
 resolver = "2"
 
@@ -58,7 +58,7 @@ time = { path = "blockchain/state/time" }
 tools = { path = "tools" }
 trie = { path = "jam-utils/trie" }
 validators = { path = "blockchain/state/validators" }
-vinwolf-target = { path = "vinwolf-target" }
+vinwolf-target = { path = "fuzz" }
 
 # Third party libraries
 ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring"] }

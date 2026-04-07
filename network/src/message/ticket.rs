@@ -32,7 +32,7 @@ pub async fn send_to_proxy(distributed_ticket_blob: Vec<u8>, proxy_bandersnatch:
     };
 
     log::info!("Sending ticket to proxy validator at {:?} (CE 131)", connection.remote_address());
-    if let Err(e) = NetworkMessage::send(TICKET_GENERATION, distributed_ticket_blob, &mut send_stream).await {
+    if let Err(e) = NetworkMessage::ce_send(TICKET_GENERATION, distributed_ticket_blob, &mut send_stream).await {
         log::error!("Failed to send ticket to proxy: {:?}", e);
     }
 }
@@ -123,7 +123,7 @@ pub async fn broadcast_to_validators(distributed_ticket_blob: Vec<u8>) {
         };
 
         log::info!("Proxy ticket to validator {i} at {:?}", connection.remote_address());
-        if let Err(e) = NetworkMessage::send(TICKET_PROXY, distributed_ticket_blob.clone(), &mut send_stream).await {
+        if let Err(e) = NetworkMessage::ce_send(TICKET_PROXY, distributed_ticket_blob.clone(), &mut send_stream).await {
             log::error!("Failed to send ticket to validator {i}: {:?}", e);
         }
     }
