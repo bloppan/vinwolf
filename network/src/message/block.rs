@@ -205,10 +205,17 @@ pub mod announcement {
         };
 
         for (peer_index, tx) in targets {
-            if let Err(e) = tx.send(announcement_blob.clone()).await {
-                log::error!("Failed to send announcement to peer {}: {:?}", peer_index, e);
+            match tx.try_send(announcement_blob.clone()) {
+                Ok(()) => {
+                    log::info!("Broadcast announcement to peer {peer_index}");
+                }
+                Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+                    log::warn!("Announcement channel full for peer {}", peer_index);
+                }
+                Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
+                    log::warn!("Announcement channel closed for peer {}", peer_index);
+                }
             }
-            log::info!("Broadcast announcement to peer {peer_index}");
         }
     }
 }
