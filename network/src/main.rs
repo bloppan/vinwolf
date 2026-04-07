@@ -2,6 +2,7 @@ use codec::Encode;
 use constants::node::*;
 use jam_types::*;
 use network::{dev_accounts, jamnp_types, message, net_ctrl, net_utils, node_config, grid};
+use std::sync::Arc;
 use tools::rpc::RpcServer;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -188,7 +189,7 @@ async fn node_ctrl(net: std::sync::Arc<net_ctrl::NetworkController>) {
                 match message::block::enqueue_and_wait(block.clone()).await {
                     Ok(_) => {
                         message::block::mark_slot_seen(block.header.unsigned.slot);
-                        let announcement = message::block::announcement::build(block.header);
+                        let announcement = Arc::<[u8]>::from(message::block::announcement::build(block.header));
                         message::block::announcement::broadcast(net.as_ref(), announcement).await;
                     }
                     Err(e) => {

@@ -56,10 +56,10 @@ impl NetworkMessage {
         Ok(())
     }
         
-    pub async fn up_send(payload: Vec<u8>, send_stream: &mut SendStream) -> Result<(), NetworkError> {
+    pub async fn up_send(payload: &[u8], send_stream: &mut SendStream) -> Result<(), NetworkError> {
         let len_bytes = (payload.len() as u32).to_le_bytes();
         send_stream.write_all(&len_bytes).await?;
-        send_stream.write_all(&payload).await?;
+        send_stream.write_all(payload).await?;
         Ok(())
     }
 
@@ -80,4 +80,3 @@ impl NetworkMessage {
         Ok(())
     }
 } 
-

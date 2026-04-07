@@ -1,5 +1,6 @@
 use crate::message::*;
 use jam_types::*;
+use std::sync::Arc;
 
 pub struct BlockRequestInfo {
     pub header_hash: OpaqueHash,
@@ -109,7 +110,7 @@ pub mod announcement {
         send_stream: &mut SendStream,
         recv_stream: &mut RecvStream,
         handshake: Handshake,
-        mut announcement_rx: mpsc::Receiver<Vec<u8>>,
+        mut announcement_rx: mpsc::Receiver<Arc<[u8]>>,
     ) -> Result<(), NetworkError> {
         log::debug!(
             "Last finalized block: {} slot: {:?}",
@@ -181,7 +182,7 @@ pub mod announcement {
 
                 // Send announcement to peers 
                 Some(announcement_blob) = announcement_rx.recv() => {
-                    if let Err(e) = NetworkMessage::up_send(announcement_blob, send_stream).await {
+                    if let Err(e) = NetworkMessage::up_send(announcement_blob.as_ref(), send_stream).await {
                         log::error!("Failed to send announcement to {}: {:?}", connection.remote_address(), e);
                     }
                 }
@@ -189,8 +190,8 @@ pub mod announcement {
         }
     }
 
-    pub async fn broadcast(network: &NetworkController, announcement_blob: Vec<u8>) {
-        let targets: Vec<(ValidatorIndex, mpsc::Sender<Vec<u8>>)> = {
+    pub async fn broadcast(network: &NetworkController, announcement_blob: Arc<[u8]>) {
+        let targets: Vec<(ValidatorIndex, mpsc::Sender<Arc<[u8]>>)> = {
             let peers = network.peers.read().await;
             peers
                 .iter()
@@ -205,7 +206,7 @@ pub mod announcement {
         };
 
         for (peer_index, tx) in targets {
-            match tx.try_send(announcement_blob.clone()) {
+            match tx.try_send(Arc::clone(&announcement_blob)) {
                 Ok(()) => {
                     log::info!("Broadcast announcement to peer {peer_index}");
                 }
