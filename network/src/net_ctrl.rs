@@ -123,6 +123,9 @@ impl NetworkController {
                         {
                             let mut peers = this.peers.write().await;
                             if let Some(info) = peers.get_mut(&peer_index) {
+                                if let Some(previous_handle) = info.handle.as_ref() {
+                                    previous_handle.connection.close(0u32.into(), b"close");
+                                }
                                 info.handle = None;
                                 info.state = PeerState::Disconnected { retry_count: 0 };
                             }
