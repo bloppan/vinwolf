@@ -161,6 +161,7 @@ impl NetworkController {
         Ok(())
     }
 
+    // TODO revisar esta funcion
     pub async fn connect_to_peer(
         self: Arc<Self>,
         peer_index: ValidatorIndex,
@@ -185,8 +186,7 @@ impl NetworkController {
             hex::encode(&identities[peer_index as usize].bandersnatch_public)
         );
 
-        let connecting = self.endpoint.connect(node_addr, &node_alt_name)?;
-        let connection = connecting.await?;
+        let connection = self.endpoint.connect(node_addr, &node_alt_name)?.await?;
 
         log::info!("Connected to {}", node_addr);
 
@@ -195,27 +195,7 @@ impl NetworkController {
             connection.clone(),
         );
 
-        let (tx, rx) = mpsc::channel(32);
-        let handle = PeerHandle {
-            connection: connection.clone(),
-            sender: tx,
-            announcement_tx: Arc::new(std::sync::Mutex::new(None)),
-        };
-
-        {
-            let mut peers = self.peers.write().await;
-            if let Some(info) = peers.get_mut(&peer_index) {
-                info.handle = Some(handle.clone());
-                info.state = PeerState::Connected;
-            } else {
-                peers.insert(peer_index, PeerInfo {
-                    handle: Some(handle.clone()),
-                    state: PeerState::Connected,
-                    we_initiate: true,
-                    is_neighbour: grid::is_neighbour(node_config::get_account_id(), peer_index),
-                });
-            }
-        }
+        let (handle, rx) = self.register_peer_connection(peer_index, &connection).await;
 
         let peer_handle = handle.clone();
 
@@ -227,17 +207,7 @@ impl NetworkController {
 
         peer_handle.peer_task(rx).await;
 
-        {
-            let mut peers = self.peers.write().await;
-            if let Some(info) = peers.get_mut(&peer_index) {
-                info.handle = None;
-                info.state = PeerState::Disconnected { retry_count: 0 };
-            }
-        }
-
-        dev_accounts::remove_dev_account(
-            &identities[peer_index as usize].bandersnatch_public,
-        );
+        self.disconnect_peer(peer_index, identities[peer_index as usize].clone()).await;
 
         log::info!("Peer connection task finished for {}", node_addr);
 
