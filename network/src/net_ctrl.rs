@@ -1,8 +1,9 @@
 use codec::generic_codec::decode_from_bytes;
 use constants::node::VALIDATORS_COUNT;
+use crate::dev_accounts::Identity;
 use crate::message::{BLOCK_ANNOUNCEMENT, BLOCK_REQUEST, TICKET_GENERATION, TICKET_PROXY};
 use crate::{message, message::NetworkMessage, dev_accounts, node_config, grid};
-use crate::jamnp_types::{NetworkError, Handshake, StreamKind};
+use crate::jamnp_types::{ConnectionError, Handshake, NetworkError, StreamKind};
 use jam_types::*;
 use quinn::{Connection, RecvStream, SendStream, Endpoint};
 use std::collections::HashMap;
@@ -32,6 +33,7 @@ pub struct NetworkController {
 }
 
 impl NetworkController {
+
     pub fn new(endpoint: Endpoint) -> Self {
         Self {
             endpoint,
@@ -40,6 +42,7 @@ impl NetworkController {
     }
 
     pub async fn init_peers(&self, my_index: ValidatorIndex, ed25519_keys: &[Ed25519Public]) {
+
         let my_key = &ed25519_keys[my_index as usize];
         let mut peers = self.peers.write().await;
 
@@ -57,85 +60,94 @@ impl NetworkController {
         }
     }
 
+    fn verify_peer_connection(connection: &Connection) -> Result<(ValidatorIndex, Identity), NetworkError> {
+
+        let peer_index = connection.remote_address().port().saturating_sub(40000);
+        let identities = dev_accounts::parse_dev_accounts();
+
+        if peer_index as usize >= identities.len() {
+            log::error!("Invalid peer index {} from port {}, ignoring connection", peer_index, connection.remote_address().port());
+            return Err(NetworkError::Connection(ConnectionError::Connect("Invalid peer index".to_string())));
+        }
+
+        log::info!(
+            "New connection established from {} bandersnatch public: {}", 
+            connection.remote_address(), hex::encode(&identities[peer_index as usize].bandersnatch_public)
+        );
+
+        dev_accounts::add_dev_account(identities[peer_index as usize].bandersnatch_public, connection.clone());
+
+        Ok((peer_index, identities[peer_index as usize].clone()))
+    }
+    
+    async fn register_peer_connection(&self, peer_index: ValidatorIndex, connection: &Connection) -> (PeerHandle, mpsc::Receiver<PeerCommand>) {
+
+        let (tx, rx) = mpsc::channel::<PeerCommand>(32);
+        let handle = PeerHandle {
+            connection: connection.clone(),
+            sender: tx,
+            announcement_tx: Arc::new(std::sync::Mutex::new(None)),
+        };
+
+        let mut peers = self.peers.write().await;
+
+        if let Some(info) = peers.get_mut(&peer_index) {
+            if let Some(previous_handle) = info.handle.as_ref() {
+                previous_handle.connection.close(0u32.into(), b"close");
+            }
+            info.handle = Some(handle.clone());
+            info.state = PeerState::Connected;
+        } else {
+            peers.insert(peer_index, PeerInfo {
+                handle: Some(handle.clone()),
+                state: PeerState::Connected,
+                we_initiate: false,
+                is_neighbour: grid::is_neighbour(node_config::get_account_id(), peer_index),
+            });
+        }
+        
+        return (handle, rx);
+    }
+
+    async fn disconnect_peer(self: &Self, peer_index: ValidatorIndex, identity: Identity) {
+        
+        let mut peers = self.peers.write().await;
+
+        if let Some(info) = peers.get_mut(&peer_index) {
+            if let Some(previous_handle) = info.handle.as_ref() {
+                previous_handle.connection.close(0u32.into(), b"close");
+            }
+            info.handle = None;
+            info.state = PeerState::Disconnected { retry_count: 0 };
+        }
+        
+        dev_accounts::remove_dev_account(&identity.bandersnatch_public);
+    }
+
     pub async fn listen_network(self: Arc<Self>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         while let Some(conn) = self.endpoint.accept().await {
 
             log::info!("Incoming connection attempt from {}", conn.remote_address());
 
-            let this = self.clone();
+            let net_ctrl = self.clone();
 
             tokio::spawn(async move {
                 match conn.await {
                     Ok(connection) => {
 
-                        let id_account = connection.remote_address().port().saturating_sub(40000);
-                        let identities = dev_accounts::parse_dev_accounts();
-
-                        if id_account as usize >= identities.len() {
-                            log::error!(
-                                "Invalid peer index {} from port {}, ignoring connection",
-                                id_account, connection.remote_address().port()
-                            );
-                            return;
-                        }
-
-                        let peer_index = id_account as ValidatorIndex;
-
-                        log::info!(
-                            "New connection established from {} bandersnatch public: {}",
-                            connection.remote_address(),
-                            hex::encode(&identities[id_account as usize].bandersnatch_public)
-                        );
-
-                        dev_accounts::add_dev_account(
-                            identities[id_account as usize].bandersnatch_public,
-                            connection.clone(),
-                        );
-
-                        let (tx, rx) = mpsc::channel::<PeerCommand>(32);
-                        let handle = PeerHandle {
-                            connection: connection.clone(),
-                            sender: tx,
-                            announcement_tx: Arc::new(std::sync::Mutex::new(None)),
+                        let (peer_index, identity) = match Self::verify_peer_connection(&connection) {
+                            Ok(peer) => peer,
+                            Err(verify_peer_error) => {
+                                log::error!("Failed to verify peer connection: {:?}", verify_peer_error);
+                                return;
+                            }
                         };
-
-                        {
-                            let mut peers = this.peers.write().await;
-                            if let Some(info) = peers.get_mut(&peer_index) {
-                                if let Some(previous_handle) = info.handle.as_ref() {
-                                    previous_handle.connection.close(0u32.into(), b"close");
-                                }
-                                info.handle = Some(handle.clone());
-                                info.state = PeerState::Connected;
-                            } else {
-                                peers.insert(peer_index, PeerInfo {
-                                    handle: Some(handle.clone()),
-                                    state: PeerState::Connected,
-                                    we_initiate: false,
-                                    is_neighbour: grid::is_neighbour(node_config::get_account_id(), peer_index),
-                                });
-                            }
-                        }
-
+                        
+                        let (handle, rx) = net_ctrl.register_peer_connection(peer_index, &connection).await;
                         handle.peer_task(rx).await;
-
-                        {
-                            let mut peers = this.peers.write().await;
-                            if let Some(info) = peers.get_mut(&peer_index) {
-                                if let Some(previous_handle) = info.handle.as_ref() {
-                                    previous_handle.connection.close(0u32.into(), b"close");
-                                }
-                                info.handle = None;
-                                info.state = PeerState::Disconnected { retry_count: 0 };
-                            }
-                        }
-
-                        dev_accounts::remove_dev_account(
-                            &identities[id_account as usize].bandersnatch_public,
-                        );
-
-                        log::info!("Server connection task finished for {}", id_account);
+                        net_ctrl.disconnect_peer(peer_index, identity).await;
+                        log::info!("Server connection task finished for {}", peer_index);
                     }
                     Err(e) => {
                         log::error!("Connection error: {}", e);
@@ -145,6 +157,7 @@ impl NetworkController {
         }
 
         self.endpoint.wait_idle().await;
+        
         Ok(())
     }
 
