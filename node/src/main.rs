@@ -1,12 +1,8 @@
 use codec::Encode;
 use constants::node::*;
 use jam_types::*;
-use network::{
-    dev_accounts, grid, jamnp_types, load_client_config, load_credentials, load_server_config,
-    message, node_config, NetworkController,
-};
+use network::{dev_accounts, grid, jamnp_types, message, node_config, NetworkController};
 use std::error::Error;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use tools::{log, rpc::RpcServer};
 
@@ -92,75 +88,12 @@ async fn main() -> Result<()> {
         listen_rpc(rpc_server);
     });
 
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .map_err(|e| format!("Failed to install ring provider: {:?}", e))?;
+    let network = network::init_network(config.validator_index).await?;
 
-    let (certs, key_der) = load_credentials(config.validator_index)?;
-
-    let server_config = load_server_config(certs.clone(), key_der.clone_key())?;
-    let client_config = load_client_config(certs, key_der)?;
-
-    let bind_addr = SocketAddr::new(
-        IpAddr::V4(Ipv4Addr::LOCALHOST),
-        40000 + config.validator_index,
-    );
-    log::debug!("Listening on {}", bind_addr);
-    let mut endpoint = quinn::Endpoint::server(server_config, bind_addr)?;
-    endpoint.set_default_client_config(client_config);
-
-    let net = Arc::new(NetworkController::new(endpoint));
-
-    let block_queue_rx = message::block::init_queue(32);
-    tokio::spawn(async move {
-        message::block::run_queue(block_queue_rx).await;
+    let net_for_node = network.controller.clone();
+    let node_ctrl_handle = tokio::spawn(async move { 
+        node_ctrl(net_for_node).await 
     });
-
-    node_config::set_account_id(config.validator_index);
-
-    let identities = dev_accounts::parse_dev_accounts();
-    let ed25519_public: Vec<_> = identities.iter().map(|key| key.ed25519_public).collect();
-    let own_ed25519_public = ed25519_public
-        .get(config.validator_index as usize)
-        .ok_or_else(|| format!("Validator index {} is out of range", config.validator_index))?;
-
-    net.init_peers(config.validator_index, &ed25519_public)
-        .await;
-
-    let net_for_server = net.clone();
-    let server_handler = tokio::spawn(async move {
-        if let Err(e) = net_for_server.listen_network().await {
-            log::error!("Server task failed: {:?}", e);
-        }
-    });
-
-    // Initial connection attempts (fire-and-forget, monitor will reconnect if they fail).
-    for (index, ed25519_key) in ed25519_public.iter().enumerate() {
-        if index == config.validator_index as usize {
-            continue;
-        }
-
-        if grid::am_i_the_preferred_initiator(own_ed25519_public, ed25519_key) {
-            log::info!("Initialize connection to node {:?}", index);
-            let net_for_client = net.clone();
-            tokio::spawn(async move {
-                if let Err(e) = net_for_client
-                    .connect_to_peer(index as ValidatorIndex)
-                    .await
-                {
-                    log::error!("Client {} failed: {:?}", index, e);
-                }
-            });
-        }
-    }
-
-    let net_for_monitor = net.clone();
-    tokio::spawn(async move {
-        net_for_monitor.connection_monitor().await;
-    });
-
-    let net_for_node = net.clone();
-    let node_ctrl_handle = tokio::spawn(async move { node_ctrl(net_for_node).await });
 
     match node_ctrl_handle.await {
         Ok(Ok(())) => {}
@@ -168,11 +101,11 @@ async fn main() -> Result<()> {
         Err(e) => log::error!("Node ctrl join error: {:?}", e),
     }
 
-    if let Err(e) = server_handler.await {
+    if let Err(e) = network.server_handle.await {
         log::error!("Server join error: {:?}", e);
     }
 
-    log::info!("End networking");
+    log::info!("End node");
 
     Ok(())
 }

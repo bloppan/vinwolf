@@ -13,8 +13,6 @@ codec = { workspace = true }
 constants = { workspace = true }
 jam-types = { workspace = true }
 network = { path = "../network" }
-quinn = { workspace = true }
-rustls = { version = "0.23.31", features = ["ring"] }
 safrole = { workspace = true }
 state-handler = { workspace = true }
 time = { workspace = true }

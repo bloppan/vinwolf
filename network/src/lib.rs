@@ -1,5 +1,6 @@
 pub mod dev_accounts;
 pub mod grid;
+pub mod init;
 pub mod jamnp_codec;
 pub mod jamnp_types;
 pub mod message;
@@ -15,6 +16,7 @@ pub use dev_accounts::{
     RawIdentity,
 };
 pub use grid::{am_i_the_preferred_initiator, compute_proxy_index, is_neighbour, width};
+pub use init::{init_network, InitResult, NetworkRuntime};
 pub use jamnp_types::{
     Announcement, ConnectionError, Handshake, ImportedBlocks, LastFinalizedBlock, Leaf,
     NetworkError, StreamError, StreamKind, TicketDistributed,
