@@ -172,6 +172,7 @@ fn read_socket(socket: &mut UnixStream) -> std::io::Result<Vec<u8>> {
 fn handle_connection(socket: &mut UnixStream) {
 
     let vinwolf_info = &*VINWOLF_INFO;
+    let mut last_msg_was_initialize = false;
     tools::log::info!("New incomming connection accepted...");
 
     loop {
@@ -192,6 +193,8 @@ fn handle_connection(socket: &mut UnixStream) {
         match msg_type {
             Message::PeerInfo => { 
 
+                last_msg_was_initialize = false;
+
                 let fuzzer_info = match PeerInfo::decode(&mut reader) {
                     Ok(fuzzer_info) => fuzzer_info,
                     Err(error) => {
@@ -208,6 +211,16 @@ fn handle_connection(socket: &mut UnixStream) {
                 }
             },
             Message::Initialize => {
+
+                if last_msg_was_initialize == true {
+                    println!("Two consecutive Initialize frames received; closing connection");
+                    if let Err(error) = socket.shutdown(Shutdown::Both) {
+                        println!("Failed to close connection: {:?}", error);
+                    }
+                    break;
+                }
+                
+                last_msg_was_initialize = true;
 
                 tools::log::info!("Initialize frame received");
                 
@@ -264,6 +277,7 @@ fn handle_connection(socket: &mut UnixStream) {
             },
             Message::ImportBlock => {
 
+                last_msg_was_initialize = false;
                 tools::log::info!("ImportBlock frame received");
 
                 let block = match Block::decode(&mut reader) {
@@ -329,6 +343,7 @@ fn handle_connection(socket: &mut UnixStream) {
             },
             Message::GetState => {
 
+                last_msg_was_initialize = false;
                 tools::log::info!("GetState frame received");
                 let header_hash = match OpaqueHash::decode(&mut reader) {
                     Ok(header_hash) => header_hash,
@@ -359,6 +374,7 @@ fn handle_connection(socket: &mut UnixStream) {
                 }
             },
             _ => {
+                    last_msg_was_initialize = false;
                     tools::log::error!("Message type not supported: {:?}", msg_type);
                     send_to_peer(&fuzz_msg(Message::Error, &format!("Message type not supported: {:?}", msg_type).as_bytes().to_vec().encode_len()), socket).unwrap();
                     break;
