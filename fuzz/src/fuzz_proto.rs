@@ -24,7 +24,7 @@ pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
         app_version: Version {
             major: 0,
             minor: 3,
-            patch: 13,
+            patch: 14,
         },
         jam_version: Version {
             major: 0,
@@ -219,7 +219,7 @@ fn handle_connection(socket: &mut UnixStream) {
                     }
                     break;
                 }
-                
+
                 last_msg_was_initialize = true;
 
                 tools::log::info!("Initialize frame received");
