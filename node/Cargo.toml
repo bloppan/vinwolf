@@ -7,3 +7,20 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
+bandersnatch-vrf-spec = { workspace = true }
+block = { workspace = true }
+codec = { workspace = true }
+constants = { workspace = true }
+jam-types = { workspace = true }
+network = { path = "../network" }
+safrole = { workspace = true }
+state-handler = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true }
+tools = { workspace = true }
+
+[features]
+default = ["tiny"]
+full = ["constants/full", "network/full"]
+tiny = ["constants/tiny", "network/tiny"]
+DB = ["network/DB"]
