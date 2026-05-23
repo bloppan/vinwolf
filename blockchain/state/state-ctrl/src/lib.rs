@@ -70,6 +70,7 @@ pub fn stf(block: &Block) -> Result<(), ImportError> {
         &mut new_state.entropy,
         &mut new_state.curr_validators,
         &mut new_state.prev_validators,
+        &new_state.next_validators,
         &mut new_state.time,
         &block,
         &new_state.disputes.offenders)?;

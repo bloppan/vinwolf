@@ -147,13 +147,15 @@ pub fn lookup(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: 
         return ExitReason::OutOfGas;
     }  
 
-    let a_account: &Option<Account> = if reg[7] as ServiceId == service_id || reg[7] == u64::MAX {
-        account
+    let (a_account, serv): (&Option<Account>, ServiceId) = if reg[7] as ServiceId == service_id || reg[7] == u64::MAX {
+        log::debug!("lookup: reg_7 == service_id || reg_7 == u64::MAX -> return account");
+        (account, service_id)
     } else if let Some(acc) = services.get(&(reg[7] as ServiceId)) {
-        &Some(acc.clone())
+        log::debug!("lookup: return services(reg_7) account");
+        (&Some(acc.clone()), reg[7] as ServiceId)
     } else {
-        log::debug!("The account is none");
-        &None    
+        log::debug!("lookup: The account is none");
+        (&None, 0)    
     };
 
     
@@ -167,7 +169,7 @@ pub fn lookup(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, account: 
 
     let hash: OpaqueHash = ram.read(read_start_address, 32).try_into().unwrap();
     log::debug!("hash: 0x{}", hex::encode(hash));
-    let preimage_key = StateKeyType::Account(service_id, construct_preimage_key(&hash)).construct();  
+    let preimage_key = StateKeyType::Account(serv, construct_preimage_key(&hash)).construct();  
     log::debug!("preimage_key: 0x{}", hex::encode(preimage_key));
 
     /*let preimage_blob: Option<Vec<u8>> = if a_account.is_none() {

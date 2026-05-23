@@ -41,6 +41,7 @@ pub fn process(
     entropy_pool: &mut EntropyPool,
     curr_validators: &mut ValidatorsData,
     prev_validators: &mut ValidatorsData,
+    next_validators: &ValidatorsData,
     tau: &mut TimeSlot,
     block: &Block,
     offenders: &[Ed25519Public],
@@ -114,7 +115,11 @@ pub fn process(
         // are replaced with a null key containing only zeroes.
         let _there_are_offenders = misc::set_offenders_null(&mut safrole_state.pending_validators, offenders); 
         // Create the epoch root from next pending validators and update the safrole state
-        let (new_ring_set, new_verifier) = {
+        //let new_ring_set = create_ring_set(&safrole_state.pending_validators);
+        //let new_verifier = Verifier::new(new_ring_set.clone());
+
+        verifier::compute_all(curr_validators, &safrole_state.pending_validators, &next_validators);
+        /*let (new_ring_set, new_verifier) = {
             let new_ring_set = create_ring_set(&safrole_state.pending_validators);
             let stored_ring_set = verifier::get_ring_set(ValidatorSet::Next);
             if new_ring_set == stored_ring_set {
@@ -122,10 +127,11 @@ pub fn process(
             } else {
                 (new_ring_set.clone(), Verifier::new(new_ring_set))
             }
-        };
-        safrole_state.epoch_root = create_root_epoch(&new_verifier);
+        };*/
+        //log::debug!("Created new ring set: {:x?}", new_ring_set);
+        safrole_state.epoch_root = create_root_epoch(&verifier::get(ValidatorSet::Pending));
         // Update the verifiers
-        verifier::update((new_ring_set, new_verifier));
+        //verifier::update((new_ring_set, new_verifier));
         // If the block is the first in a new epoch, then a tuple of the epoch randomness and a sequence of 
         // Bandersnatch keys defining the Bandersnatch validator keys beginning in the next epoch
         log::debug!("New epoch mark");
@@ -178,6 +184,7 @@ pub fn create_ring_set(validators: &ValidatorsData) -> Vec<Public> {
         .list
         .iter()
         .map(|v| {
+            log::debug!("bandersnatch: {:x?}", v.bandersnatch);
             Public::deserialize_compressed_unchecked(&v.bandersnatch[..])
                 // In the case a key has no corresponding Bandersnatch point when constructing the ring, then 
                 // the Bandersnatch padding point as stated by Hosseini and Galassi 2024 should be substituted
@@ -207,7 +214,6 @@ pub mod verifier {
         let mut verifiers = VERIFIERS.lock().unwrap().clone();
         verifiers.push_back(new_verifier.clone());
         verifiers.pop_front();
-        
         set_all(verifiers);
     }
 
@@ -241,6 +247,26 @@ pub mod verifier {
         let rs_curr    = create_ring_set(&state.curr_validators);
         let rs_pending = create_ring_set(&state.safrole.pending_validators);
         let rs_next    = create_ring_set(&state.next_validators);
+
+        let h0 = { let rs = rs_curr.clone();    std::thread::spawn(move || (rs.clone(), Verifier::new(rs))) };
+        let h1 = { let rs = rs_pending.clone(); std::thread::spawn(move || (rs.clone(), Verifier::new(rs))) };
+        let h2 = { let rs = rs_next.clone();    std::thread::spawn(move || (rs.clone(), Verifier::new(rs))) };
+
+        let mut verifiers = VecDeque::new();
+        verifiers.push_back(h0.join().unwrap());
+        verifiers.push_back(h1.join().unwrap());
+        verifiers.push_back(h2.join().unwrap());
+        set_all(verifiers);
+    }
+
+    pub fn compute_all(
+        curr_validators: &ValidatorsData,
+        pending_validators: &ValidatorsData,
+        next_validators: &ValidatorsData,
+    ) {
+        let rs_curr    = create_ring_set(&curr_validators);
+        let rs_pending = create_ring_set(&pending_validators);
+        let rs_next    = create_ring_set(&next_validators);
 
         let h0 = { let rs = rs_curr.clone();    std::thread::spawn(move || (rs.clone(), Verifier::new(rs))) };
         let h1 = { let rs = rs_pending.clone(); std::thread::spawn(move || (rs.clone(), Verifier::new(rs))) };

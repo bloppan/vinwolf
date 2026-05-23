@@ -954,7 +954,8 @@ fn provide(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut 
     let item = ram.read(start_address, size);
     let lookup_key = StateKeyType::Account(service_id, construct_lookup_key(&sp_core::blake2_256(&item), size)).construct();
     tools::log::debug!("lookup key: 0x{}", hex::encode(lookup_key));
-    tools::log::debug!("item: {}, {:?} bytes", tools::print_hash!(&item), item.len());
+    // TODO Fix this (ensure hash is greater than 4 bytes in order to use print_hash!)
+    //tools::log::debug!("item: {:?}, {:?} bytes", tools::print_hash!(&item), item.len());
 
     if let Some(timeslots_blob) = account.unwrap().storage.get(&lookup_key) {
         

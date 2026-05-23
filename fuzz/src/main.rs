@@ -34,9 +34,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    /*tools::log::Builder::from_env(tools::log::Env::default().default_filter_or("debug"))
+    tools::log::Builder::from_env(tools::log::Env::default().default_filter_or("debug"))
         .with_dotenv(true)
-        .init();*/
+        .init();
 
 
     match args[1].as_ref() { 
