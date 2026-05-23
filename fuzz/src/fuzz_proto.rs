@@ -8,6 +8,7 @@ use state_handler::{get_global_state, get_state_root, set_global_state};
 use std::collections::VecDeque;
 use std::io;
 use std::io::{Read, Write};
+use std::net::Shutdown;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
@@ -24,7 +25,7 @@ pub static VINWOLF_INFO: LazyLock<PeerInfo> = LazyLock::new(|| {
         app_version: Version {
             major: 0,
             minor: 3,
-            patch: 14,
+            patch: 17,
         },
         jam_version: Version {
             major: 0,

@@ -98,6 +98,7 @@ mod tests {
                                                                         , &mut state.entropy
                                                                         , &mut state.curr_validators
                                                                         , &mut state.prev_validators
+                                                                        , &state.next_validators
                                                                         , &mut state.time,
                                                                         &block,
                                                                         &mut state.disputes.offenders);
