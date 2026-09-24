@@ -259,6 +259,9 @@ fn parallelized_accumulation(
     if !all_services_to_acc.contains(&partial_state.delegator) {
         all_services_to_acc.push(partial_state.delegator);
     }
+    if !all_services_to_acc.contains(&partial_state.registrar) {
+        all_services_to_acc.push(partial_state.registrar);
+    }
     
     log::debug!("privileged services: manager: {:?}, assigners: {:?}, delegator: {:?}, always_acc: {:?}", partial_state.manager, partial_state.assigners, partial_state.delegator, partial_state.always_acc);
     log::debug!("S Services to accumulate: {:?}", s_services);
