@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 ark-vrf = { workspace = true }
+block = { workspace = true }
 codec = { workspace = true }
 constants = { workspace = true }
 jam-types = { workspace = true }
