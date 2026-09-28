@@ -173,7 +173,10 @@ pub fn process(
 
         if let Some((acc_gas, acc_count)) = get_acc_stats().get(service) {
             if let Some(record) = statistics.services.records.get_mut(service) {
-                record.accumulate_gas_used = record.accumulate_gas_used.saturating_add(*acc_gas as u64) // TODO fix this
+                // Gas is i128 while the record stores u64: gas used is always in [0, gas provided], so clamp
+                // instead of a raw cast (which would wrap a negative value into a huge number)
+                let acc_gas_used = (*acc_gas).clamp(0, u64::MAX as Gas) as u64;
+                record.accumulate_gas_used = record.accumulate_gas_used.saturating_add(acc_gas_used);
             }
             if let Some(record) = statistics.services.records.get_mut(service) {
                 record.accumulate_count = record.accumulate_count.saturating_add(*acc_count);
@@ -197,7 +200,10 @@ pub fn process(
 
     for new_wr in new_available_wr.iter() {
         if let Some(record) = statistics.cores.records.get_mut(new_wr.core_index as usize) {
-            record.da_load = record.da_load.saturating_add(new_wr.package_spec.length + SEGMENT_SIZE as u32 * (new_wr.package_spec.exports_count * (65/64)) as u32) // TODO revisar esta formula (la division)
+            let segments_with_proofs = (new_wr.package_spec.exports_count as u32).saturating_mul(65).div_ceil(64);
+            record.da_load = record.da_load
+                .saturating_add(new_wr.package_spec.length)
+                .saturating_add((SEGMENT_SIZE as u32).saturating_mul(segments_with_proofs));
         }
     }
 }

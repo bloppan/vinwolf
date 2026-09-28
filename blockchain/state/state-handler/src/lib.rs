@@ -1,6 +1,5 @@
 use codec::Encode;
 use jam_types::*;
-use std::collections::HashSet;
 use std::sync::{LazyLock, Mutex};
 use tools::{hex, log};
 
@@ -236,21 +235,6 @@ pub mod service_accounts {
     }
     pub fn get() -> ServiceAccounts {
         GLOBAL_STATE.lock().unwrap().service_accounts.clone()
-    }
-
-    static LOOKUPS_FORGOTTEN: LazyLock<Mutex<HashSet<StorageKey>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
-
-    pub fn disregard_lookup(lookup_key: StorageKey) {
-        let mut lookups = LOOKUPS_FORGOTTEN.lock().unwrap();
-        lookups.insert(lookup_key);
-    }
-
-    pub fn clean_disregard_lookup() {
-        *LOOKUPS_FORGOTTEN.lock().unwrap() = HashSet::new();
-    }
-
-    pub fn get_disregarded_lookups() -> HashSet<StorageKey> {
-        LOOKUPS_FORGOTTEN.lock().unwrap().clone()
     }
 }
 

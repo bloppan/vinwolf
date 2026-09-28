@@ -110,6 +110,8 @@ pub fn stf(block: &Block) -> Result<(), ImportError> {
         &new_state.curr_validators,
     )?; 
 
+    services::validate_preimages(&new_state.service_accounts, &block.extrinsic.preimages)?;
+
     let (acc_root,
          recent_acc_outputs, 
          service_accounts, 
@@ -137,10 +139,10 @@ pub fn stf(block: &Block) -> Result<(), ImportError> {
         &acc_root,
         &reported_work_packages);
 
-    services::process(
+    services::integrate_preimages(
         &mut new_state.service_accounts, 
         &block.header.unsigned.slot,  
-        &block.extrinsic.preimages)?;
+        &block.extrinsic.preimages);
 
     authorization::process(
         &mut new_state.auth_pools, 

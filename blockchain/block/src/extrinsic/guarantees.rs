@@ -84,7 +84,7 @@ pub fn process(
     let acc_queue = state_handler::ready_queue::get();
     for epoch in acc_queue.queue.iter() {
         for ready_record in epoch.iter() {
-            wp_hashes_in_our_pipeline.extend(ready_record.dependencies.clone());
+            wp_hashes_in_our_pipeline.insert(ready_record.report.package_spec.hash);
         }
     }
     
@@ -96,7 +96,7 @@ pub fn process(
     let assurance_state = state_handler::reports::get();
     for item in assurance_state.list.iter() {
         if let Some(assignment) = item {
-            wp_hashes_in_our_pipeline.extend(&assignment.report.context.prerequisites.clone());
+            wp_hashes_in_our_pipeline.insert(assignment.report.package_spec.hash);
         }
     }
 

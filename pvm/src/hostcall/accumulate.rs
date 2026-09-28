@@ -861,7 +861,6 @@ fn forget(gas: &mut Gas, reg: &mut Registers, ram: &mut RamMemory, ctx_x: &mut A
         if timeslots.len() == 0 || (timeslots.len() == 2 && (timeslots[1] < slot.saturating_sub(MAX_TIMESLOTS_AFTER_UNREFEREND_PREIMAGE))) {
             account.storage.remove(&lookup_key);
             account.storage.remove(&StateKeyType::Account(ctx_x.service_id, construct_preimage_key(&hash)).construct());
-            state_handler::service_accounts::disregard_lookup(lookup_key.clone());
             account.items -= 2;
             account.octets -= (81 + length) as u64;
             tools::log::debug!("Remove lookup: 0x{}, remove preimage: 0x{}", hex::encode(lookup_key), hex::encode(hash));

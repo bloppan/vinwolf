@@ -1,20 +1,38 @@
 /*
     Preimages are static data which is presently being requested to be available for workloads to be able to fetch on demand. 
-    Prior to accumulation, we must first integrate all preimages provided in the lookup extrinsic. 
+    Prior to accumulation, we must first integrate all preimages provided in the lookup extrinsic.
+ 
+    The lookup extrinsic is VALIDATED against the prior service accounts state (every pair must be solicited but not yet provided) 
+    and INTEGRATED after accumulation into the posterior state with the same function used for the `provide` host call provisions. 
+    Pairs which are no longer useful because of the effects of accumulation (request forgotten, service ejected, blob already provided) 
+    are disregarded without prejudice.
  */
 
 use codec::{BytesReader, DecodeLen, EncodeLen};
 use jam_types::*;
 use serialization::{construct_lookup_key, construct_preimage_key, StateKeyTrait};
 use std::collections::HashSet;
-use tools::{hex, log};
+use tools::log;
 
-pub fn process(
-    preimages_extrinsic: &[Preimage], 
-    services: 
-    &mut ServiceAccounts, 
-    post_tau: &TimeSlot) 
--> Result<(), ImportError> {
+pub fn providable(services: &ServiceAccounts, service_id: &ServiceId, blob: &[u8]) -> bool {
+
+    let account = match services.get(service_id) {
+        Some(account) => account,
+        None => return false,
+    };
+    let hash = sp_core::blake2_256(blob);
+    let lookup_key = StateKeyType::Account(*service_id, construct_lookup_key(&hash, blob.len() as u32)).construct();
+
+    match account.storage.get(&lookup_key) {
+        Some(timeslots_blob) => match Vec::<TimeSlot>::decode_len(&mut BytesReader::new(timeslots_blob)) {
+            Ok(timeslots) => timeslots.is_empty(),
+            Err(_) => false,
+        },
+        None => false,
+    }
+}
+
+pub fn validate(preimages_extrinsic: &[Preimage], services: &ServiceAccounts) -> Result<(), ImportError> {
 
     // The lookup extrinsic is a sequence of pairs of service indices and data. These pairs must be ordered and 
     // without duplicates.
@@ -24,53 +42,56 @@ pub fn process(
         return Err(ImportError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
     }
     let pairs = pairs.iter().map(|(requester, blob)| (*requester, blob.as_slice())).collect::<Vec<_>>();
-    //println!("pairs: {:x?}", pairs);
     if !is_sorted_preimages(&pairs) {
         log::error!("Preimages not sorted");
         return Err(ImportError::PreimagesError(PreimagesErrorCode::PreimagesNotSortedOrUnique));
     }
 
-    let disregarded_lookups = state_handler::service_accounts::get_disregarded_lookups();
-
+    // The data must have been solicited by a service but not yet provided in the PRIOR state.
     for preimage in preimages_extrinsic {
-        let hash = sp_core::blake2_256(&preimage.blob);
-        let length = preimage.blob.len() as u32;
-        log::debug!("length: {length}, hash: 0x{}", tools::print_hash!(hash));
-        let lookup_key = StateKeyType::Account(preimage.requester, construct_lookup_key(&hash, length)).construct();
-        let preimage_key = StateKeyType::Account(preimage.requester, construct_preimage_key(&hash)).construct();
-        log::debug!("lookup key: {}", hex::encode(&lookup_key));
-        log::debug!("preimage key: {}", hex::encode(&preimage_key));
-        if services.contains_key(&preimage.requester) {
-            let account = services.get_mut(&preimage.requester).unwrap();
-            if account.storage.contains_key(&preimage_key) {
-                log::error!("Preimage unneeded. The key 0x{} is already contained in this account", tools::print_hash!(hash));
-                return Err(ImportError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
-            }
-            if disregarded_lookups.contains(&lookup_key) {
-                continue;
-            }
-            if let Some(timeslots_blob) = account.storage.get(&lookup_key) {
-                let timeslots = Vec::<TimeSlot>::decode_len(&mut BytesReader::new(&timeslots_blob)).unwrap();
-                if timeslots.len() > 0 {
-                    log::error!("Preimage unneeded: timeslots len > 0: {:?}", timeslots);
-                    return Err(ImportError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
-                }
-            } else {
-                log::error!("Preimage unneeded: Lookup key 0x{} not found", hex::encode(&lookup_key));
-                return Err(ImportError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
-            }
-            account.storage.insert(preimage_key, preimage.blob.clone());
-            let timeslot_values = vec![post_tau.clone()];
-            account.storage.insert(lookup_key, timeslot_values.encode_len());
-        } else {
+        if !services.contains_key(&preimage.requester) {
             log::error!("Requester {:?} not found", preimage.requester);
             return Err(ImportError::PreimagesError(PreimagesErrorCode::RequesterNotFound));
+        }
+        if !providable(services, &preimage.requester, &preimage.blob) {
+            log::error!("Preimage unneeded: not solicited or already provided for service {:?}", preimage.requester);
+            return Err(ImportError::PreimagesError(PreimagesErrorCode::PreimageUnneeded));
         }
     }
 
     Ok(())
 }
 
+// This is the preimage integration function, which transforms a dictionary of service states and a set of service/blob pairs into a 
+// new dictionary of service states. Preimage provisions into services which no longer exist or whose relevant request is dropped are disregarded:
+pub fn integrate(services: &mut ServiceAccounts, pairs: &[(ServiceId, Vec<u8>)], slot: &TimeSlot) {
+
+    for (service_id, blob) in pairs.iter() {
+        if !providable(services, service_id, blob) {
+            log::debug!("Preimage for service {:?} disregarded: no longer providable", service_id);
+            continue;
+        }
+        let hash = sp_core::blake2_256(blob);
+        let lookup_key = StateKeyType::Account(*service_id, construct_lookup_key(&hash, blob.len() as u32)).construct();
+        let preimage_key = StateKeyType::Account(*service_id, construct_preimage_key(&hash)).construct();
+        let account = services.get_mut(service_id).unwrap();
+        account.storage.insert(preimage_key, blob.clone());
+        account.storage.insert(lookup_key, vec![*slot].encode_len());
+    }
+}
+
+// Validate and integrate against the same state (this is used in preimages test vectors)
+pub fn process(
+    preimages_extrinsic: &[Preimage], 
+    services: &mut ServiceAccounts, 
+    post_tau: &TimeSlot) 
+-> Result<(), ImportError> {
+
+    validate(preimages_extrinsic, services)?;
+    let pairs = preimages_extrinsic.iter().map(|preimage| (preimage.requester, preimage.blob.clone())).collect::<Vec<_>>();
+    integrate(services, &pairs, post_tau);
+    Ok(())
+}
 
 fn has_duplicates<T: Eq + std::hash::Hash, U: Eq + std::hash::Hash>(tuples: &[(T, U)]) -> bool {
     let mut seen = HashSet::new();

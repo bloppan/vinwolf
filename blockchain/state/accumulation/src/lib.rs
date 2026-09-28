@@ -11,13 +11,12 @@
     will see, leads to the need for a second entry-point, on-transfer.
 */
 
-use codec::{Encode, EncodeLen};
+use codec::Encode;
 use constants::node::{CORES_COUNT, EPOCH_LENGTH, TOTAL_GAS_ALLOCATED, WORK_REPORT_GAS_LIMIT};
 use jam_types::*;
 use pvm::hostcall::accumulate::invoke_accumulation;
 use std::collections::{HashMap, HashSet};
 use std::{sync::{Arc, Mutex}, thread};
-use serialization::{construct_lookup_key, construct_preimage_key, StateKeyTrait};
 use tools::{hex, log};
 
 // Accumulation of a work-package/work-report is deferred in the case that it has a not-yet-fulfilled dependency and is 
@@ -40,7 +39,6 @@ pub fn process(
 ) -> Result<(OpaqueHash, RecentAccOutputs, ServiceAccounts, ValidatorsData, AuthQueues, Privileges), ImportError> {
   
     log::debug!("Process accumulation");
-    state_handler::service_accounts::clean_disregard_lookup(); // TODO arreglar esto
     
     // We define the final state of the ready queue and the accumulated map by integrating those work-reports which were accumulated in this 
     // block and shifting any from the prior state with the oldest such items being dropped entirely:
@@ -261,6 +259,9 @@ fn parallelized_accumulation(
     if !all_services_to_acc.contains(&partial_state.delegator) {
         all_services_to_acc.push(partial_state.delegator);
     }
+    if !all_services_to_acc.contains(&partial_state.registrar) {
+        all_services_to_acc.push(partial_state.registrar);
+    }
     
     log::debug!("privileged services: manager: {:?}, assigners: {:?}, delegator: {:?}, always_acc: {:?}", partial_state.manager, partial_state.assigners, partial_state.delegator, partial_state.always_acc);
     log::debug!("S Services to accumulate: {:?}", s_services);
@@ -404,7 +405,9 @@ fn parallelized_accumulation(
                                             .map(|(k, v)| (k.clone(), v.clone()))
                                             .collect();
 
-    let final_services = preimage_integration(&result_services, &acc_result.preimages);
+    // Integrate the provide host call provisions; requests dropped or services removed are disregarded
+    let mut final_services = result_services;
+    block::extrinsic::preimages::integrate(&mut final_services, &acc_result.preimages, &state_handler::time::get_current());
     
     let result_partial_state = AccumulationPartialState {
         service_accounts: final_services,
@@ -499,44 +502,6 @@ fn get_acc_root(service_hash: &mut RecentAccOutputs) -> OpaqueHash {
     }
 
     trie::merkle_balanced(pairs_blob, sp_core::keccak_256)
-}
-
-// The preimage integration transforms a dictionary of service states and a set of service/hash pairs into a new 
-// dictionary of service states. Preimage provisions into services which no longer exist or whose relevant request
-// is dropped are disregarded.
-fn preimage_integration(services: &ServiceAccounts, preimages: &[(ServiceId, Vec<u8>)]) -> ServiceAccounts {
-
-    let mut services_result = services.clone();
-
-    for service_value in preimages.iter() {
-
-        if services.contains_key(&service_value.0) { 
-
-            let lookup_key = StateKeyType::Account(service_value.0, construct_lookup_key(&sp_core::blake2_256(&service_value.1), service_value.1.len() as u32)).construct();
-
-            let timeslots = services.get(&service_value.0)
-                                                       .unwrap()
-                                                       .storage
-                                                       .get(&lookup_key);
-            // TODO fix this
-            if timeslots.is_none() || (timeslots.is_some() && timeslots.unwrap()[0] == 0) {
-
-                services_result.get_mut(&service_value.0)
-                               .unwrap()
-                               .storage
-                               .insert(lookup_key, Vec::<TimeSlot>::from([state_handler::time::get_current()]).encode_len());
-                
-                let preimage_hash = sp_core::blake2_256(&service_value.1);
-                let preimage_key = StateKeyType::Account(service_value.0, construct_preimage_key(&preimage_hash)).construct();
-                services_result.get_mut(&service_value.0)
-                               .unwrap()
-                               .storage
-                               .insert(preimage_key, service_value.1.clone());
-            }
-        } 
-    }
-
-    return services_result;
 }
 
 fn save_statistics(
